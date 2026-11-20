@@ -1018,16 +1018,13 @@ fn nested_syntax_report(e: &crate::error::Error, who: &str, source: &str) -> Str
 
 /// Check if a path refers to /dev/null after normalization.
 /// Handles attempts to bypass via paths like `/dev/../dev/null`.
+///
+/// Uses the shared slash-only VFS normalizer: rebuilding with `PathBuf::push`
+/// would join with `\` on Windows and miss every string match (#2933).
 fn is_dev_null(path: &Path) -> bool {
-    normalize_dev_path(path) == Path::new(DEV_NULL)
+    crate::fs::normalize_path(path) == Path::new(DEV_NULL)
 }
 
-/// File descriptor aliased by `/dev/stdin`, `/dev/stdout`, `/dev/stderr` or
-/// `/dev/fd/N` (after `..` normalization), as on Linux.
-///
-/// Decision: these paths are resolved at the interpreter level like
-/// `/dev/null`, never through the VFS. Writing them as regular files silently
-/// swallowed `echo err > /dev/stderr`, a pattern agents use constantly.
 /// The script a body runs (see `Interpreter::reread_script_rest`).
 enum ScriptView<'a> {
     Parsed(&'a Script),
@@ -1043,8 +1040,14 @@ impl ScriptView<'_> {
     }
 }
 
+/// File descriptor aliased by `/dev/stdin`, `/dev/stdout`, `/dev/stderr` or
+/// `/dev/fd/N` (after `..` normalization), as on Linux.
+///
+/// Decision: these paths are resolved at the interpreter level like
+/// `/dev/null`, never through the VFS. Writing them as regular files silently
+/// swallowed `echo err > /dev/stderr`, a pattern agents use constantly.
 fn dev_fd_alias(path: &Path) -> Option<i32> {
-    let normalized = normalize_dev_path(path);
+    let normalized = crate::fs::normalize_path(path);
     match normalized.to_str()? {
         "/dev/stdin" => Some(0),
         "/dev/stdout" => Some(1),
@@ -1057,26 +1060,6 @@ fn dev_fd_alias(path: &Path) -> Option<i32> {
             n.parse().ok()
         }
     }
-}
-
-fn normalize_dev_path(path: &Path) -> PathBuf {
-    // Normalize the path to handle .. and . components
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::RootDir => normalized.push("/"),
-            std::path::Component::Normal(name) => normalized.push(name),
-            std::path::Component::ParentDir => {
-                normalized.pop();
-            }
-            std::path::Component::CurDir => {}
-            std::path::Component::Prefix(_) => {}
-        }
-    }
-    if normalized.as_os_str().is_empty() {
-        normalized.push("/");
-    }
-    normalized
 }
 
 /// THREAT[TM-INJ-009,TM-INJ-016]: Check if a variable name is an internal marker.
@@ -1988,7 +1971,7 @@ pub struct Interpreter {
     /// Interceptor hooks registry (shared with Bash callers).
     hooks: Arc<crate::hooks::Hooks>,
     /// True while executing a trap handler. Suppresses recursive DEBUG trap
-    /// invocation to prevent amplification attacks (TM-DOS-035).
+    /// invocation to prevent amplification attacks (TM-DOS-145).
     in_trap: bool,
     /// Nesting level of `run_trap_command` entries (TM-DOS-020).
     trap_nesting: usize,
@@ -2479,7 +2462,7 @@ impl Interpreter {
 
         // Initialize default shell variables
         let mut variables = HashMap::new();
-        variables.insert("HOME".to_string(), format!("/home/{}", &username_val));
+        variables.insert("HOME".to_string(), format!("/home/{}", username_val));
         variables.insert("USER".to_string(), username_val.clone());
         variables.insert("UID".to_string(), "1000".to_string());
         variables.insert("EUID".to_string(), "1000".to_string());
@@ -3179,7 +3162,7 @@ impl Interpreter {
         self.nofork_now = false;
         self.traps_mut().clear();
         self.last_exit_code = 0;
-        // THREAT[TM-DOS-035/057]: A timeout can drop execution while a trap
+        // THREAT[TM-DOS-145/057]: A timeout can drop execution while a trap
         // handler is awaited; clear the re-entrancy guard before each exec so
         // one cancelled script cannot suppress traps in the next script.
         self.in_trap = false;
@@ -6084,7 +6067,7 @@ impl Interpreter {
                     // Unary operators
                     let resolve = |p: &str| -> std::path::PathBuf {
                         let path = std::path::Path::new(p);
-                        let joined = if path.is_absolute() {
+                        let joined = if path.has_root() {
                             path.to_path_buf()
                         } else {
                             crate::fs::vfs_join(&self.cwd, path)
@@ -10760,7 +10743,7 @@ impl Interpreter {
         // file, so `./missing 2>/dev/null` reports nothing.
         let raw = match self.read_executable(name, &path).await {
             Ok(raw) => raw,
-            Err(failed) => return self.redirect_result(failed, redirects).await,
+            Err(failed) => return self.redirect_result(*failed, redirects).await,
         };
         // A root-filesystem stub (`/usr/bin/env`) runs the builtin it names;
         // `/bin/bash` starts a child shell as `bash` does.
@@ -10799,7 +10782,7 @@ impl Interpreter {
         &self,
         name: &str,
         path: &Path,
-    ) -> std::result::Result<Vec<u8>, ExecResult> {
+    ) -> std::result::Result<Vec<u8>, Box<ExecResult>> {
         let missing = || {
             ExecResult::err(
                 self.diag(format!("{name}: No such file or directory\n")),
@@ -10809,25 +10792,25 @@ impl Interpreter {
         // A component past NAME_MAX fails before any lookup (execve's
         // ENAMETOOLONG), which bash reports as status 126.
         if path.components().any(|c| c.as_os_str().len() > 255) {
-            return Err(ExecResult::err(
+            return Err(Box::new(ExecResult::err(
                 self.diag(format!("{name}: File name too long\n")),
                 126,
-            ));
+            )));
         }
         let meta = self.fs.stat(path).await.map_err(|_| missing())?;
         if meta.file_type.is_dir() {
-            return Err(ExecResult::err(
+            return Err(Box::new(ExecResult::err(
                 self.diag(format!("{name}: Is a directory\n")),
                 126,
-            ));
+            )));
         }
         if meta.mode & 0o111 == 0 {
-            return Err(ExecResult::err(
+            return Err(Box::new(ExecResult::err(
                 self.diag(format!("{name}: Permission denied\n")),
                 126,
-            ));
+            )));
         }
-        self.fs.read_file(path).await.map_err(|_| missing())
+        Ok(self.fs.read_file(path).await.map_err(|_| missing())?)
     }
 
     /// Search $PATH for an executable script and run it.
@@ -10940,7 +10923,7 @@ impl Interpreter {
         let resolved = self.resolve_path(&found);
         let raw = match self.read_executable(&found, &resolved).await {
             Ok(raw) => raw,
-            Err(failed) => return self.redirect_result(failed, redirects).await.map(Some),
+            Err(failed) => return self.redirect_result(*failed, redirects).await.map(Some),
         };
         // A root-filesystem stub (`/usr/bin/env`) runs the builtin it names;
         // `/bin/bash` starts a child shell as `bash` does.
@@ -12958,7 +12941,7 @@ impl Interpreter {
     /// Resolve a path relative to cwd, normalizing `.` and `..` components.
     fn resolve_path(&self, path: &str) -> PathBuf {
         let p = Path::new(path);
-        let joined = if p.is_absolute() {
+        let joined = if p.has_root() {
             p.to_path_buf()
         } else {
             crate::fs::vfs_join(&self.cwd, p)
@@ -14900,7 +14883,7 @@ impl Interpreter {
     }
 
     /// The DEBUG handler to run before the next command, if any: not
-    /// inside another trap handler (TM-DOS-035), nor in a `( )` / `$( )`
+    /// inside another trap handler (TM-DOS-145), nor in a `( )` / `$( )`
     /// subshell or function body that does not inherit it.
     fn has_debug_trap(&self) -> bool {
         !self.in_trap && !self.debug_trap_dormant && self.scoped.traps.contains_key("DEBUG")
@@ -15124,7 +15107,7 @@ impl Interpreter {
         stdout: &mut crate::StreamData,
         stderr: &mut crate::StreamData,
     ) {
-        // THREAT[TM-DOS-035]: Suppress ERR trap re-entrancy while executing trap
+        // THREAT[TM-DOS-145]: Suppress ERR trap re-entrancy while executing trap
         // handlers to prevent recursive ERR -> ERR amplification.
         if self.in_trap {
             return;
@@ -15393,6 +15376,35 @@ mod tests {
     use crate::Bash;
     use crate::fs::InMemoryFs;
     use crate::parser::Parser;
+
+    /// #2933: the device aliases must match on Windows too, where rebuilding
+    /// a path with `PathBuf::push` joins with `\`. Named for the Windows CI
+    /// job's `windows_containment` filter.
+    #[test]
+    fn windows_containment_dev_paths_alias_descriptors() {
+        for (path, fd) in [
+            ("/dev/stdin", Some(0)),
+            ("/dev/stdout", Some(1)),
+            ("/dev/stderr", Some(2)),
+            ("/dev/fd/0", Some(0)),
+            ("/dev/fd/2", Some(2)),
+            ("/dev/fd/63", Some(63)),
+            ("/dev/../dev/stderr", Some(2)),
+            ("/dev/./stdout", Some(1)),
+            ("//dev//stderr", Some(2)),
+            ("/tmp/../dev/fd/1", Some(1)),
+            ("/dev/stderrx", None),
+            ("/dev/fd/", None),
+            ("/dev/fd/x", None),
+            ("/dev/fd/1234567890", None),
+            ("/tmp/stderr", None),
+        ] {
+            assert_eq!(dev_fd_alias(Path::new(path)), fd, "{path}");
+        }
+        assert!(is_dev_null(Path::new("/dev/null")));
+        assert!(is_dev_null(Path::new("/dev/../dev/./null")));
+        assert!(!is_dev_null(Path::new("/dev/nullx")));
+    }
 
     fn ordinary_pipeline_commands() -> Vec<Command> {
         let parser = Parser::new("{ :; } | :");
@@ -18138,7 +18150,7 @@ echo "count=$COUNT"
 
     #[tokio::test]
     async fn test_debug_trap_no_recursive_amplification() {
-        // THREAT[TM-DOS-035]: Commands inside the DEBUG trap handler must NOT
+        // THREAT[TM-DOS-145]: Commands inside the DEBUG trap handler must NOT
         // trigger further DEBUG trap invocations (prevents N*M amplification).
         let result = run_script(
             r#"trap_count=0; trap '((trap_count++))' DEBUG; echo a; echo b; echo c; trap - DEBUG; echo $trap_count"#,

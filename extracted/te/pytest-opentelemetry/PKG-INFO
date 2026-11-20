@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-opentelemetry
-Version: 1.2.0
+Version: 1.2.1
 Summary: A pytest plugin for instrumenting test runs via OpenTelemetry
 Project-URL: Repository, https://github.com/chrisguidry/pytest-opentelemetry
 Project-URL: Bug Tracker, https://github.com/chrisguidry/pytest-opentelemetry/issues

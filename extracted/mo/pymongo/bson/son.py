@@ -68,9 +68,7 @@ class SON(dict[_Key, _Value]):
         return instance
 
     def __repr__(self) -> str:
-        result = []
-        for key in self.__keys:
-            result.append(f"({key!r}, {self[key]!r})")
+        result = [f"({key!r}, {self[key]!r})" for key in self.__keys]
         return "SON([{}])".format(", ".join(result))
 
     def __setitem__(self, key: _Key, value: _Value) -> None:
@@ -178,8 +176,10 @@ class SON(dict[_Key, _Value]):
             return default
 
     def __eq__(self, other: object) -> bool:
-        """Comparison to another SON is order-sensitive while comparison to a
-        regular dictionary is order-insensitive.
+        """Compare this SON to another object.
+
+        Comparison to another SON is order-sensitive while comparison to a regular
+        dictionary is order-insensitive.
         """
         if isinstance(other, SON):
             return len(self) == len(other) and list(self.items()) == list(other.items())

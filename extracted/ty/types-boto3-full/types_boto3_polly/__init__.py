@@ -15,10 +15,13 @@ Usage::
         ListLexiconsPaginator,
         ListSpeechSynthesisTasksPaginator,
         PollyClient,
+        VoiceActiveWaiter,
     )
 
     session = Session()
     client: PollyClient = session.client("polly")
+
+    voice_active_waiter: VoiceActiveWaiter = client.get_waiter("voice_active")
 
     describe_voices_paginator: DescribeVoicesPaginator = client.get_paginator("describe_voices")
     list_lexicons_paginator: ListLexiconsPaginator = client.get_paginator("list_lexicons")
@@ -32,6 +35,7 @@ from .paginator import (
     ListLexiconsPaginator,
     ListSpeechSynthesisTasksPaginator,
 )
+from .waiter import VoiceActiveWaiter
 
 Client = PollyClient
 
@@ -42,4 +46,5 @@ __all__ = (
     "ListLexiconsPaginator",
     "ListSpeechSynthesisTasksPaginator",
     "PollyClient",
+    "VoiceActiveWaiter",
 )

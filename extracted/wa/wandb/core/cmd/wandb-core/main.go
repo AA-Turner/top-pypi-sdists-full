@@ -48,6 +48,9 @@ const (
 
 	defaultDetachedIdleTimeout = 10 * time.Minute
 
+	// Allow streams time to flush and close before exiting after SIGTERM.
+	signalShutdownGracePeriod = 30 * time.Second
+
 	// exitCodeSignal is used when the program shuts down due to a signal.
 	//
 	// A common convention is to use 128 plus the signal number, but Go's
@@ -197,13 +200,32 @@ func serviceMain() int {
 				return exitCodeSuccess
 			}
 		case sig := <-signalCh:
-			slog.Info("main: received shutdown signal", "signal", sig)
-			srv.ForceStop()
-			if err := <-srvCh; err != nil {
-				slog.Error("main: Serve() returned error", "error", err)
-			}
+			shutdownOnSignal(srv, srvCh, sig)
 			return exitCodeSignal
 		}
+	}
+}
+
+func shutdownOnSignal(srv *server.Server, srvCh <-chan error, sig os.Signal) {
+	slog.Info("main: received shutdown signal", "signal", sig)
+	var timeout <-chan time.Time
+	if sig == syscall.SIGTERM {
+		srv.Shutdown(1)
+		timer := time.NewTimer(signalShutdownGracePeriod)
+		defer timer.Stop()
+		timeout = timer.C
+	} else {
+		srv.ForceStop()
+	}
+
+	select {
+	case err := <-srvCh:
+		if err != nil {
+			slog.Error("main: Serve() returned error", "error", err)
+		}
+	case <-timeout:
+		slog.Warn("main: shutdown grace period expired", "timeout", signalShutdownGracePeriod)
+		srv.ForceStop()
 	}
 }
 
@@ -273,8 +295,9 @@ type leetOptions struct {
 	idleTimeout      time.Duration
 	wandbDir         string
 
-	// remoteURL is the W&B URL of the run to open
-	// (e.g. https://api.forge.coreweave.com/<entity>/<project>/runs/<run-id>).
+	// remoteURL is the W&B URL of the project or run to open
+	// (e.g. https://api.forge.coreweave.com/<entity>/<project> or
+	// https://api.forge.coreweave.com/<entity>/<project>/runs/<run-id>).
 	// Non-empty means we are in remote mode.
 	remoteURL string
 
@@ -300,7 +323,7 @@ var leetCommands = []*leetCommand{
 	{
 		name:      "run",
 		args:      "<wandb-directory>",
-		short:     "View the runs in a wandb directory, a single run, or a remote run",
+		short:     "View the runs in a wandb directory or a W&B project, or a single run",
 		mode:      "leet",
 		bindFlags: bindLeetRunFlags,
 		validate:  validateLeetRunOptions,
@@ -448,8 +471,9 @@ func bindLeetRunFlags(fs *flag.FlagSet, opts *leetOptions) {
 		&opts.remoteURL,
 		"remote-url",
 		"",
-		"URL of a W&B run to open"+
-			" (e.g. https://api.forge.coreweave.com/<entity>/<project>/runs/<run-id>).",
+		"URL of a W&B project or run to open"+
+			" (e.g. https://api.forge.coreweave.com/<entity>/<project> or"+
+			" https://api.forge.coreweave.com/<entity>/<project>/runs/<run-id>).",
 	)
 }
 
@@ -669,19 +693,13 @@ func runSymon(opts *leetOptions, logger *observability.CoreLogger) int {
 }
 
 func runLeetWorkspace(opts *leetOptions, logger *observability.CoreLogger) int {
-	var runParams *leet.RunParams
-	if opts.remoteRun != nil {
-		runParams = &leet.RunParams{Remote: opts.remoteRun}
-	} else if opts.runFile != "" {
-		runParams = &leet.RunParams{RunFile: opts.runFile}
-	}
-
 	for {
-		m := leet.NewModel(leet.ModelParams{
-			WandbDir:  opts.wandbDir,
-			RunParams: runParams,
-			Logger:    logger,
-		})
+		params, err := newModelParams(opts, logger)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			return exitCodeErrorArgs
+		}
+		m := leet.NewModel(params)
 		program := tea.NewProgram(m)
 
 		finalModel, err := program.Run()
@@ -699,4 +717,34 @@ func runLeetWorkspace(opts *leetOptions, logger *observability.CoreLogger) int {
 		}
 		return exitCodeSuccess
 	}
+}
+
+func newModelParams(
+	opts *leetOptions,
+	logger *observability.CoreLogger,
+) (leet.ModelParams, error) {
+	params := leet.ModelParams{Logger: logger}
+
+	if opts.remoteRun == nil {
+		params.Backend = leet.NewLocalWorkspaceBackend(opts.wandbDir, logger)
+		if opts.runFile != "" {
+			params.RunParams = &leet.RunParams{RunFile: opts.runFile}
+		}
+		return params, nil
+	}
+
+	backend, err := leet.NewRemoteWorkspaceBackend(
+		opts.remoteRun.BaseURL,
+		opts.remoteRun.Entity,
+		opts.remoteRun.Project,
+		logger,
+	)
+	if err != nil {
+		return params, err
+	}
+	params.Backend = backend
+	if opts.remoteRun.RunID != "" {
+		params.RunParams = &leet.RunParams{Remote: opts.remoteRun}
+	}
+	return params, nil
 }

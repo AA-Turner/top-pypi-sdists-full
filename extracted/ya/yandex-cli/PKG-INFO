@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: yandex-cli
-Version: 0.142.0
+Version: 0.142.2
 Summary: Interact with Yandex 360 services (Wiki, Tracker, Forms, …) from a CLI, an MCP server, or a Python SDK.
 Project-URL: Homepage, https://github.com/bim-ba/ycli
 Project-URL: Repository, https://github.com/bim-ba/ycli

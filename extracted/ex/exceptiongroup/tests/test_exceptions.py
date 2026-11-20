@@ -302,6 +302,23 @@ class ExceptionGroupSubgroupTests(ExceptionGroupTestBase):
             self.assertEqual(subeg.message, eg.message)
             self.assertMatchesTemplate(subeg, ExceptionGroup, template)
 
+    @pytest.mark.skipif(
+        platform.python_implementation() == "PyPy", reason="PyPy issue 5713"
+    )
+    def test_subgroup_always_calls_derive_on_condition_mismatch(self):
+        """
+        Tests that subgroup calls derive() on the exception group when the group itself
+        does not match the given condition, and returns a new exception group with the
+        derived exception type.
+        """
+
+        class MyExceptionGroup(BaseExceptionGroup):
+            pass
+
+        excgrp = MyExceptionGroup("foo", [ValueError(1)])
+        subgroup = excgrp.subgroup(ValueError)
+        self.assertIs(type(subgroup), ExceptionGroup)
+
 
 class ExceptionGroupSplitTests(ExceptionGroupTestBase):
     def setUp(self):
@@ -686,6 +703,37 @@ class NestedExceptionGroupSplitTest(ExceptionGroupSplitTestBase):
         self.assertMatchesTemplate(match, BaseExceptionGroup, [KeyboardInterrupt(2)])
         self.assertMatchesTemplate(rest, ExceptionGroup, [ValueError(1)])
 
+    # Fixed in PyPy's py3.12 branch but not yet released
+    @pytest.mark.xfail(
+        platform.python_implementation() == "PyPy",
+        reason="PyPy does not check the return value of derive()",
+        raises=AttributeError,
+        strict=True,
+    )
+    def test_derive_invalid_return_value(self):
+        class MyEg(ExceptionGroup):
+            def derive(self, excs):
+                return 42
+
+        eg = MyEg("eg", [TypeError(1), ValueError(2)])
+        msg = "derive must return an instance of BaseExceptionGroup"
+        with self.assertRaisesRegex(TypeError, msg):
+            eg.split(TypeError)
+        with self.assertRaisesRegex(TypeError, msg):
+            eg.subgroup(TypeError)
+
+    @pytest.mark.skipif(
+        platform.python_implementation() == "PyPy",
+        reason="PyPy accepts any class as the condition",
+    )
+    def test_bad_condition(self):
+        eg = ExceptionGroup("eg", [TypeError(1), ValueError(2)])
+        for condition in (int, type, bool, 42, "TypeError", (ValueError, 42)):
+            with self.assertRaises(TypeError):
+                eg.split(condition)
+            with self.assertRaises(TypeError):
+                eg.subgroup(condition)
+
 
 class NestedExceptionGroupSubclassSplitTest(ExceptionGroupSplitTestBase):
     def test_split_ExceptionGroup_subclass_no_derive_no_new_override(self):
@@ -882,7 +930,13 @@ def test_exceptions_mutate_original_sequence():
 
     exceptions.append(KeyError("bar"))
     assert excgrp.exceptions is exc_tuple
-    assert repr(excgrp) == (
-        "BaseExceptionGroup('foo', [ValueError(1), KeyboardInterrupt(), "
-        "KeyError('bar')])"
-    )
+    if sys.version_info < (3, 11):
+        # On < 3.11, the backport is active and stores exceptions as a tuple,
+        # so repr reflects the original (unmutated) exceptions.
+        # On >= 3.11, native BaseExceptionGroup is used. Whether the repr
+        # shows original or mutated exceptions depends on the CPython version
+        # (cpython#141736 fixes it for 3.13.12+, but not yet in 3.14).
+        # We only assert the backport behavior since we control it.
+        assert repr(excgrp) == (
+            "BaseExceptionGroup('foo', [ValueError(1), KeyboardInterrupt()])"
+        )

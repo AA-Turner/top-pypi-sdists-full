@@ -4,17 +4,7 @@
 """
 from __future__ import annotations
 
-from typing import Any
 
-from seq.errors import PolicyDefinitionError
-
-
-def planner(*args: Any, **kwargs: Any) -> Any:
-    """`@seq.planner` is gone: planning is part of the policy now (sequence_base.contract.planner.PLANNERS_GONE, the
-    one sentence the platform says too)."""
-    from sequence_base.contract.planner import PLANNERS_GONE
-
-    raise PolicyDefinitionError(PLANNERS_GONE)
 
 
 

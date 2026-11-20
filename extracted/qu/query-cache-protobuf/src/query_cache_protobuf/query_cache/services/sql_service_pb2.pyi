@@ -212,6 +212,7 @@ class SubmitValuesRequest(google.protobuf.message.Message):
     ALLOW_CLONES_FIELD_NUMBER: builtins.int
     IS_DEFER_TO_PROFILE_FIELD_NUMBER: builtins.int
     DEFER_ENABLED_FIELD_NUMBER: builtins.int
+    IGNORE_EXTERNAL_MODIFICATIONS_FIELD_NUMBER: builtins.int
     target_table: builtins.str
     dialect: builtins.str
     default_catalog: builtins.str
@@ -223,6 +224,7 @@ class SubmitValuesRequest(google.protobuf.message.Message):
     allow_clones: builtins.bool
     is_defer_to_profile: builtins.bool
     defer_enabled: builtins.bool
+    ignore_external_modifications: builtins.bool
     @property
     def semantic_extras(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
     @property
@@ -249,9 +251,10 @@ class SubmitValuesRequest(google.protobuf.message.Message):
         allow_clones: builtins.bool | None = ...,
         is_defer_to_profile: builtins.bool = ...,
         defer_enabled: builtins.bool = ...,
+        ignore_external_modifications: builtins.bool | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_allow_clones", b"_allow_clones", "_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_table_properties", b"_clone_table_properties", "_clone_time_travel_limit", b"_clone_time_travel_limit", "_dbt_node_state", b"_dbt_node_state", "_last_modified_epoch", b"_last_modified_epoch", "_table_namespace", b"_table_namespace", "allow_clones", b"allow_clones", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_table_properties", b"clone_table_properties", "clone_time_travel_limit", b"clone_time_travel_limit", "dbt_node_state", b"dbt_node_state", "last_modified_epoch", b"last_modified_epoch", "table_namespace", b"table_namespace"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_allow_clones", b"_allow_clones", "_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_table_properties", b"_clone_table_properties", "_clone_time_travel_limit", b"_clone_time_travel_limit", "_dbt_node_state", b"_dbt_node_state", "_last_modified_epoch", b"_last_modified_epoch", "_table_namespace", b"_table_namespace", "allow_clones", b"allow_clones", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_table_properties", b"clone_table_properties", "clone_time_travel_limit", b"clone_time_travel_limit", "dbt_node_state", b"dbt_node_state", "default_catalog", b"default_catalog", "defer_enabled", b"defer_enabled", "dialect", b"dialect", "is_defer_to_profile", b"is_defer_to_profile", "labels", b"labels", "last_modified_epoch", b"last_modified_epoch", "semantic_extras", b"semantic_extras", "table_namespace", b"table_namespace", "target_table", b"target_table", "values_hash", b"values_hash"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_allow_clones", b"_allow_clones", "_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_table_properties", b"_clone_table_properties", "_clone_time_travel_limit", b"_clone_time_travel_limit", "_dbt_node_state", b"_dbt_node_state", "_ignore_external_modifications", b"_ignore_external_modifications", "_last_modified_epoch", b"_last_modified_epoch", "_table_namespace", b"_table_namespace", "allow_clones", b"allow_clones", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_table_properties", b"clone_table_properties", "clone_time_travel_limit", b"clone_time_travel_limit", "dbt_node_state", b"dbt_node_state", "ignore_external_modifications", b"ignore_external_modifications", "last_modified_epoch", b"last_modified_epoch", "table_namespace", b"table_namespace"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_allow_clones", b"_allow_clones", "_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_table_properties", b"_clone_table_properties", "_clone_time_travel_limit", b"_clone_time_travel_limit", "_dbt_node_state", b"_dbt_node_state", "_ignore_external_modifications", b"_ignore_external_modifications", "_last_modified_epoch", b"_last_modified_epoch", "_table_namespace", b"_table_namespace", "allow_clones", b"allow_clones", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_table_properties", b"clone_table_properties", "clone_time_travel_limit", b"clone_time_travel_limit", "dbt_node_state", b"dbt_node_state", "default_catalog", b"default_catalog", "defer_enabled", b"defer_enabled", "dialect", b"dialect", "ignore_external_modifications", b"ignore_external_modifications", "is_defer_to_profile", b"is_defer_to_profile", "labels", b"labels", "last_modified_epoch", b"last_modified_epoch", "semantic_extras", b"semantic_extras", "table_namespace", b"table_namespace", "target_table", b"target_table", "values_hash", b"values_hash"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_allow_clones", b"_allow_clones"]) -> typing.Literal["allow_clones"] | None: ...
     @typing.overload
@@ -262,6 +265,8 @@ class SubmitValuesRequest(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_clone_time_travel_limit", b"_clone_time_travel_limit"]) -> typing.Literal["clone_time_travel_limit"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_dbt_node_state", b"_dbt_node_state"]) -> typing.Literal["dbt_node_state"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_ignore_external_modifications", b"_ignore_external_modifications"]) -> typing.Literal["ignore_external_modifications"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_last_modified_epoch", b"_last_modified_epoch"]) -> typing.Literal["last_modified_epoch"] | None: ...
     @typing.overload

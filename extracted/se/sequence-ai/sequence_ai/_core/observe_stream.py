@@ -65,7 +65,6 @@ SWITCHED_HEADER = "X-Seq-Switched"
 
 LATEST_FORMAT = "x-seq-latest/1"
 FRAMES_MISSING = "frames_missing"
-FRAMES_OVER_LIMIT = "frames_over_limit"
 PATH = "/observe"
 
 MAX_BATCH = 64

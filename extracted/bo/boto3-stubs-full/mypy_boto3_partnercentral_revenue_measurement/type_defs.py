@@ -17,7 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -28,6 +28,7 @@ from .literals import (
     RevenueAttributionAllocationActionType,
     RevenueAttributionAllocationErrorCodeType,
     RevenueAttributionAllocationTaskStatusType,
+    RevenueShareProductAccountTypeType,
     SortOrderType,
     TenancyModelType,
 )
@@ -40,6 +41,7 @@ else:
 
 __all__ = (
     "AttributionSummaryTypeDef",
+    "ContextFilterTypeDef",
     "CreateMarketplaceRevenueShareAllocationInputTypeDef",
     "CreateMarketplaceRevenueShareAllocationOutputTypeDef",
     "CreateMarketplaceRevenueShareInputTypeDef",
@@ -73,12 +75,18 @@ __all__ = (
     "ListTagsForResourceOutputTypeDef",
     "MarketplaceProductSummaryTypeDef",
     "MarketplaceRevenueShareAllocationSummaryTypeDef",
+    "MarketplaceRevenueShareProductDetailTypeDef",
+    "MarketplaceRevenueShareProductEntryTypeDef",
+    "MarketplaceRevenueShareProductSummaryTypeDef",
     "MarketplaceRevenueShareSummaryTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
     "RevenueAttributionAllocationErrorDetailTypeDef",
     "RevenueAttributionAllocationSummaryTypeDef",
     "RevenueShareAllocationTypeDef",
+    "RevenueShareProductAccountDetailTypeDef",
+    "RevenueShareProductAccountEntryTypeDef",
+    "RevenueShareProductAccountSummaryTypeDef",
     "StartRevenueAttributionAllocationsTaskInputTypeDef",
     "StartRevenueAttributionAllocationsTaskOutputTypeDef",
     "TagResourceInputTypeDef",
@@ -87,6 +95,8 @@ __all__ = (
     "UntagResourceInputTypeDef",
     "UpdateMarketplaceRevenueShareAllocationInputTypeDef",
     "UpdateMarketplaceRevenueShareAllocationOutputTypeDef",
+    "UpdateMarketplaceRevenueShareInputTypeDef",
+    "UpdateMarketplaceRevenueShareOutputTypeDef",
     "UpdateRevenueAttributionInputTypeDef",
     "UpdateRevenueAttributionOutputTypeDef",
 )
@@ -98,13 +108,19 @@ class MarketplaceProductSummaryTypeDef(TypedDict):
     ProductName: NotRequired[str]
 
 
+class ContextFilterTypeDef(TypedDict):
+    Key: str
+    Values: NotRequired[Sequence[str]]
+
+
 class CreateMarketplaceRevenueShareAllocationInputTypeDef(TypedDict):
     Catalog: CatalogNameType
-    ProductId: str
+    MarketplaceRevenueShareIdentifier: str
+    MarketplaceRevenueShareRevision: str
     EffectiveFrom: str
+    EffectiveUntil: str
     RevenueSharePercent: str
     ClientToken: NotRequired[str]
-    EffectiveUntil: NotRequired[str]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -122,15 +138,15 @@ class TagTypeDef(TypedDict):
 
 class GetMarketplaceRevenueShareAllocationInputTypeDef(TypedDict):
     Catalog: CatalogNameType
-    ProductId: str
+    MarketplaceRevenueShareIdentifier: str
     MarketplaceRevenueShareAllocationId: str
     MarketplaceRevenueShareRevision: NotRequired[str]
 
 
 class GetMarketplaceRevenueShareInputTypeDef(TypedDict):
     Catalog: CatalogNameType
-    ProductId: str
-    Revision: NotRequired[int]
+    Identifier: str
+    Revision: NotRequired[str]
 
 
 class GetRevenueAttributionAllocationInputTypeDef(TypedDict):
@@ -171,10 +187,12 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class ListMarketplaceRevenueShareAllocationsInputTypeDef(TypedDict):
     Catalog: CatalogNameType
-    ProductId: str
-    Status: NotRequired[AllocationStatusType]
+    MarketplaceRevenueShareIdentifier: str
+    StatusFilter: NotRequired[AllocationStatusType]
     AfterEffectiveFrom: NotRequired[str]
     BeforeEffectiveFrom: NotRequired[str]
+    AfterEffectiveUntil: NotRequired[str]
+    BeforeEffectiveUntil: NotRequired[str]
     SortBy: NotRequired[Literal["EffectiveFrom"]]
     SortOrder: NotRequired[SortOrderType]
     MaxResults: NotRequired[int]
@@ -184,31 +202,16 @@ class ListMarketplaceRevenueShareAllocationsInputTypeDef(TypedDict):
 
 class MarketplaceRevenueShareAllocationSummaryTypeDef(TypedDict):
     MarketplaceRevenueShareAllocationId: str
-    ProductId: str
-    Arn: str
+    MarketplaceRevenueShareIdentifier: str
     EffectiveFrom: str
+    EffectiveUntil: str
     RevenueSharePercent: str
     Status: AllocationStatusType
-    ProductName: NotRequired[str]
-    EffectiveUntil: NotRequired[str]
-    CreatedDate: NotRequired[datetime]
-    LastModifiedDate: NotRequired[datetime]
+    CreatedDate: datetime
+    LastModifiedDate: datetime
 
 
 TimestampTypeDef = Union[datetime, str]
-
-
-class MarketplaceRevenueShareSummaryTypeDef(TypedDict):
-    ProductId: str
-    Arn: str
-    Catalog: NotRequired[CatalogNameType]
-    ProductCode: NotRequired[str]
-    ProductName: NotRequired[str]
-    CreatedDate: NotRequired[datetime]
-    LastModifiedDate: NotRequired[datetime]
-    LatestRevision: NotRequired[int]
-    TotalActiveMarketplaceRevenueShareAllocationCount: NotRequired[int]
-    TotalMarketplaceRevenueShareAllocationCount: NotRequired[int]
 
 
 class ListRevenueAttributionAllocationsInputTypeDef(TypedDict):
@@ -246,6 +249,22 @@ class ListTagsForResourceInputTypeDef(TypedDict):
     resourceArn: str
 
 
+class RevenueShareProductAccountDetailTypeDef(TypedDict):
+    AccountType: RevenueShareProductAccountTypeType
+    Count: int
+    AccountIds: list[str]
+
+
+class RevenueShareProductAccountEntryTypeDef(TypedDict):
+    AccountType: RevenueShareProductAccountTypeType
+    AccountIds: Sequence[str]
+
+
+class RevenueShareProductAccountSummaryTypeDef(TypedDict):
+    AccountType: RevenueShareProductAccountTypeType
+    Count: int
+
+
 class RevenueShareAllocationTypeDef(TypedDict):
     Action: RevenueAttributionAllocationActionType
     EntityType: EntityTypeType
@@ -265,12 +284,10 @@ class UntagResourceInputTypeDef(TypedDict):
 
 class UpdateMarketplaceRevenueShareAllocationInputTypeDef(TypedDict):
     Catalog: CatalogNameType
-    ProductId: str
+    MarketplaceRevenueShareIdentifier: str
     MarketplaceRevenueShareAllocationId: str
     MarketplaceRevenueShareRevision: str
     ClientToken: NotRequired[str]
-    EffectiveFrom: NotRequired[str]
-    EffectiveUntil: NotRequired[str]
     RevenueSharePercent: NotRequired[str]
     Status: NotRequired[AllocationStatusType]
 
@@ -281,6 +298,7 @@ class UpdateRevenueAttributionInputTypeDef(TypedDict):
     Revision: str
     ClientToken: NotRequired[str]
     Description: NotRequired[str]
+    Context: NotRequired[Mapping[str, str]]
 
 
 class AttributionSummaryTypeDef(TypedDict):
@@ -297,32 +315,20 @@ class AttributionSummaryTypeDef(TypedDict):
     EffectiveUntil: NotRequired[str]
     TotalActiveRevenueAttributionAllocationCount: NotRequired[int]
     TotalRevenueAttributionAllocationCount: NotRequired[int]
+    Context: NotRequired[dict[str, str]]
 
 
 class CreateMarketplaceRevenueShareAllocationOutputTypeDef(TypedDict):
     MarketplaceRevenueShareAllocationId: str
-    ProductId: str
-    ProductName: str
-    Arn: str
+    MarketplaceRevenueShareIdentifier: str
     EffectiveFrom: str
     EffectiveUntil: str
     RevenueSharePercent: str
     Status: AllocationStatusType
     CreatedDate: datetime
     LastModifiedDate: datetime
-    LatestMarketplaceRevenueShareRevision: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateMarketplaceRevenueShareOutputTypeDef(TypedDict):
-    ProductId: str
-    Arn: str
-    Catalog: CatalogNameType
-    ProductCode: str
-    ProductName: str
-    CreatedDate: datetime
-    LastModifiedDate: datetime
-    Revision: int
+    MarketplaceRevenueShareRevision: str
+    MarketplaceRevenueShareLatestRevision: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -334,6 +340,7 @@ class CreateRevenueAttributionOutputTypeDef(TypedDict):
     TenancyModel: TenancyModelType
     MarketplaceProduct: MarketplaceProductSummaryTypeDef
     Revision: str
+    Context: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -343,31 +350,15 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class GetMarketplaceRevenueShareAllocationOutputTypeDef(TypedDict):
     MarketplaceRevenueShareAllocationId: str
-    ProductId: str
-    ProductName: str
-    Arn: str
+    MarketplaceRevenueShareIdentifier: str
     EffectiveFrom: str
     EffectiveUntil: str
     RevenueSharePercent: str
     Status: AllocationStatusType
     CreatedDate: datetime
     LastModifiedDate: datetime
-    LatestMarketplaceRevenueShareRevision: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetMarketplaceRevenueShareOutputTypeDef(TypedDict):
-    ProductId: str
-    Arn: str
-    Catalog: CatalogNameType
-    ProductCode: str
-    ProductName: str
-    CreatedDate: datetime
-    LastModifiedDate: datetime
-    Revision: int
-    LatestRevision: int
-    TotalActiveMarketplaceRevenueShareAllocationCount: int
-    TotalMarketplaceRevenueShareAllocationCount: int
+    MarketplaceRevenueShareRevision: str
+    MarketplaceRevenueShareLatestRevision: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -405,6 +396,7 @@ class GetRevenueAttributionOutputTypeDef(TypedDict):
     EffectiveUntil: str
     TotalActiveRevenueAttributionAllocationCount: int
     TotalRevenueAttributionAllocationCount: int
+    Context: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -420,16 +412,15 @@ class StartRevenueAttributionAllocationsTaskOutputTypeDef(TypedDict):
 
 class UpdateMarketplaceRevenueShareAllocationOutputTypeDef(TypedDict):
     MarketplaceRevenueShareAllocationId: str
-    ProductId: str
-    ProductName: str
-    Arn: str
+    MarketplaceRevenueShareIdentifier: str
     EffectiveFrom: str
     EffectiveUntil: str
     RevenueSharePercent: str
     Status: AllocationStatusType
     CreatedDate: datetime
     LastModifiedDate: datetime
-    LatestMarketplaceRevenueShareRevision: str
+    MarketplaceRevenueShareRevision: str
+    MarketplaceRevenueShareLatestRevision: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -439,14 +430,8 @@ class UpdateRevenueAttributionOutputTypeDef(TypedDict):
     Description: str
     LastModifiedDate: datetime
     LatestRevision: str
+    Context: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateMarketplaceRevenueShareInputTypeDef(TypedDict):
-    Catalog: CatalogNameType
-    ProductId: str
-    ClientToken: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class CreateRevenueAttributionInputTypeDef(TypedDict):
@@ -457,6 +442,7 @@ class CreateRevenueAttributionInputTypeDef(TypedDict):
     Description: NotRequired[str]
     ProductIdentifier: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    Context: NotRequired[Mapping[str, str]]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
@@ -485,10 +471,12 @@ class GetRevenueAttributionAllocationsTaskOutputTypeDef(TypedDict):
 
 class ListMarketplaceRevenueShareAllocationsInputPaginateTypeDef(TypedDict):
     Catalog: CatalogNameType
-    ProductId: str
-    Status: NotRequired[AllocationStatusType]
+    MarketplaceRevenueShareIdentifier: str
+    StatusFilter: NotRequired[AllocationStatusType]
     AfterEffectiveFrom: NotRequired[str]
     BeforeEffectiveFrom: NotRequired[str]
+    AfterEffectiveUntil: NotRequired[str]
+    BeforeEffectiveUntil: NotRequired[str]
     SortBy: NotRequired[Literal["EffectiveFrom"]]
     SortOrder: NotRequired[SortOrderType]
     MarketplaceRevenueShareRevision: NotRequired[str]
@@ -522,6 +510,7 @@ class ListMarketplaceRevenueShareAllocationsOutputTypeDef(TypedDict):
 
 class ListMarketplaceRevenueSharesInputPaginateTypeDef(TypedDict):
     Catalog: CatalogNameType
+    Identifiers: NotRequired[Sequence[str]]
     ProductIds: NotRequired[Sequence[str]]
     ProductCodes: NotRequired[Sequence[str]]
     SortBy: NotRequired[Literal["LastModifiedDate"]]
@@ -533,6 +522,7 @@ class ListMarketplaceRevenueSharesInputPaginateTypeDef(TypedDict):
 
 class ListMarketplaceRevenueSharesInputTypeDef(TypedDict):
     Catalog: CatalogNameType
+    Identifiers: NotRequired[Sequence[str]]
     ProductIds: NotRequired[Sequence[str]]
     ProductCodes: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
@@ -550,6 +540,7 @@ class ListRevenueAttributionsInputPaginateTypeDef(TypedDict):
     CreatedBefore: NotRequired[TimestampTypeDef]
     SortBy: NotRequired[Literal["LastModifiedDate"]]
     SortOrder: NotRequired[SortOrderType]
+    ContextFilters: NotRequired[Sequence[ContextFilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -562,18 +553,32 @@ class ListRevenueAttributionsInputTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-
-
-class ListMarketplaceRevenueSharesOutputTypeDef(TypedDict):
-    MarketplaceRevenueShareSummaries: list[MarketplaceRevenueShareSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+    ContextFilters: NotRequired[Sequence[ContextFilterTypeDef]]
 
 
 class ListRevenueAttributionAllocationsOutputTypeDef(TypedDict):
     RevenueAttributionAllocationSummaries: list[RevenueAttributionAllocationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class MarketplaceRevenueShareProductDetailTypeDef(TypedDict):
+    ProductId: str
+    ProductCode: NotRequired[str]
+    ProductName: NotRequired[str]
+    Accounts: NotRequired[list[RevenueShareProductAccountDetailTypeDef]]
+
+
+class MarketplaceRevenueShareProductEntryTypeDef(TypedDict):
+    ProductId: str
+    Accounts: NotRequired[Sequence[RevenueShareProductAccountEntryTypeDef]]
+
+
+class MarketplaceRevenueShareProductSummaryTypeDef(TypedDict):
+    ProductId: str
+    ProductCode: NotRequired[str]
+    ProductName: NotRequired[str]
+    Accounts: NotRequired[list[RevenueShareProductAccountSummaryTypeDef]]
 
 
 class StartRevenueAttributionAllocationsTaskInputTypeDef(TypedDict):
@@ -587,5 +592,76 @@ class StartRevenueAttributionAllocationsTaskInputTypeDef(TypedDict):
 
 class ListRevenueAttributionsOutputTypeDef(TypedDict):
     RevenueAttributionSummaries: list[AttributionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetMarketplaceRevenueShareOutputTypeDef(TypedDict):
+    Id: str
+    Arn: str
+    Catalog: CatalogNameType
+    Products: list[MarketplaceRevenueShareProductDetailTypeDef]
+    CreatedDate: datetime
+    LastModifiedDate: datetime
+    Revision: str
+    LatestRevision: str
+    EffectiveFrom: str
+    EffectiveUntil: str
+    TotalActiveMarketplaceRevenueShareAllocationCount: int
+    TotalMarketplaceRevenueShareAllocationCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateMarketplaceRevenueShareInputTypeDef(TypedDict):
+    Catalog: CatalogNameType
+    Products: Sequence[MarketplaceRevenueShareProductEntryTypeDef]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateMarketplaceRevenueShareInputTypeDef(TypedDict):
+    Catalog: CatalogNameType
+    Identifier: str
+    Revision: str
+    Products: Sequence[MarketplaceRevenueShareProductEntryTypeDef]
+    ClientToken: NotRequired[str]
+
+
+class CreateMarketplaceRevenueShareOutputTypeDef(TypedDict):
+    Id: str
+    Arn: str
+    Catalog: CatalogNameType
+    Products: list[MarketplaceRevenueShareProductSummaryTypeDef]
+    CreatedDate: datetime
+    LastModifiedDate: datetime
+    Revision: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class MarketplaceRevenueShareSummaryTypeDef(TypedDict):
+    Id: str
+    Arn: str
+    Catalog: CatalogNameType
+    Products: list[MarketplaceRevenueShareProductSummaryTypeDef]
+    CreatedDate: datetime
+    LastModifiedDate: datetime
+    LatestRevision: str
+    TotalActiveMarketplaceRevenueShareAllocationCount: int
+    TotalMarketplaceRevenueShareAllocationCount: int
+    EffectiveFrom: NotRequired[str]
+    EffectiveUntil: NotRequired[str]
+
+
+class UpdateMarketplaceRevenueShareOutputTypeDef(TypedDict):
+    Id: str
+    Arn: str
+    Products: list[MarketplaceRevenueShareProductSummaryTypeDef]
+    LastModifiedDate: datetime
+    LatestRevision: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListMarketplaceRevenueSharesOutputTypeDef(TypedDict):
+    MarketplaceRevenueShareSummaries: list[MarketplaceRevenueShareSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

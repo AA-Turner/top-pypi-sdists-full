@@ -30,6 +30,8 @@ from .paginator import (
     ListCidrBlocksPaginator,
     ListCidrCollectionsPaginator,
     ListCidrLocationsPaginator,
+    ListHealthChecksBySourcePaginator,
+    ListHealthCheckSourcesPaginator,
     ListHealthChecksPaginator,
     ListHostedZonesPaginator,
     ListQueryLoggingConfigsPaginator,
@@ -51,6 +53,8 @@ from .type_defs import (
     CreateCidrCollectionResponseTypeDef,
     CreateHealthCheckRequestTypeDef,
     CreateHealthCheckResponseTypeDef,
+    CreateHealthCheckSourceRequestTypeDef,
+    CreateHealthCheckSourceResponseTypeDef,
     CreateHostedZoneRequestTypeDef,
     CreateHostedZoneResponseTypeDef,
     CreateKeySigningKeyRequestTypeDef,
@@ -72,6 +76,8 @@ from .type_defs import (
     DeactivateKeySigningKeyResponseTypeDef,
     DeleteCidrCollectionRequestTypeDef,
     DeleteHealthCheckRequestTypeDef,
+    DeleteHealthCheckSourceRequestTypeDef,
+    DeleteHealthCheckSourceResponseTypeDef,
     DeleteHostedZoneRequestTypeDef,
     DeleteHostedZoneResponseTypeDef,
     DeleteKeySigningKeyRequestTypeDef,
@@ -102,6 +108,8 @@ from .type_defs import (
     GetHealthCheckLastFailureReasonResponseTypeDef,
     GetHealthCheckRequestTypeDef,
     GetHealthCheckResponseTypeDef,
+    GetHealthCheckSourceRequestTypeDef,
+    GetHealthCheckSourceResponseTypeDef,
     GetHealthCheckStatusRequestTypeDef,
     GetHealthCheckStatusResponseTypeDef,
     GetHostedZoneCountResponseTypeDef,
@@ -128,6 +136,10 @@ from .type_defs import (
     ListCidrLocationsResponseTypeDef,
     ListGeoLocationsRequestTypeDef,
     ListGeoLocationsResponseTypeDef,
+    ListHealthChecksBySourceRequestTypeDef,
+    ListHealthChecksBySourceResponseTypeDef,
+    ListHealthCheckSourcesRequestTypeDef,
+    ListHealthCheckSourcesResponseTypeDef,
     ListHealthChecksRequestTypeDef,
     ListHealthChecksResponseTypeDef,
     ListHostedZonesByNameRequestTypeDef,
@@ -172,7 +184,11 @@ from .type_defs import (
     UpdateTrafficPolicyInstanceRequestTypeDef,
     UpdateTrafficPolicyInstanceResponseTypeDef,
 )
-from .waiter import ResourceRecordSetsChangedWaiter
+from .waiter import (
+    HealthCheckSourceCreatedWaiter,
+    HealthCheckSourceDeletedWaiter,
+    ResourceRecordSetsChangedWaiter,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -200,6 +216,7 @@ class Exceptions(BaseClientExceptions):
     DelegationSetNotReusable: type[BotocoreClientError]
     HealthCheckAlreadyExists: type[BotocoreClientError]
     HealthCheckInUse: type[BotocoreClientError]
+    HealthCheckSourceAlreadyExists: type[BotocoreClientError]
     HealthCheckVersionMismatch: type[BotocoreClientError]
     HostedZoneAlreadyExists: type[BotocoreClientError]
     HostedZoneNotEmpty: type[BotocoreClientError]
@@ -233,6 +250,7 @@ class Exceptions(BaseClientExceptions):
     NoSuchDelegationSet: type[BotocoreClientError]
     NoSuchGeoLocation: type[BotocoreClientError]
     NoSuchHealthCheck: type[BotocoreClientError]
+    NoSuchHealthCheckSource: type[BotocoreClientError]
     NoSuchHostedZone: type[BotocoreClientError]
     NoSuchKeySigningKey: type[BotocoreClientError]
     NoSuchQueryLoggingConfig: type[BotocoreClientError]
@@ -244,6 +262,7 @@ class Exceptions(BaseClientExceptions):
     PublicZoneVPCAssociation: type[BotocoreClientError]
     QueryLoggingConfigAlreadyExists: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
+    TooManyHealthCheckSources: type[BotocoreClientError]
     TooManyHealthChecks: type[BotocoreClientError]
     TooManyHostedZones: type[BotocoreClientError]
     TooManyKeySigningKeys: type[BotocoreClientError]
@@ -338,7 +357,8 @@ class Route53Client(BaseClient):
         self, **kwargs: Unpack[ChangeTagsForResourceRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Adds, edits, or deletes tags for a health check or a hosted zone.
+        Adds, edits, or deletes tags for a health check, a health check source, or a
+        hosted zone.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/change_tags_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#change_tags_for_resource)
@@ -362,6 +382,18 @@ class Route53Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/create_health_check.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#create_health_check)
+        """
+
+    def create_health_check_source(
+        self, **kwargs: Unpack[CreateHealthCheckSourceRequestTypeDef]
+    ) -> CreateHealthCheckSourceResponseTypeDef:
+        """
+        Creates a health check source, which defines the virtual private cloud (VPC),
+        subnets, and security groups from which Route 53 sends private endpoint health
+        check requests.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/create_health_check_source.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#create_health_check_source)
         """
 
     def create_hosted_zone(
@@ -490,6 +522,16 @@ class Route53Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/delete_health_check.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#delete_health_check)
+        """
+
+    def delete_health_check_source(
+        self, **kwargs: Unpack[DeleteHealthCheckSourceRequestTypeDef]
+    ) -> DeleteHealthCheckSourceResponseTypeDef:
+        """
+        Deletes a health check source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/delete_health_check_source.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#delete_health_check_source)
         """
 
     def delete_hosted_zone(
@@ -683,6 +725,17 @@ class Route53Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_health_check_last_failure_reason)
         """
 
+    def get_health_check_source(
+        self, **kwargs: Unpack[GetHealthCheckSourceRequestTypeDef]
+    ) -> GetHealthCheckSourceResponseTypeDef:
+        """
+        Gets information about a specified health check source, including its status
+        and the virtual private cloud (VPC), subnets, and security groups that it uses.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_health_check_source.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_health_check_source)
+        """
+
     def get_health_check_status(
         self, **kwargs: Unpack[GetHealthCheckStatusRequestTypeDef]
     ) -> GetHealthCheckStatusResponseTypeDef:
@@ -827,6 +880,17 @@ class Route53Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#list_geo_locations)
         """
 
+    def list_health_check_sources(
+        self, **kwargs: Unpack[ListHealthCheckSourcesRequestTypeDef]
+    ) -> ListHealthCheckSourcesResponseTypeDef:
+        """
+        Retrieves a list of the health check sources that are associated with the
+        current Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/list_health_check_sources.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#list_health_check_sources)
+        """
+
     def list_health_checks(
         self, **kwargs: Unpack[ListHealthChecksRequestTypeDef]
     ) -> ListHealthChecksResponseTypeDef:
@@ -836,6 +900,16 @@ class Route53Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/list_health_checks.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#list_health_checks)
+        """
+
+    def list_health_checks_by_source(
+        self, **kwargs: Unpack[ListHealthChecksBySourceRequestTypeDef]
+    ) -> ListHealthChecksBySourceResponseTypeDef:
+        """
+        Retrieves a list of the health checks that use a specified health check source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/list_health_checks_by_source.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#list_health_checks_by_source)
         """
 
     def list_hosted_zones(
@@ -1098,6 +1172,28 @@ class Route53Client(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_health_check_sources"]
+    ) -> ListHealthCheckSourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_health_checks_by_source"]
+    ) -> ListHealthChecksBySourcePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_health_checks"]
     ) -> ListHealthChecksPaginator:
         """
@@ -1162,6 +1258,29 @@ class Route53Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["health_check_source_created"]
+    ) -> HealthCheckSourceCreatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["health_check_source_deleted"]
+    ) -> HealthCheckSourceDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["resource_record_sets_changed"]
     ) -> ResourceRecordSetsChangedWaiter:

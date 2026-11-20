@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qm-saas
-Version: 1.2.0
+Version: 1.2.1
 Summary: QM Simulator as a Service is a client library to launch simulator instances for QUA programs.
 License: BSD-3-Clause
 License-File: LICENSE

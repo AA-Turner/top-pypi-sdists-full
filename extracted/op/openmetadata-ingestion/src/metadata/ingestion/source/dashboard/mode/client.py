@@ -16,7 +16,7 @@ import json
 import traceback
 from base64 import b64encode
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
 
@@ -143,7 +143,7 @@ class ModeApiClient:
             self.client.get(f"/{workspace_name}/{SPACES}/{space_token}/{REPORTS}?page={page}"),
         )
 
-    def get_all_queries(self, workspace_name: str, report_token: str) -> Optional[dict]:  # noqa: UP045
+    def get_all_queries(self, workspace_name: str, report_token: str) -> dict | None:
         """Method to fetch all queries
         Args:
             workspace_name:
@@ -160,7 +160,7 @@ class ModeApiClient:
 
         return None
 
-    def get_all_charts(self, workspace_name: str, report_token: str, query_token: str) -> Optional[dict]:  # noqa: UP045
+    def get_all_charts(self, workspace_name: str, report_token: str, query_token: str) -> dict | None:
         """Method to fetch all charts
         Args:
             workspace_name:
@@ -178,7 +178,7 @@ class ModeApiClient:
 
         return None
 
-    def get_all_data_sources(self, workspace_name: str) -> Optional[dict]:  # noqa: UP045
+    def get_all_data_sources(self, workspace_name: str) -> dict | None:
         """Method to get all data sources
         Args:
             workspace_name:
@@ -219,7 +219,7 @@ class ModeApiClient:
             logger.warning("Error fetching Mode user [%s]: %s", username, exc)
         return None
 
-    def get_workspace(self, workspace_name: str) -> Optional[dict]:  # noqa: UP045
+    def get_workspace(self, workspace_name: str) -> dict | None:
         """Method to get info about a workspace
         Args:
             workspace_name:

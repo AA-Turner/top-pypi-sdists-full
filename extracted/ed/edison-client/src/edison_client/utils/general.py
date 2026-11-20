@@ -1,13 +1,10 @@
 import asyncio
 from collections.abc import Awaitable, Callable, Iterable
-from typing import TypeVar
+from typing import TypeVar, cast
 
 import httpx
 import requests
-from httpx import (
-    HTTPStatusError,
-    codes,
-)
+from httpx import HTTPStatusError, codes
 from requests.exceptions import HTTPError as RequestsHTTPError
 from tenacity import RetryCallState
 from tqdm.asyncio import tqdm
@@ -125,8 +122,7 @@ retry_if_connection_error_not_idempotent = (
 async def gather_with_concurrency(
     n: int | asyncio.Semaphore, coros: Iterable[Awaitable[T]], progress: bool = False
 ) -> list[T]:
-    """
-    Run asyncio.gather with a concurrency limit.
+    """Run asyncio.gather with a concurrency limit.
 
     SEE: https://stackoverflow.com/a/61478547/2392535
     """
@@ -137,8 +133,10 @@ async def gather_with_concurrency(
             return await coro
 
     if progress:
-        return await tqdm.gather(
+        results = await tqdm.gather(
             *(sem_coro(c) for c in coros), desc="Gathering", ncols=0
         )
+        # tqdm preserves gather's results but its stubs lose the element type.
+        return cast("list[T]", results)
 
     return await asyncio.gather(*(sem_coro(c) for c in coros))

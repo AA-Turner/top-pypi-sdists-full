@@ -21,7 +21,11 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from hyundai_kia_connect_api.ApiImpl import ApiImpl, ClimateRequestOptions
+from hyundai_kia_connect_api.ApiImpl import (
+    ApiImpl,
+    ClimateRequestOptions,
+    ScheduleChargingClimateRequestOptions,
+)
 from hyundai_kia_connect_api.const import (
     BRAND_HYUNDAI,
     BRAND_KIA,
@@ -38,6 +42,7 @@ from hyundai_kia_connect_api.const import (
     REGIONS,
     VEHICLE_LOCK_ACTION,
 )
+from hyundai_kia_connect_api.exceptions import APIError, UnsupportedControlError
 from hyundai_kia_connect_api.Token import Token
 from hyundai_kia_connect_api.Vehicle import Vehicle
 from hyundai_kia_connect_api.VehicleManager import VehicleManager
@@ -132,6 +137,36 @@ def sent_requests() -> Any:
         yield sent
 
 
+@pytest.fixture
+def command_response() -> Any:
+    """Patch Session.request to answer every call with a chosen JSON body.
+
+    Yields (sent, holder): assign the wanted canned response to
+    ``holder["body"]`` before calling the command.
+    """
+    sent: list[dict[str, Any]] = []
+    holder: dict[str, Any] = {"body": {}}
+
+    def fake_request(
+        self: requests.Session, method: str, url: str, **kwargs: Any
+    ) -> requests.Response:
+        payload = kwargs.get("json")
+        if payload is None and isinstance(kwargs.get("data"), str):
+            payload = json.loads(kwargs["data"])
+        sent.append({"method": method.upper(), "url": url, "body": payload})
+        # vrfypin must succeed so the flow reaches the command itself.
+        answer = _RESPONSE_BODY if "vrfypin" in url else holder["body"]
+        response = requests.Response()
+        response.status_code = 200
+        response.url = url
+        response.headers.update(_RESPONSE_HEADERS)
+        response._content = json.dumps(answer).encode()
+        return response
+
+    with patch.object(requests.Session, "request", fake_request):
+        yield sent, holder
+
+
 @pytest.mark.parametrize("command", COMMANDS)
 @pytest.mark.parametrize("impl", IMPLEMENTATIONS)
 def test_vehicle_command(
@@ -216,6 +251,98 @@ def test_ca_ev_climate_payload_by_generation(
     assert {"requests": sent_requests} == snapshot
 
 
+_CA_REJECTION = {
+    "error": {"errorCode": "15109"},
+    "responseHeader": {"responseCode": 1, "responseDesc": "Failure"},
+}
+
+
+def test_ca_start_climate_rejection_raises(
+    command_response: tuple[list[dict[str, Any]], dict[str, Any]],
+) -> None:
+    api = VehicleManager.get_implementation_by_region_brand(
+        _key(REGIONS, REGION_CANADA), _key(BRANDS, BRAND_HYUNDAI), "en"
+    )
+    token = Token(
+        username="user",
+        password="password",
+        pin="1234",
+        access_token="Bearer access",
+        refresh_token="refresh",
+        device_id="0123456789abcdef0123456789abcdef",
+        valid_until=dt.datetime.now() + dt.timedelta(hours=1),
+    )
+    vehicle = Vehicle(
+        id="VEHICLE-ID",
+        VIN="VIN0000000000000",
+        year=2027,
+        model="IONIQ9",
+        engine_type=ENGINE_TYPES.EV,
+    )
+    _sent, body_holder = command_response
+    body_holder["body"] = _CA_REJECTION
+    with pytest.raises(UnsupportedControlError, match="15109"):
+        COMMANDS["start_climate"](api, token, vehicle)
+
+
+def test_ca_command_response_without_envelope_raises(
+    command_response: tuple[list[dict[str, Any]], dict[str, Any]],
+) -> None:
+    """Shape per the shared method's pinned contract: a missing envelope raises."""
+    api = VehicleManager.get_implementation_by_region_brand(
+        _key(REGIONS, REGION_CANADA), _key(BRANDS, BRAND_HYUNDAI), "en"
+    )
+    token = Token(
+        username="user",
+        password="password",
+        pin="1234",
+        access_token="Bearer access",
+        refresh_token="refresh",
+        device_id="0123456789abcdef0123456789abcdef",
+        valid_until=dt.datetime.now() + dt.timedelta(hours=1),
+    )
+    vehicle = Vehicle(
+        id="VEHICLE-ID",
+        VIN="VIN0000000000000",
+        year=2027,
+        model="IONIQ9",
+        engine_type=ENGINE_TYPES.EV,
+    )
+    _sent, body_holder = command_response
+    body_holder["body"] = {"result": {"foo": "bar"}}
+    with pytest.raises(APIError):
+        COMMANDS["start_climate"](api, token, vehicle)
+
+
+def test_ca_command_response_null_header_passes(
+    command_response: tuple[list[dict[str, Any]], dict[str, Any]],
+) -> None:
+    api = VehicleManager.get_implementation_by_region_brand(
+        _key(REGIONS, REGION_CANADA), _key(BRANDS, BRAND_HYUNDAI), "en"
+    )
+    token = Token(
+        username="user",
+        password="password",
+        pin="1234",
+        access_token="Bearer access",
+        refresh_token="refresh",
+        device_id="0123456789abcdef0123456789abcdef",
+        valid_until=dt.datetime.now() + dt.timedelta(hours=1),
+    )
+    vehicle = Vehicle(
+        id="VEHICLE-ID",
+        VIN="VIN0000000000000",
+        year=2027,
+        model="IONIQ9",
+        engine_type=ENGINE_TYPES.EV,
+    )
+    _sent, body_holder = command_response
+    body_holder["body"] = {"responseHeader": None, "result": {"foo": "bar"}}
+    action_id = COMMANDS["start_climate"](api, token, vehicle)
+    assert isinstance(action_id, str)
+    assert action_id
+
+
 @pytest.mark.parametrize(
     "impl, seat_options",
     [
@@ -271,3 +398,68 @@ def test_legacy_climate_seat_options(
     }
     assert body["options"]["wheelHeating"] == 1
     assert {"requests": sent_requests} == snapshot
+
+
+def _ca_kia_ev() -> tuple[ApiImpl, Token, Vehicle]:
+    api = VehicleManager.get_implementation_by_region_brand(
+        _key(REGIONS, REGION_CANADA), _key(BRANDS, BRAND_KIA), "en"
+    )
+    token = Token(
+        username="user",
+        password="password",
+        pin="1234",
+        access_token="Bearer access",
+        refresh_token="refresh",
+        device_id="0123456789abcdef0123456789abcdef",
+        valid_until=dt.datetime.now() + dt.timedelta(hours=1),
+    )
+    vehicle = Vehicle(
+        id="VEHICLE-ID", VIN="VIN0000000000000", year=2027, engine_type=ENGINE_TYPES.EV
+    )
+    return api, token, vehicle
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ScheduleChargingClimateRequestOptions(
+            charging_enabled=True,
+            off_peak_start_time=dt.time(20, 0),
+            off_peak_end_time=dt.time(16, 0),
+            off_peak_charge_only_enabled=True,
+        ),
+        ScheduleChargingClimateRequestOptions(
+            charging_enabled=True,
+            off_peak_start_time=dt.time(0, 0),
+            off_peak_end_time=dt.time(12, 30),
+            off_peak_charge_only_enabled=False,
+        ),
+        # Only the flag: the window and mode come from the vehicle.
+        ScheduleChargingClimateRequestOptions(charging_enabled=False),
+    ],
+    ids=["window", "midnight_noon", "disable_keeps_window"],
+)
+def test_ca_schedule_charge_payload(
+    options: ScheduleChargingClimateRequestOptions,
+    sent_requests: list[dict[str, Any]],
+    snapshot: SnapshotAssertion,
+) -> None:
+    api, token, vehicle = _ca_kia_ev()
+    vehicle.ev_schedule_charge_enabled = True
+    vehicle.ev_off_peak_charge_only_enabled = True
+    vehicle.ev_off_peak_start_time = dt.time(20, 0)
+    vehicle.ev_off_peak_end_time = dt.time(16, 0)
+    assert api.schedule_charging_and_climate(token, vehicle, options) == "TX-1"
+    assert sent_requests[-1]["url"].endswith("v2/rc/ev/reschargeset")
+    assert {"requests": sent_requests} == snapshot
+
+
+def test_ca_schedule_rejects_climate_scope(
+    sent_requests: list[dict[str, Any]],
+) -> None:
+    api, token, vehicle = _ca_kia_ev()
+    with pytest.raises(NotImplementedError):
+        api.schedule_charging_and_climate(
+            token, vehicle, ScheduleChargingClimateRequestOptions(climate_enabled=True)
+        )
+    assert sent_requests == []

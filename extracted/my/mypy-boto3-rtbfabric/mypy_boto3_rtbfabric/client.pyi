@@ -27,11 +27,14 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAvailableModulesPaginator,
+    ListAvailableModuleVersionsPaginator,
     ListCertificateAssociationsPaginator,
     ListLinkRoutingRulesPaginator,
     ListLinksPaginator,
     ListRequesterGatewaysPaginator,
     ListResponderGatewaysPaginator,
+    ListUpdatesPaginator,
 )
 from .type_defs import (
     AcceptLinkRequestTypeDef,
@@ -64,6 +67,10 @@ from .type_defs import (
     DeleteResponderGatewayResponseTypeDef,
     DisassociateCertificateRequestTypeDef,
     DisassociateCertificateResponseTypeDef,
+    GetAvailableModuleRequestTypeDef,
+    GetAvailableModuleResponseTypeDef,
+    GetAvailableModuleVersionRequestTypeDef,
+    GetAvailableModuleVersionResponseTypeDef,
     GetCertificateAssociationRequestTypeDef,
     GetCertificateAssociationResponseTypeDef,
     GetInboundExternalLinkRequestTypeDef,
@@ -78,6 +85,12 @@ from .type_defs import (
     GetRequesterGatewayResponseTypeDef,
     GetResponderGatewayRequestTypeDef,
     GetResponderGatewayResponseTypeDef,
+    GetUpdateRequestTypeDef,
+    GetUpdateResponseTypeDef,
+    ListAvailableModulesRequestTypeDef,
+    ListAvailableModulesResponseTypeDef,
+    ListAvailableModuleVersionsRequestTypeDef,
+    ListAvailableModuleVersionsResponseTypeDef,
     ListCertificateAssociationsRequestTypeDef,
     ListCertificateAssociationsResponseTypeDef,
     ListLinkRoutingRulesRequestTypeDef,
@@ -90,6 +103,10 @@ from .type_defs import (
     ListResponderGatewaysResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListUpdatesRequestTypeDef,
+    ListUpdatesResponseTypeDef,
+    PutLinkFlowsRequestTypeDef,
+    PutLinkFlowsResponseTypeDef,
     RejectLinkRequestTypeDef,
     RejectLinkResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -319,6 +336,26 @@ class RTBFabricClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#disassociate_certificate)
         """
 
+    def get_available_module(
+        self, **kwargs: Unpack[GetAvailableModuleRequestTypeDef]
+    ) -> GetAvailableModuleResponseTypeDef:
+        """
+        Returns a module that you can attach.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_available_module.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_available_module)
+        """
+
+    def get_available_module_version(
+        self, **kwargs: Unpack[GetAvailableModuleVersionRequestTypeDef]
+    ) -> GetAvailableModuleVersionResponseTypeDef:
+        """
+        Returns an ACTIVE or DEPRECATED version of a module that you can attach.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_available_module_version.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_available_module_version)
+        """
+
     def get_certificate_association(
         self, **kwargs: Unpack[GetCertificateAssociationRequestTypeDef]
     ) -> GetCertificateAssociationResponseTypeDef:
@@ -387,6 +424,36 @@ class RTBFabricClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_responder_gateway)
         """
 
+    def get_update(self, **kwargs: Unpack[GetUpdateRequestTypeDef]) -> GetUpdateResponseTypeDef:
+        """
+        Returns ResourceNotFoundException for an updateId past the 90-day retention
+        window, indistinguishable in the response from an id that never existed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_update.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_update)
+        """
+
+    def list_available_module_versions(
+        self, **kwargs: Unpack[ListAvailableModuleVersionsRequestTypeDef]
+    ) -> ListAvailableModuleVersionsResponseTypeDef:
+        """
+        Lists the ACTIVE and DEPRECATED versions of a module that you can attach,
+        highest version first (numerically by MAJOR, then MINOR, then PATCH).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/list_available_module_versions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#list_available_module_versions)
+        """
+
+    def list_available_modules(
+        self, **kwargs: Unpack[ListAvailableModulesRequestTypeDef]
+    ) -> ListAvailableModulesResponseTypeDef:
+        """
+        Lists the modules that you can attach, newest first by <code>createdAt</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/list_available_modules.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#list_available_modules)
+        """
+
     def list_certificate_associations(
         self, **kwargs: Unpack[ListCertificateAssociationsRequestTypeDef]
     ) -> ListCertificateAssociationsResponseTypeDef:
@@ -443,6 +510,26 @@ class RTBFabricClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/list_tags_for_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#list_tags_for_resource)
+        """
+
+    def list_updates(
+        self, **kwargs: Unpack[ListUpdatesRequestTypeDef]
+    ) -> ListUpdatesResponseTypeDef:
+        """
+        Lists the updates on a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/list_updates.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#list_updates)
+        """
+
+    def put_link_flows(
+        self, **kwargs: Unpack[PutLinkFlowsRequestTypeDef]
+    ) -> PutLinkFlowsResponseTypeDef:
+        """
+        Replaces a link's flow configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/put_link_flows.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#put_link_flows)
         """
 
     def reject_link(self, **kwargs: Unpack[RejectLinkRequestTypeDef]) -> RejectLinkResponseTypeDef:
@@ -520,6 +607,28 @@ class RTBFabricClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_available_module_versions"]
+    ) -> ListAvailableModuleVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_available_modules"]
+    ) -> ListAvailableModulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_certificate_associations"]
     ) -> ListCertificateAssociationsPaginator:
         """
@@ -566,6 +675,17 @@ class RTBFabricClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_responder_gateways"]
     ) -> ListResponderGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_updates"]
+    ) -> ListUpdatesPaginator:
         """
         Create a paginator for an operation.
 

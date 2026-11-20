@@ -167,7 +167,6 @@ class TestJobSpec(unittest.TestCase):
                     source_fields = {
                         'key' : ''
                         }, ),
-                discovery_source_id = '',
                 test_id = '',
                 preview_limit = 56,
         )

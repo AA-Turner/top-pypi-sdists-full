@@ -149,7 +149,14 @@ pub fn lz4_decompress_block(
 #[derive(Debug)]
 enum BlockCompressor {
     Vanilla(lz4rip::block::Compressor),
-    Dict(lz4rip::block::DictCompressor),
+    // boxed: the compressors embed 64-byte-aligned hash tables, which exceeds
+    // what pyo3's pyclass allocation guarantees - inlined, construction
+    // dereferences a misaligned pointer (UB; aborts in debug):
+    //
+    //   thread '<unnamed>' panicked at pyo3-0.29.0\src\pyclass_init.rs:160:18:
+    //   misaligned pointer dereference: address must be a multiple of 0x40 but is 0x19ef54173b0
+    //   thread caused non-unwinding panic. aborting.
+    Dict(Box<lz4rip::block::DictCompressor>),
 }
 
 impl BlockCompressor {
@@ -169,19 +176,17 @@ struct PyLz4BlockCompressorConfig {
 #[pyclass(name = "Lz4BlockCompressor", immutable_type)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Debug)]
-pub struct PyLz4BlockCompressor {
+pub struct RyLz4BlockCompressor {
     cfg: PyLz4BlockCompressorConfig,
-    // boxed: the compressors embed 64-byte-aligned hash tables, which exceeds
-    // what pyo3's pyclass allocation guarantees - inlined, construction
-    // dereferences a misaligned pointer (UB; aborts in debug):
-    //
-    //   thread '<unnamed>' panicked at pyo3-0.29.0\src\pyclass_init.rs:160:18:
-    //   misaligned pointer dereference: address must be a multiple of 0x40 but is 0x19ef54173b0
-    //   thread caused non-unwinding panic. aborting.
-    inner: Box<BlockCompressor>,
+    inner: BlockCompressor,
 }
 
-impl PyLz4BlockCompressor {
+const _: () = assert!(
+    std::mem::align_of::<RyLz4BlockCompressor>() <= std::mem::align_of::<pyo3::ffi::PyObject>(),
+    "Lz4BlockCompressor exceeds Python object alignment",
+);
+
+impl RyLz4BlockCompressor {
     fn compress(
         &mut self,
         py: Python<'_>,
@@ -201,18 +206,19 @@ impl PyLz4BlockCompressor {
 }
 
 #[pymethods]
-impl PyLz4BlockCompressor {
+impl RyLz4BlockCompressor {
     #[new]
     #[pyo3(signature = (dictionary = None, *, size = false))]
     fn py_new(dictionary: Option<ReadableBuffer>, size: bool) -> Self {
         let inner = if let Some(dict) = dictionary {
-            BlockCompressor::Dict(lz4rip::block::DictCompressor::new(dict.as_ref()))
+            let dc = lz4rip::block::DictCompressor::new(dict.as_ref());
+            BlockCompressor::Dict(Box::new(dc))
         } else {
             BlockCompressor::Vanilla(lz4rip::block::Compressor::new())
         };
         Self {
             cfg: PyLz4BlockCompressorConfig { size },
-            inner: Box::new(inner),
+            inner,
         }
     }
 
@@ -246,9 +252,9 @@ impl PyLz4BlockCompressor {
 #[pyclass(name = "Lz4BlockDecompressor", immutable_type)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Debug)]
-pub struct PyLz4BlockDecompressor(lz4rip::block::Decompressor);
+pub struct RyLz4BlockDecompressor(lz4rip::block::Decompressor);
 
-impl PyLz4BlockDecompressor {
+impl RyLz4BlockDecompressor {
     fn decompress(
         &self,
         py: Python<'_>,
@@ -264,7 +270,7 @@ impl PyLz4BlockDecompressor {
 }
 
 #[pymethods]
-impl PyLz4BlockDecompressor {
+impl RyLz4BlockDecompressor {
     #[new]
     #[pyo3(signature = (dictionary = None))]
     fn py_new(dictionary: Option<ReadableBuffer>) -> Self {
@@ -302,16 +308,16 @@ impl PyLz4BlockDecompressor {
     }
 }
 
-impl std::fmt::Display for PyLz4BlockCompressor {
+impl std::fmt::Display for RyLz4BlockCompressor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.inner.as_ref() {
+        match &self.inner {
             BlockCompressor::Vanilla(_) => write!(f, "<Lz4BlockCompressor; dictionary=False>"),
             BlockCompressor::Dict(_) => write!(f, "<Lz4BlockCompressor; dictionary=True>"),
         }
     }
 }
 
-impl std::fmt::Display for PyLz4BlockDecompressor {
+impl std::fmt::Display for RyLz4BlockDecompressor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<Lz4BlockDecompressor>")
     }

@@ -46,7 +46,7 @@ def _build_transition_state() -> TransitionState:
     )
 
 
-def test_serialization_preserves_info():
+def test_serialization_preserves_info() -> None:
     state = _build_transition_state()
     data = state.model_dump(mode="json", context={"include_info": True})
 
@@ -57,7 +57,7 @@ def test_serialization_preserves_info():
     assert msgs[2]["info"] is None
 
 
-def test_serialized_output_matches_committed_fixture():
+def test_serialized_output_matches_committed_fixture() -> None:
     state = _build_transition_state()
     data = state.model_dump(mode="json", context={"include_info": True})
     fixture = {"agent_state": [{"state": data}]}

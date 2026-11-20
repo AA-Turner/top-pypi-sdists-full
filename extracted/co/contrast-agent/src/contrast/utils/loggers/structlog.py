@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from socket import gethostname
 from typing import TYPE_CHECKING, TextIO, cast
 
-from contrast.agent import request_state
+from contrast.agent import request_state, scope
 from contrast.utils.loggers import (
     LogDestination,
     color_enabled,
@@ -91,6 +91,10 @@ class RotatingFile:
 
     def write(self, message: str) -> int:
         """Write a message to the log file, performing rotation if needed."""
+        assert (
+            not os.environ.get("CONTRAST_INTEGRATION_TESTING")
+            or scope.in_contrast_scope()
+        )
         self._rotate_if_needed(len(message))
 
         return self._file.write(message)

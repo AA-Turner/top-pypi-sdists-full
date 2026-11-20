@@ -363,8 +363,8 @@ CorrelatorObj_init (CorrelatorObject *self, PyObject *args, PyObject *kwds)
       else
         PyErr_SetString (PyExc_ValueError,
                          "Correlator: refused, or out of memory "
-                         "(docs/design/correlator-python.md section 17: a "
-                         "value the flavor would not honor is refused)");
+                         "(docs/design/correlator.md section 3: a value "
+                         "the flavor would not honor is refused)");
       return -1;
     }
   if (self->handle->search && self->handle->search->underpowered)
@@ -2277,6 +2277,63 @@ CorrelatorObj_set_max_peaks (CorrelatorObject *self, PyObject *args,
         PyErr_SetString (PyExc_ValueError, _why);
       else
         PyErr_Format (PyExc_ValueError, "%s (rc=%lld)", "set_max_peaks failed",
+                      (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CorrelatorObj_set_peak_zone (CorrelatorObject *self, PyObject *args,
+                             PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[]   = { "all_doppler", "half_chips", NULL };
+  int          all_doppler = 0;
+  double       half_chips  = 0.0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "id", _kwlist, &all_doppler,
+                                    &half_chips))
+    return NULL;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  const char *_why = NULL;
+  int _rc = dp_correlator_set_peak_zone (self->handle, all_doppler, half_chips,
+                                         &_why);
+  if (_rc != 0)
+    {
+      switch (_rc)
+        {
+        case DP_ERR_UNSUPPORTED:
+          if (_why)
+            PyErr_SetString (PyExc_ValueError, _why);
+          else
+            PyErr_SetString (PyExc_ValueError,
+                             "set_peak_zone: only a search "
+                             "(framing='continuous' or 'burst') lists "
+                             "peaks; Correlator.flavor says which this is");
+          return NULL;
+        case DP_ERR_INVALID:
+          if (_why)
+            PyErr_SetString (PyExc_ValueError, _why);
+          else
+            PyErr_SetString (PyExc_ValueError,
+                             "set_peak_zone: all_doppler must be 0 or 1 and "
+                             "half_chips finite");
+          return NULL;
+        default:
+          break;
+        }
+      if (_why)
+        PyErr_SetString (PyExc_ValueError, _why);
+      else
+        PyErr_Format (PyExc_ValueError, "%s (rc=%lld)", "set_peak_zone failed",
                       (long long)_rc);
       return NULL;
     }
@@ -5684,6 +5741,80 @@ static PyMethodDef CorrelatorObj_methods[] = {
     ">>> a.set_max_peaks(8)\n"
     ">>> a.max_peaks\n"
     "8\n" },
+  { "set_peak_zone", (PyCFunction)(void *)CorrelatorObj_set_peak_zone,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_peak_zone(all_doppler, half_chips) -> None\n"
+    "\n"
+    "The exclusion zone each listed peak marks before the next is sought:\n"
+    "how far it reaches along Doppler and along the lags.\n"
+    "\n"
+    "By default a listed peak masks one native Doppler row (its `interp`\n"
+    "surface rows either side) by the template's correlation mainlobe across\n"
+    "the lags (`shape.zone`), so the next peak may sit at the same lag in\n"
+    "another Doppler row: a second emitter at that code phase, or the first\n"
+    "one's own slow-time sidelobes, its alias in a neighbouring roll, or the\n"
+    "spread its data puts on its own lag inside a coherent dwell. One strong\n"
+    "emitter can then take every slot of the list with its own lag, and a\n"
+    "weaker one elsewhere is never listed (doppler#3067).\n"
+    "\n"
+    "`all_doppler` = 1 makes the zone cover every Doppler bin of every roll\n"
+    "at the peak's lags, so an emitter is listed once a dwell, at its\n"
+    "strongest cell. `half_chips` > 0 sets the zone's half-width across the\n"
+    "lags in the search's chips: the most whole lag columns within it,\n"
+    "floor(half_chips * lag_bins / sf), so the zone is never wider than\n"
+    "asked (sf is a code's chips a period on the continuous search; on the\n"
+    "burst search it is the template's samples, so a \"chip\" there is a\n"
+    "sample); <= 0 keeps the mainlobe's. The receiver asks for (1,\n"
+    "DP_CORRELATOR_SAME_PHASE_CHIPS / 2), half the width its pick treats as\n"
+    "one signal (§7.2 rule 1): the zone is a lag, and with a carrier set the\n"
+    "pick's key carries each hit on by its own Doppler's dilation, off the\n"
+    "lag grid, so only a zone inside the key never masks what the pick\n"
+    "keeps. A half_chips under one lag column (0.5 chip below two lag\n"
+    "columns a chip) marks the peak's own lag alone. A caller that never\n"
+    "calls this gets today's list exactly. The two-epoch twin rule\n"
+    "(async-dsss-receiver.md §7.1) keeps the mainlobe's width whatever this\n"
+    "sets, so a peak past a narrower zone but inside the mainlobe -- an\n"
+    "emitter's shoulder off the lag grid -- is still held a dwell as a twin.\n"
+    "\n"
+    "Both values are mutators' (#2022): they travel in the state blob and a\n"
+    "restore applies them.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "all_doppler : int\n"
+    "    1 = every Doppler bin of every roll; 0 = one row.\n"
+    "half_chips : float\n"
+    "    Half-width across the lags, chips; <= 0 = the template's mainlobe.\n"
+    "    Finite.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns ``DP_ERR_UNSUPPORTED``. The exception message\n"
+    "    is the reason the C call gives, or ``set_peak_zone: only a search\n"
+    "    (framing='continuous' or 'burst') lists peaks; Correlator.flavor\n"
+    "    says which this is`` when it gives none.\n"
+    "ValueError\n"
+    "    If the C call returns ``DP_ERR_INVALID``. The exception message is\n"
+    "    the reason the C call gives, or ``set_peak_zone: all_doppler must\n"
+    "    be 0 or 1 and half_chips finite`` when it gives none.\n"
+    "ValueError\n"
+    "    If the C call returns any other non-zero status. The exception\n"
+    "    message is the reason the C call gives, or ``set_peak_zone\n"
+    "    failed``, with the return code appended (gh-869), when it gives\n"
+    "    none.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.correlation import Correlator\n"
+    ">>> code = (np.arange(31) * 5 % 2).astype(np.uint8)\n"
+    ">>> ref = np.where(code & 1, -1, 1).astype(np.complex64)\n"
+    ">>> a = Correlator(ref, framing=\"continuous\", sample_rate=2e6, "
+    "chip_rate=1e6, symbol_rate=1e3,\n"
+    "...                 cn0_dbhz=50.0, doppler_uncertainty=50e3)\n"
+    ">>> a.set_max_peaks(8)\n"
+    ">>> a.set_peak_zone(1, 1.0)\n" },
   { "set_carrier_freq_hz",
     (PyCFunction)(void *)CorrelatorObj_set_carrier_freq_hz,
     METH_VARARGS | METH_KEYWORDS,
@@ -5726,8 +5857,8 @@ static PyMethodDef CorrelatorObj_methods[] = {
     "----------\n"
     "carrier_freq_hz : float\n"
     "    RF carrier, Hz; 0.0 = uncoupled. Refused (DP_ERR_UNSUPPORTED) on\n"
-    "    every flavor but the continuous search\n"
-    "    (docs/design/correlator-python.md section 18).\n"
+    "    every flavor but the continuous search (docs/design/correlator.md\n"
+    "    section 4).\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -5768,24 +5899,27 @@ static PyMethodDef CorrelatorObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "set_threads(n) -> None\n"
     "\n"
-    "Set how many threads the searcher fans its tiles across\n"
-    "(docs/design/acq-surface.md §13: a roll per thread on persistent\n"
-    "workers).\n"
+    "Set how many threads the searcher fans its stages across\n"
+    "(docs/design/acq-surface.md §13, §18.3: persistent workers).\n"
     "\n"
     "A continuous engine is created with a pool of the machine's online\n"
     "cores when it has more than one tile; a burst engine, and a single-tile\n"
     "one, run serially. This sets the count: 0 auto-selects the online core\n"
     "count, 1 runs everything on the calling thread, n runs on n workers\n"
-    "(the caller included) -- but never more than `window_bins`: every fan\n"
-    "hands out one tile a task, so a worker past that only wakes and waits.\n"
-    "The request is kept, and every regrid re-applies it, so an engine\n"
-    "narrowed to one tile and widened again runs on min(n, tiles), not on\n"
-    "the 1 the narrow grid ran on. The workers are created here, once, and\n"
-    "parked between pushes; nothing is created per push. The surface is\n"
-    "bit-identical at every count -- the tiles are independent after the one\n"
-    "forward transform and each writes its own rows -- so this changes the\n"
-    "cost of a push and nothing about its result. Setup path, never hot; not\n"
-    "while another thread is inside push().\n"
+    "(the caller included). At a depth of one epoch (D = 1) the count is\n"
+    "capped at `window_bins`: every per-epoch fan hands out one tile a task,\n"
+    "so a worker past that only wakes and waits. At D > 1 every stage fans\n"
+    "finer than tiles (epochs, capture bins, rows, chunks of rows), so the\n"
+    "count is taken whole, and each worker holds its own FFT plans and\n"
+    "scratch: memory grows with the count. The request is kept, and every\n"
+    "regrid re-applies it, so an engine narrowed to one tile and widened\n"
+    "again runs on the request, not on the 1 the narrow grid ran on. The\n"
+    "workers are created here, once, and parked between pushes; nothing is\n"
+    "created per push. The surface is bit-identical at every count -- every\n"
+    "output row and every decide chunk is computed whole by one worker, and\n"
+    "the chunk count is the grid's -- so this changes the cost of a push and\n"
+    "nothing about its result. Setup path, never hot; not while another\n"
+    "thread is inside push().\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -5817,7 +5951,7 @@ static PyMethodDef CorrelatorObj_methods[] = {
     ">>> a = Correlator(ref, framing=\"continuous\", sample_rate=2e6, "
     "chip_rate=1e6, cn0_dbhz=50.0,\n"
     "...                 doppler_uncertainty=4000.0)\n"
-    ">>> a.threads >= 1               # at most one worker a tile\n"
+    ">>> a.threads >= 1               # the online cores (capped at D = 1)\n"
     "True\n"
     ">>> a.set_threads(1)\n"
     ">>> a.threads\n"
@@ -5865,7 +5999,7 @@ static PyMethodDef CorrelatorObj_methods[] = {
     "decim : int\n"
     "    Emit every decim-th decided dwell; >= 1. Refused\n"
     "    (DP_ERR_UNSUPPORTED) on every flavor but the continuous search\n"
-    "    (docs/design/correlator-python.md section 18).\n"
+    "    (docs/design/correlator.md section 4).\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -6635,9 +6769,8 @@ static PyTypeObject CorrelatorObjType = {
     "ValueError\n"
     "    If construction fails. The exception message is the reason the\n"
     "    constructor gives, or ``Correlator: refused, or out of memory\n"
-    "    (docs/design/correlator-python.md section 17: a value the flavor "
-    "would\n"
-    "    not honor is refused)`` when it gives none.\n"
+    "    (docs/design/correlator.md section 3: a value the flavor would not\n"
+    "    honor is refused)`` when it gives none.\n"
     "\n"
     "Warns\n"
     "-----\n"

@@ -99,7 +99,8 @@ A simple example of a notification listener with multiple endpoints might be::
 
     class NotificationEndpoint(object):
         filter_rule = oslo_messaging.NotificationFilter(
-            publisher_id='^compute.*')
+            publisher_id='^compute.*'
+        )
 
         def warn(self, ctxt, publisher_id, event_type, payload, metadata):
             do_something(payload)
@@ -107,24 +108,26 @@ A simple example of a notification listener with multiple endpoints might be::
 
     class ErrorEndpoint(object):
         filter_rule = oslo_messaging.NotificationFilter(
-            event_type='^instance\..*\.start$',
-            context={'ctxt_key': 'regexp'})
+            event_type='^instance\..*\.start$', context={'ctxt_key': 'regexp'}
+        )
 
         def error(self, ctxt, publisher_id, event_type, payload, metadata):
             do_something(payload)
 
+
     transport = oslo_messaging.get_notification_transport(cfg.CONF)
     targets = [
         oslo_messaging.Target(topic='notifications'),
-        oslo_messaging.Target(topic='notifications_bis')
+        oslo_messaging.Target(topic='notifications_bis'),
     ]
     endpoints = [
         NotificationEndpoint(),
         ErrorEndpoint(),
     ]
     pool = "listener-workers"
-    server = oslo_messaging.get_notification_listener(transport, targets,
-                                                      endpoints, pool=pool)
+    server = oslo_messaging.get_notification_listener(
+        transport, targets, endpoints, pool=pool
+    )
     server.start()
     server.wait()
 
@@ -133,28 +136,101 @@ By supplying a serializer object, a listener can deserialize a request context
 and arguments from primitive types.
 
 """
+
+import argparse
 import itertools
 import logging
 
+from oslo_config import cfg
 from oslo_messaging.notify import dispatcher as notify_dispatcher
+from oslo_messaging.notify import notifier as notifier
 from oslo_messaging import server as msg_server
+from oslo_messaging import target as msg_target
 from oslo_messaging import transport as msg_transport
 
 LOG = logging.getLogger(__name__)
 
 
+class _PrintEndpoint:
+    def _print(
+        self, priority, ctxt, publisher_id, event_type, payload, metadata
+    ):
+        print(
+            f"Received {priority} {event_type} from {publisher_id}: {payload}"
+        )
+
+    def audit(self, *args):
+        self._print('audit', *args)
+
+    def debug(self, *args):
+        self._print('debug', *args)
+
+    def info(self, *args):
+        self._print('info', *args)
+
+    def warn(self, *args):
+        self._print('warn', *args)
+
+    def error(self, *args):
+        self._print('error', *args)
+
+    def critical(self, *args):
+        self._print('critical', *args)
+
+    def sample(self, *args):
+        self._print('sample', *args)
+
+
+def _listen_notification():
+    """Command line tool to listen for notifications manually."""
+    parser = argparse.ArgumentParser(
+        description='Oslo.messaging notification listening',
+    )
+    parser.add_argument('--config-file', help='Path to configuration file')
+    parser.add_argument('--transport-url', help='Transport URL')
+    parser.add_argument(
+        '--topic', help="Topic to read from", default="notifications"
+    )
+    args = parser.parse_args()
+    conf = cfg.ConfigOpts()
+    conf(
+        [],
+        default_config_files=[args.config_file] if args.config_file else None,
+    )
+    transport = notifier.get_notification_transport(
+        conf, url=args.transport_url
+    )
+    target = msg_target.Target(topic=args.topic)
+    endpoints = [_PrintEndpoint()]
+    listener = get_notification_listener(transport, [target], endpoints)
+    listener.start()
+    try:
+        listener.wait()
+    except KeyboardInterrupt:
+        listener.stop()
+        listener.wait()
+
+
 class NotificationServerBase(msg_server.MessageHandlingServer):
-    def __init__(self, transport, targets, dispatcher, executor=None,
-                 allow_requeue=True, pool=None, batch_size=1,
-                 batch_timeout=None):
-        super().__init__(transport, dispatcher,
-                         executor)
+    def __init__(
+        self,
+        transport,
+        targets,
+        dispatcher,
+        executor=None,
+        allow_requeue=True,
+        pool=None,
+        batch_size=1,
+        batch_timeout=None,
+    ):
+        super().__init__(transport, dispatcher, executor)
         self._allow_requeue = allow_requeue
         self._pool = pool
         self.targets = targets
         self._targets_priorities = set(
-            itertools.product(self.targets,
-                              self.dispatcher.supported_priorities)
+            itertools.product(
+                self.targets, self.dispatcher.supported_priorities
+            )
         )
 
         self._batch_size = batch_size
@@ -162,22 +238,39 @@ class NotificationServerBase(msg_server.MessageHandlingServer):
 
     def _create_listener(self):
         return self.transport._listen_for_notifications(
-            self._targets_priorities, self._pool, self._batch_size,
-            self._batch_timeout
+            self._targets_priorities,
+            self._pool,
+            self._batch_size,
+            self._batch_timeout,
         )
 
 
 class NotificationServer(NotificationServerBase):
-    def __init__(self, transport, targets, dispatcher, executor=None,
-                 allow_requeue=True, pool=None):
+    def __init__(
+        self,
+        transport,
+        targets,
+        dispatcher,
+        executor=None,
+        allow_requeue=True,
+        pool=None,
+    ):
         if not isinstance(transport, msg_transport.NotificationTransport):
-            LOG.warning("Using RPC transport for notifications. Please use "
-                        "get_notification_transport to obtain a "
-                        "notification transport instance.")
+            LOG.warning(
+                "Using RPC transport for notifications. Please use "
+                "get_notification_transport to obtain a "
+                "notification transport instance."
+            )
 
         super().__init__(
-            transport, targets, dispatcher, executor, allow_requeue, pool, 1,
-            None
+            transport,
+            targets,
+            dispatcher,
+            executor,
+            allow_requeue,
+            pool,
+            1,
+            None,
         )
 
     def _process_incoming(self, incoming):
@@ -189,8 +282,10 @@ class NotificationServer(NotificationServerBase):
             res = notify_dispatcher.NotificationResult.REQUEUE
 
         try:
-            if (res == notify_dispatcher.NotificationResult.REQUEUE and
-                    self._allow_requeue):
+            if (
+                res == notify_dispatcher.NotificationResult.REQUEUE
+                and self._allow_requeue
+            ):
                 message.requeue()
             else:
                 message.acknowledge()
@@ -199,7 +294,6 @@ class NotificationServer(NotificationServerBase):
 
 
 class BatchNotificationServer(NotificationServerBase):
-
     def _process_incoming(self, incoming):
         try:
             not_processed_messages = self.dispatcher.dispatch(incoming)
@@ -216,9 +310,15 @@ class BatchNotificationServer(NotificationServerBase):
                 LOG.exception("Fail to ack/requeue message.")
 
 
-def get_notification_listener(transport, targets, endpoints,
-                              executor=None, serializer=None,
-                              allow_requeue=False, pool=None):
+def get_notification_listener(
+    transport,
+    targets,
+    endpoints,
+    executor=None,
+    serializer=None,
+    allow_requeue=False,
+    pool=None,
+):
     """Construct a notification listener
 
     The executor parameter controls how incoming messages will be received and
@@ -244,16 +344,25 @@ def get_notification_listener(transport, targets, endpoints,
     :type pool: str
     :raises: NotImplementedError
     """
-    dispatcher = notify_dispatcher.NotificationDispatcher(endpoints,
-                                                          serializer)
-    return NotificationServer(transport, targets, dispatcher, executor,
-                              allow_requeue, pool)
+    dispatcher = notify_dispatcher.NotificationDispatcher(
+        endpoints, serializer
+    )
+    return NotificationServer(
+        transport, targets, dispatcher, executor, allow_requeue, pool
+    )
 
 
-def get_batch_notification_listener(transport, targets, endpoints,
-                                    executor=None, serializer=None,
-                                    allow_requeue=False, pool=None,
-                                    batch_size=None, batch_timeout=None):
+def get_batch_notification_listener(
+    transport,
+    targets,
+    endpoints,
+    executor=None,
+    serializer=None,
+    allow_requeue=False,
+    pool=None,
+    batch_size=None,
+    batch_timeout=None,
+):
     """Construct a batch notification listener
 
     The executor parameter controls how incoming messages will be received and
@@ -286,8 +395,15 @@ def get_batch_notification_listener(transport, targets, endpoints,
     :raises: NotImplementedError
     """
     dispatcher = notify_dispatcher.BatchNotificationDispatcher(
-        endpoints, serializer)
+        endpoints, serializer
+    )
     return BatchNotificationServer(
-        transport, targets, dispatcher, executor, allow_requeue, pool,
-        batch_size, batch_timeout
+        transport,
+        targets,
+        dispatcher,
+        executor,
+        allow_requeue,
+        pool,
+        batch_size,
+        batch_timeout,
     )

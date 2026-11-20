@@ -198,10 +198,15 @@ MatchOptionType = Literal[
 ]
 MetricType = Literal[
     "AMORTIZED_COST",
+    "BILLED_COST",
     "BLENDED_COST",
+    "CONTRACTED_COST",
+    "LIST_COST",
     "NET_AMORTIZED_COST",
     "NET_UNBLENDED_COST",
     "NORMALIZED_USAGE_AMOUNT",
+    "PUBLIC_EQUIVALENT_BILLED_COST",
+    "PUBLIC_ON_DEMAND_COST",
     "UNBLENDED_COST",
     "USAGE_QUANTITY",
 ]
@@ -238,6 +243,7 @@ SupportedSavingsPlansTypeType = Literal[
 TermInYearsType = Literal["ONE_YEAR", "THREE_YEARS"]
 CostExplorerServiceName = Literal["ce"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -346,6 +352,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -530,6 +537,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -537,6 +545,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -597,6 +606,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

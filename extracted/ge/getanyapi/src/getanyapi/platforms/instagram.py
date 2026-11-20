@@ -342,6 +342,7 @@ class InstagramPostInput(TypedDict, total=False):
                 "locationId",
                 "locationLat",
                 "locationLng",
+                "paidPartnership",
                 "plays",
                 "reshares",
                 "soundAuthor",
@@ -793,6 +794,7 @@ class InstagramUserPostsInput(TypedDict, total=False):
                 "locationLat",
                 "locationLng",
                 "locationName",
+                "paidPartnership",
                 "productType",
                 "reshares",
                 "soundAuthor",
@@ -828,6 +830,7 @@ class InstagramUserReelsInput(TypedDict, total=False):
                 "locationLat",
                 "locationLng",
                 "locationName",
+                "paidPartnership",
                 "productType",
                 "reshares",
                 "soundAuthor",
@@ -2029,7 +2032,7 @@ class InstagramPostData(BaseModel):
     paid_partnership: bool | None = Field(
         default=None,
         alias="paidPartnership",
-        description="True when the post is tagged as a paid partnership.",
+        description="True when the post is tagged as a paid partnership. Null when this source does not report it.",
     )
     plays: int | None = Field(
         default=None,
@@ -2445,7 +2448,7 @@ class InstagramProfileContactData(BaseModel):
     )
     phones: list[str] | None = Field(
         default=None,
-        description="Every phone number found for the account, in E.164 form where the number could be normalized. Empty when the account publishes none.",
+        description="Phone numbers found for the account. A number read from the bio (written with + and a country code) is in E.164 form; a contact number a source supplies is as the source writes it, and a number found both ways appears once when the source writes it with its country code. Empty when none is found.",
     )
     private: bool | None = Field(
         default=None, description="Whether the account is private."
@@ -2946,7 +2949,7 @@ class InstagramSearchHashtagPost(BaseModel):
     paid_partnership: bool | None = Field(
         default=None,
         alias="paidPartnership",
-        description="True when the post is tagged as a paid partnership.",
+        description="True when the post is tagged as a paid partnership. Null when this source does not report it.",
     )
     product_type: str | None = Field(
         default=None,
@@ -4570,8 +4573,9 @@ class InstagramWebReelsSearchReel(BaseModel):
         default=None,
         description="Accounts @mentioned in the caption, each including its leading @. Populated whenever the provider has data for the entity. Present whenever the upstream returns this record.",
     )
-    paid_partnership: bool = Field(
-        alias="paidPartnership", description="True when the reel is a paid partnership."
+    paid_partnership: bool | None = Field(
+        alias="paidPartnership",
+        description="True when the reel is a paid partnership. Null when this source does not report it.",
     )
     product_type: str | None = Field(
         default=None,
@@ -5123,7 +5127,7 @@ class InstagramNamespace:
         extra on top of the price. If you want the spoken words as well,
         instagram.reel_transcript transcribes the same reel.
 
-        Price: $0.00039 per request.
+        Price: $0.00038 per request.
 
         Example:
             res = client.instagram.post(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -5144,7 +5148,7 @@ class InstagramNamespace:
         List the comments on an Instagram post or reel by URL with cursor pagination
         (text, author, likes).
 
-        Price: $0.0008 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.instagram.post_comments(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -5209,7 +5213,7 @@ class InstagramNamespace:
         Fetch an Instagram account's public profile (followers, posts, bio,
         verification) by handle.
 
-        Price: $0.00055 per request.
+        Price: $0.00054 per request.
 
         Example:
             res = client.instagram.profile(handle="nasa")
@@ -5695,7 +5699,7 @@ class InstagramNamespace:
         List the posts an Instagram user is tagged in, with cursor pagination
         (author, caption, likes, comments).
 
-        Price: $0.00135 per request.
+        Price: $0.00188 per request.
 
         Example:
             res = client.instagram.tagged_posts(handle="nasa")
@@ -5780,7 +5784,7 @@ class InstagramNamespace:
         List an Instagram account's recent posts (likes, comments, captions) by
         handle with cursor pagination.
 
-        Price: $0.00069 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.instagram.user_posts(handle="nasa")
@@ -5824,7 +5828,7 @@ class InstagramNamespace:
         List an Instagram account's reels by handle with cursor pagination (caption,
         plays, likes, comments).
 
-        Price: $0.0008 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.instagram.user_reels(handle="nasa")
@@ -6508,7 +6512,7 @@ class AsyncInstagramNamespace:
         extra on top of the price. If you want the spoken words as well,
         instagram.reel_transcript transcribes the same reel.
 
-        Price: $0.00039 per request.
+        Price: $0.00038 per request.
 
         Example:
             res = client.instagram.post(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -6529,7 +6533,7 @@ class AsyncInstagramNamespace:
         List the comments on an Instagram post or reel by URL with cursor pagination
         (text, author, likes).
 
-        Price: $0.0008 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.instagram.post_comments(url="https://www.instagram.com/reel/DWzrfE2kaY8/")
@@ -6594,7 +6598,7 @@ class AsyncInstagramNamespace:
         Fetch an Instagram account's public profile (followers, posts, bio,
         verification) by handle.
 
-        Price: $0.00055 per request.
+        Price: $0.00054 per request.
 
         Example:
             res = client.instagram.profile(handle="nasa")
@@ -7080,7 +7084,7 @@ class AsyncInstagramNamespace:
         List the posts an Instagram user is tagged in, with cursor pagination
         (author, caption, likes, comments).
 
-        Price: $0.00135 per request.
+        Price: $0.00188 per request.
 
         Example:
             res = client.instagram.tagged_posts(handle="nasa")
@@ -7165,7 +7169,7 @@ class AsyncInstagramNamespace:
         List an Instagram account's recent posts (likes, comments, captions) by
         handle with cursor pagination.
 
-        Price: $0.00069 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.instagram.user_posts(handle="nasa")
@@ -7209,7 +7213,7 @@ class AsyncInstagramNamespace:
         List an Instagram account's reels by handle with cursor pagination (caption,
         plays, likes, comments).
 
-        Price: $0.0008 per request.
+        Price: $0.00068 per request.
 
         Example:
             res = client.instagram.user_reels(handle="nasa")

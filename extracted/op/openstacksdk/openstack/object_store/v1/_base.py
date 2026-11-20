@@ -13,8 +13,10 @@
 
 from collections.abc import Iterable
 from typing import Any, Self
+from urllib import parse
 
 from keystoneauth1 import adapter
+import requests
 
 from openstack import exceptions
 from openstack import resource
@@ -23,6 +25,9 @@ from openstack import resource
 class BaseResource(resource.Resource):
     create_opts = resource.CreateOpts(method='PUT')
     commit_opts = resource.CommitOpts(method='POST')
+
+    #: Transaction identifier returned by Object Storage.
+    transaction_id = resource.Header('x-trans-id')
 
     #: Metadata stored for this resource. *Type: dict*
     metadata: dict[str, Any] = {}
@@ -45,8 +50,47 @@ class BaseResource(resource.Resource):
                 else:
                     self.metadata[k] = v
 
+    @classmethod
+    def _get_next_link(
+        cls,
+        uri: str,
+        response: requests.Response,
+        data: dict[str, Any],
+        marker: str | None,
+        limit: str | None,
+        total_yielded: int,
+    ) -> tuple[str | None, dict[str, str]]:
+        # Swift's count headers describe the entire account/container, not
+        # the filtered listing. Continue until an empty page is returned,
+        # including when the server omits the optional count headers.
+        if marker is None:
+            return None, {}
+        params = {'marker': marker}
+        if limit:
+            params['limit'] = limit
+        return uri, params
+
     def _prepare_request(self, *args: Any, **kwargs: Any) -> resource._Request:
-        request = super()._prepare_request(*args, **kwargs)
+        requires_id = kwargs.pop('requires_id', None)
+        if requires_id is None:
+            requires_id = self.requires_id
+        params = kwargs.pop('params', None)
+        # Let the shared layer encode URI attributes, but append Swift names
+        # separately: slashes are significant, including at either boundary.
+        request = super()._prepare_request(*args, requires_id=False, **kwargs)
+        if requires_id:
+            if self.id is None:
+                raise exceptions.InvalidRequest(
+                    'Request requires an ID but none was found'
+                )
+            # Keep leading/trailing slashes, including directory markers.
+            request.url = (
+                request.url.rstrip('/')
+                + '/'
+                + parse.quote(self.id, safe='/()')
+            )
+        if params:
+            request.url += '?' + parse.urlencode(params)
         request.headers.update(self._calculate_headers(self.metadata))
         return request
 

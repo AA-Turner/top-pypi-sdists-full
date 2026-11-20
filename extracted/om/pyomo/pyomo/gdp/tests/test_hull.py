@@ -153,13 +153,6 @@ class TwoTermDisj(unittest.TestCase, CommonTests):
             self.assertEqual(y.lb, -10)
             self.assertEqual(y.ub, 0)
 
-    def check_furman_et_al_denominator(self, expr, ind_var):
-        self.assertEqual(expr._const, EPS)
-        self.assertEqual(len(expr._args), 1)
-        self.assertEqual(len(expr._coef), 1)
-        self.assertEqual(expr._coef[0], 1 - EPS)
-        self.assertIs(expr._args[0], ind_var)
-
     def test_transformed_constraint_nonlinear(self):
         m = models.makeTwoTermDisj_Nonlinear()
         hull = TransformationFactory('gdp.hull')
@@ -2335,7 +2328,7 @@ class TestErrors(unittest.TestCase):
         with LoggingIntercept(log, 'pyomo.gdp.hull', logging.ERROR):
             self.assertRaisesRegex(
                 KeyError,
-                r".*disjunction",
+                r".*disjunct.ScalarDisjunction object",
                 hull.get_disaggregation_constraint,
                 m.d[1].transformation_block.disaggregatedVars.w,
                 m.disjunction,

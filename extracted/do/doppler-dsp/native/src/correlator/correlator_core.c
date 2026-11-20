@@ -12,7 +12,7 @@
 #include <string.h>
 
 /* The detector flavors: the stream and detection layers on top of the map
-   (docs/design/correlator.md section 4). They take frames through push
+   (docs/design/correlator.md section 2). They take frames through push
    alone, so every execute, batch and bank call refuses them. */
 static inline int
 corr2d_is_detector (const dp_correlator_state_t *s)
@@ -34,7 +34,7 @@ corr2d_is_search (const dp_correlator_state_t *s)
 
 /* The continuous search: the one flavor the carrier coupling, telemetry,
    surface and block read-outs are honored on (docs/design/
-   correlator-python.md section 18). The burst search shares the record but
+   correlator.md section 4). The burst search shares the record but
    nothing shows it honors them -- the carrier feeds a chip arithmetic a
    sample template does not have -- so they refuse it. */
 static inline int
@@ -375,9 +375,10 @@ dp_correlator_create_2d (const float _Complex *ref, size_t ny, size_t nx,
 }
 
 /* The 1-D flavor is the 2-D one at one row (docs/design/correlator.md
- * section 2.1): the single-row path, its count and its dwell, so nothing of
- * Corr's own survives (D1, D4). One row is one chunk, so the pool is never
- * built and nthreads changes nothing, as Corr documented. */
+ * section 2): the single-row path, its count and its dwell, so nothing of
+ * Corr's own survives (D1, D4 of docs/design/archive/correlator-step3.md). One
+ * row is one chunk, so the pool is never built and nthreads changes nothing,
+ * as Corr documented. */
 static dp_correlator_state_t *
 corr1d_create (const float _Complex *ref, size_t ref_len, size_t dwell,
                int nthreads, size_t n_out, const char **why)
@@ -396,7 +397,7 @@ dp_correlator_create_1d (const float _Complex *ref, size_t ref_len,
   return corr1d_create (ref, ref_len, dwell, nthreads, n_out, NULL);
 }
 
-/* ── Detector flavors (docs/design/correlator.md section 4) ─────────────── */
+/* ── Detector flavors (docs/design/correlator.md section 2) ─────────────── */
 
 /* The stream and detection layers, on a correlator create_2d built: the
    ring and its framer (frames of n at hop n, so they tile the stream), the
@@ -516,7 +517,7 @@ corr2d_detection_step (void *obj, const float _Complex *frame, void *result,
   if (s->threshold == 0.0f || s->test_stat > s->threshold)
     {
       /* The search flavors' fields (chip_phase on) are 0 from a detector
-         (docs/design/correlator.md section 4: the one hit record). */
+         (docs/design/correlator.md section 2: the one hit record). */
       ((dp_correlator_hit_t *)result)[slot]
           = (dp_correlator_hit_t){ .row       = s->peak_row,
                                    .col       = s->peak_col,
@@ -648,7 +649,7 @@ dp_correlator_reset (dp_correlator_state_t *state)
 }
 
 /* Serializable state — one blob for every flavor (docs/design/correlator.md
- * section 4): the flavor, ny, ny_out, the frame count and the ny*nx
+ * section 6): the flavor, ny, ny_out, the frame count and the ny*nx
  * accumulator. The FFT plans and the reference spectrum are config,
  * recomputed by create().
  *
@@ -817,8 +818,8 @@ dp_correlator_set_state (dp_correlator_state_t *s, const void *blob)
 int
 dp_correlator_set_ref (dp_correlator_state_t *state, const float _Complex *ref)
 {
-  /* §18: the 1-D and 2-D maps and both detectors (each has a set_ref
-     test); a search has no forward plan for a reference, and the
+  /* correlator.md §4: the 1-D and 2-D maps and both detectors (each has a
+     set_ref test); a search has no forward plan for a reference, and the
      delay-Doppler map's tables were sized from its code at create. */
   const dp_correlator_flavor_t f = dp_correlator_flavor (state);
   if (f != DP_CORRELATOR_1D && f != DP_CORRELATOR_2D
@@ -862,7 +863,7 @@ size_t
 dp_correlator_execute_max_out (dp_correlator_state_t *state)
 {
   /* 0 off a map: execute() refuses there, and a detector's n_out is its
-     own frame, not a map this would size (#2752 step 4, §18). */
+     own frame, not a map this would size (#2752 step 4, correlator.md §4). */
   return corr2d_is_map (state) ? state->n_out : 0;
 }
 
@@ -1162,9 +1163,9 @@ corr2d_execute (dp_correlator_state_t *state, const float _Complex *in,
   /* The 1-D flavor is one row on worker 0's plans, called directly: no
      pool dispatch and none of the other flavors' branches. Through
      corr2d_execute_fast the short frames ran 1-2% slower than Corr's own
-     path did on main (n = 31 and 63, docs/design/correlator.md U1); this
-     call is the same corr2d_row, so test_corr_equiv still holds it to the
-     2-D flavor at one row byte for byte.  The 1-D detector is the same
+     path did on main (n = 31 and 63, docs/design/archive/correlator-step3.md
+     U1); this call is the same corr2d_row, so test_corr_equiv still holds it
+     to the 2-D flavor at one row byte for byte.  The 1-D detector is the same
      row, so it takes the same call (test_detector_equiv). */
   if (state->flavor == DP_CORRELATOR_1D
       || state->flavor == DP_CORRELATOR_DETECTOR_1D)
@@ -1653,7 +1654,7 @@ dp_correlator_execute_all_max_out (const dp_correlator_state_t *state,
                                    size_t                       n_in)
 {
   /* Off a map, 0: a search's n is 0 (its constructor never sets it), and
-     execute_all() refuses there whatever this sizes (§18). */
+     execute_all() refuses there whatever this sizes (correlator.md §4). */
   if (!corr2d_is_map (state))
     return 0;
   const size_t H = n_in / state->n;
@@ -1771,7 +1772,7 @@ size_t
 dp_correlator_execute_peaks_max_out (const dp_correlator_state_t *state,
                                      size_t                       n_in)
 {
-  /* As execute_all_max_out: a search's n is 0 (§18). */
+  /* As execute_all_max_out: a search's n is 0 (correlator.md §4). */
   return corr2d_is_map (state) ? n_in / state->n : 0;
 }
 
@@ -2621,6 +2622,7 @@ typedef struct
   dp_fft_state_t *slowr; /* DI, forward                       */
   float _Complex *colr;  /* DD_SLOW_TILE x DI, zero tail      */
   float _Complex *colo;  /* DD_SLOW_TILE x DI, transformed    */
+  atomic_int      busy;  /* 1 while a fanned chunk holds it   */
 } dd_slot_t;
 
 struct dp__dd_map
@@ -2657,6 +2659,7 @@ dd_slot_build (const dp__dd_map_t *m, dd_slot_t *s)
 {
   const dp__dd_geom_t *g = &m->g;
   memset (s, 0, sizeof *s);
+  atomic_init (&s->busy, 0);
   s->fwd  = dp_fft_create (g->n, -1, 1);
   s->inv  = dp_fft_create (g->l, +1, 1);
   s->prod = dp_mallocn (dp_size_mul_sat (DD_ROW_GROUP, g->n), sizeof *s->prod);
@@ -2765,13 +2768,26 @@ dp__dd_map_fine_len (const dp__dd_map_t *m)
   return m->fdi * m->g.n;
 }
 
-/* Chunks a stage fans into: one per slot the pool can run at once. */
+/* Chunks a stage fans into for each worker the pool runs (#3047). One
+   chunk a worker left the stage as slow as its slowest worker: the pool's
+   cursor hands chunks out as workers free, so with several each a fast or
+   early worker takes more. 4 measured op5M_U50k_D150_t8 5% faster
+   (13.82-14.10 ms against 14.56-14.87, interleaved) and moved no 1- or
+   4-thread row. */
+#define DD_CHUNKS_PER_WORKER 4u
+
+/* Chunks a stage fans into: DD_CHUNKS_PER_WORKER for each worker the pool
+   can run at once (one chunk on one worker), never more than the items. A
+   chunk claims whichever slot is free (dd_range), so the count is not tied
+   to the slots. */
 static size_t
 dd_chunks (const dp__dd_map_t *m, dp_pool_t *pool, size_t items)
 {
   size_t k = (size_t)dp_pool_threads (pool);
   if (k > (size_t)m->slots)
     k = (size_t)m->slots;
+  if (k > 1) /* a serial run is one chunk: nothing to balance */
+    k *= DD_CHUNKS_PER_WORKER;
   if (k > items)
     k = items;
   return k ? k : 1;
@@ -2803,7 +2819,27 @@ dd_range (const dd_run_t *c, size_t t, size_t *a, size_t *b, dd_slot_t **s)
     }
   *a = t * c->items / c->k;
   *b = (t + 1) * c->items / c->k;
-  *s = &c->m->slot[t];
+  /* A free slot: one always is, since a worker holds one slot at a time
+     and every pool fanning on a map has no more workers than its slots
+     (search_apply_threads cuts its pool to them; Corr2D's map is built with
+     a slot a worker). Which slot a chunk gets does not touch its result: a
+     slot is plans and scratch, each item is computed whole on one. */
+  for (;;)
+    for (int u = 0; u < c->m->slots; u++)
+      if (!atomic_exchange (&c->m->slot[u].busy, 1))
+        {
+          *s = &c->m->slot[u];
+          return;
+        }
+}
+
+/* A fanned chunk's slot back to the free set; a pinned slot (c->slot) was
+   never claimed. */
+static void
+dd_release (const dd_run_t *c, dd_slot_t *s)
+{
+  if (c->slot < 0)
+    atomic_store (&s->busy, 0);
 }
 
 static void
@@ -2828,6 +2864,7 @@ dd_forward_body (size_t t, void *ctx)
   dd_range (c, t, &a, &b, &s);
   for (size_t k = a; k < b; k++)
     dp_fft_execute_cf32 (s->fwd, c->in + k * N, N, c->out + k * N, N);
+  dd_release (c, s);
 }
 
 void
@@ -2880,6 +2917,7 @@ dd_slow_body (size_t t, void *ctx)
       dd_col_ffts (s->slow, s->col, fdi, c->in + p0, N, nb, D, c->w,
                    c->out + p0 * fdi);
     }
+  dd_release (c, s);
 }
 
 void
@@ -2979,6 +3017,7 @@ dd_rows_body (size_t t, void *ctx)
                     i0, i1, c->out, NULL);
       a = q * DI + i1;
     }
+  dd_release (c, s);
 }
 
 void
@@ -3099,6 +3138,7 @@ dd_epochs_body (size_t t, void *ctx)
       dd_epochs (c->m, s, c->in, &c->tiles[q], k0, k1, c->out + q * D * L);
       a = q * D + k1;
     }
+  dd_release (c, s);
 }
 
 void
@@ -3140,6 +3180,7 @@ dd_columns_body (size_t t, void *ctx)
             dst[q2] = s->colo[q2 * DI + i];
         }
     }
+  dd_release (c, s);
 }
 
 void
@@ -3172,6 +3213,7 @@ dd_rows1_body (size_t t, void *ctx)
   for (size_t q = a; q < b; q++)
     dd_epoch (c->m, s, c->in, 0, &c->tiles[q],
               c->out + c->tiles[q].rows[0] * c->m->g.l);
+  dd_release (c, s);
 }
 
 /* The schedule rule's resolution: two counts within 1/16 of each other are
@@ -3348,6 +3390,27 @@ search_zone_cols (const dp_correlator_state_t *st)
          / srch->code_bins;
 }
 
+/* The half-width across the lags of the zone a listed peak marks:
+ * dp_correlator_set_peak_zone()'s, in lag columns (a chip is lag_bins / sf
+ * of them), else the mainlobe's. The twin rule keeps the mainlobe's
+ * (search_zone_cols) whatever this is. */
+static inline size_t
+search_list_zone_cols (const dp_correlator_state_t *st)
+{
+  const dp_correlator_search_t *srch = st->search;
+  if (!(st->zone_half_chips > 0.0))
+    return search_zone_cols (st);
+  /* The most whole columns whose width stays within half_chips: never
+     wider than asked, so a zone of the pick's key masks only what the key
+     would drop (2,048 lags on 1,023 chips is 2.002 a chip; a ceiling made
+     that 3 columns, 1.5 chips). Clamped before the cast: a finite
+     half_chips can still be huge, and the zone clamps to half the axis
+     anyway. */
+  const double c = floor (st->zone_half_chips * (double)srch->lag_bins
+                          / (double)srch->sf);
+  return c < (double)srch->lag_bins ? (size_t)c : srch->lag_bins;
+}
+
 /* The chip phase a hit seeds a code loop with, in Dll's convention: the
  * inverted lag (search_chip_phase_of_col) advanced by the dwell's dilation.
  * Both dp_correlator_build_handoff() and the hit's own chip_phase (filled in
@@ -3417,7 +3480,7 @@ search_in_doppler_band (const dp_correlator_state_t *st, size_t k)
 static size_t search_interp_for (size_t D, size_t window_bins);
 
 /* The cells a dwell's maximum ranges over: the SURFACE rows
- * search_in_doppler_band() admits, times code_bins. This is the count the
+ * search_in_doppler_band() admits, times lag_bins. This is the count the
  * Sidak split divides the false-alarm budget over, at every site that
  * prices a gate (search_commit_thresholds, search_ascend_n_noncoh, the burst
  * sizer), so a gate is priced over exactly the cells its peak search can
@@ -3508,19 +3571,51 @@ search_native_row (const dp_correlator_state_t *st, const float *surf,
   return best / srch->interp;
 }
 
-/* ── The decided surface's passes, per tile ─────────────────────────────
+/* ── The decided surface's passes, per chunk ────────────────────────────
  *
  * Every pass that reads or writes a whole surface after the fan -- the
  * magnitude of the coherent dump, the CFAR reference, the working mask's
  * copy of the band mask, each scan of the peak list, the non-coherent
  * accumulate -- runs per CHUNK on the pool (docs/design/acq-surface.md
- * §13, #1243): the
- * surface is `window_bins` chunks of whole rows, cells [r*len, (r+1)*len),
- * one per tile, and a body writes only its chunk's cells and its own
- * dp_correlator_part_t slot. The merges are serial in chunk order, so the
- * result is bit-identical at any thread count and their cost is per tile, not
- * per cell. A single-tile engine has one chunk and no pool: the same code,
+ * §13, §18.3, #1243): the surface is search_chunks() equal chunks of whole
+ * rows, cells [r*len, (r+1)*len), and a body writes only its chunk's cells
+ * and its own dp_correlator_part_t slot. The count is the grid's, never the
+ * pool's, and the merges are serial in chunk order, so the result is
+ * bit-identical at any thread count and their cost is per chunk, not per
+ * cell. A single-tile engine has one chunk and no pool: the same code,
  * serially, and the classic result to the bit. */
+
+/* The chunks a decided surface aims for, and the most a tile splits into
+   (#3047). One chunk a tile left a 3-tile search's decide pass on 3 workers
+   while the map fanned on 16: at the design point (D = 90) it was 37% of
+   the 16-thread push, and 6 chunks a tile took it from 10.2 to 8.0 ns a
+   sample. A grid with tiles enough splits nothing: 53 tiles at 8 chunks
+   each measured 1.6% slower on one thread (op2M_U50k_D60_t1) for no
+   worker it could feed. */
+#define SEARCH_DECIDE_CHUNKS 24u
+#define SEARCH_DECIDE_SPLIT 8u
+
+/* The chunks a decided surface splits into: one a tile, each tile's rows cut
+   into the largest count that divides them, up to what brings the total to
+   SEARCH_DECIDE_CHUNKS (at most SEARCH_DECIDE_SPLIT), so the chunks stay
+   equal (the reference merge is a mean of their means) and whole rows. Only
+   a block of more than one epoch splits: at D = 1 the pass runs every epoch,
+   where a finer fan pays the pool's wake-up for little work (#2775). A
+   function of the grid alone, so it never moves with the thread count. */
+static size_t
+search_chunks (const dp_correlator_search_t *srch)
+{
+  const size_t W = srch->window_bins;
+  if (W <= 1 || srch->coherent_bins <= 1)
+    return W;
+  const size_t rows = srch->n_surf / srch->lag_bins / W;
+  size_t       s    = (SEARCH_DECIDE_CHUNKS + W - 1) / W;
+  if (s > SEARCH_DECIDE_SPLIT)
+    s = SEARCH_DECIDE_SPLIT;
+  while (rows % s)
+    s--;
+  return W * s;
+}
 typedef struct
 {
   dp_correlator_state_t *st;
@@ -3534,7 +3629,7 @@ search_chunk (const dp_correlator_state_t *st, size_t r, size_t *k0,
               size_t *k1)
 {
   dp_correlator_search_t *const srch = st->search;
-  const size_t                  len  = srch->n_surf / srch->window_bins;
+  const size_t                  len  = srch->n_surf / search_chunks (srch);
   *k0                                = r * len;
   *k1                                = *k0 + len;
 }
@@ -3625,7 +3720,8 @@ search_merge_best (const dp_correlator_state_t *st, const float *surf)
   dp_correlator_search_t *const srch = st->search;
   const size_t                  n    = srch->n_surf;
   size_t                        best = n;
-  for (size_t r = 0; r < srch->window_bins; r++)
+  const size_t                  nch  = search_chunks (srch);
+  for (size_t r = 0; r < nch; r++)
     {
       const size_t b = srch->parts[r].best;
       if (b < n && (best == n || surf[b] > surf[best]))
@@ -3648,13 +3744,14 @@ search_scan_surface (dp_correlator_state_t *st, const float *surf,
   const int fan_ref = st->noise_mode != DET_NOISE_MEDIAN && st->noise_lo == 0
                       && st->noise_hi == srch->n_surf - 1;
   search_scan_t sc  = { st, surf, magnitude, fan_ref };
-  dp_pool_run (search_block_pool (st), srch->window_bins, search_tile_decide,
-               &sc);
+  dp_pool_run (search_block_pool (st), search_chunks (srch),
+               search_tile_decide, &sc);
   if (!fan_ref)
     return det_noise_estimate (surf, st->noise_lo, st->noise_hi,
                                st->noise_scratch, st->noise_mode);
-  float ref = srch->parts[0].ref;
-  for (size_t r = 1; r < srch->window_bins; r++)
+  float        ref = srch->parts[0].ref;
+  const size_t nch = search_chunks (srch);
+  for (size_t r = 1; r < nch; r++)
     {
       const float v = srch->parts[r].ref;
       if (st->noise_mode == DET_NOISE_MIN)
@@ -3664,15 +3761,15 @@ search_scan_surface (dp_correlator_state_t *st, const float *surf,
       else
         ref += v;
     }
-  return st->noise_mode == DET_NOISE_MEAN ? ref / (float)srch->window_bins
-                                          : ref;
+  return st->noise_mode == DET_NOISE_MEAN ? ref / (float)nch : ref;
 }
 
 /* The list over a surface, after search_scan_surface() has run the decide
  * pass on it: the working mask holds the band mask, the slots the band's
- * first maxima. The gate is `eta` in the surface's units, the zone one
- * Doppler row (`interp` surface rows) by the mainlobe (`shape.zone`
- * columns -- one chip for a code); every
+ * first maxima. The gate is `eta` in the surface's units, the zone
+ * dp_correlator_set_peak_zone()'s: by default one Doppler row (`interp`
+ * surface rows) by the mainlobe (`shape.zone` columns -- one chip for a
+ * code), or every Doppler row by its chips; every
  * pick after the first is one fanned scan of the working mask. When
  * nothing crosses the gate the strongest cell is still taken for the
  * inspection fields, as the classic detector always reported its maximum
@@ -3693,9 +3790,10 @@ search_list_peaks (dp_correlator_state_t *st, const float *surf, float gate)
       if (st->n_peaks == st->max_peaks)
         break;
       det_peak_zone (st->peak_mask, rows, nx, best / nx, best % nx,
-                     srch->interp, search_zone_cols (st));
-      dp_pool_run (search_block_pool (st), srch->window_bins, search_tile_pick,
-                   &sc);
+                     st->zone_all_doppler ? rows / 2 : srch->interp,
+                     search_list_zone_cols (st));
+      dp_pool_run (search_block_pool (st), search_chunks (srch),
+                   search_tile_pick, &sc);
       best = search_merge_best (st, surf);
     }
   if (st->n_peaks == 0 && best < srch->n_surf)
@@ -4652,9 +4750,9 @@ search_cover_window_bins (double du, double span)
 {
   if (!(du > 0.0))
     return 1;
-  /* The spacing of the TILES, one native span wide each, at any depth: a
-     depth D inside a tile refines the combined grid to res / D, it does
-     not move the tiles. */
+  /* The spacing of the TILES, each 2 * span = fs/N wide (span is the
+     half-range doppler_span_hz), at any depth: a depth D inside a tile
+     refines the combined grid to res / D, it does not move the tiles. */
   const double res = 2.0 * span;
   /* search_ceil_bins: an exact whole number of bins must not provision a
      spurious extra PAIR of windows. */
@@ -4697,7 +4795,8 @@ search_cover_window_bins (double du, double span)
  * du > span (wideband): *out_window_bins = 2*ceil((du - span)/(2*span)) + 1
  * (search_cover_window_bins(), always odd) tiles the requested uncertainty,
  * and the sizer still chooses a coherent depth inside each tile. Each tile is
- * one native span wide; the slow-time FFT resolves the residual within it. The
+ * 2 * span = fs/N wide (span is the half-range doppler_span_hz); the
+ * slow-time FFT resolves the residual within it. The
  * tile count and depth are both priced into the global threshold.
  *
  * du <= span: picks the smallest coherent depth D in [1, d_max] whose
@@ -4967,12 +5066,16 @@ search_map_build (const dp_correlator_state_t *st, const float _Complex *ref,
   return 0;
 }
 
-/* Run the caller's request (threads_req) on the grid in effect. Never more
-   workers than tiles: every fan hands out one tile a task, so a worker past
-   window_bins only wakes and waits, every epoch. At 0 (the online cores) on
-   a three-tile search that was 15 idle workers of 18, and the pool's scene
-   example spent 26 s of 35 in the kernel. A count already running is kept,
-   so a regrid that leaves the cap where it was does not rebuild the pool. */
+/* Run the caller's request (threads_req) on the grid in effect. At D = 1,
+   never more workers than tiles: every per-epoch fan hands out one tile a
+   task, so a worker past window_bins only wakes and waits, every epoch. At
+   0 (the online cores) on a three-tile search that was 15 idle workers of
+   18, and the pool's scene example spent 26 s of 35 in the kernel. A block
+   of D > 1 epochs fans finer than tiles -- the map over epochs, bins and
+   (tile, row), the decide pass over search_chunks() -- so there the request
+   stands (#3047: 3 tiles at D = 90 ran 14.0 ns a sample at 8 threads capped
+   to 3, 11.0 uncapped). A count already running is kept, so a regrid that
+   leaves the cap where it was does not rebuild the pool. */
 static void
 search_apply_threads (dp_correlator_state_t *st)
 {
@@ -4982,16 +5085,20 @@ search_apply_threads (dp_correlator_state_t *st)
   if (n != 1 && srch->window_bins > 1)
     {
       want = n > 0 ? n : dp_cpu_count ();
-      if (want > (long)srch->window_bins)
+      if (srch->coherent_bins <= 1 && want > (long)srch->window_bins)
         want = (long)srch->window_bins;
     }
   if (want < 1)
     want = 1;
-  /* The map's worker slots, one a chunk it may fan into: kept at least the
-     count asked for. A failed reserve leaves fewer slots, and the map fans
-     over the slots it has: slower, never wrong. */
+  /* The map's worker slots, one a worker: a fanned chunk claims a free one
+     (dd_range). A failed reserve leaves fewer slots, and the pool is cut
+     to them, so no worker ever waits for a slot: slower, never wrong. */
   if (st->dd_map)
-    (void)dp__dd_map_reserve (st->dd_map, (int)want);
+    {
+      (void)dp__dd_map_reserve (st->dd_map, (int)want);
+      if (want > (long)st->dd_map->slots)
+        want = st->dd_map->slots;
+    }
   if (want == srch->threads && (want == 1) == (st->pool == NULL))
     return;
   dp_pool_destroy (st->pool);
@@ -5055,7 +5162,8 @@ dp_correlator_regrid (dp_correlator_state_t *st, size_t new_db, size_t new_nc,
       || !dp_size_mul (surf_bytes, new_interp, &surf_bytes)
       || !dp_size_mul (surf_bytes, lb, &surf_bytes)
       || !dp_size_mul (surf_bytes, sizeof (float _Complex), &surf_bytes)
-      || !dp_size_mul (new_freq_bins, sizeof (dp_correlator_part_t),
+      || !dp_size_mul (new_freq_bins, SEARCH_DECIDE_SPLIT, &parts_bytes)
+      || !dp_size_mul (parts_bytes, sizeof (dp_correlator_part_t),
                        &parts_bytes)
       /* The map's slow-first scratch, f x DI x code_bins at the finest
          f, can be twice the surface: part of the same truth. */
@@ -5095,10 +5203,12 @@ dp_correlator_regrid (dp_correlator_state_t *st, size_t new_db, size_t new_nc,
           if (!new_blk_raw)
             goto fail;
         }
-      /* The partial slots (one per tile) follow the grid, built here with
-         the rest so nothing fails after the commit (#2761). */
-      new_parts = (dp_correlator_part_t *)dp_mallocn (new_freq_bins,
-                                                      sizeof *new_parts);
+      /* The partial slots (one a decide chunk, search_chunks(): at most
+         SEARCH_DECIDE_SPLIT a tile) follow the grid, built here with the
+         rest so nothing fails after the commit (#2761). */
+      new_parts = (dp_correlator_part_t *)dp_mallocn (
+          dp_size_mul_sat (new_freq_bins, SEARCH_DECIDE_SPLIT),
+          sizeof *new_parts);
       if (!new_parts)
         goto fail;
     }
@@ -5194,9 +5304,10 @@ dp_correlator_regrid (dp_correlator_state_t *st, size_t new_db, size_t new_nc,
       st->noise_lo       = 0;
       st->noise_hi       = new_n_surf - 1;
     }
-  /* The tile count may have moved, so the cap on the caller's request may
-     have too: narrowing to one tile runs serially, and widening again comes
-     back to the request, not to that 1 (#2746, #2797). */
+  /* The tile count or the depth may have moved, so the cap on the caller's
+     request may have too: narrowing to one tile runs serially, a depth of 1
+     caps at the tiles, and widening again comes back to the request, not to
+     the cap (#2746, #2797, #3047). */
   search_apply_threads (st);
   return 0;
 
@@ -5282,8 +5393,8 @@ search_lag_amplitude (const double *P, size_t n, double delta, double p_sum)
  */
 /* The periodic autocorrelation of x, R(m) / n for m = 0 .. n-1, through the
  * correlator's single-row path (x correlated against itself): the one
- * correlation in the library, in cf32 (design correlator.md U4). Returns a
- * fresh buffer the caller frees. */
+ * correlation in the library, in cf32 (archive/correlator-step3.md U4).
+ * Returns a fresh buffer the caller frees. */
 static float _Complex *
 search_autocorr (const float _Complex *x, size_t n)
 {
@@ -5445,7 +5556,7 @@ search_doppler_sidelobe (const float _Complex *replica, size_t n,
      one forward transform per residual, then one row per tile offset,
      since rolling the residual's spectrum by k bins is the turn by k tiles
      (f_T is the transform's bin spacing). In cf32, the map's precision
-     (design correlator.md U4, 3.4b-pre). */
+     (archive/correlator-step3.md U4, 3.4b-pre). */
   const dp__dd_geom_t g   = { .n = n, .l = n, .d = 1, .di = 1, .f = 1 };
   dp__dd_map_t       *map = dp_xnn (dp__dd_map_create (&g, 1));
   float _Complex     *wt  = dp_xmallocn (n, sizeof *wt);
@@ -5683,7 +5794,8 @@ search_acq_create_impl (const float _Complex *replica, size_t sf,
 
   /* The roll per thread (docs/design/acq-surface.md §13): a continuous
      engine asks for the machine's online cores, which dp_correlator_regrid
-     caps at one worker a tile, so a single-tile one runs serially; a burst
+     caps at one worker a tile at D = 1 and leaves whole at D > 1
+     (search_apply_threads), so a single-tile one runs serially; a burst
      engine asks for one. dp_correlator_set_threads() changes the request. */
   st->search->threads     = 1;
   st->search->threads_req = continuous ? 0 : 1;
@@ -5923,7 +6035,7 @@ dp_correlator_create_burst (const float _Complex *tmpl, size_t n, size_t reps,
                               rate_hypotheses, NULL);
 }
 
-/* ── One constructor (docs/design/correlator-python.md sections 3, 17) ──── */
+/* ── One constructor (docs/design/correlator.md section 3) ──── */
 
 dp_correlator_flavor_t
 dp_correlator_flavor (const dp_correlator_state_t *state)
@@ -6152,7 +6264,7 @@ dp_correlator_configure_search_raw (dp_correlator_state_t *st,
                                     const char **why)
 {
   dp_correlator_search_t *const srch = st->search;
-  if (!srch) /* not a search flavor (§18) */
+  if (!srch) /* not a search flavor (correlator.md §4) */
     return DP_ERR_UNSUPPORTED;
   if (doppler_bins < 1 || doppler_bins > srch->reps)
     {
@@ -6261,7 +6373,7 @@ int
 dp_correlator_set_threads (dp_correlator_state_t *st, int n)
 {
   dp_correlator_search_t *const srch = st->search;
-  if (!srch) /* not a search flavor (§18) */
+  if (!srch) /* not a search flavor (correlator.md §4) */
     return DP_ERR_UNSUPPORTED;
   srch->threads_req = n;
   search_apply_threads (st);
@@ -6273,7 +6385,7 @@ dp_correlator_set_max_peaks (dp_correlator_state_t *st, size_t n,
                              const char **why)
 {
   /* Only a search lists peaks, and only a search's destroy frees the list:
-     off one this would leak it (§18). */
+     off one this would leak it (correlator.md §4). */
   if (!st->search)
     return DP_ERR_UNSUPPORTED;
   if (n < 1 || n > DP_CORRELATOR_MAX_PEAKS)
@@ -6293,6 +6405,24 @@ dp_correlator_set_max_peaks (dp_correlator_state_t *st, size_t n,
   st->max_peaks = n;
   st->n_peaks   = 0;
   st->n_twins   = 0;
+  return 0;
+}
+
+int
+dp_correlator_set_peak_zone (dp_correlator_state_t *st, int all_doppler,
+                             double half_chips, const char **why)
+{
+  if (!st->search) /* only a search lists peaks (correlator.md §4) */
+    return DP_ERR_UNSUPPORTED;
+  if ((all_doppler != 0 && all_doppler != 1) || !isfinite (half_chips))
+    {
+      if (why)
+        *why = "set_peak_zone: all_doppler must be 0 or 1 and half_chips "
+               "finite";
+      return DP_ERR_INVALID;
+    }
+  st->zone_all_doppler = all_doppler;
+  st->zone_half_chips  = half_chips;
   return 0;
 }
 
@@ -6580,7 +6710,7 @@ dp__search_push (dp_correlator_state_t *st, const float _Complex *x,
        * (per chunk, on the pool); gate the order-N_nc statistic once
        * n_noncoh looks are in. */
       search_scan_t acc = { st, NULL, 0, 0 };
-      dp_pool_run (search_epoch_pool (st), srch->window_bins,
+      dp_pool_run (search_epoch_pool (st), search_chunks (srch),
                    search_tile_nc_acc, &acc);
       if (++srch->nc_count < srch->n_noncoh)
         continue; /* still accumulating looks */
@@ -6611,7 +6741,7 @@ uint64_t
 dp_correlator_position (const dp_correlator_state_t *state)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!srch) /* not a search flavor (§18) */
+  if (!srch) /* not a search flavor (correlator.md §4) */
     return 0;
   return srch->samples_consumed + dp_f32_framer_pending (&state->framer);
 }
@@ -6621,7 +6751,7 @@ dp_correlator_set_carrier_freq_hz (dp_correlator_state_t *state,
                                    double                 carrier_freq_hz)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!corr2d_is_continuous (state)) /* §18 */
+  if (!corr2d_is_continuous (state)) /* correlator.md §4 */
     return DP_ERR_UNSUPPORTED;
   if (!dp_correlator_carrier_freq_ok (carrier_freq_hz, srch->fs))
     return DP_ERR_INVALID;
@@ -6650,7 +6780,7 @@ double
 dp_correlator_psl_db (const dp_correlator_state_t *state)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!srch) /* not a search flavor (§18) */
+  if (!srch) /* not a search flavor (correlator.md §4) */
     return NAN;
   /* log10(0) is -HUGE_VAL, but say it: a perfect sequence has no sidelobe
      to be below, and -inf is that fact rather than a number to compare. */
@@ -6661,7 +6791,7 @@ double
 dp_correlator_gate_stat (const dp_correlator_state_t *state)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!srch) /* not a search flavor (§18) */
+  if (!srch) /* not a search flavor (correlator.md §4) */
     return NAN;
   /* The two dwell paths' gates, in the one statistic both report. */
   return srch->n_noncoh <= 1 ? (double)state->threshold : (double)srch->eta_nc;
@@ -6671,7 +6801,7 @@ double
 dp_correlator_dsl_db (dp_correlator_state_t *state)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!srch) /* not a search flavor (§18) */
+  if (!srch) /* not a search flavor (correlator.md §4) */
     return NAN;
   if (!srch->dsl_ready)
     {
@@ -6924,7 +7054,7 @@ dp_correlator_set_telemetry (dp_correlator_state_t *state, dp_tlm_t *tlm,
                              const char **why)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!corr2d_is_continuous (state)) /* §18 */
+  if (!corr2d_is_continuous (state)) /* correlator.md §4 */
     return DP_ERR_UNSUPPORTED;
   if (!tlm) /* detach: the probe site reverts to the single-branch cost */
     {
@@ -6996,7 +7126,8 @@ size_t
 dp_correlator_surface (dp_correlator_state_t *state, float *out, size_t n_out)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!corr2d_is_continuous (state)) /* §18: refused, never "none yet" */
+  if (!corr2d_is_continuous (
+          state)) /* correlator.md §4: refused, never "none yet" */
     return SIZE_MAX;
   if (!srch->stat_surface || srch->surface_at == 0 || n_out < srch->n_surf)
     return 0;
@@ -7008,7 +7139,8 @@ dp_correlator_surface_doppler_hz (dp_correlator_state_t *state, double *out,
                                   size_t n_out)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!corr2d_is_continuous (state)) /* §18: refused, never "none yet" */
+  if (!corr2d_is_continuous (
+          state)) /* correlator.md §4: refused, never "none yet" */
     return SIZE_MAX;
   const size_t rows = srch->n_surf / srch->lag_bins;
   if (n_out < rows)
@@ -7025,7 +7157,8 @@ dp_correlator_surface_chip_phase (dp_correlator_state_t *state, double *out,
                                   size_t n_out)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!corr2d_is_continuous (state)) /* §18: refused, never "none yet" */
+  if (!corr2d_is_continuous (
+          state)) /* correlator.md §4: refused, never "none yet" */
     return SIZE_MAX;
   const size_t cols = srch->lag_bins;
   if (n_out < cols)
@@ -7044,7 +7177,7 @@ dp_correlator_surface_complex (dp_correlator_state_t *state,
      its last look, so it is not the dwell's. */
   /* Both searches: the map-equivalence test reads the burst search's
      surface against the reference map (test_correlator_search eq_score). */
-  if (!srch) /* §18: refused, never "none yet" */
+  if (!srch) /* correlator.md §4: refused, never "none yet" */
     return SIZE_MAX;
   if (srch->dwells == 0 || srch->n_noncoh > 1 || n_out < srch->n_surf)
     return 0;
@@ -7066,7 +7199,8 @@ dp_correlator_block_prompt (dp_correlator_state_t *state, size_t tile,
                             size_t col, float _Complex *out, size_t n_out)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!corr2d_is_continuous (state)) /* §18: refused, never "none yet" */
+  if (!corr2d_is_continuous (
+          state)) /* correlator.md §4: refused, never "none yet" */
     return SIZE_MAX;
   const size_t D = srch->coherent_bins, cb = srch->code_bins;
   const size_t lb = srch->lag_bins;
@@ -7112,7 +7246,8 @@ dp_correlator_block_raw (dp_correlator_state_t *state, float _Complex *out,
                          size_t n_out)
 {
   dp_correlator_search_t *const srch = state->search;
-  if (!corr2d_is_continuous (state)) /* §18: refused, never "none yet" */
+  if (!corr2d_is_continuous (
+          state)) /* correlator.md §4: refused, never "none yet" */
     return SIZE_MAX;
   const size_t n = srch->coherent_bins * srch->code_bins;
   if (!search_block_whole (state) || n_out < n)
@@ -7141,7 +7276,7 @@ dp_correlator_set_surface_sink (dp_correlator_state_t        *state,
 int
 dp_correlator_set_keep_surface (dp_correlator_state_t *state, int keep)
 {
-  if (!corr2d_is_continuous (state)) /* §18 */
+  if (!corr2d_is_continuous (state)) /* correlator.md §4 */
     return DP_ERR_UNSUPPORTED;
   /* A flag: what is kept is what the blob carries (0 or 1, version 2). */
   state->search->keep_surface = keep != 0;
@@ -7242,6 +7377,8 @@ dp__search_get_state (const dp_correlator_state_t *st, void *blob)
   ex.blk_epoch        = (uint32_t)srch->blk_epoch;
   ex.rate_hyps        = (uint32_t)srch->rate_hyps;
   ex.carrier_freq_hz  = srch->carrier_freq_hz;
+  ex.zone_all_doppler = (uint32_t)(st->zone_all_doppler != 0);
+  ex.zone_half_chips  = st->zone_half_chips;
   dp_w_bytes (&w, &ex, sizeof ex);
 
   /* The carry: the framer's own snapshot, zero-padded to a fixed size. */
@@ -7305,6 +7442,7 @@ search_state_check (const dp_correlator_state_t *st, const void *blob,
       || ex.max_peaks != (uint32_t)st->max_peaks || ex.n_twins > ex.max_peaks
       || ex.blk_epoch >= (uint32_t)srch->coherent_bins
       || ex.rate_hyps != (uint32_t)srch->rate_hyps || ex.keep_surface > 1
+      || ex.zone_all_doppler > 1 || !isfinite (ex.zone_half_chips)
       || !dp_correlator_carrier_freq_ok (ex.carrier_freq_hz, srch->fs))
     return DP_ERR_INVALID;
 
@@ -7388,6 +7526,8 @@ dp__search_set_state (dp_correlator_state_t *st, const void *blob)
   srch->samples_consumed = ex.samples_consumed;
   srch->nc_count         = ex.nc_count;
   srch->keep_surface     = ex.keep_surface;
+  st->zone_all_doppler   = (int)ex.zone_all_doppler;
+  st->zone_half_chips    = ex.zone_half_chips;
   st->consumed           = 0;
 
   if (srch->nc_surface)
@@ -7446,7 +7586,8 @@ dp_correlator_run (dp_correlator_state_t *st, const void *state_in,
 int
 dp_correlator_get_keep_surface (const dp_correlator_state_t *state, int *out)
 {
-  if (!corr2d_is_continuous (state)) /* §18: the continuous search only */
+  if (!corr2d_is_continuous (
+          state)) /* correlator.md §4: the continuous search only */
     return DP_ERR_UNSUPPORTED;
   *out = state->search->keep_surface;
   return DP_OK;
@@ -7458,7 +7599,7 @@ dp_correlator_last_corr_status (const dp_correlator_state_t *state)
   const dp_correlator_flavor_t f = dp_correlator_flavor (state);
   return f == DP_CORRELATOR_DETECTOR_1D || f == DP_CORRELATOR_DETECTOR_2D
              ? DP_OK
-             : DP_ERR_UNSUPPORTED; /* §18: both detectors only */
+             : DP_ERR_UNSUPPORTED; /* correlator.md §4: both detectors only */
 }
 
 int

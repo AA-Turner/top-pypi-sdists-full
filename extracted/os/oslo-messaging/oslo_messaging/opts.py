@@ -18,15 +18,15 @@ import itertools
 from oslo_messaging._drivers import amqp
 from oslo_messaging._drivers import impl_rabbit
 from oslo_messaging._drivers.kafka_driver import kafka_options
+from oslo_messaging._metrics import client as metrics
+from oslo_messaging._tracing import client as tracing
 from oslo_messaging.notify import notifier
 from oslo_messaging.rpc import client
 from oslo_messaging.rpc import dispatcher
 from oslo_messaging import server
 from oslo_messaging import transport
 
-__all__ = [
-    'list_opts'
-]
+__all__ = ['list_opts']
 
 _global_opt_lists = [
     server._pool_opts,
@@ -38,9 +38,13 @@ _global_opt_lists = [
 _opts = [
     (None, list(itertools.chain(*_global_opt_lists))),
     ('oslo_messaging_notifications', notifier._notifier_opts),
-    ('oslo_messaging_rabbit', list(
-        itertools.chain(amqp.amqp_opts, impl_rabbit.rabbit_opts))),
+    (
+        'oslo_messaging_rabbit',
+        list(itertools.chain(amqp.amqp_opts, impl_rabbit.rabbit_opts)),
+    ),
     ('oslo_messaging_kafka', kafka_options.KAFKA_OPTS),
+    ('oslo_messaging_metrics', metrics.oslo_messaging_metrics),
+    ('oslo_messaging_tracing', tracing.oslo_messaging_tracing),
 ]
 
 
@@ -82,5 +86,6 @@ def set_defaults(conf, executor_thread_pool_size=None):
 
     """
     if executor_thread_pool_size is not None:
-        conf.set_default('executor_thread_pool_size',
-                         executor_thread_pool_size)
+        conf.set_default(
+            'executor_thread_pool_size', executor_thread_pool_size
+        )

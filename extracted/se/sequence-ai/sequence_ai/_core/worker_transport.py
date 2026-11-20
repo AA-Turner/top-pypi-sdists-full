@@ -31,7 +31,7 @@ from . import wifi_power
 from . import worker_stream as _stream
 from .worker_link import StreamLink
 from .pinned_tls import build_pinned_ssl_context
-from .reporting import error_of
+from .error_report import error_of
 from .rid import HEADER as _RID_HEADER
 from .transport import Transport
 from .warn import warn
@@ -265,8 +265,12 @@ class _WorkerTransport(StreamLink):
     """
 
     def __init__(self, worker_url: str, direct_secret: str, fingerprint: Optional[str],
-                 timeout_s: float, session: Optional[str] = None, teleop: Optional[Any] = None) -> None:
+                 timeout_s: float, session: Optional[str] = None, teleop: Optional[Any] = None,
+                 lines: Optional[Any] = None, on_line_reopen: Optional[Callable[[str], None]] = None) -> None:
         self._base = worker_url.rstrip("/")
+
+
+        self._lines, self.on_line_reopen = lines, on_line_reopen
         self._session = session
 
 
@@ -310,7 +314,8 @@ class _WorkerTransport(StreamLink):
 
         self._used_at = 0.0
         self._warm_stop = threading.Event()
-        verify = build_pinned_ssl_context(fingerprint)
+
+        verify = None if self._base.startswith("http://") else build_pinned_ssl_context(fingerprint)
 
 
         self.bbr = _bbr_options()
@@ -332,7 +337,8 @@ class _WorkerTransport(StreamLink):
 
         self.quiet: Optional[tuple[float, Callable[[], None]]] = None
         headers = {
-            "Authorization": f"Bearer {direct_secret}",
+
+            **({"Authorization": f"Bearer {direct_secret}"} if direct_secret else {}),
             "Content-Type": "application/json",
 
 
@@ -346,7 +352,7 @@ class _WorkerTransport(StreamLink):
 
 
 
-        self._ask_client = httpx.Client(base_url=self._base, timeout=timeout_s, verify=verify,
+        self._ask_client = httpx.Client(base_url=self._base, timeout=timeout_s, verify=verify if verify else True,
                                         limits=httpx.Limits(max_connections=2, max_keepalive_connections=1))
 
         self._sends = threading.Lock()

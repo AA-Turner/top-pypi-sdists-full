@@ -33,14 +33,19 @@ __all__ = (
     "FirewallDomainImportOperationType",
     "FirewallDomainListStatusType",
     "FirewallDomainRedirectionActionType",
+    "FirewallDomainStatusFilterType",
+    "FirewallDomainStatusType",
     "FirewallDomainUpdateOperationType",
     "FirewallFailOpenStatusType",
+    "FirewallRuleDomainSortByType",
+    "FirewallRuleDomainSortOrderType",
     "FirewallRuleGroupAssociationStatusType",
     "FirewallRuleGroupStatusType",
     "IpAddressStatusType",
     "ListFirewallConfigsPaginatorName",
     "ListFirewallDomainListsPaginatorName",
     "ListFirewallDomainsPaginatorName",
+    "ListFirewallRuleDomainsPaginatorName",
     "ListFirewallRuleGroupAssociationsPaginatorName",
     "ListFirewallRuleGroupsPaginatorName",
     "ListFirewallRuleTypesPaginatorName",
@@ -86,7 +91,7 @@ BlockOverrideDnsTypeType = Literal["CNAME"]
 BlockResponseType = Literal["NODATA", "NXDOMAIN", "OVERRIDE"]
 ConfidenceThresholdType = Literal["HIGH", "LOW", "MEDIUM"]
 DnsThreatProtectionType = Literal["DGA", "DICTIONARY_DGA", "DNS_TUNNELING"]
-DomainListTypeType = Literal["CONTENT", "THREAT"]
+DomainListTypeType = Literal["AUTOALLOWLIST", "CONTENT", "THREAT"]
 FirewallDomainImportOperationType = Literal["REPLACE"]
 FirewallDomainListStatusType = Literal[
     "COMPLETE", "COMPLETE_IMPORT_FAILED", "DELETING", "IMPORTING", "UPDATING"
@@ -94,8 +99,12 @@ FirewallDomainListStatusType = Literal[
 FirewallDomainRedirectionActionType = Literal[
     "INSPECT_REDIRECTION_DOMAIN", "TRUST_REDIRECTION_DOMAIN"
 ]
-FirewallDomainUpdateOperationType = Literal["ADD", "REMOVE", "REPLACE"]
+FirewallDomainStatusFilterType = Literal["ALLOWED", "DENIED", "OBSERVED"]
+FirewallDomainStatusType = Literal["ALLOWED", "DENIED", "OBSERVED", "UNKNOWN"]
+FirewallDomainUpdateOperationType = Literal["ADD", "DENY", "REMOVE", "REPLACE"]
 FirewallFailOpenStatusType = Literal["DISABLED", "ENABLED", "USE_LOCAL_RESOURCE_SETTING"]
+FirewallRuleDomainSortByType = Literal["DAILY_TOTAL", "TIME_ADDED", "TOTAL_REQUESTS"]
+FirewallRuleDomainSortOrderType = Literal["ASC", "DESC"]
 FirewallRuleGroupAssociationStatusType = Literal["COMPLETE", "DELETING", "UPDATING"]
 FirewallRuleGroupStatusType = Literal["COMPLETE", "DELETING", "UPDATING"]
 IpAddressStatusType = Literal[
@@ -117,6 +126,7 @@ IpAddressStatusType = Literal[
 ListFirewallConfigsPaginatorName = Literal["list_firewall_configs"]
 ListFirewallDomainListsPaginatorName = Literal["list_firewall_domain_lists"]
 ListFirewallDomainsPaginatorName = Literal["list_firewall_domains"]
+ListFirewallRuleDomainsPaginatorName = Literal["list_firewall_rule_domains"]
 ListFirewallRuleGroupAssociationsPaginatorName = Literal["list_firewall_rule_group_associations"]
 ListFirewallRuleGroupsPaginatorName = Literal["list_firewall_rule_groups"]
 ListFirewallRuleTypesPaginatorName = Literal["list_firewall_rule_types"]
@@ -182,6 +192,7 @@ SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ValidationType = Literal["DISABLE", "ENABLE", "USE_LOCAL_RESOURCE_SETTING"]
 Route53ResolverServiceName = Literal["route53resolver"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -290,6 +301,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -474,6 +486,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -481,6 +494,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -541,6 +555,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -625,6 +640,7 @@ PaginatorName = Literal[
     "list_firewall_configs",
     "list_firewall_domain_lists",
     "list_firewall_domains",
+    "list_firewall_rule_domains",
     "list_firewall_rule_group_associations",
     "list_firewall_rule_groups",
     "list_firewall_rule_types",

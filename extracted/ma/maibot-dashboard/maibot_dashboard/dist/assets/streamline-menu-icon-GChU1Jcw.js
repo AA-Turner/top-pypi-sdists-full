@@ -1,0 +1,1 @@
+import{r as a}from"./index-X8JaL0Z6.js";import{S as c}from"./streamline-icon-B6FqM1qe.js";function l(e,r){return function({className:t,color:n,size:o=20}){return a.createElement(c,{name:e,fallback:r,className:t,color:n,size:o})}}export{l as c};

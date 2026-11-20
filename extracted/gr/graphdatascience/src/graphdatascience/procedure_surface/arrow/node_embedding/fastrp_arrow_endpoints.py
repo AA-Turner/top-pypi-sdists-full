@@ -8,16 +8,18 @@ from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, AL
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
 from graphdatascience.procedure_surface.api.node_embedding.fastrp_endpoints import (
-    FastRPEndpoints,
     FastRPMutateResult,
     FastRPStatsResult,
     FastRPWriteResult,
+)
+from graphdatascience.procedure_surface.api.node_embedding.fastrp_session_endpoints import (
+    FastRPSessionEndpoints,
 )
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
 from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
-class FastRPArrowEndpoints(FastRPEndpoints):
+class FastRPArrowEndpoints(FastRPSessionEndpoints):
     def __init__(
         self,
         arrow_client: AuthenticatedArrowClient,
@@ -47,6 +49,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
         job_id: str | None = None,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
     ) -> JobHandle:
         config = self._node_property_endpoints.create_base_config(
             G,
@@ -63,6 +66,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
             random_seed=random_seed,
             relationship_types=relationship_types,
             relationship_weight_property=relationship_weight_property,
+            result_as_vector=result_as_vector,
             sudo=sudo,
         )
         return self._node_property_endpoints.run_job(G, "v2/embeddings.fastrp", config)
@@ -86,6 +90,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
         job_id: str | None = None,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
     ) -> FastRPMutateResult:
         config = self._node_property_endpoints.create_base_config(
             G,
@@ -102,6 +107,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
             random_seed=random_seed,
             relationship_types=relationship_types,
             relationship_weight_property=relationship_weight_property,
+            result_as_vector=result_as_vector,
             sudo=sudo,
         )
 
@@ -168,6 +174,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
         job_id: str | None = None,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
     ) -> DataFrame:
         config = self._node_property_endpoints.create_base_config(
             G,
@@ -184,6 +191,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
             random_seed=random_seed,
             relationship_types=relationship_types,
             relationship_weight_property=relationship_weight_property,
+            result_as_vector=result_as_vector,
             sudo=sudo,
         )
 
@@ -208,6 +216,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
         job_id: str | None = None,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
         write_concurrency: int | None = None,
     ) -> FastRPWriteResult:
         config = self._node_property_endpoints.create_base_config(
@@ -225,6 +234,7 @@ class FastRPArrowEndpoints(FastRPEndpoints):
             random_seed=random_seed,
             relationship_types=relationship_types,
             relationship_weight_property=relationship_weight_property,
+            result_as_vector=result_as_vector,
             sudo=sudo,
         )
 

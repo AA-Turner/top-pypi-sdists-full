@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_partnercentral_selling.literals import AwsClosedLostReasonType
+    from mypy_boto3_partnercentral_selling.literals import AggregatableFieldType
 
-    data: AwsClosedLostReasonType = "Administrative"
+    data: AggregatableFieldType = "ACCOUNT_PLANNING_QUALIFICATION"
     ```
 """
 
@@ -23,32 +23,52 @@ else:
 
 
 __all__ = (
+    "AggregatableFieldType",
     "AwsClosedLostReasonType",
     "AwsFundingUsedType",
     "AwsMemberBusinessTitleType",
     "AwsOpportunityStageType",
     "AwsPartitionType",
+    "BulkFileFormatType",
+    "BulkJobStatusType",
+    "BulkOperationTypeType",
+    "BulkRecordStatusType",
+    "BulkReportStatusType",
+    "BulkReportTypeType",
     "ChannelType",
     "ClosedLostReasonType",
     "CompetitorNameType",
+    "ContactWindowType",
     "CountryCodeType",
     "CurrencyCodeType",
+    "CustomerAccountFailureReasonType",
+    "DayOfWeekType",
     "DeliveryModelType",
     "EngagementContextTypeType",
+    "EngagementGroupSortNameType",
     "EngagementInvitationPayloadTypeType",
     "EngagementScoreType",
+    "EngagementSearchFilterNameType",
+    "EngagementSearchSortNameType",
     "EngagementSortNameType",
+    "EnrichmentStatusType",
     "ExpectedContractDurationTermType",
+    "FilterableFieldType",
     "IndustryType",
     "InvitationStatusType",
     "InvolvementTypeChangeReasonType",
+    "ListCustomerAccountBulkJobResultsPaginatorName",
+    "ListCustomerAccountBulkJobsPaginatorName",
     "ListEngagementByAcceptingInvitationTasksPaginatorName",
     "ListEngagementFromOpportunityTasksPaginatorName",
+    "ListEngagementGroupsPaginatorName",
     "ListEngagementInvitationsPaginatorName",
     "ListEngagementMembersPaginatorName",
     "ListEngagementResourceAssociationsPaginatorName",
     "ListEngagementsPaginatorName",
     "ListOpportunitiesPaginatorName",
+    "ListOpportunityBulkJobResultsPaginatorName",
+    "ListOpportunityBulkJobsPaginatorName",
     "ListOpportunityFromEngagementTasksPaginatorName",
     "ListProspectingFromEngagementTasksPaginatorName",
     "ListResourceSnapshotJobsPaginatorName",
@@ -59,6 +79,8 @@ __all__ = (
     "NationalSecurityType",
     "OpportunityEngagementInvitationSortNameType",
     "OpportunityOriginType",
+    "OpportunitySearchFilterNameType",
+    "OpportunitySearchSortNameType",
     "OpportunitySortNameType",
     "OpportunityTypeType",
     "PaginatorName",
@@ -68,6 +90,7 @@ __all__ = (
     "PrimaryNeedFromAwsType",
     "ProspectingFromEngagementTaskSortNameType",
     "ProspectingTaskStatusType",
+    "ReadinessLevelType",
     "ReasonCodeType",
     "ReceiverResponsibilityType",
     "RelatedEntityTypeType",
@@ -78,17 +101,35 @@ __all__ = (
     "ReviewStatusType",
     "SalesActivityType",
     "SalesInvolvementTypeType",
+    "SearchCustomerAccountsPaginatorName",
+    "SearchEngagementScoreType",
+    "SearchEngagementsPaginatorName",
+    "SearchOpportunitiesPaginatorName",
     "ServiceName",
     "SolutionSortNameType",
     "SolutionStatusType",
     "SortByType",
     "SortOrderType",
+    "SortableFieldType",
     "StageType",
     "TaskStatusType",
     "VisibilityType",
 )
 
 
+AggregatableFieldType = Literal[
+    "ACCOUNT_PLANNING_QUALIFICATION",
+    "AWS_INDUSTRY",
+    "COUNTRY",
+    "ENRICHMENT_STATUS",
+    "GEO",
+    "MARKETPLACE_ENGAGEMENT_SCORE",
+    "PROGRAM_ELIGIBILITY",
+    "REGION",
+    "SEGMENT",
+    "SOLUTION_CATEGORY",
+    "SOLUTION_SCORE",
+]
 AwsClosedLostReasonType = Literal[
     "Administrative",
     "Business Associate Agreement",
@@ -170,6 +211,12 @@ AwsOpportunityStageType = Literal[
     "Term Sheet Negotiation",
 ]
 AwsPartitionType = Literal["aws-eusc"]
+BulkFileFormatType = Literal["CSV"]
+BulkJobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "SUBMITTED"]
+BulkOperationTypeType = Literal["BULK_CREATE", "BULK_UPDATE"]
+BulkRecordStatusType = Literal["FAILED", "SUCCEEDED"]
+BulkReportStatusType = Literal["AVAILABLE", "EXPIRED", "FAILED", "IN_PROGRESS", "NOT_STARTED"]
+BulkReportTypeType = Literal["ALL_RECORDS", "FAILED_RECORDS"]
 ChannelType = Literal[
     "AWS Marketing Central",
     "Content Syndication",
@@ -219,6 +266,7 @@ CompetitorNameType = Literal[
     "Oracle Cloud",
     "Other- Cost Optimization",
 ]
+ContactWindowType = Literal["AFTERNOON", "EVENING", "MORNING"]
 CountryCodeType = Literal[
     "AD",
     "AE",
@@ -640,14 +688,99 @@ CurrencyCodeType = Literal[
     "ZMW",
     "ZWL",
 ]
+CustomerAccountFailureReasonType = Literal["DUPLICATE_CUSTOMER_MATCH", "PROCESSING_ERROR"]
+DayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
+]
 DeliveryModelType = Literal[
     "BYOL or AMI", "Managed Services", "Other", "Professional Services", "Resell", "SaaS or PaaS"
 ]
-EngagementContextTypeType = Literal["CustomerProject", "Lead", "ProspectingResult"]
-EngagementInvitationPayloadTypeType = Literal["LeadInvitation", "OpportunityInvitation"]
+EngagementContextTypeType = Literal[
+    "CustomerAccount", "CustomerProject", "Lead", "ProspectingResult"
+]
+EngagementGroupSortNameType = Literal["Count", "UpdatedAt"]
+EngagementInvitationPayloadTypeType = Literal[
+    "AccountPlanningInvitation", "LeadInvitation", "OpportunityInvitation"
+]
 EngagementScoreType = Literal["High", "Low", "Medium"]
+EngagementSearchFilterNameType = Literal[
+    "ContextType",
+    "CreatedAt",
+    "EngagementId",
+    "LastModifiedAt",
+    "LeadCustomerAwsMaturity",
+    "LeadCustomerCompanyName",
+    "LeadCustomerCountryCode",
+    "LeadCustomerIndustry",
+    "LeadCustomerMarketSegment",
+    "LeadInteractionsContactBusinessTitle",
+    "LeadInteractionsContactFirstName",
+    "LeadInteractionsContactLastName",
+    "LeadInteractionsSourceName",
+    "LeadInteractionsSourceType",
+    "LeadInteractionsUsecase",
+    "LeadQualificationStatus",
+    "LeadReadinessScore",
+    "MemberCount",
+    "PartnerId",
+    "ProspectingCustomerCompanySize",
+    "ProspectingCustomerCountry",
+    "ProspectingCustomerGeo",
+    "ProspectingCustomerIndustry",
+    "ProspectingCustomerRegion",
+    "ProspectingCustomerSegment",
+    "ProspectingInsightsMarketplaceEngagementScore",
+    "ProspectingInsightsSolutionCategory",
+    "ProspectingInsightsSolutionSubCategory",
+    "Title",
+]
+EngagementSearchSortNameType = Literal[
+    "CreatedAt",
+    "EngagementId",
+    "LastModifiedAt",
+    "LeadCustomerAwsMaturity",
+    "LeadCustomerCompanyName",
+    "LeadCustomerCountryCode",
+    "LeadCustomerIndustry",
+    "LeadCustomerMarketSegment",
+    "LeadInteractionsContactBusinessTitle",
+    "LeadInteractionsContactFirstName",
+    "LeadInteractionsContactLastName",
+    "LeadInteractionsUsecase",
+    "LeadQualificationStatus",
+    "LeadReadinessScore",
+    "MemberCount",
+    "PartnerId",
+    "ProspectingCustomerCompanySize",
+    "ProspectingCustomerCountry",
+    "ProspectingCustomerGeo",
+    "ProspectingCustomerIndustry",
+    "ProspectingCustomerRegion",
+    "ProspectingCustomerSegment",
+    "ProspectingInsightsMarketplaceEngagementScore",
+    "ProspectingInsightsSolutionCategory",
+    "ProspectingInsightsSolutionSubCategory",
+    "Title",
+]
 EngagementSortNameType = Literal["CreatedDate"]
+EnrichmentStatusType = Literal["ACTION_REQUIRED", "ENRICHED", "NO_MATCH_FOUND", "PENDING"]
 ExpectedContractDurationTermType = Literal["Months"]
+FilterableFieldType = Literal[
+    "ACCOUNT_PLANNING_QUALIFICATION",
+    "AWS_INDUSTRY",
+    "COMPANY_NAME",
+    "COUNTRY",
+    "CREATED_DATE",
+    "ENRICHMENT_STATUS",
+    "GEO",
+    "IMPORT_ID",
+    "LAST_MODIFIED_DATE",
+    "MARKETPLACE_ENGAGEMENT_SCORE",
+    "PROGRAM_ELIGIBILITY",
+    "SEGMENT",
+    "SOLUTION_CATEGORY",
+    "SOLUTION_SCORE",
+]
 IndustryType = Literal[
     "Aerospace",
     "Agriculture",
@@ -686,15 +819,20 @@ InvolvementTypeChangeReasonType = Literal[
     "Risk Mitigation",
     "Technical Complexity",
 ]
+ListCustomerAccountBulkJobResultsPaginatorName = Literal["list_customer_account_bulk_job_results"]
+ListCustomerAccountBulkJobsPaginatorName = Literal["list_customer_account_bulk_jobs"]
 ListEngagementByAcceptingInvitationTasksPaginatorName = Literal[
     "list_engagement_by_accepting_invitation_tasks"
 ]
 ListEngagementFromOpportunityTasksPaginatorName = Literal["list_engagement_from_opportunity_tasks"]
+ListEngagementGroupsPaginatorName = Literal["list_engagement_groups"]
 ListEngagementInvitationsPaginatorName = Literal["list_engagement_invitations"]
 ListEngagementMembersPaginatorName = Literal["list_engagement_members"]
 ListEngagementResourceAssociationsPaginatorName = Literal["list_engagement_resource_associations"]
 ListEngagementsPaginatorName = Literal["list_engagements"]
 ListOpportunitiesPaginatorName = Literal["list_opportunities"]
+ListOpportunityBulkJobResultsPaginatorName = Literal["list_opportunity_bulk_job_results"]
+ListOpportunityBulkJobsPaginatorName = Literal["list_opportunity_bulk_jobs"]
 ListOpportunityFromEngagementTasksPaginatorName = Literal["list_opportunity_from_engagement_tasks"]
 ListProspectingFromEngagementTasksPaginatorName = Literal["list_prospecting_from_engagement_tasks"]
 ListResourceSnapshotJobsPaginatorName = Literal["list_resource_snapshot_jobs"]
@@ -705,6 +843,57 @@ MarketingSourceType = Literal["Marketing Activity", "None"]
 NationalSecurityType = Literal["No", "Yes"]
 OpportunityEngagementInvitationSortNameType = Literal["InvitationDate"]
 OpportunityOriginType = Literal["AWS Referral", "Partner Referral"]
+OpportunitySearchFilterNameType = Literal[
+    "ApnPrograms",
+    "AwsAccountId",
+    "AwsMarketplaceSolution",
+    "CosellMotion",
+    "CountryCode",
+    "CreatedDate",
+    "CustomerCompanyName",
+    "EngagementScore",
+    "EstimatedMrr",
+    "Industry",
+    "LastModifiedDate",
+    "NextStep",
+    "OfferId",
+    "OfferSetId",
+    "OpportunityId",
+    "OpportunityOwner",
+    "OpportunityType",
+    "Origin",
+    "PartnerOpportunityIdentifier",
+    "PartnerProjectTitle",
+    "ReviewStatus",
+    "Stage",
+    "Tags",
+    "TargetCloseDate",
+]
+OpportunitySearchSortNameType = Literal[
+    "ApnPrograms",
+    "AwsAccountId",
+    "CosellMotion",
+    "CountryCode",
+    "CreatedDate",
+    "CustomerCompanyName",
+    "EngagementScore",
+    "EstimatedMrr",
+    "Industry",
+    "LastModifiedDate",
+    "NextStep",
+    "OfferId",
+    "OfferSetId",
+    "OpportunityId",
+    "OpportunityOwner",
+    "OpportunityType",
+    "Origin",
+    "PartnerOpportunityIdentifier",
+    "PartnerProjectTitle",
+    "ReviewStatus",
+    "Stage",
+    "Tags",
+    "TargetCloseDate",
+]
 OpportunitySortNameType = Literal[
     "CreatedDate", "CustomerCompanyName", "Identifier", "LastModifiedDate", "TargetCloseDate"
 ]
@@ -725,6 +914,7 @@ ProspectingFromEngagementTaskSortNameType = Literal[
     "FailedEngagementCount", "StartTime", "TaskName"
 ]
 ProspectingTaskStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
+ReadinessLevelType = Literal["LowPotential", "MarketingReady", "SalesReady"]
 ReasonCodeType = Literal[
     "ContextNotFound",
     "CustomerProjectContextNotPermitted",
@@ -785,10 +975,21 @@ SalesActivityType = Literal[
     "SOW Signed",
 ]
 SalesInvolvementTypeType = Literal["Co-Sell", "For Visibility Only"]
+SearchCustomerAccountsPaginatorName = Literal["search_customer_accounts"]
+SearchEngagementScoreType = Literal["High", "Low", "Medium"]
+SearchEngagementsPaginatorName = Literal["search_engagements"]
+SearchOpportunitiesPaginatorName = Literal["search_opportunities"]
 SolutionSortNameType = Literal["Category", "CreatedDate", "Identifier", "Name", "Status"]
 SolutionStatusType = Literal["Active", "Draft", "Inactive"]
 SortByType = Literal["CreatedDate"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
+SortableFieldType = Literal[
+    "COMPANY_NAME",
+    "CREATED_DATE",
+    "LAST_MODIFIED_DATE",
+    "MARKETPLACE_ENGAGEMENT_SCORE",
+    "SOLUTION_SCORE",
+]
 StageType = Literal[
     "Business Validation",
     "Closed Lost",
@@ -1104,6 +1305,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -1246,16 +1448,24 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_customer_account_bulk_job_results",
+    "list_customer_account_bulk_jobs",
     "list_engagement_by_accepting_invitation_tasks",
     "list_engagement_from_opportunity_tasks",
+    "list_engagement_groups",
     "list_engagement_invitations",
     "list_engagement_members",
     "list_engagement_resource_associations",
     "list_engagements",
     "list_opportunities",
+    "list_opportunity_bulk_job_results",
+    "list_opportunity_bulk_jobs",
     "list_opportunity_from_engagement_tasks",
     "list_prospecting_from_engagement_tasks",
     "list_resource_snapshot_jobs",
     "list_resource_snapshots",
     "list_solutions",
+    "search_customer_accounts",
+    "search_engagements",
+    "search_opportunities",
 ]

@@ -25,7 +25,7 @@ from contrast_fireball import (
 
 from contrast import SecurityException
 from contrast.agent import sys_monitoring
-from contrast.agent.scope import SHIELD_SCOPE
+from contrast.agent.scope import SHIELD_SCOPE, contrast_scope
 from contrast.agent.sys_monitoring import CONTRAST_TOOL_ID
 from contrast.reporting import fireball
 from contrast.utils.configuration_utils import str_to_enum
@@ -614,6 +614,7 @@ class CVECodeInstrument:
 
         self._activate_rules(code, shield_scope, rules, is_new_call=False)
 
+    @contrast_scope()
     @fail_quietly()
     def _activate_rules(
         self,
@@ -700,6 +701,7 @@ class CVECodeInstrument:
 
         self._deactivate_rules(code, shield_scope, rules)
 
+    @contrast_scope()
     @fail_quietly()
     def _deactivate_rules(
         self, code: CodeType, shield_scope: Scope, rules: dict[Rule, frozenset[str]]

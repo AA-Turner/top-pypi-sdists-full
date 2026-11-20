@@ -169,3 +169,61 @@ def test_every_dream_backs_up_and_verifies_with_store_manifest(name):
     text = _read(FAMILY[name])
     assert "store_manifest.py backup" in text, "%s hand-rolls its backup" % name
     assert "store_manifest.py verify" in text, "%s never verifies against its backup" % name
+
+
+def _flat(path):
+    return " ".join(_read(path).split())
+
+
+def test_off_means_private_memory_only_for_the_cross_tree_dreams_too():
+    """`off` silences nudges only (self_improve_signals.dream_due); the core, the settings
+    reference and the dream_mode docstring say a manual run then consolidates private memory
+    only. A crosstree Mode saying `off` skips the skill contradicted them while its own steps 7
+    and 8 described what it does under `off`."""
+    core = _flat(CORE)
+    cross = _flat(FAMILY["meta-dream-crosstree"])
+    deep = _flat(FAMILY["meta-dream-crosstree-deep"])
+    assert "skips this skill entirely" not in cross
+    assert ("under `off` a manual run consolidates PRIVATE memory only, as the core says for the "
+            "whole family") in cross
+    assert "proposes every step 4b relocate, whatever its target level" in cross
+    assert "PROPOSED in `propose` and under `off`, applied in `auto`" in cross
+    assert "## Mode" in _read(FAMILY["meta-dream-crosstree-deep"])
+    assert "Under `off` a run of this skill is a manual one too" in deep
+    assert "the cross-tree ones included: none of them edits a `CLAUDE.md`" in core
+    assert "under `off` no dream edits a `CLAUDE.md`" in core
+
+
+def test_crosstree_lists_each_promotion_to_a_tree_top_with_its_cost():
+    """The core's report contract lists a corroborated promotion to the top with its cost;
+    verify prints bytes per level only, so the crosstree report must compute it per fact."""
+    cross = _flat(FAMILY["meta-dream-crosstree"])
+    assert "list each promotion to a tree top by slug, as applied, with its cost" in cross
+    assert "grep -F '(mem:<slug>)' <top>/CLAUDE.local.md | wc -c" in cross
+    assert "promotions to global" not in cross
+
+
+def test_a_promotion_below_the_tree_top_is_reported_with_its_level_and_cost():
+    """Step 5 promotes to the lowest common ancestor within the tree, which is not always its top,
+    and that level's block loads in every session under it. Verify names arriving slugs only at a
+    tree top, so without these sentences a below-top promotion reaches the report as a bare
+    arrival count, in the crosstree report and in the core's report contract alike."""
+    core = _flat(CORE)
+    cross = _flat(FAMILY["meta-dream-crosstree"])
+    assert ("A promotion to a common ancestor below the tree top is listed the same way, by slug "
+            "and as applied, with the level it landed at") in cross
+    assert "grep -F '(mem:<slug>)' <level>/CLAUDE.local.md | wc -c" in cross
+    assert "promotions to a tree top, promotions to a level below a top," in cross
+    assert ("A promotion to a common ancestor below the top (a duplicate merged at its levels' "
+            "common parent, a crosstree lift to the lowest common ancestor) is listed as applied "
+            "too, by slug, with the level it landed at and its cost there") in core
+
+
+def test_the_dreams_say_what_follows_an_empty_scope_and_another_trees_backup_dir():
+    """store_manifest refuses an empty scope and an --out holding another tree's backup; the
+    tree and crosstree steps that run it say what each refusal means and what comes next."""
+    tree = _flat(FAMILY["meta-dream-tree"])
+    cross = _flat(FAMILY["meta-dream-crosstree"])
+    for text in (tree, cross):
+        assert "verify skipped (no pointers before the run)" in text
+        assert "another tree's backup" in text

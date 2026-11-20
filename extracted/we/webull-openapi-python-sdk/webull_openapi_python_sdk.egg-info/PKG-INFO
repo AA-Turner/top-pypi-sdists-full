@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: webull-openapi-python-sdk
-Version: 3.0.4
+Version: 3.1.0
 Summary: Webull Python SDK.
 Home-page: 
 Author: Webull
@@ -16,6 +16,7 @@ Requires-Dist: cachetools<6,>=5.2.0
 Requires-Dist: paho-mqtt<2,>=1.6.1
 Requires-Dist: urllib3>=2.0
 Requires-Dist: requests>=2.31.0
+Requires-Dist: httpx[http2]<0.29,>=0.28.1
 Requires-Dist: six>=1.16.0
 Requires-Dist: cryptography<42,>=3.4; python_version < "3.12"
 Requires-Dist: cryptography<43,>=41.0; python_version >= "3.12" and python_version < "3.14"

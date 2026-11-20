@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-toml-fmt
-Version: 1.12.1
+Version: 1.12.2
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -205,7 +205,8 @@ Short arrays stay on one line:
    # After
    env_list = [ "py313", "py312", "lint" ]
 
-An array that exceeds ``column_width`` expands and gains a trailing comma:
+The formatter adds a trailing comma when it wraps a non-empty single-line array to fit ``column_width``.
+It measures the full line, including the key, indentation, and any end-of-line comment.
 
 .. code-block:: toml
 

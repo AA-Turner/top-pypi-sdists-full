@@ -172,6 +172,22 @@ _GEMINI_NATIVE_NON_STANDARD_TYPES = frozenset(
 _REFUSAL_FINISH_REASONS = frozenset({"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST"})
 """Candidate finish reasons that core translates to a refusal content block."""
 
+_FINISH_REASONS: dict[str, str] = {
+    "STOP": "stop",
+    "MAX_TOKENS": "length",
+    "SAFETY": "refusal",
+    "PROHIBITED_CONTENT": "refusal",
+    "BLOCKLIST": "refusal",
+    "RECITATION": "content_filter",
+    "SPII": "content_filter",
+    "LANGUAGE": "content_filter",
+    "IMAGE_SAFETY": "content_filter",
+    "IMAGE_PROHIBITED_CONTENT": "content_filter",
+    "IMAGE_RECITATION": "content_filter",
+    "MALFORMED_FUNCTION_CALL": "error",
+    "MALFORMED_RESPONSE": "error",
+}
+
 _MODEL_PROFILES = cast("ModelProfileRegistry", _PROFILES)
 
 
@@ -1069,6 +1085,15 @@ def _convert_to_parts(
     return parts
 
 
+def _contains_json_ref(value: Any) -> bool:
+    """Return whether a parsed JSON value has a `$ref` key at any depth."""
+    if isinstance(value, Mapping):
+        return "$ref" in value or any(_contains_json_ref(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_json_ref(item) for item in value)
+    return False
+
+
 def _convert_tool_message_to_parts(
     message: ToolMessage | FunctionMessage,
     name: str | None = None,
@@ -1099,6 +1124,15 @@ def _convert_tool_message_to_parts(
             response = json.loads(message.content)
         except json.JSONDecodeError:
             response = message.content  # leave as str representation
+    if _contains_json_ref(response):
+        # Gemini resolves `$ref` keys in a function response against the
+        # display names of its multimodal parts and rejects the request when
+        # none match, so tool output such as JSON schemas is sent as text.
+        response = (
+            message.content
+            if isinstance(message.content, str)
+            else json.dumps(response, default=str)
+        )
     part = Part(
         function_response=FunctionResponse(
             name=name,
@@ -2048,6 +2082,35 @@ def _parse_response_candidate(
     )
 
 
+def _finish_reason_fields(
+    finish_reason: str | None, *, has_tool_calls: bool
+) -> dict[str, str]:
+    """Map a Gemini `finish_reason` onto `normalized_finish_reason`."""
+    if not finish_reason:
+        return {}
+    normalized = _FINISH_REASONS.get(finish_reason.upper(), "other")
+    # Gemini reports `STOP` when it ends on function calls.
+    if normalized == "stop" and has_tool_calls:
+        normalized = "tool_call"
+    return {"normalized_finish_reason": normalized}
+
+
+def _mark_streamed_tool_call(gen: ChatGenerationChunk, saw_tool_call: bool) -> bool:
+    """Upgrade a final `stop` to `tool_call` when an earlier chunk had tool calls.
+
+    Gemini can send function calls and `STOP` in separate stream chunks.
+    """
+    message = gen.message
+    if isinstance(message, AIMessageChunk) and (
+        message.tool_call_chunks or message.tool_calls
+    ):
+        saw_tool_call = True
+    info = gen.generation_info
+    if saw_tool_call and info and info.get("normalized_finish_reason") == "stop":
+        info["normalized_finish_reason"] = "tool_call"
+    return saw_tool_call
+
+
 def _response_to_result(
     response: GenerateContentResponse,
     stream: bool = False,
@@ -2076,7 +2139,14 @@ def _response_to_result(
             response.usage_metadata.candidates_token_count or 0
         ) + thought_tokens
         total_tokens = response.usage_metadata.total_token_count or 0
+        # Cached tokens are a subset of `prompt_token_count`. With grounding (for
+        # example `google_search`), Gemini can report a cached count well above
+        # the prompt. That count can't be trusted, and clamping it would report a
+        # full cache hit, so drop it instead.
+        prompt_tokens = response.usage_metadata.prompt_token_count or 0
         cache_read_tokens = response.usage_metadata.cached_content_token_count or 0
+        if cache_read_tokens > prompt_tokens:
+            cache_read_tokens = 0
         if input_tokens + output_tokens + cache_read_tokens + total_tokens > 0:
             if thought_tokens > 0:
                 cumulative_usage = UsageMetadata(
@@ -2148,6 +2218,13 @@ def _response_to_result(
 
         if not hasattr(message, "response_metadata"):
             message.response_metadata = {}
+
+        generation_info.update(
+            _finish_reason_fields(
+                generation_info.get("finish_reason"),
+                has_tool_calls=bool(message.tool_calls or message.invalid_tool_calls),
+            )
+        )
 
         if generation_info.get("finish_reason") in _REFUSAL_FINISH_REASONS:
             # `v1` content is built from the message before `generation_info` is merged.
@@ -4341,6 +4418,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
 
         prev_usage_metadata: UsageMetadata | None = None  # Cumulative usage
         indexer = _StreamBlockIndexer()
+        saw_tool_call = False
         for chunk in _classified_stream(response, request):
             if chunk:
                 _chat_result = _response_to_result(
@@ -4351,6 +4429,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
 
             # Populate index if missing
             indexer.assign(message)
+            saw_tool_call = _mark_streamed_tool_call(gen, saw_tool_call)
 
             prev_usage_metadata = (
                 message.usage_metadata
@@ -4399,6 +4478,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
             **request,
         )
 
+        saw_tool_call = False
         async for chunk in _aclassified_stream(stream, request):
             _chat_result = _response_to_result(
                 chunk, stream=True, prev_usage=prev_usage_metadata
@@ -4408,6 +4488,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
 
             # populate index if missing
             indexer.assign(message)
+            saw_tool_call = _mark_streamed_tool_call(gen, saw_tool_call)
 
             prev_usage_metadata = (
                 message.usage_metadata

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_polly.literals import DescribeVoicesPaginatorName
+    from mypy_boto3_polly.literals import AudioFormatType
 
-    data: DescribeVoicesPaginatorName = "describe_voices"
+    data: AudioFormatType = "flac"
     ```
 """
 
@@ -23,6 +23,8 @@ else:
 
 
 __all__ = (
+    "AudioFormatType",
+    "CustomVoiceLanguageCodeType",
     "DescribeVoicesPaginatorName",
     "EngineType",
     "GenderType",
@@ -41,10 +43,16 @@ __all__ = (
     "TaskStatusType",
     "TextTypeType",
     "ValidationExceptionReasonType",
+    "VoiceActiveWaiterName",
     "VoiceIdType",
+    "VoiceOriginType",
+    "VoiceStatusType",
+    "WaiterName",
 )
 
 
+AudioFormatType = Literal["flac", "mp3", "ogg_vorbis", "wav"]
+CustomVoiceLanguageCodeType = Literal["de-DE", "en-US", "es-US", "fr-FR", "hi-IN", "it-IT", "pt-BR"]
 DescribeVoicesPaginatorName = Literal["describe_voices"]
 EngineType = Literal["generative", "long-form", "neural", "standard"]
 GenderType = Literal["Female", "Male"]
@@ -95,14 +103,22 @@ LanguageCodeType = Literal[
 ListLexiconsPaginatorName = Literal["list_lexicons"]
 ListSpeechSynthesisTasksPaginatorName = Literal["list_speech_synthesis_tasks"]
 OutputFormatType = Literal["alaw", "json", "mp3", "mulaw", "ogg_opus", "ogg_vorbis", "pcm"]
-QuotaCodeType = Literal["input-stream-inbound-event-timeout", "input-stream-timeout"]
+QuotaCodeType = Literal[
+    "custom-voice-max-count", "input-stream-inbound-event-timeout", "input-stream-timeout"
+]
 ServiceCodeType = Literal["polly"]
 SpeechMarkTypeType = Literal["sentence", "ssml", "viseme", "word"]
 TaskStatusType = Literal["completed", "failed", "inProgress", "scheduled"]
 TextTypeType = Literal["ssml", "text"]
 ValidationExceptionReasonType = Literal[
-    "fieldValidationFailed", "invalidInboundEvent", "other", "unsupportedOperation"
+    "fieldValidationFailed",
+    "invalidInboundEvent",
+    "kmsKeyNotFound",
+    "kmsKeyUnusable",
+    "other",
+    "unsupportedOperation",
 ]
+VoiceActiveWaiterName = Literal["voice_active"]
 VoiceIdType = Literal[
     "Aditi",
     "Adriano",
@@ -221,6 +237,8 @@ VoiceIdType = Literal[
     "Zeina",
     "Zhiyu",
 ]
+VoiceOriginType = Literal["aws", "customer"]
+VoiceStatusType = Literal["active", "failed", "pending"]
 PollyServiceName = Literal["polly"]
 ServiceName = Literal[
     "abuse-signal",
@@ -525,6 +543,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -667,6 +686,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["describe_voices", "list_lexicons", "list_speech_synthesis_tasks"]
+WaiterName = Literal["voice_active"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

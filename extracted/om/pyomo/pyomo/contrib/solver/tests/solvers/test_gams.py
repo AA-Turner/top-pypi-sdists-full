@@ -409,6 +409,37 @@ class TestGAMS(unittest.TestCase):
         self.assertAlmostEqual(model.x.value, -5)
         self.assertAlmostEqual(model.y.value, 5)
 
+    def test_gams_solve_logfile(self):
+        model = self.create_model()
+        with TempfileManager.new_context() as temp:
+            dname = temp.mkdtemp()
+            for tee in (False, True):
+                logfile = os.path.join(dname, f'tee_{tee}.log')
+                result = gams.GAMS().solve(
+                    model,
+                    tee=tee,
+                    logfile=logfile,
+                    writer_config={'put_results_format': 'dat'},
+                )
+                self.assertEqual(result.solution_status, SolutionStatus.optimal)
+                self.assertGreater(os.path.getsize(logfile), 0)
+
+            # A relative logfile is relative to the caller's working
+            # directory, not the directory GAMS runs in
+            cwd = os.getcwd()
+            os.chdir(dname)
+            try:
+                result = gams.GAMS().solve(
+                    model,
+                    logfile='relative.log',
+                    writer_config={'put_results_format': 'dat'},
+                )
+            finally:
+                os.chdir(cwd)
+            self.assertEqual(result.solution_status, SolutionStatus.optimal)
+            logfile = os.path.join(dname, 'relative.log')
+            self.assertGreater(os.path.getsize(logfile), 0)
+
     @unittest.skipIf(not gams.gdxcc_available, "'gdx' requires the gdx/gdxcc module")
     def test_gams_solve_noload_gdx(self):
         # Gut check - does it solve?
@@ -660,3 +691,18 @@ sys.exit(3)
                 + "\n",
                 LOG.getvalue(),
             )
+
+    def test_gams_sos_constraint_error(self):
+        # The GAMS writer does not currently support SOS constraints.
+        # As of now, Pyomo should raise an error instead of
+        # silently dropping them
+        model = self.create_model()
+        model.sos = pyo.SOSConstraint(var=model.x, sos=1)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"The model \('TestModel'\) contains the following active "
+            r"components that the gams writer does not know how to "
+            r"process:\n\t<class 'pyomo.core.base.sos.SOSConstraint'>:"
+            r"\n\t\tsos",
+        ):
+            gams.GAMS().solve(model)

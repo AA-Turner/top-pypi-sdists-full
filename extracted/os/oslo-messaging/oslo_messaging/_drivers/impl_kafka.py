@@ -81,11 +81,12 @@ class AssignedPartition:
     """This class is used by the ConsumerConnection to track the
     assigned partitions.
     """
+
     def __init__(self, topic, partition):
         super().__init__()
         self.topic = topic
         self.partition = partition
-        self.skey = '%s %d' % (self.topic, self.partition)
+        self.skey = f'{self.topic} {self.partition}'
 
     def to_dict(self):
         return {'topic': self.topic, 'partition': self.partition}
@@ -126,8 +127,7 @@ class Connection:
                     LOG.warning("Different transport usernames detected")
 
             if host.hostname:
-                hostaddr = "{}:{}".format(netutils.escape_ipv6(host.hostname),
-                                          host.port)
+                hostaddr = f"{netutils.escape_ipv6(host.hostname)}:{host.port}"
 
                 self.hostaddrs.append(hostaddr)
 
@@ -137,8 +137,8 @@ class Connection:
 
 
 class ConsumerConnection(Connection):
-    """This is the class for kafka topic/assigned partition consumer
-    """
+    """This is the class for kafka topic/assigned partition consumer"""
+
     def __init__(self, conf, url):
 
         super().__init__(conf, url)
@@ -153,31 +153,33 @@ class ConsumerConnection(Connection):
 
     def find_assignment(self, topic, partition):
         """Find and return existing assignment based on topic and partition"""
-        skey = '%s %d' % (topic, partition)
+        skey = f'{topic} {partition}'
         return self.assignment_dict.get(skey)
 
     def on_assign(self, consumer, topic_partitions):
         """Rebalance on_assign callback"""
-        assignment = [AssignedPartition(p.topic, p.partition)
-                      for p in topic_partitions]
+        assignment = [
+            AssignedPartition(p.topic, p.partition) for p in topic_partitions
+        ]
         self.assignment_dict = {a.skey: a for a in assignment}
         for t in topic_partitions:
-            LOG.debug("Topic %s assigned to partition %d",
-                      t.topic, t.partition)
+            LOG.debug(
+                "Topic %s assigned to partition %d", t.topic, t.partition
+            )
 
     def on_revoke(self, consumer, topic_partitions):
         """Rebalance on_revoke callback"""
         self.assignment_dict = dict()
         for t in topic_partitions:
-            LOG.debug("Topic %s revoked from partition %d",
-                      t.topic, t.partition)
+            LOG.debug(
+                "Topic %s revoked from partition %d", t.topic, t.partition
+            )
 
     def _poll_messages(self, timeout):
         """Consume messages, callbacks and return list of messages"""
-        msglist = self.consumer.consume(self.max_poll_records,
-                                        timeout)
+        msglist = self.consumer.consume(self.max_poll_records, timeout)
 
-        if ((len(self.assignment_dict) == 0) or (len(msglist) == 0)):
+        if (len(self.assignment_dict) == 0) or (len(msglist) == 0):
             raise ConsumerTimeout()
 
         messages = []
@@ -186,9 +188,11 @@ class ConsumerConnection(Connection):
                 break
             a = self.find_assignment(message.topic(), message.partition())
             if a is None:
-                LOG.warning(("Message for %s received on unassigned "
-                             "partition %d"),
-                            message.topic(), message.partition())
+                LOG.warning(
+                    ("Message for %s received on unassigned partition %d"),
+                    message.topic(),
+                    message.partition(),
+                )
             else:
                 messages.append(message.value())
 
@@ -209,8 +213,11 @@ class ConsumerConnection(Connection):
         timer = driver_common.DecayingTimer(duration=timeout)
         timer.start()
 
-        poll_timeout = (self.consumer_timeout if timeout is None
-                        else min(timeout, self.consumer_timeout))
+        poll_timeout = (
+            self.consumer_timeout
+            if timeout is None
+            else min(timeout, self.consumer_timeout)
+        )
 
         while True:
             if self._consume_loop_stopped:
@@ -221,7 +228,8 @@ class ConsumerConnection(Connection):
                 return self._poll_messages(poll_timeout)
             except ConsumerTimeout as exc:
                 poll_timeout = timer.check_return(
-                    _raise_timeout, exc, maximum=self.consumer_timeout)
+                    _raise_timeout, exc, maximum=self.consumer_timeout
+                )
             except Exception:
                 LOG.exception("Failed to consume messages")
                 return
@@ -249,17 +257,17 @@ class ConsumerConnection(Connection):
             'ssl.key.location': self.ssl_client_key_file,
             'ssl.key.password': self.ssl_client_key_password,
             'enable.partition.eof': False,
-            'default.topic.config': {'auto.offset.reset': 'latest'}
+            # New groups must consume notifications sent before they join.
+            'default.topic.config': {'auto.offset.reset': 'earliest'},
         }
         LOG.debug("Subscribing to %s as %s", topics, (group or self.group_id))
         self.consumer = confluent_kafka.Consumer(conf)
-        self.consumer.subscribe(topics,
-                                on_assign=self.on_assign,
-                                on_revoke=self.on_revoke)
+        self.consumer.subscribe(
+            topics, on_assign=self.on_assign, on_revoke=self.on_revoke
+        )
 
 
 class ProducerConnection(Connection):
-
     def __init__(self, conf, url):
 
         super().__init__(conf, url)
@@ -300,15 +308,17 @@ class ProducerConnection(Connection):
             while True:
                 try:
                     if eventletutils.is_monkey_patched('thread'):
-                        return tpool.execute(self._produce_message, topic,
-                                             message, poll)
+                        return tpool.execute(
+                            self._produce_message, topic, message, poll
+                        )
                     return self._produce_message(topic, message, poll)
                 except KafkaException as e:
                     LOG.error("Produce message failed: %s", e)
                     break
                 except BufferError:
-                    LOG.debug("Produce message queue full, "
-                              "waiting for deliveries")
+                    LOG.debug(
+                        "Produce message queue full, waiting for deliveries"
+                    )
                     # We'll retry with .5s polling
                     poll = 0.5
 
@@ -348,13 +358,12 @@ class ProducerConnection(Connection):
                 'ssl.ca.location': self.ssl_cafile,
                 'ssl.certificate.location': self.ssl_client_cert_file,
                 'ssl.key.location': self.ssl_client_key_file,
-                'ssl.key.password': self.ssl_client_key_password
+                'ssl.key.password': self.ssl_client_key_password,
             }
             self.producer = confluent_kafka.Producer(conf)
 
 
 class OsloKafkaMessage(base.RpcIncomingMessage):
-
     def __init__(self, ctxt, message):
         super().__init__(ctxt, message)
 
@@ -369,17 +378,11 @@ class OsloKafkaMessage(base.RpcIncomingMessage):
 
 
 class KafkaListener(base.PollStyleListener):
-
     def __init__(self, conn):
         super().__init__()
         self._stopped = eventletutils.Event()
         self.conn = conn
         self.incoming_queue = []
-
-        # FIXME(sileht): We do a first poll to ensure we topics are created
-        # This is a workaround mainly for functional tests, in real life
-        # this is fine if topics are not created synchroneously
-        self.poll(5)
 
     @base.batch_poll_helper
     def poll(self, timeout=None):
@@ -408,11 +411,11 @@ class KafkaDriver(base.BaseDriver):
     See :doc:`kafka` for details.
     """
 
-    def __init__(self, conf, url, default_exchange=None,
-                 allowed_remote_exmods=None):
+    def __init__(
+        self, conf, url, default_exchange=None, allowed_remote_exmods=None
+    ):
         conf = kafka_options.register_opts(conf, url)
-        super().__init__(
-            conf, url, default_exchange, allowed_remote_exmods)
+        super().__init__(conf, url, default_exchange, allowed_remote_exmods)
 
         self.listeners = []
         self.virtual_host = url.virtual_host
@@ -425,10 +428,20 @@ class KafkaDriver(base.BaseDriver):
         self.listeners = []
         LOG.info("Kafka messaging driver shutdown")
 
-    def send(self, target, ctxt, message, wait_for_reply=None, timeout=None,
-             call_monitor_timeout=None, retry=None, transport_options=None):
+    def send(
+        self,
+        target,
+        ctxt,
+        message,
+        wait_for_reply=None,
+        timeout=None,
+        call_monitor_timeout=None,
+        retry=None,
+        transport_options=None,
+    ):
         raise NotImplementedError(
-            'The RPC implementation for Kafka is not implemented')
+            'The RPC implementation for Kafka is not implemented'
+        )
 
     def send_notification(self, target, ctxt, message, version, retry=None):
         """Send notification to Kafka brokers
@@ -451,16 +464,21 @@ class KafkaDriver(base.BaseDriver):
                       N means N retries
         :type retry: int
         """
-        self.pconn.notify_send(target_to_topic(target,
-                                               vhost=self.virtual_host),
-                               ctxt, message, retry)
+        self.pconn.notify_send(
+            target_to_topic(target, vhost=self.virtual_host),
+            ctxt,
+            message,
+            retry,
+        )
 
     def listen(self, target, batch_size, batch_timeout):
         raise NotImplementedError(
-            'The RPC implementation for Kafka is not implemented')
+            'The RPC implementation for Kafka is not implemented'
+        )
 
-    def listen_for_notifications(self, targets_and_priorities, pool,
-                                 batch_size, batch_timeout):
+    def listen_for_notifications(
+        self, targets_and_priorities, pool, batch_size, batch_timeout
+    ):
         """Listen to a specified list of targets on Kafka brokers
 
         :param targets_and_priorities: List of pairs (target, priority)
@@ -479,5 +497,6 @@ class KafkaDriver(base.BaseDriver):
         conn.declare_topic_consumer(topics, pool)
 
         listener = KafkaListener(conn)
-        return base.PollStyleListenerAdapter(listener, batch_size,
-                                             batch_timeout)
+        return base.PollStyleListenerAdapter(
+            listener, batch_size, batch_timeout
+        )

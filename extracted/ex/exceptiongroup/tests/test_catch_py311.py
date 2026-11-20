@@ -4,6 +4,10 @@ import pytest
 
 from exceptiongroup import ExceptionGroup
 
+# PyPy doesn't implicitly chain an exception whose __context__ has been set explicitly,
+# as split() does
+PYPY = sys.implementation.name == "pypy"
+
 
 def test_catch_ungrouped():
     value_type_errors = []
@@ -178,6 +182,94 @@ def test_bare_raise_in_handler():
     assert excgrp.value.__context__ is first_exc
 
 
+def test_handler_raises_subgroup_preserves_group():
+    cause = ValueError("cause")
+    with pytest.raises(ExceptionGroup) as excgrp:
+        try:
+            raise ExceptionGroup(
+                "booboo", [RuntimeError("handled"), RuntimeError("unhandled")]
+            ) from cause
+        except* RuntimeError as exc:
+            matched = exc
+            _, rest = exc.split(lambda exc: str(exc) == "handled")
+            raise rest
+
+    assert excgrp.value is rest
+    assert len(excgrp.value.exceptions) == 1
+    assert isinstance(excgrp.value.exceptions[0], RuntimeError)
+    assert str(excgrp.value.exceptions[0]) == "unhandled"
+    assert excgrp.value.__cause__ is cause
+    if not PYPY:
+        assert excgrp.value.__context__ is matched
+
+
+def test_handler_raises_subgroup_from_none():
+    with pytest.raises(ExceptionGroup) as excgrp:
+        try:
+            raise ExceptionGroup(
+                "booboo", [RuntimeError("handled"), RuntimeError("unhandled")]
+            ) from ValueError("cause")
+        except* RuntimeError as exc:
+            matched = exc
+            _, rest = exc.split(lambda exc: str(exc) == "handled")
+            raise rest from None
+
+    assert excgrp.value.__cause__ is None
+    assert excgrp.value.__suppress_context__
+    if not PYPY:
+        assert excgrp.value.__context__ is matched
+
+
+def test_handler_raises_subgroup_from_matched():
+    with pytest.raises(ExceptionGroup) as excgrp:
+        try:
+            raise ExceptionGroup(
+                "booboo", [RuntimeError("handled"), RuntimeError("unhandled")]
+            ) from ValueError("cause")
+        except* RuntimeError as exc:
+            matched = exc
+            _, rest = exc.split(lambda exc: str(exc) == "handled")
+            raise rest from exc
+
+    assert excgrp.value.__cause__ is matched
+    if not PYPY:
+        assert excgrp.value.__context__ is matched
+
+
+def test_bare_raise_in_handler_preserves_original_chaining():
+    context = KeyError("context")
+    cause = ValueError("cause")
+    with pytest.raises(ExceptionGroup) as excgrp:
+        try:
+            try:
+                raise context
+            except KeyError:
+                raise ExceptionGroup("booboo", [RuntimeError(), OSError()]) from cause
+        except* RuntimeError:
+            raise
+        except* OSError:
+            pass
+
+    assert excgrp.value.__cause__ is cause
+    assert excgrp.value.__context__ is context
+
+
+def test_multiple_handlers_raise_not_chained_to_original():
+    with pytest.raises(ExceptionGroup) as excgrp:
+        try:
+            raise ExceptionGroup("booboo", [RuntimeError(), OSError()]) from ValueError(
+                "cause"
+            )
+        except* RuntimeError:
+            raise ZeroDivisionError
+        except* OSError:
+            raise ZeroDivisionError
+
+    assert excgrp.value.__cause__ is None
+    assert excgrp.value.__context__ is None
+    assert not excgrp.value.__suppress_context__
+
+
 def test_bare_reraise_from_naked_exception():
     with pytest.raises(ExceptionGroup) as excgrp:
         try:
@@ -188,3 +280,126 @@ def test_bare_reraise_from_naked_exception():
     assert len(excgrp.value.exceptions) == 1
     assert isinstance(excgrp.value.exceptions[0], KeyError)
     assert str(excgrp.value.exceptions[0]) == "'foo'"
+    assert excgrp.value.__cause__ is None
+    assert excgrp.value.__context__ is None
+    assert not excgrp.value.__suppress_context__
+
+
+@pytest.mark.parametrize(
+    "handler_error_type",
+    [
+        RuntimeError,
+        # PyPy's native except* raises an internal AssertionError when a handler
+        # raises KeyboardInterrupt, instead of propagating the new exception with
+        # the unmatched remainder of the group (works on CPython).
+        pytest.param(
+            KeyboardInterrupt,
+            marks=pytest.mark.xfail(
+                PYPY,
+                reason="https://github.com/pypy/pypy/issues/5689",
+                raises=AssertionError,
+                strict=True,
+            ),
+        ),
+    ],
+)
+def test_handler_raises_preserves_unmatched_native(handler_error_type):
+    handled = ValueError("handled")
+    unmatched = TypeError("unhandled")
+    handler_error = handler_error_type("handler failed")
+    original = BaseExceptionGroup("original", [handled, unmatched])
+    exceptions = ()
+    try:
+        try:
+            raise original
+        except* ValueError:
+            raise handler_error
+    except BaseExceptionGroup as result:
+        exceptions = result.exceptions
+
+    assert len(exceptions) == 2
+    assert exceptions[0] is handler_error
+    assert exceptions[1].message == "original"
+    assert exceptions[1].exceptions == (unmatched,)
+
+
+@pytest.mark.parametrize("reraise", [False, True], ids=["new_group", "bare_raise"])
+def test_handler_raises_group_preserves_unmatched(reraise):
+    unmatched = TypeError("unhandled")
+    new_group = ExceptionGroup("new", [RuntimeError("handler failed")])
+
+    # Like catch(), use a separate handler function: a bare "raise" directly in the
+    # except* block would merge the exceptions back into the original group instead
+    def handler(group):
+        if reraise:
+            raise
+        raise new_group
+
+    with pytest.raises(ExceptionGroup) as excgrp:
+        try:
+            raise ExceptionGroup("original", [ValueError("handled"), unmatched])
+        except* ValueError as eg:
+            matched = eg
+            handler(eg)
+
+    assert len(excgrp.value.exceptions) == 2
+    assert excgrp.value.exceptions[0] is (matched if reraise else new_group)
+    remainder = excgrp.value.exceptions[1]
+    assert remainder.message == "original"
+    assert remainder.exceptions == (unmatched,)
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 11, 4), reason="Behavior was changed in 3.11.4"
+)
+@pytest.mark.parametrize(
+    "original_error_type",
+    [
+        ValueError,
+        # PyPy's native except* wraps a naked BaseException in an ExceptionGroup
+        # instead of a BaseExceptionGroup, which raises TypeError
+        pytest.param(
+            KeyboardInterrupt,
+            marks=pytest.mark.xfail(
+                PYPY,
+                reason="https://github.com/pypy/pypy/issues/5689",
+                raises=TypeError,
+                strict=True,
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize("chaining", ["implicit", "explicit", "suppressed"])
+def test_handler_raises_from_naked_exception_preserves_chaining(
+    original_error_type, chaining
+):
+    original = original_error_type("original")
+    handler_error = RuntimeError("handler failed")
+    cause = KeyError("explicit cause")
+    seen = []
+    outer = OSError("outer")
+
+    def handler(group):
+        seen.append(group)
+        if chaining == "explicit":
+            raise handler_error from cause
+        elif chaining == "suppressed":
+            raise handler_error from None
+        raise handler_error
+
+    with pytest.raises(RuntimeError) as result:
+        try:
+            try:
+                raise outer
+            except OSError:
+                raise original
+        except* original_error_type as group:
+            handler(group)
+
+    assert result.value is handler_error
+    assert handler_error.__context__ is seen[0]
+    assert seen[0].exceptions == (original,)
+    assert handler_error.__cause__ is (cause if chaining == "explicit" else None)
+    assert handler_error.__suppress_context__ is (chaining != "implicit")
+    assert original.__context__ is outer
+    assert original.__cause__ is None

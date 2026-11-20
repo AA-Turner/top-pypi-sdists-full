@@ -77,6 +77,7 @@ JUSTIFIED_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "private-import:tests/checks/schema_graph.py",
         "private-import:tests/checks/schema_locations.py",
     ),
+    "merge-cores": ("private-import:tests/model/test_merge_equivalence.py",),
     "model-test-drivers": (
         "data-logic:tests/data/python/core_special_field_prefix_generate.py",
         "data-logic:tests/data/python/generation_session_inputs.py",
@@ -389,7 +390,6 @@ LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "private-import:tests/main/conftest.py::datamodel_code_generator.model.base._clear_custom_template_caches",
         "private-import:tests/main/conftest.py::datamodel_code_generator.model.base._get_environment_with_absolute_path",
         "private-import:tests/main/conftest.py::datamodel_code_generator.model.base._get_template_with_absolute_path",
-        "private-import:tests/main/jsonschema/test_external_anchor.py::datamodel_code_generator.parser.jsonschema._find_json_schema_anchor_pointer",
         "private-import:tests/main/jsonschema/test_main_jsonschema.py::datamodel_code_generator._clear_parser_source_data_cache",
         "private-import:tests/main/jsonschema/test_main_jsonschema.py::datamodel_code_generator.model.base._clear_custom_template_caches",
         "private-import:tests/main/jsonschema/test_main_jsonschema.py::datamodel_code_generator.model.base._get_environment",
@@ -1124,6 +1124,11 @@ ALLOWLIST_GROUP_REASONS = {
     "invariant-checks": (
         "The debug checks of tests/checks keep the generator's internal invariants without living in src: they wrap "
         "its internals for every test (tests/checks/seams.py lists each attribute) and read the state they check."
+    ),
+    "merge-cores": (
+        "The merge cores of parser/_intersection.py are pure functions that no public entry point reaches alone; the "
+        "merge equivalence check calls each as its site's adapter does, with the adapter's null rules, over a finite "
+        "domain of parts and values against the payload suite's source validator."
     ),
     "model-test-drivers": (
         "Drivers that model tests in tests/main run in a subprocess or import as inputs, kept with the model test "

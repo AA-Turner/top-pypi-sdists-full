@@ -2261,6 +2261,7 @@ class StackSetTypeDef(TypedDict):
     OrganizationalUnitIds: NotRequired[list[str]]
     ManagedExecution: NotRequired[ManagedExecutionTypeDef]
     Regions: NotRequired[list[str]]
+    StackSetOutputBucketPath: NotRequired[str]
 
 
 StackSetOperationPreferencesUnionTypeDef = Union[
@@ -2308,6 +2309,9 @@ class CreateStackSetInputTypeDef(TypedDict):
     CallAs: NotRequired[CallAsType]
     ClientRequestToken: NotRequired[str]
     ManagedExecution: NotRequired[ManagedExecutionTypeDef]
+    ExecutionRoleTemplateBody: NotRequired[str]
+    ExecutionRoleTemplateUrl: NotRequired[str]
+    StackSetOutputBucket: NotRequired[str]
 
 
 class BatchDescribeTypeConfigurationsOutputTypeDef(TypedDict):
@@ -2550,6 +2554,10 @@ class UpdateStackSetInputTypeDef(TypedDict):
     Regions: NotRequired[Sequence[str]]
     CallAs: NotRequired[CallAsType]
     ManagedExecution: NotRequired[ManagedExecutionTypeDef]
+    ExecutionRoleTemplateBody: NotRequired[str]
+    ExecutionRoleTemplateUrl: NotRequired[str]
+    UseAdminExecutionRole: NotRequired[bool]
+    StackSetOutputBucket: NotRequired[str]
 
 
 class ResourceDetailTypeDef(TypedDict):

@@ -13,12 +13,14 @@ Usage::
     from types_boto3_agent_registry.client import AgentRegistryClient
     from types_boto3_agent_registry.paginator import (
         ListDiscoverableRegistryRecordsPaginator,
+        SearchDiscoverableRegistryRecordsPaginator,
     )
 
     session = Session()
     client: AgentRegistryClient = session.client("agent-registry")
 
     list_discoverable_registry_records_paginator: ListDiscoverableRegistryRecordsPaginator = client.get_paginator("list_discoverable_registry_records")
+    search_discoverable_registry_records_paginator: SearchDiscoverableRegistryRecordsPaginator = client.get_paginator("search_discoverable_registry_records")
     ```
 """
 
@@ -32,6 +34,8 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     ListDiscoverableRegistryRecordsRequestPaginateTypeDef,
     ListDiscoverableRegistryRecordsResponseTypeDef,
+    SearchDiscoverableRegistryRecordsRequestPaginateTypeDef,
+    SearchDiscoverableRegistryRecordsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -40,7 +44,7 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ListDiscoverableRegistryRecordsPaginator",)
+__all__ = ("ListDiscoverableRegistryRecordsPaginator", "SearchDiscoverableRegistryRecordsPaginator")
 
 
 if TYPE_CHECKING:
@@ -63,4 +67,27 @@ class ListDiscoverableRegistryRecordsPaginator(_ListDiscoverableRegistryRecordsP
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry/paginator/ListDiscoverableRegistryRecords.html#AgentRegistry.Paginator.ListDiscoverableRegistryRecords.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_agent_registry/paginators/#listdiscoverableregistryrecordspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _SearchDiscoverableRegistryRecordsPaginatorBase = Paginator[
+        SearchDiscoverableRegistryRecordsResponseTypeDef
+    ]
+else:
+    _SearchDiscoverableRegistryRecordsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class SearchDiscoverableRegistryRecordsPaginator(_SearchDiscoverableRegistryRecordsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry/paginator/SearchDiscoverableRegistryRecords.html#AgentRegistry.Paginator.SearchDiscoverableRegistryRecords)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_agent_registry/paginators/#searchdiscoverableregistryrecordspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchDiscoverableRegistryRecordsRequestPaginateTypeDef]
+    ) -> PageIterator[SearchDiscoverableRegistryRecordsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry/paginator/SearchDiscoverableRegistryRecords.html#AgentRegistry.Paginator.SearchDiscoverableRegistryRecords.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_agent_registry/paginators/#searchdiscoverableregistryrecordspaginator)
         """

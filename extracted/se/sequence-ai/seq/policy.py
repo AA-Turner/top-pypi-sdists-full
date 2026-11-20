@@ -15,7 +15,6 @@ import sys
 from typing import Any, Callable, TypeVar
 
 
-
 from sequence_base.constants.limits import MAX_ENVS
 
 from seq.errors import PolicyDefinitionError
@@ -24,15 +23,9 @@ _T = TypeVar("_T", bound=type)
 
 
 
-
-
-
 _ALLOWED_KWARGS = frozenset({
-    "gpu", "image", "weights", "secrets",
 
-
-
-    "min_workers", "buffer_workers", "max_gpus",
+    "image", "weights", "secrets",
 
 
 
@@ -44,34 +37,20 @@ _ALLOWED_KWARGS = frozenset({
 
 
 
-
-
-
     "max_wait_for_batch",
-
-
 
 
     "robot",
 
-
-
-    "cpu", "memory",
-
-
     "name",
-
 
     "models",
 
 
-
-
-    "gpus_per_replica", "replica_start",
-
-
-
     "init",
+
+
+
 })
 
 
@@ -81,21 +60,34 @@ _NOT_A_KWARG = {
 
 
 
-_GONE = {
-    "deps": "write the packages into its image: image=seq.Image.debian_slim().uv_pip_install(...)",
-    "io": "what infer() takes and returns is its own code's - say it in its docstring",
-    "family": "the console draws its icon from the template it came from",
-    "cuda_graphs": "its check tries CUDA graphs every time, on only when its answers stay the same, bit for bit, and its "
-                   "acts get at least 10% faster",
-
-    "timeouts": "how long a worker may load, an inference may take and an episode may idle are the platform's - its "
-                "floors, raised by what its check measures and each robot's own time between its acts",
-    "tensors": "annotate infer's observation torch.Tensor (def infer(self, obs: torch.Tensor)) and it is handed tensors",
-}
 
 
+DEPLOY_KWARGS = {"gpu": "--gpu", "cpu": "--cpu", "memory": "--memory", "max_gpus": "--max-gpus",
+                 "min_workers": "--min-workers", "buffer_workers": "--buffer-workers",
+                 "gpus_per_replica": "--gpus-per-replica", "replica_start": "--replica-start"}
 
-_UNREAD = frozenset({"region"})
+
+def _deploy_kwargs_dropped(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """`kwargs` without the deploy's items (DEPLOY_KWARGS) where they may be written still: on the platform, whose
+    deployment request holds them, said in one line on stderr (its worker's log). Anywhere else a policy naming one is
+    refused, told the flags they became."""
+    moved = [k for k in kwargs if k in DEPLOY_KWARGS]
+    if not moved:
+        return kwargs
+    from seq.image import _on_platform
+
+    flags = " ".join(f"{DEPLOY_KWARGS[k]} {kwargs[k]}" for k in moved)
+    them = "it" if len(moved) == 1 else "them"
+    if _on_platform():
+
+
+        name = f" {kwargs['name']}" if kwargs.get("name") else ""
+        print(f"@seq.policy{name} no longer takes {', '.join(moved)}: ignored here, as its deployment sets {them} "
+              f"(seq deploy <folder> {flags}).", file=sys.stderr)
+        return {k: v for k, v in kwargs.items() if k not in DEPLOY_KWARGS}
+
+    raise PolicyDefinitionError(f"@seq.policy no longer takes {', '.join(moved)}. Delete {them}: seq serve needs none, "
+                                f"and the platform takes {them} on the deploy command (seq deploy <folder> {flags}).")
 
 
 
@@ -115,15 +107,11 @@ def _reject_bad_kwarg_names(kwargs: dict[str, Any]) -> None:
     user who typed `gpuu=` deserves to be told the names there are.
     """
     for name in kwargs:
-        if name in _UNREAD:
-            continue
 
         if name in _NOT_A_KWARG:
             raise PolicyDefinitionError(
                 f"{name!r} is not a @seq.policy argument; use {_NOT_A_KWARG[name]}"
             )
-        if name in _GONE:
-            raise PolicyDefinitionError(f"@seq.policy({name}=) is gone: {_GONE[name]}")
 
 
         if name not in _ALLOWED_KWARGS:
@@ -181,7 +169,8 @@ def concurrent(fn: Any = None, *, sizes: Any = None, collate: Any = True) -> Cal
     one number, `@seq.concurrent(sizes=[N])`: the most worlds one call steps.
 
     The declaration rides on the function (`__seq_concurrent__`) and `@seq.policy` puts it into the deploy request
-    (PolicySpec.concurrency). gpus_per_replica and replica_start are `@seq.policy(...)` arguments.
+    (PolicySpec.concurrency). gpus_per_replica and replica_start are the deploy's (`seq deploy --gpus-per-replica N
+    --replica-start one_by_one`).
 
 
 """
@@ -211,8 +200,8 @@ def concurrent(fn: Any = None, *, sizes: Any = None, collate: Any = True) -> Cal
 
         if isinstance(target, type):
             raise PolicyDefinitionError(f"@seq.concurrent goes on the @seq.infer method, not on the class "
-                                        f"{target.__name__}: {CONCURRENT_HOW}. gpus_per_replica and replica_start are "
-                                        "@seq.policy(...) arguments")
+                                        f"{target.__name__}: {CONCURRENT_HOW}. A worker's card groups are the "
+                                        "deploy's: seq deploy --gpus-per-replica N --replica-start one_by_one")
 
         getattr(target, "raw_fn", target).__seq_concurrent__ = dict(declared)
         return target
@@ -235,10 +224,11 @@ def _first_error(exc: Exception) -> str:
 
 
 def policy(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
-    """`@seq.policy(gpu=..., weights=..., ...)` — capture the infra declaration and register the class.
+    """`@seq.policy(hz=..., action_chunk_valid_len=..., ...)` — capture the policy's declaration and register the class.
 
     WHY it must be called with parens (never bare `@seq.policy`): a policy has no valid zero-arg form — at
-    minimum `gpu` is required — so a bare application is always a mistake.
+    minimum `hz` is required — so a bare application is always a mistake. Where it runs is none of it: `seq serve`
+    serves it on the machine it is typed on, `seq deploy <folder> --gpu L4` on the platform's card.
     """
     from seq._partial import keeping, refused
 
@@ -246,7 +236,7 @@ def policy(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
 
     if args:
         error = PolicyDefinitionError(
-            "@seq.policy must be called with arguments: @seq.policy(gpu=..., weights=..., ...)"
+            "@seq.policy must be called with arguments: @seq.policy(hz=..., action_chunk_valid_len=..., ...)"
         )
         if len(args) == 1 and isinstance(args[0], type) and not kwargs and keeping():
             from seq.registry import _REG_ATTR
@@ -254,6 +244,7 @@ def policy(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
             return refused(args[0], _REG_ATTR, error)
         raise error
     try:
+        kwargs = _deploy_kwargs_dropped(kwargs)
         _reject_bad_kwarg_names(kwargs)
         if "hz" not in kwargs:
             raise PolicyDefinitionError(HZ_NEEDED)

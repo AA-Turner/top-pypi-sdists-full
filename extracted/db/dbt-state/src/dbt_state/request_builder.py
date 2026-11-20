@@ -234,6 +234,9 @@ class RequestBuilder:
             allow_clones=self._run_cache_config.allow_clones,
             is_defer_to_profile=self._profiles.is_defer_to_profile,
             defer_enabled=self._node_resolution.defer_enabled,
+            ignore_external_modifications=self._run_cache_config.resolve_ignore_external_modifications(
+                node_config
+            ),
         )
 
     def build_submit_enriched_sql_request(

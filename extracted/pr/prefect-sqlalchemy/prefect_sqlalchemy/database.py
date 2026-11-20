@@ -3,6 +3,7 @@
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
 from typing import Annotated, Any, Dict, List, Optional, Tuple, Union
 
+import cloudpickle
 from pydantic import AfterValidator, ConfigDict, Field
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy.engine import Connection, Engine, create_engine
@@ -13,7 +14,7 @@ from sqlalchemy.sql import text
 from typing_extensions import Literal
 
 from prefect.blocks.abstract import CredentialsBlock, DatabaseBlock
-from prefect.utilities.hashing import hash_objects
+from prefect.utilities.hashing import stable_hash
 from prefect_sqlalchemy.credentials import (
     AsyncDriver,
     ConnectionComponents,
@@ -92,8 +93,8 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
     """
 
     _block_type_name = "SQLAlchemy Connector"
-    _logo_url = "https://cdn.sanity.io/images/3ugk85nk/production/3c7dff04f70aaf4528e184a3b028f9e40b98d68c-250x250.png"  # type: ignore
-    _documentation_url = "https://docs.prefect.io/integrations/prefect-sqlalchemy"  # type: ignore
+    _logo_url = "https://raw.githubusercontent.com/PrefectHQ/prefect/420d0d6a78bb6df1fc18bcf188fdad43c1d22ea9/assets/block-logos/sqlalchemy.png"  # type: ignore
+    _documentation_url = "https://www.prefect.io/docs/integrations/prefect-sqlalchemy"  # type: ignore
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     connection_info: Union[ConnectionComponents, DBUrl] = Field(
@@ -148,7 +149,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         if self._exit_stack is None:
             self._exit_stack = ExitStack()
 
-    def get_engine(self, **create_engine_kwargs: Dict[str, Any]) -> Engine:
+    def get_engine(self, **create_engine_kwargs: Any) -> Engine:
         """
         Returns an authenticated engine that can be
         used to query from databases.
@@ -198,9 +199,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
 
         return engine
 
-    def get_connection(
-        self, begin: bool = True, **connect_kwargs: Dict[str, Any]
-    ) -> Connection:
+    def get_connection(self, begin: bool = True, **connect_kwargs: Any) -> Connection:
         """
         Returns a connection that can be used to query from databases.
 
@@ -234,7 +233,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
     def get_client(
         self,
         client_type: Literal["engine", "connection"],
-        **get_client_kwargs: Dict[str, Any],
+        **get_client_kwargs: Any,
     ) -> Union[Engine, Connection]:
         """
         Returns either an engine or connection that can be used to query from databases.
@@ -276,7 +275,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         return client
 
     @contextmanager
-    def _manage_connection(self, **get_connection_kwargs: Dict[str, Any]):
+    def _manage_connection(self, **get_connection_kwargs: Any):
         """Sync context manager for managing connections."""
         with self.get_connection(**get_connection_kwargs) as connection:
             yield connection
@@ -286,7 +285,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         connection: Connection,
         *execute_args: Tuple[Any],
         execute_commit: bool = True,
-        **execute_kwargs: Dict[str, Any],
+        **execute_kwargs: Any,
     ) -> CursorResult:
         """Execute the statement synchronously."""
         result_set = connection.execute(*execute_args, **execute_kwargs)
@@ -295,29 +294,34 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         return result_set
 
     def _get_result_set(
-        self, *execute_args: Tuple[Any], **execute_kwargs: Dict[str, Any]
+        self, operation: str, *execute_args: Tuple[Any], **execute_kwargs: Any
     ) -> CursorResult:
         """
         Returns a new or existing result set.
 
         Args:
+            operation: The SQL query or other operation to be executed.
             *execute_args: Args to pass to execute.
             **execute_kwargs: Keyword args to pass to execute.
 
         Returns:
             The result set from the operation.
         """
-        input_hash = hash_objects(*execute_args, **execute_kwargs)
-        assert input_hash is not None, (
-            "We were not able to hash your inputs, "
-            "which resulted in an unexpected data return; "
-            "please open an issue with a reproducible example."
+        # SQLAlchemy initializes shared type caches during execution, so hashing
+        # a TextClause can produce different keys for the same query over time.
+        # Keep pickle's parameter type distinctions (e.g. tuple versus list).
+        input_hash = stable_hash(
+            cloudpickle.dumps(((operation, *execute_args), execute_kwargs))
         )
 
         if input_hash not in self._unique_results.keys():
             connection = self._exit_stack.enter_context(self.get_connection())
             result_set = self._execute(
-                connection, *execute_args, execute_commit=False, **execute_kwargs
+                connection,
+                text(operation),
+                *execute_args,
+                execute_commit=False,
+                **execute_kwargs,
             )
             self._unique_results[input_hash] = result_set
         else:
@@ -365,7 +369,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> Tuple[Any]:
         """
         Fetch a single result from the database.
@@ -408,7 +412,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
             ```
         """
         result_set = self._get_result_set(
-            text(operation), parameters, execution_options=execution_options
+            operation, parameters, execution_options=execution_options
         )
         self.logger.debug("Preparing to fetch one row.")
         row = result_set.fetchone()
@@ -419,7 +423,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
         size: Optional[int] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> List[Tuple[Any]]:
         """
         Fetch a limited number of results from the database.
@@ -464,7 +468,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
             ```
         """
         result_set = self._get_result_set(
-            text(operation), parameters, execution_options=execution_options
+            operation, parameters, execution_options=execution_options
         )
         size = size or self.fetch_size
         self.logger.debug(f"Preparing to fetch {size} rows.")
@@ -475,7 +479,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> List[Tuple[Any]]:
         """
         Fetch all results from the database.
@@ -518,7 +522,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
             ```
         """
         result_set = self._get_result_set(
-            text(operation), parameters, execution_options=execution_options
+            operation, parameters, execution_options=execution_options
         )
         self.logger.debug("Preparing to fetch all rows.")
         rows = result_set.fetchall()
@@ -528,7 +532,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> CursorResult:
         """
         Executes an operation on the database.
@@ -572,7 +576,7 @@ class SqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         seq_of_parameters: List[Dict[str, Any]],
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> CursorResult:
         """
         Executes many operations on the database.
@@ -728,8 +732,8 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
     """
 
     _block_type_name = "Async SQLAlchemy Connector"
-    _logo_url = "https://cdn.sanity.io/images/3ugk85nk/production/3c7dff04f70aaf4528e184a3b028f9e40b98d68c-250x250.png"  # type: ignore
-    _documentation_url = "https://docs.prefect.io/integrations/prefect-sqlalchemy"  # type: ignore
+    _logo_url = "https://raw.githubusercontent.com/PrefectHQ/prefect/420d0d6a78bb6df1fc18bcf188fdad43c1d22ea9/assets/block-logos/sqlalchemy.png"  # type: ignore
+    _documentation_url = "https://www.prefect.io/docs/integrations/prefect-sqlalchemy"  # type: ignore
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     connection_info: Union[ConnectionComponents, DBUrl] = Field(
@@ -781,7 +785,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         if self._exit_stack is None:
             self._exit_stack = AsyncExitStack()
 
-    def get_engine(self, **create_engine_kwargs: Dict[str, Any]) -> AsyncEngine:
+    def get_engine(self, **create_engine_kwargs: Any) -> AsyncEngine:
         """
         Returns an authenticated engine that can be
         used to query from databases.
@@ -832,7 +836,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         return engine
 
     def get_connection(
-        self, begin: bool = True, **connect_kwargs: Dict[str, Any]
+        self, begin: bool = True, **connect_kwargs: Any
     ) -> AsyncConnection:
         """
         Returns a connection that can be used to query from databases.
@@ -871,7 +875,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
     def get_client(
         self,
         client_type: Literal["engine", "connection"],
-        **get_client_kwargs: Dict[str, Any],
+        **get_client_kwargs: Any,
     ) -> Union[AsyncEngine, AsyncConnection]:
         """
         Returns either an engine or connection that can be used to query from databases.
@@ -913,7 +917,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         return client
 
     @asynccontextmanager
-    async def _manage_connection(self, **get_connection_kwargs: Dict[str, Any]):
+    async def _manage_connection(self, **get_connection_kwargs: Any):
         """Async context manager for managing connections."""
         async with self.get_connection(**get_connection_kwargs) as connection:
             yield connection
@@ -923,7 +927,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         connection: AsyncConnection,
         *execute_args: Tuple[Any],
         execute_commit: bool = True,
-        **execute_kwargs: Dict[str, Any],
+        **execute_kwargs: Any,
     ) -> CursorResult:
         """Execute the statement asynchronously."""
         result_set = await connection.execute(*execute_args, **execute_kwargs)
@@ -932,23 +936,24 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         return result_set
 
     async def _get_result_set(
-        self, *execute_args: Tuple[Any], **execute_kwargs: Dict[str, Any]
+        self, operation: str, *execute_args: Tuple[Any], **execute_kwargs: Any
     ) -> CursorResult:
         """
         Returns a new or existing result set.
 
         Args:
+            operation: The SQL query or other operation to be executed.
             *execute_args: Args to pass to execute.
             **execute_kwargs: Keyword args to pass to execute.
 
         Returns:
             The result set from the operation.
         """
-        input_hash = hash_objects(*execute_args, **execute_kwargs)
-        assert input_hash is not None, (
-            "We were not able to hash your inputs, "
-            "which resulted in an unexpected data return; "
-            "please open an issue with a reproducible example."
+        # SQLAlchemy initializes shared type caches during execution, so hashing
+        # a TextClause can produce different keys for the same query over time.
+        # Keep pickle's parameter type distinctions (e.g. tuple versus list).
+        input_hash = stable_hash(
+            cloudpickle.dumps(((operation, *execute_args), execute_kwargs))
         )
 
         if input_hash not in self._unique_results.keys():
@@ -956,7 +961,11 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
                 self.get_connection()
             )
             result_set = await self._execute(
-                connection, *execute_args, execute_commit=False, **execute_kwargs
+                connection,
+                text(operation),
+                *execute_args,
+                execute_commit=False,
+                **execute_kwargs,
             )
             self._unique_results[input_hash] = result_set
         else:
@@ -1008,7 +1017,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> Tuple[Any]:
         """
         Fetch a single result from the database.
@@ -1055,7 +1064,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
             ```
         """
         result_set = await self._get_result_set(
-            text(operation), parameters, execution_options=execution_options
+            operation, parameters, execution_options=execution_options
         )
         self.logger.debug("Preparing to fetch one row.")
         row = result_set.fetchone()
@@ -1066,7 +1075,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
         size: Optional[int] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> List[Tuple[Any]]:
         """
         Fetch a limited number of results from the database.
@@ -1115,7 +1124,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
             ```
         """
         result_set = await self._get_result_set(
-            text(operation), parameters, execution_options=execution_options
+            operation, parameters, execution_options=execution_options
         )
         size = size or self.fetch_size
         self.logger.debug(f"Preparing to fetch {size} rows.")
@@ -1126,7 +1135,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> List[Tuple[Any]]:
         """
         Fetch all results from the database.
@@ -1173,7 +1182,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
             ```
         """
         result_set = await self._get_result_set(
-            text(operation), parameters, execution_options=execution_options
+            operation, parameters, execution_options=execution_options
         )
         self.logger.debug("Preparing to fetch all rows.")
         rows = result_set.fetchall()
@@ -1183,7 +1192,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         parameters: Optional[Dict[str, Any]] = None,
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> CursorResult:
         """
         Executes an operation on the database.
@@ -1231,7 +1240,7 @@ class AsyncSqlAlchemyConnector(CredentialsBlock, DatabaseBlock):
         self,
         operation: str,
         seq_of_parameters: List[Dict[str, Any]],
-        **execution_options: Dict[str, Any],
+        **execution_options: Any,
     ) -> CursorResult:
         """
         Executes many operations on the database.

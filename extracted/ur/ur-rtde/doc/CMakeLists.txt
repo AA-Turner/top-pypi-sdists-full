@@ -22,11 +22,11 @@ if(DOC STREQUAL "doxygen")
 	set(DOXY_OUTPUT_DIR "${DOC_DEST}")
 # otherwise generate only XML and configure sphinx
 else()
-	if(DOC STREQUAL "html")
-		set(EXTRA_PYTHON_MODULES "sphinx_rtd_theme")
-	else()
-		unset(EXTRA_PYTHON_MODULES)
-	endif()
+	# if(DOC STREQUAL "html")
+	# 	set(EXTRA_PYTHON_MODULES "sphinx_rtd_theme")
+	# else()
+	# 	unset(EXTRA_PYTHON_MODULES)
+	# endif()
 
 	set(DOXY_BUILD_HTML "NO")
 	set(DOXY_BUILD_XML "YES")
@@ -36,7 +36,7 @@ else()
 	# https://bugzilla.gnome.org/show_bug.cgi?id=792676
 	set(DOXY_WARN_AS_ERR "NO")
 	
-	find_package(PythonInterp 3.6 REQUIRED)
+	find_package(PythonInterp 3.10 REQUIRED)
 	include(find_python_module)
 
 	# do not change the ENV, doesn't work with add_custom_target
@@ -53,7 +53,10 @@ else()
 	foreach(module
 			breathe
 			sphinx
-			${EXTRA_PYTHON_MODULES})
+			sphinx_book_theme
+			sphinx_tabs
+			sphinx_copybutton
+			sphinx_design)
 		string(TOUPPER "${module}" module_upper)
 		find_python_module("${module}" "${module_upper}")
 		set(PYTHONPATH "${${module_upper}_PATH}:${PYTHONPATH}")

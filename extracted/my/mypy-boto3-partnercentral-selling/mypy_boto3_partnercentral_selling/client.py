@@ -27,23 +27,33 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListCustomerAccountBulkJobResultsPaginator,
+    ListCustomerAccountBulkJobsPaginator,
     ListEngagementByAcceptingInvitationTasksPaginator,
     ListEngagementFromOpportunityTasksPaginator,
+    ListEngagementGroupsPaginator,
     ListEngagementInvitationsPaginator,
     ListEngagementMembersPaginator,
     ListEngagementResourceAssociationsPaginator,
     ListEngagementsPaginator,
     ListOpportunitiesPaginator,
+    ListOpportunityBulkJobResultsPaginator,
+    ListOpportunityBulkJobsPaginator,
     ListOpportunityFromEngagementTasksPaginator,
     ListProspectingFromEngagementTasksPaginator,
     ListResourceSnapshotJobsPaginator,
     ListResourceSnapshotsPaginator,
     ListSolutionsPaginator,
+    SearchCustomerAccountsPaginator,
+    SearchEngagementsPaginator,
+    SearchOpportunitiesPaginator,
 )
 from .type_defs import (
     AcceptEngagementInvitationRequestTypeDef,
     AssignOpportunityRequestTypeDef,
     AssociateOpportunityRequestTypeDef,
+    CreateCustomerAccountRequestTypeDef,
+    CreateCustomerAccountResponseTypeDef,
     CreateEngagementContextRequestTypeDef,
     CreateEngagementContextResponseTypeDef,
     CreateEngagementInvitationRequestTypeDef,
@@ -56,15 +66,26 @@ from .type_defs import (
     CreateResourceSnapshotJobResponseTypeDef,
     CreateResourceSnapshotRequestTypeDef,
     CreateResourceSnapshotResponseTypeDef,
+    DeleteCustomerAccountRequestTypeDef,
     DeleteResourceSnapshotJobRequestTypeDef,
     DisassociateOpportunityRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GetAwsOpportunitySummaryRequestTypeDef,
     GetAwsOpportunitySummaryResponseTypeDef,
+    GetCustomerAccountBulkJobReportUrlRequestTypeDef,
+    GetCustomerAccountBulkJobReportUrlResponseTypeDef,
+    GetCustomerAccountBulkJobRequestTypeDef,
+    GetCustomerAccountBulkJobResponseTypeDef,
+    GetCustomerAccountRequestTypeDef,
+    GetCustomerAccountResponseTypeDef,
+    GetCustomerAccountStatisticsRequestTypeDef,
+    GetCustomerAccountStatisticsResponseTypeDef,
     GetEngagementInvitationRequestTypeDef,
     GetEngagementInvitationResponseTypeDef,
     GetEngagementRequestTypeDef,
     GetEngagementResponseTypeDef,
+    GetOpportunityBulkJobReportUrlRequestTypeDef,
+    GetOpportunityBulkJobReportUrlResponseTypeDef,
     GetOpportunityRequestTypeDef,
     GetOpportunityResponseTypeDef,
     GetProspectingFromEngagementTaskRequestTypeDef,
@@ -75,10 +96,16 @@ from .type_defs import (
     GetResourceSnapshotResponseTypeDef,
     GetSellingSystemSettingsRequestTypeDef,
     GetSellingSystemSettingsResponseTypeDef,
+    ListCustomerAccountBulkJobResultsRequestTypeDef,
+    ListCustomerAccountBulkJobResultsResponseTypeDef,
+    ListCustomerAccountBulkJobsRequestTypeDef,
+    ListCustomerAccountBulkJobsResponseTypeDef,
     ListEngagementByAcceptingInvitationTasksRequestTypeDef,
     ListEngagementByAcceptingInvitationTasksResponseTypeDef,
     ListEngagementFromOpportunityTasksRequestTypeDef,
     ListEngagementFromOpportunityTasksResponseTypeDef,
+    ListEngagementGroupsRequestTypeDef,
+    ListEngagementGroupsResponseTypeDef,
     ListEngagementInvitationsRequestTypeDef,
     ListEngagementInvitationsResponseTypeDef,
     ListEngagementMembersRequestTypeDef,
@@ -89,6 +116,10 @@ from .type_defs import (
     ListEngagementsResponseTypeDef,
     ListOpportunitiesRequestTypeDef,
     ListOpportunitiesResponseTypeDef,
+    ListOpportunityBulkJobResultsRequestTypeDef,
+    ListOpportunityBulkJobResultsResponseTypeDef,
+    ListOpportunityBulkJobsRequestTypeDef,
+    ListOpportunityBulkJobsResponseTypeDef,
     ListOpportunityFromEngagementTasksRequestTypeDef,
     ListOpportunityFromEngagementTasksResponseTypeDef,
     ListProspectingFromEngagementTasksRequestTypeDef,
@@ -104,10 +135,20 @@ from .type_defs import (
     PutSellingSystemSettingsRequestTypeDef,
     PutSellingSystemSettingsResponseTypeDef,
     RejectEngagementInvitationRequestTypeDef,
+    SearchCustomerAccountsRequestTypeDef,
+    SearchCustomerAccountsResponseTypeDef,
+    SearchEngagementsRequestTypeDef,
+    SearchEngagementsResponseTypeDef,
+    SearchOpportunitiesRequestTypeDef,
+    SearchOpportunitiesResponseTypeDef,
+    StartCustomerAccountBulkJobRequestTypeDef,
+    StartCustomerAccountBulkJobResponseTypeDef,
     StartEngagementByAcceptingInvitationTaskRequestTypeDef,
     StartEngagementByAcceptingInvitationTaskResponseTypeDef,
     StartEngagementFromOpportunityTaskRequestTypeDef,
     StartEngagementFromOpportunityTaskResponseTypeDef,
+    StartOpportunityBulkJobRequestTypeDef,
+    StartOpportunityBulkJobResponseTypeDef,
     StartOpportunityFromEngagementTaskRequestTypeDef,
     StartOpportunityFromEngagementTaskResponseTypeDef,
     StartProspectingFromEngagementTaskRequestTypeDef,
@@ -117,6 +158,8 @@ from .type_defs import (
     SubmitOpportunityRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateCustomerAccountRequestTypeDef,
+    UpdateCustomerAccountResponseTypeDef,
     UpdateEngagementContextRequestTypeDef,
     UpdateEngagementContextResponseTypeDef,
     UpdateOpportunityRequestTypeDef,
@@ -212,6 +255,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#associate_opportunity)
         """
 
+    def create_customer_account(
+        self, **kwargs: Unpack[CreateCustomerAccountRequestTypeDef]
+    ) -> CreateCustomerAccountResponseTypeDef:
+        """
+        Use <code>CreateCustomerAccount</code> to map a customer account from your
+        records to an AWS customer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/create_customer_account.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#create_customer_account)
+        """
+
     def create_engagement(
         self, **kwargs: Unpack[CreateEngagementRequestTypeDef]
     ) -> CreateEngagementResponseTypeDef:
@@ -277,6 +331,16 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#create_resource_snapshot_job)
         """
 
+    def delete_customer_account(
+        self, **kwargs: Unpack[DeleteCustomerAccountRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Use <code>DeleteCustomerAccount</code> to delete a customer account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/delete_customer_account.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#delete_customer_account)
+        """
+
     def delete_resource_snapshot_job(
         self, **kwargs: Unpack[DeleteResourceSnapshotJobRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -309,6 +373,52 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_aws_opportunity_summary)
         """
 
+    def get_customer_account(
+        self, **kwargs: Unpack[GetCustomerAccountRequestTypeDef]
+    ) -> GetCustomerAccountResponseTypeDef:
+        """
+        Use <code>GetCustomerAccount</code> to retrieve the details of a customer
+        account, including the customer information that you provided, the enrichment
+        status, and the enrichment information that AWS provides when the status is
+        <code>ENRICHED</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_customer_account.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_customer_account)
+        """
+
+    def get_customer_account_bulk_job(
+        self, **kwargs: Unpack[GetCustomerAccountBulkJobRequestTypeDef]
+    ) -> GetCustomerAccountBulkJobResponseTypeDef:
+        """
+        Use <code>GetCustomerAccountBulkJob</code> to retrieve the status and record
+        counts of a bulk job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_customer_account_bulk_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_customer_account_bulk_job)
+        """
+
+    def get_customer_account_bulk_job_report_url(
+        self, **kwargs: Unpack[GetCustomerAccountBulkJobReportUrlRequestTypeDef]
+    ) -> GetCustomerAccountBulkJobReportUrlResponseTypeDef:
+        """
+        Use <code>GetCustomerAccountBulkJobReportUrl</code> to get a temporary URL for
+        downloading the report of a bulk job, such as the list of records that failed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_customer_account_bulk_job_report_url.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_customer_account_bulk_job_report_url)
+        """
+
+    def get_customer_account_statistics(
+        self, **kwargs: Unpack[GetCustomerAccountStatisticsRequestTypeDef]
+    ) -> GetCustomerAccountStatisticsResponseTypeDef:
+        """
+        Use <code>GetCustomerAccountStatistics</code> to count your customer accounts
+        and group them by fields such as industry, geography, or enrichment status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_customer_account_statistics.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_customer_account_statistics)
+        """
+
     def get_engagement(
         self, **kwargs: Unpack[GetEngagementRequestTypeDef]
     ) -> GetEngagementResponseTypeDef:
@@ -339,6 +449,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_opportunity.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_opportunity)
+        """
+
+    def get_opportunity_bulk_job_report_url(
+        self, **kwargs: Unpack[GetOpportunityBulkJobReportUrlRequestTypeDef]
+    ) -> GetOpportunityBulkJobReportUrlResponseTypeDef:
+        """
+        Gets the status of the failed-records report for a finished opportunity bulk
+        job and, when the report is ready, a temporary URL to download it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_opportunity_bulk_job_report_url.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_opportunity_bulk_job_report_url)
         """
 
     def get_prospecting_from_engagement_task(
@@ -384,6 +505,28 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_selling_system_settings)
         """
 
+    def list_customer_account_bulk_job_results(
+        self, **kwargs: Unpack[ListCustomerAccountBulkJobResultsRequestTypeDef]
+    ) -> ListCustomerAccountBulkJobResultsResponseTypeDef:
+        """
+        Use <code>ListCustomerAccountBulkJobResults</code> to list the outcome of each
+        record in a bulk job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_customer_account_bulk_job_results.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_customer_account_bulk_job_results)
+        """
+
+    def list_customer_account_bulk_jobs(
+        self, **kwargs: Unpack[ListCustomerAccountBulkJobsRequestTypeDef]
+    ) -> ListCustomerAccountBulkJobsResponseTypeDef:
+        """
+        Use <code>ListCustomerAccountBulkJobs</code> to list the bulk jobs in the
+        specified catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_customer_account_bulk_jobs.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_customer_account_bulk_jobs)
+        """
+
     def list_engagement_by_accepting_invitation_tasks(
         self, **kwargs: Unpack[ListEngagementByAcceptingInvitationTasksRequestTypeDef]
     ) -> ListEngagementByAcceptingInvitationTasksResponseTypeDef:
@@ -400,12 +543,22 @@ class PartnerCentralSellingAPIClient(BaseClient):
         self, **kwargs: Unpack[ListEngagementFromOpportunityTasksRequestTypeDef]
     ) -> ListEngagementFromOpportunityTasksResponseTypeDef:
         """
-        Lists all in-progress, completed, or failed
-        <code>EngagementFromOpportunity</code> tasks that were initiated by the
-        caller's account.
+        Lists all in-progress, completed, or failed EngagementFromOpportunity tasks
+        that were initiated by the caller's account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_engagement_from_opportunity_tasks.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_engagement_from_opportunity_tasks)
+        """
+
+    def list_engagement_groups(
+        self, **kwargs: Unpack[ListEngagementGroupsRequestTypeDef]
+    ) -> ListEngagementGroupsResponseTypeDef:
+        """
+        Lists the active, fully curated AWS Partner Central engagement groups that are
+        available to you in the specified catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_engagement_groups.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_engagement_groups)
         """
 
     def list_engagement_invitations(
@@ -459,6 +612,26 @@ class PartnerCentralSellingAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_opportunities.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_opportunities)
+        """
+
+    def list_opportunity_bulk_job_results(
+        self, **kwargs: Unpack[ListOpportunityBulkJobResultsRequestTypeDef]
+    ) -> ListOpportunityBulkJobResultsResponseTypeDef:
+        """
+        Lists the outcome of each record in an opportunity bulk job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_opportunity_bulk_job_results.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_opportunity_bulk_job_results)
+        """
+
+    def list_opportunity_bulk_jobs(
+        self, **kwargs: Unpack[ListOpportunityBulkJobsRequestTypeDef]
+    ) -> ListOpportunityBulkJobsResponseTypeDef:
+        """
+        Lists the opportunity bulk jobs in the specified catalog, newest first.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_opportunity_bulk_jobs.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#list_opportunity_bulk_jobs)
         """
 
     def list_opportunity_from_engagement_tasks(
@@ -544,6 +717,51 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#reject_engagement_invitation)
         """
 
+    def search_customer_accounts(
+        self, **kwargs: Unpack[SearchCustomerAccountsRequestTypeDef]
+    ) -> SearchCustomerAccountsResponseTypeDef:
+        """
+        Use <code>SearchCustomerAccounts</code> to find customer accounts in the
+        specified catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/search_customer_accounts.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#search_customer_accounts)
+        """
+
+    def search_engagements(
+        self, **kwargs: Unpack[SearchEngagementsRequestTypeDef]
+    ) -> SearchEngagementsResponseTypeDef:
+        """
+        Searches the engagements in AWS Partner Central that match your criteria, such
+        as customer industry or geography.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/search_engagements.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#search_engagements)
+        """
+
+    def search_opportunities(
+        self, **kwargs: Unpack[SearchOpportunitiesRequestTypeDef]
+    ) -> SearchOpportunitiesResponseTypeDef:
+        """
+        The <code>SearchOpportunities</code> operation in the AWS Partner Central
+        Selling API searches and filters the opportunities available to you in AWS
+        Partner Central.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/search_opportunities.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#search_opportunities)
+        """
+
+    def start_customer_account_bulk_job(
+        self, **kwargs: Unpack[StartCustomerAccountBulkJobRequestTypeDef]
+    ) -> StartCustomerAccountBulkJobResponseTypeDef:
+        """
+        Use <code>StartCustomerAccountBulkJob</code> to create many customer accounts
+        from a single file.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/start_customer_account_bulk_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#start_customer_account_bulk_job)
+        """
+
     def start_engagement_by_accepting_invitation_task(
         self, **kwargs: Unpack[StartEngagementByAcceptingInvitationTaskRequestTypeDef]
     ) -> StartEngagementByAcceptingInvitationTaskResponseTypeDef:
@@ -564,6 +782,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/start_engagement_from_opportunity_task.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#start_engagement_from_opportunity_task)
+        """
+
+    def start_opportunity_bulk_job(
+        self, **kwargs: Unpack[StartOpportunityBulkJobRequestTypeDef]
+    ) -> StartOpportunityBulkJobResponseTypeDef:
+        """
+        The <code>StartOpportunityBulkJob</code> operation creates or updates many
+        opportunities in AWS Partner Central (Partner Central) from a single CSV file.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/start_opportunity_bulk_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#start_opportunity_bulk_job)
         """
 
     def start_opportunity_from_engagement_task(
@@ -634,6 +863,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#untag_resource)
         """
 
+    def update_customer_account(
+        self, **kwargs: Unpack[UpdateCustomerAccountRequestTypeDef]
+    ) -> UpdateCustomerAccountResponseTypeDef:
+        """
+        Use <code>UpdateCustomerAccount</code> to replace the customer information on
+        an existing customer account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/update_customer_account.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#update_customer_account)
+        """
+
     def update_engagement_context(
         self, **kwargs: Unpack[UpdateEngagementContextRequestTypeDef]
     ) -> UpdateEngagementContextResponseTypeDef:
@@ -658,6 +898,28 @@ class PartnerCentralSellingAPIClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_customer_account_bulk_job_results"]
+    ) -> ListCustomerAccountBulkJobResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_customer_account_bulk_jobs"]
+    ) -> ListCustomerAccountBulkJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_engagement_by_accepting_invitation_tasks"]
     ) -> ListEngagementByAcceptingInvitationTasksPaginator:
         """
@@ -671,6 +933,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_engagement_from_opportunity_tasks"]
     ) -> ListEngagementFromOpportunityTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_engagement_groups"]
+    ) -> ListEngagementGroupsPaginator:
         """
         Create a paginator for an operation.
 
@@ -735,6 +1008,28 @@ class PartnerCentralSellingAPIClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_opportunity_bulk_job_results"]
+    ) -> ListOpportunityBulkJobResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_opportunity_bulk_jobs"]
+    ) -> ListOpportunityBulkJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_opportunity_from_engagement_tasks"]
     ) -> ListOpportunityFromEngagementTasksPaginator:
         """
@@ -781,6 +1076,39 @@ class PartnerCentralSellingAPIClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_solutions"]
     ) -> ListSolutionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_customer_accounts"]
+    ) -> SearchCustomerAccountsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_engagements"]
+    ) -> SearchEngagementsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_opportunities"]
+    ) -> SearchOpportunitiesPaginator:
         """
         Create a paginator for an operation.
 

@@ -51,6 +51,20 @@ class IdentityMismatch(ReconciliationRequired):
     transcript with no record so far is (plain ReconciliationRequired): a
     recorder that claimed the session lets go of it (`tap/main.py`)."""
 
+    def __init__(self, message: str, *, other: object = None):
+        super().__init__(message)
+        #: The session the transcript names, as a lowercase UUID string; None when it names
+        #: none usable (a malformed id, headers that disagree). The tap's row says whose it is.
+        self.other = _to_uuid(other)
+
+
+def _to_uuid(value: object) -> str | None:
+    """`value` as a normalized UUID string, else None: never a raw object from the file."""
+    try:
+        return str(UUID(value)) if isinstance(value, str) else None
+    except ValueError:
+        return None
+
 
 def validate_identity(path: Path, source: str, session_id: str) -> dict:
     return _identify(path, source, session_id, verdict_only=False)
@@ -227,9 +241,10 @@ def _identify(path: Path, source: str, session_id: str, *, verdict_only: bool) -
     except (ValueError, TypeError, AttributeError):
         matches = False
     if not matches:
-        raise (ReconciliationRequired if native is None else IdentityMismatch)(
-            "native transcript identity is absent or differs from the filename/session"
-        )
+        message = "native transcript identity is absent or differs from the filename/session"
+        if native is None:
+            raise ReconciliationRequired(message)
+        raise IdentityMismatch(message, other=native)
     proof = {
         "native_session_id": expected,
         "identity_method": "producer-record-v1",
@@ -323,9 +338,11 @@ def _kimi_identity(path: Path, head_lines: list[bytes], harness, expected: str) 
         harness.canonical_session_id(state.get("id") if isinstance(state.get("id"), str) else ""),
         session,
     ):
-        raise (IdentityMismatch if isinstance(state, dict) and state.get("id") else ReconciliationRequired)(
-            "native transcript identity is absent or differs from the filename/session"
-        )
+        message = "native transcript identity is absent or differs from the filename/session"
+        if not (isinstance(state, dict) and state.get("id")):
+            raise ReconciliationRequired(message)
+        named = state["id"]
+        raise IdentityMismatch(message, other=harness.canonical_session_id(named) if isinstance(named, str) else None)
     if helper is not None:
         agents = state.get("agents")
         listed = agents.get(path.parent.name) if isinstance(agents, dict) else None

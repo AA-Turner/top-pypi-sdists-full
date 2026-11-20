@@ -28,6 +28,8 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     DescribeTopicPartitionsPaginator,
+    ListAssessmentFindingsPaginator,
+    ListAssessmentsPaginator,
     ListClientVpcConnectionsPaginator,
     ListClusterOperationsPaginator,
     ListClusterOperationsV2Paginator,
@@ -39,6 +41,7 @@ from .paginator import (
     ListNodesPaginator,
     ListReplicatorsPaginator,
     ListScramSecretsPaginator,
+    ListTopicReassignmentsPaginator,
     ListTopicsPaginator,
     ListVpcConnectionsPaginator,
 )
@@ -47,6 +50,8 @@ from .type_defs import (
     BatchAssociateScramSecretResponseTypeDef,
     BatchDisassociateScramSecretRequestTypeDef,
     BatchDisassociateScramSecretResponseTypeDef,
+    CreateAssessmentRequestTypeDef,
+    CreateAssessmentResponseTypeDef,
     CreateChannelRequestTypeDef,
     CreateChannelResponseTypeDef,
     CreateClusterRequestTypeDef,
@@ -61,6 +66,8 @@ from .type_defs import (
     CreateTopicResponseTypeDef,
     CreateVpcConnectionRequestTypeDef,
     CreateVpcConnectionResponseTypeDef,
+    DeleteAssessmentRequestTypeDef,
+    DeleteAssessmentResponseTypeDef,
     DeleteChannelRequestTypeDef,
     DeleteChannelResponseTypeDef,
     DeleteClusterPolicyRequestTypeDef,
@@ -74,6 +81,8 @@ from .type_defs import (
     DeleteTopicResponseTypeDef,
     DeleteVpcConnectionRequestTypeDef,
     DeleteVpcConnectionResponseTypeDef,
+    DescribeAssessmentRequestTypeDef,
+    DescribeAssessmentResponseTypeDef,
     DescribeChannelRequestTypeDef,
     DescribeChannelResponseTypeDef,
     DescribeClusterOperationRequestTypeDef,
@@ -92,6 +101,8 @@ from .type_defs import (
     DescribeReplicatorResponseTypeDef,
     DescribeTopicPartitionsRequestTypeDef,
     DescribeTopicPartitionsResponseTypeDef,
+    DescribeTopicReassignmentRequestTypeDef,
+    DescribeTopicReassignmentResponseTypeDef,
     DescribeTopicRequestTypeDef,
     DescribeTopicResponseTypeDef,
     DescribeVpcConnectionRequestTypeDef,
@@ -103,6 +114,10 @@ from .type_defs import (
     GetClusterPolicyResponseTypeDef,
     GetCompatibleKafkaVersionsRequestTypeDef,
     GetCompatibleKafkaVersionsResponseTypeDef,
+    ListAssessmentFindingsRequestTypeDef,
+    ListAssessmentFindingsResponseTypeDef,
+    ListAssessmentsRequestTypeDef,
+    ListAssessmentsResponseTypeDef,
     ListChannelsRequestTypeDef,
     ListChannelsResponseTypeDef,
     ListClientVpcConnectionsRequestTypeDef,
@@ -129,6 +144,8 @@ from .type_defs import (
     ListScramSecretsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTopicReassignmentsRequestTypeDef,
+    ListTopicReassignmentsResponseTypeDef,
     ListTopicsRequestTypeDef,
     ListTopicsResponseTypeDef,
     ListVpcConnectionsRequestTypeDef,
@@ -138,6 +155,10 @@ from .type_defs import (
     RebootBrokerRequestTypeDef,
     RebootBrokerResponseTypeDef,
     RejectClientVpcConnectionRequestTypeDef,
+    StartTopicReassignmentRequestTypeDef,
+    StartTopicReassignmentResponseTypeDef,
+    StopTopicReassignmentRequestTypeDef,
+    StopTopicReassignmentResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateBrokerCountRequestTypeDef,
@@ -242,6 +263,16 @@ class KafkaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#batch_associate_scram_secret)
         """
 
+    def create_assessment(
+        self, **kwargs: Unpack[CreateAssessmentRequestTypeDef]
+    ) -> CreateAssessmentResponseTypeDef:
+        """
+        Creates a new assessment for the specified cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/create_assessment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#create_assessment)
+        """
+
     def create_channel(
         self, **kwargs: Unpack[CreateChannelRequestTypeDef]
     ) -> CreateChannelResponseTypeDef:
@@ -311,6 +342,16 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/create_vpc_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#create_vpc_connection)
+        """
+
+    def delete_assessment(
+        self, **kwargs: Unpack[DeleteAssessmentRequestTypeDef]
+    ) -> DeleteAssessmentResponseTypeDef:
+        """
+        Deletes an assessment and its findings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_assessment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#delete_assessment)
         """
 
     def delete_cluster(
@@ -384,6 +425,16 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_vpc_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#delete_vpc_connection)
+        """
+
+    def describe_assessment(
+        self, **kwargs: Unpack[DescribeAssessmentRequestTypeDef]
+    ) -> DescribeAssessmentResponseTypeDef:
+        """
+        Returns the status and summary of an assessment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_assessment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#describe_assessment)
         """
 
     def describe_cluster(
@@ -488,6 +539,16 @@ class KafkaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#describe_topic_partitions)
         """
 
+    def describe_topic_reassignment(
+        self, **kwargs: Unpack[DescribeTopicReassignmentRequestTypeDef]
+    ) -> DescribeTopicReassignmentResponseTypeDef:
+        """
+        Returns the status and progress of a topic reassignment operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_topic_reassignment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#describe_topic_reassignment)
+        """
+
     def describe_vpc_connection(
         self, **kwargs: Unpack[DescribeVpcConnectionRequestTypeDef]
     ) -> DescribeVpcConnectionResponseTypeDef:
@@ -537,6 +598,26 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/get_cluster_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#get_cluster_policy)
+        """
+
+    def list_assessment_findings(
+        self, **kwargs: Unpack[ListAssessmentFindingsRequestTypeDef]
+    ) -> ListAssessmentFindingsResponseTypeDef:
+        """
+        Returns the findings for a completed assessment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_assessment_findings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#list_assessment_findings)
+        """
+
+    def list_assessments(
+        self, **kwargs: Unpack[ListAssessmentsRequestTypeDef]
+    ) -> ListAssessmentsResponseTypeDef:
+        """
+        Returns a list of assessments for the specified cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_assessments.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#list_assessments)
         """
 
     def list_cluster_operations(
@@ -669,6 +750,16 @@ class KafkaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#list_client_vpc_connections)
         """
 
+    def list_topic_reassignments(
+        self, **kwargs: Unpack[ListTopicReassignmentsRequestTypeDef]
+    ) -> ListTopicReassignmentsResponseTypeDef:
+        """
+        Lists topic reassignment operations for a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_topic_reassignments.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#list_topic_reassignments)
+        """
+
     def list_topics(self, **kwargs: Unpack[ListTopicsRequestTypeDef]) -> ListTopicsResponseTypeDef:
         """
         List topics in a MSK cluster.
@@ -716,6 +807,27 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/reboot_broker.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#reboot_broker)
+        """
+
+    def start_topic_reassignment(
+        self, **kwargs: Unpack[StartTopicReassignmentRequestTypeDef]
+    ) -> StartTopicReassignmentResponseTypeDef:
+        """
+        Initiates topic partition reassignment between broker types in a mixed-mode
+        cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/start_topic_reassignment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#start_topic_reassignment)
+        """
+
+    def stop_topic_reassignment(
+        self, **kwargs: Unpack[StopTopicReassignmentRequestTypeDef]
+    ) -> StopTopicReassignmentResponseTypeDef:
+        """
+        Stops an active topic reassignment operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/stop_topic_reassignment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#stop_topic_reassignment)
         """
 
     def tag_resource(
@@ -893,6 +1005,28 @@ class KafkaClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_assessment_findings"]
+    ) -> ListAssessmentFindingsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_assessments"]
+    ) -> ListAssessmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_client_vpc_connections"]
     ) -> ListClientVpcConnectionsPaginator:
         """
@@ -1005,6 +1139,17 @@ class KafkaClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_scram_secrets"]
     ) -> ListScramSecretsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_topic_reassignments"]
+    ) -> ListTopicReassignmentsPaginator:
         """
         Create a paginator for an operation.
 

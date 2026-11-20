@@ -1,3 +1,7 @@
+"""Iwork module helpers."""
+
+from __future__ import annotations
+
 import hashlib
 import logging
 import plistlib
@@ -6,8 +10,8 @@ import struct
 from abc import ABC, abstractmethod
 from io import BytesIO
 from os import urandom
-from pathlib import Path
 from sys import version_info
+from typing import TYPE_CHECKING, cast
 from warnings import warn
 from zipfile import BadZipFile, ZipFile
 
@@ -19,18 +23,29 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from numbers_parser.exceptions import FileError, FileFormatError
 from numbers_parser.iwafile import IWAFile, is_iwa_file
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from google.protobuf.message import Message as ProtoMessage
+
 logger = logging.getLogger(__name__)
 debug = logger.debug
 
 
 class IWorkHandler(ABC):
+    """Define the interface for storing iWork archive contents."""
+
     @abstractmethod
-    def store_file(self, filename: str, blob: bytes) -> None:
+    def store_archive(self, filename: str, iwa: IWAFile) -> None:
         """Store a protobuf archive."""
 
     @abstractmethod
-    def store_object(self, filename: str, identifier: int, archive: object) -> None:
-        """Store a binary blob of data from the iWork package."""
+    def store_blob(self, filename: str, blob: bytes) -> None:
+        """Store a binary blob."""
+
+    @abstractmethod
+    def store_object(self, filename: str, identifier: int, archive: ProtoMessage) -> None:
+        """Store a decoded protobuf message."""
 
     @abstractmethod
     def allowed_format(self, extension: str) -> bool:
@@ -42,16 +57,24 @@ class IWorkHandler(ABC):
 
 
 class IWorkCrypto:
-    def __init__(self, key: bytes):
+    """Encrypt and decrypt iWork document payloads."""
+
+    def __init__(self, key: bytes) -> None:
+        """Initialize the instance state."""
         self._key = key
 
     @classmethod
-    def from_password_verifier(cls, data: bytes, password: str | None):
+    def from_password_verifier(
+        cls,
+        data: bytes,
+        password: str | None,
+    ) -> IWorkCrypto | None:
+        """Derive the password key from the archive verifier."""
         if not password:
             msg = "No password provided to decrypt document"
             raise ValueError(msg)
 
-        if len(data) != 104:
+        if len(data) != 104:  # noqa: PLR2004
             msg = f"Unrecognized verifier format length ({len(data)} bytes)"
             raise FileFormatError(msg)
 
@@ -77,7 +100,8 @@ class IWorkCrypto:
         return cls(key)
 
     @classmethod
-    def from_password(cls, password: str):
+    def from_password(cls, password: str) -> tuple[bytes, IWorkCrypto]:
+        """Derive encryption keys from the user password."""
         salt = urandom(16)
         iv = urandom(16)
         iterations = 100000
@@ -105,6 +129,7 @@ class IWorkCrypto:
 
     @staticmethod
     def _create_key(password: str, salt: bytes, iterations: int) -> bytes:
+        """Create key."""
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA1(),  # noqa: S303
             length=16,
@@ -116,8 +141,9 @@ class IWorkCrypto:
 
     def decrypt_iwa(self, data: bytes) -> bytes:
         # The first 16 bytes are the IV and the last 20 bytes are garbage
+        """Decrypt an encrypted IWA payload."""
         encrypted_length = len(data) - 36
-        if encrypted_length < 16 or encrypted_length % 16:
+        if encrypted_length < 16 or encrypted_length % 16:  # noqa: PLR2004
             msg = "Data too short to be a valid encrypted IWA file"
             raise FileFormatError(msg)
 
@@ -135,13 +161,14 @@ class IWorkCrypto:
             msg = "PKCS7 unpadding failed. Key might be correct but payload is corrupted."
             raise FileFormatError(msg) from e
 
-        if len(decrypted) < 16:
+        if len(decrypted) < 16:  # noqa: PLR2004
             msg = "Decrypted data is too short to discard the 16-byte header"
             raise FileFormatError(msg)
 
         return decrypted[16:]
 
     def encrypt_iwa(self, data: bytes) -> bytes:
+        """Encrypt an IWA payload for storage."""
         iv = urandom(16)
         # 16 random bytes are placed at the head of the unencrypted payload
         header = urandom(16)
@@ -159,22 +186,25 @@ class IWorkCrypto:
 
 
 class IWork:
-    def __init__(self, handler: IWorkHandler = None) -> None:
+    """Read and write iWork document packages."""
+
+    _filepath: Path
+    _zipf: ZipFile
+
+    def __init__(self, handler: IWorkHandler) -> None:
         """
         Create an IWork document handler that can read and write iWork documents.
 
         Parameters
         ----------
-        handler: IWorkHandler, optional
+        handler: IWorkHandler
             The handler that is called to store objects and files and to check
             versions and supported document formats.
 
         """
-        self._handler = handler
-        self._crypto = None
-        self._filepath = None
-        self._password = None
-        self._zipf = None
+        self._handler: IWorkHandler = handler
+        self._crypto: IWorkCrypto | None = None
+        self._password: str | None = None
         self._is_package = False
 
     @property
@@ -195,6 +225,7 @@ class IWork:
         """
 
         def read_package_plist(root: Path) -> bytes:
+            """Read package plist."""
             properties_filename = root / "Metadata/Properties.plist"
             build_filename = root / "Metadata/BuildVersionHistory.plist"
             if not properties_filename.exists() or not build_filename.exists():
@@ -203,18 +234,18 @@ class IWork:
             with open(properties_filename, "rb") as fh:
                 return fh.read()
 
-        def find_archive_filename(zipf: object, filename: str) -> str:
+        def find_archive_filename(zipf: ZipFile, filename: str) -> str:
+            """Find archive filename."""
             return next(x.filename for x in zipf.filelist if x.filename.endswith(filename))
 
-        def read_archive_plist(zipf: object) -> bytes:
+        def read_archive_plist(zipf: ZipFile) -> bytes:
             # The vast majority of Numbers documents have no root folder, but some
             # have been seen with roots folders and so we need to be careful about
             # assuming where the Properties.plist is.
+            """Read archive plist."""
             try:
-                _ = find_archive_filename(self._zipf, "Metadata/BuildVersionHistory.plist")
-                properties_plist_filename = find_archive_filename(
-                    self._zipf, "Metadata/Properties.plist"
-                )
+                _ = find_archive_filename(zipf, "Metadata/BuildVersionHistory.plist")
+                properties_plist_filename = find_archive_filename(zipf, "Metadata/Properties.plist")
             except Exception as e:
                 msg = "invalid Numbers document (missing files)"
                 raise FileFormatError(msg) from e
@@ -277,20 +308,23 @@ class IWork:
         else:
             self._read_objects_from_zipfile(self._zipf)
 
-    def save(
+    def save(  # noqa: C901, PLR0917
         self,
         filepath: Path,
-        file_store: dict[str, object],
+        archive_store: dict[str, IWAFile],
+        blob_store: dict[str, bytes],
         package: bool = False,
         password: str | None = None,
         hint: str = "No hint",
     ) -> None:
-        file_store = file_store.copy()
+        """Save the value."""
+        blob_store = blob_store.copy()
+        archive_store = archive_store.copy()
         crypto = None
         if password is not None:
             verifier_data, crypto = IWorkCrypto.from_password(password)
-            file_store[".iwpv2"] = verifier_data
-            file_store[".iwph"] = hint.encode("utf-8")
+            blob_store[".iwpv2"] = verifier_data
+            blob_store[".iwph"] = hint.encode("utf-8")
 
         if package:
             if filepath.is_dir():
@@ -310,33 +344,32 @@ class IWork:
                 filepath.mkdir()
 
             # OSError possible exception; allow it to propagate up
-            zipf = ZipFile(filepath / "Index.zip", "w")
-            for blob_path, blob in file_store.items():
-                if isinstance(blob, IWAFile):
-                    zipf.writestr(blob_path, self._encode_blob(blob, crypto))
-                else:
+            with ZipFile(filepath / "Index.zip", "w") as zipf:
+                for blob_path, blob in blob_store.items():
                     sub_filepath = filepath / blob_path
                     if not sub_filepath.parent.is_dir():
                         sub_filepath.parent.mkdir()
                     with sub_filepath.open(mode="wb") as fh:
                         fh.write(blob)
-            zipf.close()
+                for iwa_path, iwa in archive_store.items():
+                    zipf.writestr(iwa_path, self._encode_blob(iwa, crypto))
         else:
             # OSError possible exception; allow it to propagate up
-            zipf = ZipFile(filepath, "w")
+            with ZipFile(filepath, "w") as zipf:
+                for blob_path, blob in blob_store.items():
+                    zipf.writestr(blob_path, self._encode_blob(blob, crypto))
+                for iwa_path, iwa in archive_store.items():
+                    zipf.writestr(iwa_path, self._encode_blob(iwa, crypto))
 
-            for filepath_in_zip, blob in file_store.items():
-                zipf.writestr(filepath_in_zip, self._encode_blob(blob, crypto))
-            zipf.close()
-
-    def _encode_blob(self, blob: object, crypto: bool):
+    def _encode_blob(self, blob: IWAFile | bytes, crypto: IWorkCrypto | None) -> bytes:
+        """Encode blob."""
         if isinstance(blob, IWAFile):
             if crypto:
                 return crypto.encrypt_iwa(blob.to_buffer())
             return blob.to_buffer()
         return blob
 
-    def _open_zipfile(self, filepath: Path):
+    def _open_zipfile(self, filepath: Path | BytesIO) -> ZipFile:
         """Open Zip file with the correct filename encoding supported by current python."""
         # Coverage is python version dependent, so one path with always fail coverage
         try:  # pragma: no cover
@@ -350,8 +383,9 @@ class IWork:
 
     def _read_objects_from_package(self, filepath: Path) -> None:
         """
-        Read a Numbers package and iterate through all files and directories
-        storing the files blobs and objects though the supplies callbacks.
+        Read files and archives from a Numbers package.
+
+        Store package blobs and objects through the configured handler.
         """
         for sub_filepath in filepath.iterdir():
             if sub_filepath.is_dir():
@@ -368,6 +402,7 @@ class IWork:
                     self._store_blob(package_filename, blob)
 
     def _read_package_encryption(self, filepath: Path) -> None:
+        """Read package encryption."""
         hint_filename = filepath / ".iwph"
         verifier_filename = filepath / ".iwpv2"
         if not hint_filename.exists() and not verifier_filename.exists():
@@ -381,6 +416,7 @@ class IWork:
         )
 
     def _initialize_encryption(self, hint: str, verifier_data: bytes) -> None:
+        """Initialize encryption."""
         try:
             crypto = IWorkCrypto.from_password_verifier(verifier_data, self._password)
         except FileFormatError as e:
@@ -393,7 +429,8 @@ class IWork:
 
         self._crypto = crypto
 
-    def _read_objects_from_zipfile(self, zipf) -> None:
+    def _read_objects_from_zipfile(self, zipf: ZipFile) -> None:
+        """Read objects from zipfile."""
         try:
             hint = zipf.read(".iwph").decode()
         except KeyError:
@@ -410,7 +447,7 @@ class IWork:
             if filename in (".iwph", ".iwpv2"):
                 continue
             blob = zipf.read(filename)
-            if self.is_encrypted and filename.endswith(".iwa"):
+            if self._crypto is not None and filename.endswith(".iwa"):
                 blob = self._crypto.decrypt_iwa(blob)
 
             if filename.lower().endswith(".zip"):
@@ -421,8 +458,10 @@ class IWork:
 
     def _store_blob(self, filename: str, blob: bytes) -> None:
         """
-        If blob is an IWA archive, store each archive using the file handler and, if
-        specified, unpack the archives into the object handler.
+        Store a package blob and unpack IWA archives when appropriate.
+
+        IWA archives are stored through the file handler and, when specified,
+        unpacked into the object handler.
         """
         if filename.endswith(".iwa") and is_iwa_file(blob):
             try:
@@ -437,9 +476,13 @@ class IWork:
             for archive in iwaf.chunks[0].archives:
                 identifier = archive.header.identifier
                 debug("store IWA: filename=%s", filename)
-                self._handler.store_object(filename, identifier, archive.objects[0])
+                self._handler.store_object(
+                    filename,
+                    identifier,
+                    cast("ProtoMessage", archive.objects[0]),
+                )
 
-            self._handler.store_file(filename, iwaf)
+            self._handler.store_archive(filename, iwaf)
         else:
             debug("store blob: filename=%s", filename)
-            self._handler.store_file(filename, blob)
+            self._handler.store_blob(filename, blob)

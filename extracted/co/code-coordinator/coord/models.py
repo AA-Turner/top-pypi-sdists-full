@@ -112,6 +112,44 @@ class BoardDoctorRepoConfig:
     disposition files, pinned to a machine that declares the follow-up's
     capability. `False` (the default) files follow-ups but never queues
     them. It has no effect unless ``followthrough`` is also enabled.
+
+    ``auto_refile`` is this repo's opt-in to the #4038 auto-refile
+    disposition: a drive-queue row the #3376 structural dispatch-liveness
+    gate refused permanently because one of the issue's own
+    ``issue-{N}-*`` branches already merged (`coord.dispatch_liveness.
+    is_branch_merged_guard_refusal_reason`) — a shape no retry can ever
+    clear, since the guard refuses the SAME dispatch again every time.
+    `False` (the default) leaves such a row exactly as before: the doctor
+    alerts but never writes. `coord.board_doctor_followthrough.
+    auto_refile_enabled` is the single function that reads this alongside
+    the fleet-wide kill switch (`Config.board_doctor.auto_refile`) and its
+    `COORD_BOARD_DOCTOR_NO_AUTO_REFILE` env-var override.
+
+    ``auto_split`` is this repo's opt-in to the #4034 auto-split
+    disposition: a drive-queue row that gave up on the #2972 fix-round
+    ceiling whose latest review's remaining blocking finding(s) all
+    describe scope that was never built (not a defect in what landed) —
+    the shape quadraui#2531/#2599 needed an operator to split by hand.
+    `False` (the default) leaves such a row exactly as before: the doctor
+    alerts but never writes. `coord.board_doctor_followthrough.
+    auto_split_enabled` is the single function that reads this alongside
+    the fleet-wide kill switch (`Config.board_doctor.auto_split`) and its
+    `COORD_BOARD_DOCTOR_NO_AUTO_SPLIT` env-var override.
+
+    ``config_drift_autofix`` is this repo's opt-in to the #4035
+    config-drift disposition: a Test-stage command still names a cargo
+    ``--example``/``--bin``/``--test``/``--bench`` target a branch's own
+    diff deletes outright (quadraui#2695's shape) — no amount of retrying
+    the branch ever clears it, since the command, not the code, is wrong.
+    Neither value writes ``coordinator.yml`` today — no action yet
+    commits the patch in ``coord-settings`` — so the sole observable
+    difference is the alert's wording: `True` computes the exact one-line
+    patch alongside the alert (see `coord.board_doctor_policy.
+    plan_config_drift_fix`); `False` (the default) only alerts, naming
+    the same patch for a human to apply by hand.
+    `coord.board_doctor_policy._config_drift_autofix_enabled` is the
+    single function that reads this alongside the fleet-wide kill switch
+    (`Config.board_doctor.config_drift_autofix`).
     """
 
     investigate: bool = False
@@ -119,6 +157,9 @@ class BoardDoctorRepoConfig:
     stale_race: bool = True
     followthrough: bool = False
     followthrough_auto_queue: bool = False
+    auto_refile: bool = False
+    auto_split: bool = False
+    config_drift_autofix: bool = False
 
 
 @dataclass

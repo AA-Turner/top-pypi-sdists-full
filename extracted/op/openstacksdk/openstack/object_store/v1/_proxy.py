@@ -20,7 +20,7 @@ import json
 import os
 import queue
 import time
-from typing import Any, ClassVar, Literal
+from typing import Any, BinaryIO, ClassVar, Literal
 from urllib import parse
 
 from openstack import _log
@@ -146,14 +146,17 @@ class Proxy(proxy.Proxy):
 
     def containers(
         self,
+        paginated: bool = True,
         **query: Any,
     ) -> Generator[_container.Container, None, None]:
         """Obtain Container objects for this account.
 
+        :param paginated: Whether to fetch all pages or only the first page.
         :param query: Optional query parameters to be sent to limit
             the resources being returned.
         """
-        return self._list(_container.Container, paginated=True, **query)
+        query.setdefault('format', 'json')
+        return self._list(_container.Container, paginated=paginated, **query)
 
     def create_container(
         self, name: str, **attrs: Any
@@ -253,12 +256,14 @@ class Proxy(proxy.Proxy):
     def objects(
         self,
         container: str | _container.Container,
+        paginated: bool = True,
         **query: Any,
     ) -> Generator[_obj.Object, None, None]:
         """Return a generator that yields the Container's objects.
 
         :param container: A container object or the name of a container
             that you want to retrieve objects from.
+        :param paginated: Whether to fetch all pages or only the first page.
         :param query: Optional query parameters to be sent to limit
             the resources being returned.
         """
@@ -267,7 +272,7 @@ class Proxy(proxy.Proxy):
         for obj in self._list(
             _obj.Object,
             container=container,
-            paginated=True,
+            paginated=paginated,
             format='json',
             **query,
         ):
@@ -410,7 +415,7 @@ class Proxy(proxy.Proxy):
         use_slo: bool = True,
         metadata: dict[str, Any] | None = None,
         generate_checksums: bool | None = None,
-        data: str | bytes | None = None,
+        data: str | bytes | BinaryIO | None = None,
         **headers: Any,
     ) -> _obj.Object | None:
         """Create a file object.
@@ -422,8 +427,9 @@ class Proxy(proxy.Proxy):
         :param name: Name for the object within the container.
         :param filename: The path to the local file whose contents will be
             uploaded. Mutually exclusive with data.
-        :param data: The content to upload to the object. Mutually exclusive
-            with filename.
+        :param data: The content to upload to the object, as text, bytes, or
+            an open binary file. Mutually exclusive with filename. Streams
+            are uploaded in a single request without checksums or segmentation.
         :param md5: A hexadecimal md5 of the file. (Optional), if it is known
             and can be passed here, it will save repeating the expensive md5
             process. It is assumed to be accurate.

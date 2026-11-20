@@ -288,7 +288,7 @@ def test_xdg_variable_custom_value(
 def test_xdg_home_preserves_trailing_whitespace(
     monkeypatch: pytest.MonkeyPatch, dirs_class: type[Unix | MacOS], kind: str, whitespace: str
 ) -> None:
-    home: typing.Final = f"/xdg-fixture/home{whitespace}"
+    home: typing.Final[str] = f"/xdg-fixture/home{whitespace}"
     monkeypatch.setenv(f"XDG_{kind.upper()}_HOME", home)
     assert getattr(dirs_class(appname="demo"), f"user_{kind}_dir") == f"{home}{os.sep}demo"
 
@@ -307,7 +307,7 @@ def test_xdg_home_preserves_trailing_whitespace(
 def test_xdg_home_rejects_leading_whitespace(
     monkeypatch: pytest.MonkeyPatch, dirs_class: type[Unix | MacOS], kind: str
 ) -> None:
-    expected: typing.Final = getattr(dirs_class(appname="demo"), f"user_{kind}_dir")
+    expected: typing.Final[str] = getattr(dirs_class(appname="demo"), f"user_{kind}_dir")
     monkeypatch.setenv(f"XDG_{kind.upper()}_HOME", " /xdg-fixture/home")
     assert getattr(dirs_class(appname="demo"), f"user_{kind}_dir") == expected
 
@@ -429,6 +429,14 @@ def test_platform_without_geteuid(
     importlib.reload(sys.modules["platformdirs._runtime"])
     importlib.reload(unix)
 
+    # Match the temporary tree's owner to the simulated platform credentials.
+    original = os.lstat
+
+    def owned(path: str | Path) -> os.stat_result:
+        info = original(path)
+        return os.stat_result((*info[:4], uid, *info[5:]))
+
+    mocker.patch.object(os, "lstat", new=owned)
     assert unix.geteuid is getuid
     dirs = unix.Unix(appname="app")
     with _fallback_warning(expected=True):
@@ -442,6 +450,8 @@ def test_platform_without_geteuid(
     ("existing_mode", "ensure_exists", "expected_mode"),
     [
         pytest.param(None, True, 0o700, id="created-private"),
+        pytest.param(0o775, True, 0o700, id="group-writable-tightened"),
+        pytest.param(0o775, False, 0o775, id="group-writable-lookup"),
         pytest.param(0o755, True, 0o700, id="loose-mode-tightened"),
         pytest.param(0o755, False, 0o755, id="loose-mode-untouched-without-ensure-exists"),
     ],
@@ -451,7 +461,7 @@ def test_user_runtime_dir_temp_fallback_mode(
 ) -> None:
     mocker.patch("platformdirs.unix.geteuid", return_value=(uid := runtime_temp_dir.stat().st_uid), autospec=True)
     mocker.patch("platformdirs._runtime.geteuid", return_value=uid, autospec=True)
-    base: typing.Final = runtime_temp_dir / f"runtime-{uid}"
+    base: typing.Final[Path] = runtime_temp_dir / f"runtime-{uid}"
     if existing_mode is not None:  # simplint: ignore[conditional-in-test]  # existing directory case
         base.mkdir()
         base.chmod(existing_mode)
@@ -464,7 +474,7 @@ def test_user_runtime_dir_temp_fallback_mode(
 def test_user_runtime_dir_temp_fallback_rejects_other_owner(
     mocker: MockerFixture, runtime_temp_dir: Path, ensure_exists: bool
 ) -> None:
-    owner: typing.Final = runtime_temp_dir.stat().st_uid
+    owner: typing.Final[int] = runtime_temp_dir.stat().st_uid
     (runtime_temp_dir / f"runtime-{owner + 1}").mkdir()
     mocker.patch("platformdirs.unix.geteuid", return_value=owner + 1, autospec=True)
     mocker.patch("platformdirs._runtime.geteuid", return_value=owner + 1, autospec=True)
@@ -478,10 +488,15 @@ def test_user_runtime_dir_temp_fallback_rejects_other_owner(
     ("temp", "expected"),
     [
         pytest.param("/", "/runtime-1234", id="root"),
-        pytest.param("/xdg-fixture/temp/", "/xdg-fixture/temp/runtime-1234", id="trailing-slash"),
+        pytest.param("{root}/", "{root}/runtime-1234", id="trailing-slash"),
     ],
 )
-def test_user_runtime_dir_temp_fallback_single_slash(mocker: MockerFixture, temp: str, expected: str) -> None:
+def test_user_runtime_dir_temp_fallback_single_slash(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, runtime_temp_dir: Path, temp: str, expected: str
+) -> None:
+    temp = temp.format(root=runtime_temp_dir)
+    expected = expected.format(root=runtime_temp_dir)
+    monkeypatch.setenv("TMPDIR", temp)
     mocker.patch("tempfile.tempdir", temp)
     with pytest.warns(RuntimeDirWarning, match=f"^XDG_RUNTIME_DIR is not set, falling back to {re.escape(expected)}$"):
         assert Unix().user_runtime_dir == expected
@@ -490,6 +505,45 @@ def test_user_runtime_dir_temp_fallback_single_slash(mocker: MockerFixture, temp
 _POSIX_ONLY: typing.Final[pytest.MarkDecorator] = pytest.mark.skipif(
     sys.platform == "win32", reason="Windows has no POSIX owners or modes"
 )
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize("cwd", [pytest.param(".", id="current"), pytest.param("..", id="cached")])
+def test_user_runtime_dir_rejects_cwd_temp_fallback(
+    runtime_temp_dir: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, cwd: str
+) -> None:
+    for name in ("TMPDIR", "TEMP", "TMP"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.chdir(runtime_temp_dir / cwd)
+    mocker.patch("platformdirs.unix.TemporaryFile", autospec=True, side_effect=PermissionError)
+    with pytest.raises(PermissionError, match="no safe temporary directory"):
+        _ = Unix(appname="app").user_runtime_dir
+
+
+@_POSIX_ONLY
+def test_user_runtime_dir_rejects_relative_temp_setting(
+    runtime_temp_dir: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    monkeypatch.chdir(runtime_temp_dir)
+    monkeypatch.setenv("TMPDIR", "relative")
+    mocker.patch("tempfile.tempdir", "relative")
+    mocker.patch("platformdirs.unix.TemporaryFile", autospec=True, side_effect=PermissionError)
+    with pytest.raises(PermissionError, match="no safe temporary directory"):
+        _ = Unix(appname="app").user_runtime_dir
+
+
+@_POSIX_ONLY
+@pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
+def test_user_runtime_dir_uses_new_absolute_temp_setting(
+    runtime_temp_dir: Path, runtime_uid: int, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (old := runtime_temp_dir / "old").mkdir()
+    (new := runtime_temp_dir / "new").mkdir()
+    mocker.patch("tempfile.tempdir", str(old))
+    monkeypatch.setenv("TMPDIR", str(new))
+    assert Unix(appname="app").user_runtime_dir == str(new / f"runtime-{runtime_uid}" / "app")
+
+
 _PROBLEMS: typing.Final[MappingProxyType[str, str]] = MappingProxyType({
     "symlink": "is a symlink",
     "file": "is not a directory",
@@ -512,7 +566,7 @@ _DEFAULT_PREFIXES: typing.Final[MappingProxyType[str, str]] = MappingProxyType({
 def test_user_runtime_dir_temp_fallback_named_after_effective_uid(
     mocker: MockerFixture, runtime_temp_dir: Path
 ) -> None:
-    owner: typing.Final = runtime_temp_dir.stat().st_uid
+    owner: typing.Final[int] = runtime_temp_dir.stat().st_uid
     mocker.patch("os.getuid", return_value=owner + 1, autospec=True)
     mocker.patch("os.geteuid", return_value=owner, autospec=True)
     importlib.reload(unix)
@@ -578,7 +632,9 @@ def test_runtime_dir_invalid_xdg_runtime_dir_warns(
     _create(default_dir, "private")
     with pytest.warns(RuntimeDirWarning) as record:
         _ = Unix(appname="app").user_runtime_dir
-    expected: typing.Final = f"XDG_RUNTIME_DIR {session_dir} {_PROBLEMS[kind]}, falling back to /run/user/{runtime_uid}"
+    expected: typing.Final[str] = (
+        f"XDG_RUNTIME_DIR {session_dir} {_PROBLEMS[kind]}, falling back to /run/user/{runtime_uid}"
+    )
     assert [str(warning.message) for warning in record] == [expected]
 
 
@@ -595,7 +651,7 @@ def test_runtime_dir_symlink_xdg_runtime_dir_with_trailing_separator_warns(
     monkeypatch.setenv("XDG_RUNTIME_DIR", f"{session_dir}{suffix}")
     with pytest.warns(RuntimeDirWarning) as record:
         _ = Unix(appname="app").user_runtime_dir
-    expected: typing.Final = (
+    expected: typing.Final[str] = (
         f"XDG_RUNTIME_DIR {session_dir}{suffix} is a symlink, falling back to /run/user/{runtime_uid}"
     )
     assert [str(warning.message) for warning in record] == [expected]
@@ -630,13 +686,13 @@ def test_runtime_dir_xdg_runtime_dir_of_other_user_warns(
     session_dir: Path, runtime_temp_dir: Path, mocker: MockerFixture
 ) -> None:
     _create(session_dir, "private")
-    owner: typing.Final = session_dir.stat().st_uid
+    owner: typing.Final[int] = session_dir.stat().st_uid
     mocker.patch("platformdirs.unix.geteuid", return_value=owner + 1, autospec=True)
     mocker.patch("platformdirs._runtime.geteuid", return_value=owner + 1, autospec=True)
     with pytest.warns(RuntimeDirWarning) as record:
         _ = Unix(appname="app").user_runtime_dir
-    fallback: typing.Final = runtime_temp_dir / f"runtime-{owner + 1}"
-    expected: typing.Final = (
+    fallback: typing.Final[Path] = runtime_temp_dir / f"runtime-{owner + 1}"
+    expected: typing.Final[str] = (
         f"XDG_RUNTIME_DIR {session_dir} is owned by uid {owner}, not {owner + 1}, falling back to {fallback}"
     )
     assert [str(warning.message) for warning in record] == [expected]
@@ -653,7 +709,7 @@ def test_runtime_dir_unreachable_xdg_runtime_dir_warns(
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(blocker / "session"))
     with pytest.warns(RuntimeDirWarning) as record:
         assert Unix(appname="app", ensure_exists=ensure_exists).user_runtime_dir == str(temp_dir / "app")
-    expected: typing.Final = (
+    expected: typing.Final[str] = (
         f"XDG_RUNTIME_DIR {blocker / 'session'} cannot be checked: {_UNREACHABLE[kind]}, falling back to {temp_dir}"
     )
     assert [str(warning.message) for warning in record] == [expected]
@@ -669,11 +725,51 @@ def test_runtime_dir_parent_of_other_user_in_shared_dir_warns(
     foreign.add(planted)
     with pytest.warns(RuntimeDirWarning) as record:
         _ = Unix(appname="app", ensure_exists=True).user_runtime_dir
-    expected: typing.Final = (
+    expected: typing.Final[str] = (
         f"XDG_RUNTIME_DIR {planted / 'user'} is below {planted}, owned by uid {runtime_uid + 1}, "
         f"falling back to {temp_dir}"
     )
     assert [str(warning.message) for warning in record] == [expected]
+
+
+@_POSIX_ONLY
+def test_runtime_dir_parent_owned_by_other_user_warns(
+    runtime_temp_dir: Path, temp_dir: Path, runtime_uid: int, foreign: set[Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (other := runtime_temp_dir / "other").mkdir(mode=0o755)
+    foreign.add(other)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(session := other / "session"))
+    with pytest.warns(RuntimeDirWarning) as record:
+        assert Unix(appname="app").user_runtime_dir == str(temp_dir / "app")
+    assert [str(warning.message) for warning in record] == [
+        f"XDG_RUNTIME_DIR {session} is below {other}, owned by uid {runtime_uid + 1}, falling back to {temp_dir}"
+    ]
+
+
+@_POSIX_ONLY
+def test_runtime_dir_unreadable_parent_warns(
+    runtime_temp_dir: Path, temp_dir: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (blocked := runtime_temp_dir / "blocked").mkdir()
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(session := blocked / "session"))
+    original_lstat = os.lstat
+
+    def unreadable(path: str | os.PathLike[str]) -> os.stat_result:
+        if Path(path) == blocked:
+            raise OSError(errno.EIO, os.strerror(errno.EIO), str(path))
+        return original_lstat(path)
+
+    mocker.patch(  # simplint: ignore[mock-without-spec]  # runtime_temp_dir already wraps os.lstat
+        "os.lstat", side_effect=unreadable
+    )
+    with pytest.warns(RuntimeDirWarning) as record:
+        assert Unix(appname="app").user_runtime_dir == str(temp_dir / "app")
+    assert [str(warning.message) for warning in record] == [
+        (
+            f"XDG_RUNTIME_DIR {session} is below {blocked} cannot be checked: {os.strerror(errno.EIO)}, "
+            f"falling back to {temp_dir}"
+        )
+    ]
 
 
 @_POSIX_ONLY
@@ -703,6 +799,56 @@ def test_runtime_dir_own_parent_in_shared_dir_is_used(shared_dir: Path) -> None:
 
 
 @_POSIX_ONLY
+def test_runtime_rechecks_parent_after_creation(
+    shared_dir: Path, temp_dir: Path, foreign: set[Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mkdir = Path.mkdir
+
+    def changed(path: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+        if path == shared_dir / "run/user":
+            foreign.add(path.parent)
+
+    monkeypatch.setattr(Path, "mkdir", changed)
+    with pytest.warns(RuntimeDirWarning, match=re.escape(f"is below {shared_dir / 'run'}, owned by")):
+        assert Unix("app", ensure_exists=True).user_runtime_path == temp_dir / "app"
+
+
+@_POSIX_ONLY
+def test_runtime_checks_parents_of_symlink_target(
+    runtime_temp_dir: Path, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent = runtime_temp_dir / "shared"
+    (target := parent / "private").mkdir(parents=True)
+    parent.chmod(0o777)
+    (link := runtime_temp_dir / "linked").symlink_to(target)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(link / "runtime"))
+    with pytest.warns(RuntimeDirWarning, match=re.escape(f"is below {parent}, writable")):
+        assert Unix("app").user_runtime_path == temp_dir / "app"
+
+
+@_POSIX_ONLY
+def test_runtime_dir_sticky_parent_of_other_user_warns(
+    shared_dir: Path, temp_dir: Path, runtime_uid: int, mocker: MockerFixture
+) -> None:
+    info = shared_dir.stat()
+    original_lstat = os.lstat
+    other_owner = os.stat_result((*info[:4], runtime_uid + 1, *info[5:]))
+    mocker.patch(  # simplint: ignore[mock-without-spec]  # runtime_temp_dir already wraps os.lstat
+        "os.lstat",
+        side_effect=lambda path, **kwargs: other_owner if Path(path) == shared_dir else original_lstat(path, **kwargs),
+    )
+    with pytest.warns(RuntimeDirWarning) as record:
+        assert Unix(appname="app").user_runtime_dir == str(temp_dir / "app")
+    assert [str(warning.message) for warning in record] == [
+        (
+            f"XDG_RUNTIME_DIR {shared_dir / 'run' / 'user'} is below {shared_dir}, "
+            f"owned by uid {runtime_uid + 1}, falling back to {temp_dir}"
+        )
+    ]
+
+
+@_POSIX_ONLY
 def test_runtime_dir_parent_writable_by_everyone_warns(
     runtime_temp_dir: Path, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -710,11 +856,24 @@ def test_runtime_dir_parent_writable_by_everyone_warns(
     open_dir.chmod(0o777)
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(session := open_dir / "session"))
     with pytest.warns(RuntimeDirWarning) as record:
-        _ = Unix(appname="app").user_runtime_dir
-    expected: typing.Final = (
-        f"XDG_RUNTIME_DIR {session} is below {open_dir}, writable by every user, falling back to {temp_dir}"
-    )
-    assert [str(warning.message) for warning in record] == [expected]
+        assert Unix(appname="app").user_runtime_dir == str(temp_dir / "app")
+    assert [str(warning.message) for warning in record] == [
+        f"XDG_RUNTIME_DIR {session} is below {open_dir}, writable by another user, falling back to {temp_dir}"
+    ]
+
+
+@_POSIX_ONLY
+def test_runtime_dir_parent_writable_by_group_warns(
+    runtime_temp_dir: Path, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (shared := runtime_temp_dir / "shared").mkdir()
+    shared.chmod(0o770)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(session := shared / "session"))
+    with pytest.warns(RuntimeDirWarning) as record:
+        assert Unix(appname="app").user_runtime_dir == str(temp_dir / "app")
+    assert [str(warning.message) for warning in record] == [
+        f"XDG_RUNTIME_DIR {session} is below {shared}, writable by another user, falling back to {temp_dir}"
+    ]
 
 
 @pytest.fixture
@@ -730,7 +889,7 @@ def shared_dir(runtime_temp_dir: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def foreign(runtime_uid: int, mocker: MockerFixture, tmp_path: Path) -> set[Path]:
     # Creating a file as another user needs root, so report the paths added here as owned by another uid.
     paths: set[Path] = set()
-    lstat: typing.Final = os.lstat
+    lstat: typing.Final[Callable[[str | Path], os.stat_result]] = os.lstat
     mocker.patch(  # simplint: ignore[mock-without-spec]  # autospec cannot wrap a patched os.lstat
         "os.lstat",
         side_effect=lambda path: (
@@ -742,12 +901,12 @@ def foreign(runtime_uid: int, mocker: MockerFixture, tmp_path: Path) -> set[Path
     # fs.protected_symlinks refuses even root to follow another user's symlink in a sticky directory as the last
     # component, so following one fails here the way following a symlink loop does.
     (loop := tmp_path / "loop").symlink_to(loop)
-    follow: typing.Final = os.stat
+    follow = os.stat
     mocker.patch(
         "os.stat",
         autospec=True,
         side_effect=lambda path, **kwargs: follow(
-            loop if Path(path) in paths and Path(path).is_symlink() else path, **kwargs
+            loop if Path(path) in paths and stat.S_ISLNK(lstat(path).st_mode) else path, **kwargs
         ),
     )
     return paths
@@ -768,7 +927,7 @@ def test_runtime_dir_unset_warns(default_dir: Path, runtime_uid: int) -> None:
     _create(default_dir, "private")
     with pytest.warns(RuntimeDirWarning) as record:
         _ = Unix(appname="app").user_runtime_dir
-    expected: typing.Final = f"XDG_RUNTIME_DIR is not set, falling back to /run/user/{runtime_uid}"
+    expected: typing.Final[str] = f"XDG_RUNTIME_DIR is not set, falling back to /run/user/{runtime_uid}"
     assert [str(warning.message) for warning in record] == [expected]
 
 
@@ -790,7 +949,7 @@ def test_runtime_dir_default_dir_of_other_user_falls_back(
     runtime_temp_dir: Path, system_root: Path, mocker: MockerFixture
 ) -> None:
     mocker.patch("sys.platform", "linux")
-    owner: typing.Final = runtime_temp_dir.stat().st_uid
+    owner: typing.Final[int] = runtime_temp_dir.stat().st_uid
     _create(system_root / "run" / "user" / str(owner + 1), "private")
     mocker.patch("platformdirs.unix.geteuid", return_value=owner + 1, autospec=True)
     mocker.patch("platformdirs._runtime.geteuid", return_value=owner + 1, autospec=True)
@@ -808,13 +967,13 @@ def test_runtime_dir_temp_fallback_rejects(temp_dir: Path, kind: str, ensure_exi
 
 @_POSIX_ONLY
 def test_runtime_dir_warns_once(temp_dir: Path) -> None:
-    dirs: typing.Final = Unix(appname="app")
+    dirs: typing.Final[Unix] = Unix(appname="app")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         for _ in range(3):
             _ = dirs.user_runtime_dir
         _ = Unix(appname="other").user_runtime_dir
-    expected: typing.Final = f"XDG_RUNTIME_DIR is not set, falling back to {temp_dir}"
+    expected: typing.Final[str] = f"XDG_RUNTIME_DIR is not set, falling back to {temp_dir}"
     assert [str(warning.message) for warning in caught] == [expected]
 
 
@@ -855,7 +1014,7 @@ def test_runtime_dir_temp_fallback_rejects_dir_hidden_from_check(
 
 def _hide_during_check(mocker: MockerFixture, base: Path) -> None:
     # Move ``base`` away for each lstat of it, as its owner can in a shared sticky directory.
-    lstat: typing.Final = os.lstat
+    lstat: typing.Final[Callable[[str], os.stat_result]] = os.lstat
     _create(base, "private")
 
     def hide(path: str) -> os.stat_result:
@@ -890,7 +1049,7 @@ def test_place_runtime_file_creates_runtime_dir_before_check(mocker: MockerFixtu
 
 def _plant_after_check(mocker: MockerFixture, base: Path) -> None:
     # Link ``base`` to a directory with ``app/app.sock`` once an lstat finds it missing, as another user can.
-    lstat: typing.Final = os.lstat
+    lstat: typing.Final[Callable[[str], os.stat_result]] = os.lstat
 
     def plant(path: str) -> os.stat_result:
         try:
@@ -915,7 +1074,126 @@ def test_find_runtime_file_returns_file_in_own_runtime_dir(runtime_base: Path) -
 
 
 @_POSIX_ONLY
+@pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
 @pytest.mark.usefixtures("runtime_uid")
+def test_find_runtime_file_ignores_public_xdg(session_dir: Path) -> None:
+    session_dir.mkdir()
+    session_dir.chmod(0o755)
+    (session_dir / "ready").touch()
+    assert Unix().find_runtime_files("ready") == []
+
+
+@_POSIX_ONLY
+@pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
+@pytest.mark.usefixtures("runtime_uid")
+def test_find_runtime_file_below_rejected_xdg(runtime_temp_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime_temp_dir))
+    runtime_temp_dir.chmod(0o755)
+    dirs = Unix("app")
+    placed = dirs.place_runtime_file("ready")
+    placed.touch()
+    assert dirs.find_runtime_files("ready") == [placed]
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("runtime_temp_dir")
+def test_find_runtime_file_in_system_fallback_below_xdg(
+    default_dir: Path, system_root: Path, runtime_uid: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _create(default_dir, "private")
+    (default_dir / "app").mkdir()
+    (default_dir / "app/ready").touch()
+    (system_root / "run").chmod(0o755)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", "/run")
+    is_file = os.path.isfile
+    monkeypatch.setattr(os.path, "isfile", lambda path: is_file(system_root / Path(path).relative_to("/")))
+    with pytest.warns(RuntimeDirWarning):
+        assert Unix("app").find_runtime_files("ready") == [Path(f"/run/user/{runtime_uid}/app/ready")]
+
+
+@_POSIX_ONLY
+def test_search_skips_group_writable_temp_fallback(temp_dir: Path) -> None:
+    temp_dir.mkdir()
+    temp_dir.chmod(0o775)
+    (temp_dir / "ready").touch()
+    with pytest.warns(RuntimeDirWarning):
+        assert Unix().find_runtime_files("ready") == []
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize(
+    "lookup",
+    [
+        pytest.param(attrgetter("site_runtime_path"), id="site"),
+        pytest.param(lambda dirs: tuple(dirs.iter_runtime_paths())[-1], id="iterator"),
+    ],
+)
+@pytest.mark.parametrize("ensure_exists", [pytest.param(False, id="lookup"), pytest.param(True, id="create")])
+def test_site_runtime_rejects_public_override(
+    session_dir: Path, temp_dir: Path, lookup: Callable[[Unix], Path], ensure_exists: bool
+) -> None:
+    _create(session_dir, "mode-755")
+    with pytest.warns(RuntimeDirWarning):
+        assert lookup(Unix("app", ensure_exists=ensure_exists)) == temp_dir / "app"
+    assert (temp_dir / "app").exists() is ensure_exists
+    assert list(session_dir.iterdir()) == []
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+def test_root_site_runtime_creates_missing_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    base = tmp_path / "sessions" / "root"
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(base))
+    assert Unix("app", use_site_for_root=True).site_runtime_path == base / "app"
+    assert not base.parent.exists()
+    assert Unix("app", use_site_for_root=True, ensure_exists=True).site_runtime_path == base / "app"
+    assert (base / "app").is_dir()
+    assert stat.S_IMODE(base.stat().st_mode) == stat.S_IMODE(base.parent.stat().st_mode) == 0o700
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+def test_root_site_runtime_refuses_creation_in_public_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (base := tmp_path / "session").mkdir()
+    base.chmod(0o755)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(base))
+    assert Unix("app", use_site_for_root=True).site_runtime_path == base / "app"
+    with pytest.raises(PermissionError, match="has mode 0755"):
+        _ = Unix("app", use_site_for_root=True, ensure_exists=True).site_runtime_path
+    assert list(base.iterdir()) == []
+
+
+@_POSIX_ONLY
+def test_runtime_temp_rejects_world_writable_leaf(temp_dir: Path) -> None:
+    temp_dir.mkdir()
+    temp_dir.chmod(0o777)
+    with pytest.raises(PermissionError, match="has writable mode 0777"):
+        _ = Unix().user_runtime_path
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize("ensure_exists", [True, False])
+@pytest.mark.usefixtures("runtime_uid")
+def test_runtime_temp_requires_trusted_parent(runtime_temp_dir: Path, ensure_exists: bool) -> None:
+    runtime_temp_dir.chmod(0o777)
+    with pytest.raises(PermissionError, match=r"is below .*writable by another user; set XDG_RUNTIME_DIR"):
+        _ = Unix(ensure_exists=ensure_exists).user_runtime_dir
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("_as_root")
+def test_use_site_find_runtime_file_bypasses_xdg_runtime_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    marker = tmp_path / "ready"
+    marker.touch()
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(marker))
+    mocker.patch("platformdirs.unix._UnixDefaults.site_runtime_dir", str(tmp_path))
+    assert unix.Unix(use_site_for_root=True).find_runtime_file("ready") == marker
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("runtime_uid", "session_dir")
 @pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
 def test_find_runtime_file_returns_file_outside_runtime_dirs(mocker: MockerFixture, runtime_temp_dir: Path) -> None:
     mocker.patch.object(Unix, "site_runtime_dir", str(site := runtime_temp_dir / "site"))
@@ -954,7 +1232,11 @@ def test_find_runtime_file_skips_runtime_dir_hidden_from_check(
 
 @pytest.mark.usefixtures("_geteuid", "runtime_temp_dir")
 @pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
-def test_find_runtime_files_skips_missing_temp_fallback_at_root(mocker: MockerFixture) -> None:
+def test_find_runtime_files_skips_missing_temp_fallback_at_root(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("TMPDIR", "/")
     mocker.patch("tempfile.tempdir", "/")
     # Only root can create /runtime-1234, so count every app.sock as found while the fallback stays missing.
     mocker.patch("os.path.isfile", autospec=True, side_effect=lambda path: Path(path).name == "app.sock")
@@ -972,6 +1254,7 @@ def temp_dir_in_session_dir(
 ) -> Path:
     # Like XDG_RUNTIME_DIR=/tmp, which fails the check while the fallback inside it passes.
     _create(session := runtime_temp_dir / "session", "symlink")
+    monkeypatch.setenv("TMPDIR", str(session))
     mocker.patch("tempfile.tempdir", str(session))
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(session))
     return session / f"runtime-{runtime_uid}"
@@ -981,6 +1264,31 @@ def temp_dir_in_session_dir(
 def session_dir(runtime_temp_dir: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(path := runtime_temp_dir / "session"))
     return path
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize(
+    ("target", "error"),
+    [
+        pytest.param("platformdirs.unix.TemporaryFile", PermissionError, id="no-safe-root"),
+        pytest.param("platformdirs.unix.gettempdir", FileNotFoundError, id="no-temp-dir"),
+    ],
+)
+def test_find_runtime_files_with_xdg_and_no_temp_root(
+    session_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+    target: str,
+    error: type[OSError],
+) -> None:
+    _create(session_dir, "private")
+    _create(session_dir / "app", "private")
+    (file := session_dir / "app" / "app.sock").touch()
+    for name in ("TMPDIR", "TEMP", "TMP"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.chdir(session_dir.parent)
+    mocker.patch(target, autospec=True, side_effect=error)
+    assert Unix(appname="app").find_runtime_files("app.sock") == [file]
 
 
 @pytest.fixture
@@ -1178,7 +1486,7 @@ def test_place_file_without_home_creates_nothing(
 
 
 def test_place_runtime_file_rejects_temp_fallback_of_other_owner(mocker: MockerFixture, runtime_temp_dir: Path) -> None:
-    owner: typing.Final = runtime_temp_dir.stat().st_uid
+    owner: typing.Final[int] = runtime_temp_dir.stat().st_uid
     (runtime_temp_dir / f"runtime-{owner + 1}").mkdir()
     mocker.patch("platformdirs.unix.geteuid", return_value=owner + 1, autospec=True)
     mocker.patch("platformdirs._runtime.geteuid", return_value=owner + 1, autospec=True)
@@ -1297,6 +1605,21 @@ def test_media_function_ensure_exists_raises_on_file(
     monkeypatch.setenv("XDG_DOCUMENTS_DIR", str(media_file))
     with pytest.raises(FileExistsError):
         getattr(platformdirs, f"user_documents_{suffix}")(ensure_exists=True)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows reads media directories from Known Folders")
+def test_ensure_exists_checks_user_media_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, user_dirs_file: Path
+) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    shared.chmod(0o1777)
+    (foreign := shared / "foreign").mkdir()
+    foreign.chmod(0o777)
+    monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    user_dirs_file.write_text(f'XDG_DOCUMENTS_DIR="{foreign / "docs"}"\n', encoding="utf-8")
+    with pytest.raises(PermissionError):
+        _ = Unix(ensure_exists=True).user_documents_dir
+    assert not (foreign / "docs").exists()
 
 
 def test_iter_data_dirs_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1427,7 +1750,7 @@ def test_site_dirs_fall_back_when_xdg_var_has_no_absolute_paths(
 def test_site_dirs_filter_relative_entries(
     monkeypatch: pytest.MonkeyPatch, dirs_class: type[Unix | MacOS], prop: str, suffix: str
 ) -> None:
-    value: typing.Final = os.pathsep.join(("relative", "/custom/first", "", "~/relative", " /custom/second "))
+    value: typing.Final[str] = os.pathsep.join(("relative", "/custom/first", "", "~/relative", " /custom/second "))
     monkeypatch.setenv("XDG_DATA_DIRS", value)
     monkeypatch.setenv("XDG_CONFIG_DIRS", value)
     assert getattr(dirs_class(appname="foo", multipath=True), prop) == f"/custom/first{os.sep}{suffix}"
@@ -1471,7 +1794,7 @@ def test_runtime_dir_rejects_relative_value(
 ) -> None:
     monkeypatch.setenv("XDG_RUNTIME_DIR", "relative/runtime")
     mocker.patch("sys.platform", "linux")
-    expected: typing.Final = {
+    expected: typing.Final[Path] = {
         "user_runtime_dir": Path(gettempdir()) / "runtime-1234",
         "site_runtime_dir": Path("/run"),
     }[prop]
@@ -1493,6 +1816,106 @@ def test_user_media_dir_from_user_dirs_file(tmp_path: Path, monkeypatch: pytest.
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", "")
     assert Unix().user_documents_dir == f"{tmp_path}/MyDocs"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_from_symlinked_user_dirs_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config = tmp_path / "local.dirs"
+    config.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n')
+    (tmp_path / "user-dirs.dirs").symlink_to(config)
+    assert Unix().user_documents_dir == f"{tmp_path}/MyDocs"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_ignores_group_writable_config(tmp_path: Path, user_dirs_file: Path) -> None:
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n', encoding="utf-8")
+    user_dirs_file.chmod(0o664)
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_ignores_foreign_config_parent(tmp_path: Path, user_dirs_file: Path, foreign: set[Path]) -> None:
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n', encoding="utf-8")
+    foreign.add(user_dirs_file.parent)
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_ignores_writable_config_parent(tmp_path: Path, user_dirs_file: Path) -> None:
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n', encoding="utf-8")
+    user_dirs_file.parent.chmod(0o777)
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_accepts_group_writable_config_parent(tmp_path: Path, user_dirs_file: Path) -> None:
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n', encoding="utf-8")
+    user_dirs_file.parent.chmod(0o775)
+    user_dirs_file.chmod(0o600)
+    assert Unix().user_documents_dir == f"{tmp_path}/MyDocs"
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("user_dirs_file")
+def test_user_media_dir_ignores_file_config_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (file := tmp_path / "file").touch()
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(file))
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_from_symlinked_config_parent(
+    tmp_path: Path, user_dirs_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n', encoding="utf-8")
+    (link := tmp_path / "config-link").symlink_to(user_dirs_file.parent, target_is_directory=True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(link))
+    assert Unix().user_documents_dir == f"{tmp_path}/MyDocs"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_ignores_symlinked_foreign_target(
+    tmp_path: Path, user_dirs_file: Path, foreign: set[Path]
+) -> None:
+    (target := tmp_path / "target").mkdir()
+    (target / "user-dirs.dirs").write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n', encoding="utf-8")
+    user_dirs_file.symlink_to(target / "user-dirs.dirs")
+    foreign.add(target)
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("user_dirs_file")
+def test_user_media_dir_ignores_config_parent_link_loop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (loop := tmp_path / "loop").symlink_to("loop")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(loop))
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_ignores_config_file_link_loop(tmp_path: Path, user_dirs_file: Path) -> None:
+    user_dirs_file.symlink_to("user-dirs.dirs")
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+@_POSIX_ONLY
+def test_user_media_dir_ignores_unreadable_config_parent(
+    tmp_path: Path, user_dirs_file: Path, mocker: MockerFixture
+) -> None:
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n', encoding="utf-8")
+    parent = user_dirs_file.parent
+    original_lstat = os.lstat
+
+    def unreadable(path: str | os.PathLike[str]) -> os.stat_result:
+        if Path(path) == parent:
+            raise OSError(errno.EIO, os.strerror(errno.EIO), str(path))
+        return original_lstat(path)
+
+    mocker.patch.object(os, "lstat", autospec=True, side_effect=unreadable)
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
 
 
 def test_user_media_dir_missing_key_in_user_dirs_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1518,7 +1941,7 @@ def test_user_media_dir_no_user_dirs_file(
 
 def test_user_dirs_respects_xdg_config_home(posix_tmp_path: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
-    custom_config: typing.Final = Path(posix_tmp_path) / "custom_config"
+    custom_config: typing.Final[Path] = Path(posix_tmp_path) / "custom_config"
     custom_config.mkdir()
     (custom_config / "user-dirs.dirs").write_text('XDG_DOCUMENTS_DIR="$HOME/CustomDocs"\n')
     monkeypatch.setenv("HOME", posix_tmp_path)
@@ -1655,7 +2078,7 @@ def test_use_site_for_root_follows_attribute_change(
     monkeypatch: pytest.MonkeyPatch, use_site_for_root: bool, base: str
 ) -> None:
     monkeypatch.setenv("XDG_DATA_HOME", "/home/alice/.local/share")
-    dirs: typing.Final = Unix(appname="foo", use_site_for_root=not use_site_for_root)
+    dirs: typing.Final[Unix] = Unix(appname="foo", use_site_for_root=not use_site_for_root)
     dirs.user_data_dir  # ruff:ignore[useless-expression]  # property access raises
     dirs.use_site_for_root = use_site_for_root
     assert dirs.user_data_dir == os.path.join(base, "foo")  # ruff:ignore[os-path-join]  # match host separators
@@ -1823,10 +2246,49 @@ def test_use_site_iter_runtime_dirs_bypasses_xdg_runtime_dir() -> None:
     assert list(Unix(appname="foo", use_site_for_root=True).iter_runtime_dirs()) == [_SITE_RUNTIME_DIR]
 
 
+@pytest.mark.usefixtures("_as_root")
+@pytest.mark.parametrize(
+    ("environment", "directory", "suffix"),
+    [
+        pytest.param({}, "user_documents_path", "Documents", id="unset-home"),
+        pytest.param({"HOME": "relative"}, "user_fonts_path", ".local/share/fonts", id="relative-home"),
+    ],
+)
+def test_use_site_media_uses_root_password_entry(
+    mocker: MockerFixture,
+    root_password_home: Path,
+    environment: dict[str, str],
+    directory: str,
+    suffix: str,
+) -> None:
+    mocker.patch.dict(os.environ, environment, clear=True)
+    assert getattr(Unix(use_site_for_root=True), directory) == root_password_home / suffix
+
+
+@pytest.fixture
+def root_password_home(mocker: MockerFixture, pwd: ModuleType, tmp_path: Path) -> Path:
+    mocker.patch("os.getuid", return_value=1000, autospec=True)
+    mocker.patch.object(
+        pwd,
+        "getpwuid",
+        autospec=True,
+        side_effect=lambda uid: pwd.struct_passwd(("test", "x", uid, uid, "", str(tmp_path / str(uid)), "")),
+    )
+    return tmp_path / "0"
+
+
+@pytest.mark.usefixtures("_as_root")
+def test_use_site_media_rejects_empty_root_password_home(mocker: MockerFixture, pwd: ModuleType) -> None:
+    mocker.patch.dict(os.environ, clear=True)
+    mocker.patch.object(pwd, "getpwuid", autospec=True, return_value=pwd.struct_passwd(("root", "x", 0, 0, "", "", "")))
+    with pytest.raises(RuntimeError, match="could not determine the home directory"):
+        _ = Unix(use_site_for_root=True).user_documents_dir
+
+
 @pytest.mark.usefixtures("_as_root", "_inherited_xdg_runtime_dir")
 def test_use_site_keeps_xdg_runtime_dir_for_site_runtime_dir() -> None:
     # match host separators
-    expected: typing.Final = os.path.join("/run/user/1000", "foo")  # ruff:ignore[os-path-join]
+    expected: typing.Final[str] = os.path.join("/run/user/1000", "foo")  # ruff:ignore[os-path-join]
     assert Unix(appname="foo", use_site_for_root=True).site_runtime_dir == expected
 
 
@@ -1888,8 +2350,10 @@ def test_user_path_site_redirect(
     monkeypatch.setenv("XDG_CONFIG_DIRS", f"/xdg/a{os.pathsep}/xdg/b")
     monkeypatch.setenv("XDG_DATA_HOME", f"/user/with{os.pathsep}separator")
     monkeypatch.setenv("XDG_CONFIG_HOME", f"/user/with{os.pathsep}separator")
-    dirs: typing.Final = Unix(appname="foo", version="1.0", multipath=multipath, use_site_for_root=use_site_for_root)
-    user_base: typing.Final = f"/user/with{os.pathsep}separator"
+    dirs: typing.Final[Unix] = Unix(
+        appname="foo", version="1.0", multipath=multipath, use_site_for_root=use_site_for_root
+    )
+    user_base: typing.Final[str] = f"/user/with{os.pathsep}separator"
     # Only the root row with site redirection reads from the site path.
     base = "/xdg/a" if uid == 0 and use_site_for_root else user_base  # simplint: ignore[conditional-in-test]  # root
     assert getattr(dirs, prop) == Path(base) / subdir
@@ -1898,23 +2362,247 @@ def test_user_path_site_redirect(
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows ignores POSIX mode bits")
 @pytest.mark.parametrize("uid", [pytest.param(0, id="root"), pytest.param(1000, id="user")], indirect=True)
 @pytest.mark.parametrize("kind", ["config", "data"])
+@pytest.mark.usefixtures("root_owned_paths")
 def test_place_file_with_use_site_for_root_keeps_site_dir_readable(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, uid: int, kind: str
 ) -> None:
     monkeypatch.setenv(f"XDG_{kind.upper()}_HOME", str(tmp_path / "user"))
     monkeypatch.setenv(f"XDG_{kind.upper()}_DIRS", str(tmp_path / "site"))
     getattr(Unix(appname="foo", use_site_for_root=True), f"place_{kind}_file")("sub/app.toml")
-    (reference := tmp_path / "reference").mkdir()
-    expected: typing.Final = {0: stat.S_IMODE(reference.stat().st_mode), 1000: 0o700}[uid]
-    created: typing.Final = (tmp_path / {0: "site", 1000: "user"}[uid]).rglob("*")
+    (reference := tmp_path / "reference").mkdir(mode=0o755)
+    expected: typing.Final[int] = {0: stat.S_IMODE(reference.stat().st_mode), 1000: 0o700}[uid]
+    created: typing.Final[Iterator[Path]] = (tmp_path / {0: "site", 1000: "user"}[uid]).rglob("*")
     assert {path.name: oct(stat.S_IMODE(path.stat().st_mode)) for path in created} == dict.fromkeys(
         ["foo", "sub"], oct(expected)
     )
 
 
+@_POSIX_ONLY
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+@pytest.mark.parametrize(
+    ("mask", "expected"),
+    [
+        pytest.param(0o002, 0o755, id="group-write"),
+        pytest.param(0o000, 0o755, id="no-mask"),
+        pytest.param(0o077, 0o700, id="private"),
+    ],
+)
+def test_root_site_modes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mask: int, expected: int) -> None:
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
+    previous = os.umask(mask)
+    try:
+        dirs = Unix("app", use_site_for_root=True)
+        assert dirs.place_data_file("sub/state").parent == tmp_path / "app" / "sub"
+        assert dirs.place_data_file("sub/again").parent == tmp_path / "app" / "sub"
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE((tmp_path / "app").stat().st_mode) == expected
+    assert stat.S_IMODE((tmp_path / "app" / "sub").stat().st_mode) == expected
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix ownership only")
+@pytest.mark.usefixtures("_as_root")
+@pytest.mark.parametrize(
+    "use",
+    [
+        pytest.param(attrgetter("user_data_dir"), id="ensure_exists"),
+        pytest.param(methodcaller("place_data_file", "file.txt"), id="place_file"),
+    ],
+)
+def test_root_site_rejects_foreign_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root_owned_paths: set[Path], use: Callable[[Unix], Path | str]
+) -> None:
+    (target := tmp_path / "target").mkdir()
+    (site := tmp_path / "site").symlink_to(target, target_is_directory=True)
+    root_owned_paths.add(site)
+    monkeypatch.setenv("XDG_DATA_DIRS", str(site))
+    with pytest.raises(PermissionError):
+        use(Unix(appname="app", use_site_for_root=True, ensure_exists=True))
+    assert not (target / "app").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix ownership only")
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+@pytest.mark.parametrize(
+    "link_target",
+    [pytest.param(lambda path: path, id="absolute"), pytest.param(attrgetter("name"), id="relative")],
+)
+def test_root_site_accepts_root_owned_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, link_target: Callable[[Path], Path | str]
+) -> None:
+    (target := tmp_path / "target").mkdir()
+    (site := tmp_path / "site").symlink_to(link_target(target), target_is_directory=True)
+    monkeypatch.setenv("XDG_DATA_DIRS", str(site))
+    assert Unix(appname="app", use_site_for_root=True, ensure_exists=True).user_data_dir == str(site / "app")
+    assert (target / "app").is_dir()
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+def test_root_site_with_group_writable_ancestor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path.chmod(0o775)
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
+    path = Unix("service", use_site_for_root=True).place_data_file("config")
+    assert path == tmp_path / "service/config"
+    assert path.parent.is_dir()
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("_as_root")
+def test_existing_service_owned_site_directory(
+    tmp_path: Path, root_owned_paths: set[Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (service := tmp_path / "service").mkdir()
+    root_owned_paths.add(service)
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path))
+    dirs = Unix("service", ensure_exists=True, use_site_for_root=True)
+    assert dirs.site_data_path == service
+    with pytest.raises(PermissionError, match="owned by uid"):
+        dirs.place_data_file("config")
+    with pytest.raises(PermissionError, match="owned by uid"):
+        _ = Unix("service", version="2", ensure_exists=True).site_data_path
+    assert list(service.iterdir()) == []
+
+
+@_POSIX_ONLY
+def test_root_with_user_owned_home(
+    tmp_path: Path, root_owned_paths: set[Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (home := tmp_path / "home").mkdir()
+    root_owned_paths.add(home)
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    assert Unix("app", ensure_exists=True).user_cache_path == home / ".cache/app"
+    assert (home / ".cache/app").is_dir()
+
+
+@_POSIX_ONLY
+def test_foreign_owned_sticky_data_parent(tmp_path: Path, foreign: set[Path], monkeypatch: pytest.MonkeyPatch) -> None:
+    (base := tmp_path / "shared").mkdir()
+    base.chmod(0o1777)
+    foreign.add(base)
+    monkeypatch.setenv("XDG_DATA_HOME", str(base))
+    with pytest.raises(PermissionError, match="owned by uid"):
+        _ = Unix("app", ensure_exists=True).user_data_path
+    assert list(base.iterdir()) == []
+
+
+@_POSIX_ONLY
+def test_container_home_with_another_owner(tmp_path: Path, foreign: set[Path], monkeypatch: pytest.MonkeyPatch) -> None:
+    (home := tmp_path / "home").mkdir()
+    home.chmod(0o775)
+    foreign.add(home)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
+    dirs = Unix("app", ensure_exists=True)
+    assert dirs.user_config_path == home / "app"
+    assert dirs.place_config_file("sub/settings").parent.is_dir()
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize(
+    ("mask", "expected"), [pytest.param(0, 0o775, id="no-mask"), pytest.param(0o077, 0o700, id="private")]
+)
+def test_configured_media_creation_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mask: int, expected: int
+) -> None:
+    monkeypatch.setenv("XDG_MUSIC_DIR", str(music := tmp_path / "media/music"))
+    previous = os.umask(mask)
+    try:
+        dirs = Unix(ensure_exists=True)
+        assert (dirs.user_music_path, dirs.user_music_path) == (music, music)
+    finally:
+        os.umask(previous)
+    assert (stat.S_IMODE(music.parent.stat().st_mode), stat.S_IMODE(music.stat().st_mode)) == (expected, expected)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix ownership only")
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+def test_root_site_rejects_writable_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (site := tmp_path / "site").mkdir()
+    site.chmod(0o777)
+    monkeypatch.setenv("XDG_DATA_DIRS", str(site))
+    with pytest.raises(PermissionError, match="writable by another user"):
+        _ = Unix(appname="app", use_site_for_root=True, ensure_exists=True).user_data_dir
+    assert not (site / "app").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix ownership only")
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [
+        pytest.param(errno.ENOENT, "is missing", id="removed"),
+        pytest.param(errno.EIO, "cannot be checked", id="io-error"),
+    ],
+)
+def test_root_site_rejects_unreadable_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, code: int, message: str
+) -> None:
+    (site := tmp_path / "site").mkdir()
+    monkeypatch.setenv("XDG_DATA_DIRS", str(site))
+    original_lstat = os.lstat
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        if Path(path) == site:
+            raise OSError(code, os.strerror(code), str(site))
+        return original_lstat(path)
+
+    mocker.patch.object(os, "lstat", new=lstat)
+    with pytest.raises(PermissionError, match=message):
+        _ = Unix(appname="app", use_site_for_root=True, ensure_exists=True).user_data_dir
+    assert not (site / "app").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix ownership only")
+@pytest.mark.usefixtures("_as_root", "root_owned_paths")
+def test_root_site_rejects_nondirectory_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (site := tmp_path / "site").mkdir()
+    monkeypatch.setenv("XDG_DATA_DIRS", str(site))
+    original_lstat = os.lstat
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        info = original_lstat(path)
+        return os.stat_result((stat.S_IFREG | 0o644, *info[1:])) if Path(path) == site else info
+
+    mocker.patch.object(os, "lstat", new=lstat)
+    with pytest.raises(PermissionError, match="not a directory"):
+        _ = Unix(appname="app", use_site_for_root=True, ensure_exists=True).user_data_dir
+    assert not (site / "app").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix ownership only")
+@pytest.mark.usefixtures("_as_root")
+def test_root_site_creation_checks_new_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root_owned_paths: set[Path], mocker: MockerFixture
+) -> None:
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path / "site"))
+    original_mkdir = Path.mkdir
+
+    def mkdir(path: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        original_mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+        if path == tmp_path / "site":
+            root_owned_paths.add(path)
+
+    mocker.patch.object(Path, "mkdir", autospec=True, side_effect=mkdir)
+    with pytest.raises(PermissionError):
+        _ = Unix(appname="app", use_site_for_root=True, ensure_exists=True).user_data_dir
+    assert not (tmp_path / "site" / "app").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows reads media directories from Known Folders")
+@pytest.mark.usefixtures("_as_root")
+def test_root_user_media_uses_user_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_DOCUMENTS_DIR", str(tmp_path / "docs"))
+    assert Unix(ensure_exists=True).user_documents_dir == str(tmp_path / "docs")
+    assert (tmp_path / "docs").is_dir()
+
+
 @pytest.fixture
 def uid(request: pytest.FixtureRequest, mocker: MockerFixture) -> int:
-    value: typing.Final = typing.cast("int", request.param)
+    value: typing.Final[int] = typing.cast("int", request.param)
     mocker.patch("platformdirs.unix.geteuid", return_value=value, autospec=True)
     mocker.patch("platformdirs._runtime.geteuid", return_value=value, autospec=True)
     return value
@@ -2086,6 +2774,7 @@ _APP_COMPONENTS: typing.Final[list[str]] = ["home", "home/base", "home/base/app"
         pytest.param("user_cache_dir", "XDG_CACHE_HOME", id="cache"),
         pytest.param("user_state_dir", "XDG_STATE_HOME", id="state"),
         pytest.param("user_runtime_dir", "XDG_RUNTIME_DIR", id="runtime"),
+        pytest.param("site_runtime_dir", "XDG_RUNTIME_DIR", id="xdg-site-runtime"),
         pytest.param("user_preference_dir", "XDG_CONFIG_HOME", id="preference"),
     ],
 )
@@ -2124,7 +2813,6 @@ def test_unix_default_config_dir_creates_dot_config_private(
     [
         pytest.param("site_data_dir", "XDG_DATA_DIRS", id="site-data"),
         pytest.param("site_config_dir", "XDG_CONFIG_DIRS", id="site-config"),
-        pytest.param("site_runtime_dir", "XDG_RUNTIME_DIR", id="site-runtime"),
         pytest.param("user_documents_dir", "XDG_DOCUMENTS_DIR", id="media"),
     ],
 )

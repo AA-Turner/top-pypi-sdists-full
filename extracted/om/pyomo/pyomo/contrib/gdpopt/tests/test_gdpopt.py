@@ -12,6 +12,7 @@
 from contextlib import redirect_stdout
 from io import StringIO
 import logging
+from pyomo.common.timing import default_timer
 from math import fabs
 from os.path import join, normpath
 
@@ -19,7 +20,11 @@ import pyomo.common.unittest as unittest
 from pyomo.common.log import LoggingIntercept
 from pyomo.common.collections import Bunch
 from pyomo.common.config import ConfigDict, ConfigValue
+from pyomo.common.dependencies import numpy_available
 from pyomo.common.fileutils import import_file, PYOMO_ROOT_DIR
+from pyomo.contrib.gdpopt.convexity import model_is_not_certified_convex
+from pyomo.contrib.gdpopt.gloa import GDP_GLOA_Solver
+from pyomo.contrib.gdpopt.loa import GDP_LOA_Solver
 from pyomo.contrib.gdpopt.create_oa_subproblems import (
     add_util_block,
     add_disjunct_list,
@@ -27,12 +32,14 @@ from pyomo.contrib.gdpopt.create_oa_subproblems import (
     add_global_constraint_list,
 )
 import pyomo.contrib.gdpopt.tests.common_tests as ct
+from pyomo.contrib.gdpopt.loa import GDP_LOA_Solver
 from pyomo.contrib.gdpopt.util import is_feasible, time_code
 from pyomo.contrib.mcpp.pyomo_mcpp import mcpp_available
 from pyomo.contrib.gdpopt.solve_discrete_problem import (
     solve_MILP_discrete_problem,
     distinguish_mip_infeasible_or_unbounded,
 )
+from pyomo.core.expr.visitor import replace_expressions
 from pyomo.environ import (
     Block,
     ConcreteModel,
@@ -40,17 +47,19 @@ from pyomo.environ import (
     Integers,
     LogicalConstraint,
     maximize,
+    minimize,
     Objective,
     RangeSet,
     TransformationFactory,
     SolverFactory,
+    sin,
     sqrt,
     value,
     Var,
 )
 from pyomo.gdp import Disjunct, Disjunction
 from pyomo.gdp.tests import models
-from pyomo.opt import TerminationCondition
+from pyomo.opt import SolverResults, TerminationCondition
 
 exdir = normpath(join(PYOMO_ROOT_DIR, 'examples', 'gdp'))
 
@@ -77,6 +86,123 @@ gurobi_available = (
 
 class TestGDPoptUnit(unittest.TestCase):
     """Real unit tests for GDPopt"""
+
+    def _setup_crossed_bound_state(self, solver, sense=maximize):
+        solver.pyomo_results = SolverResults()
+        solver.pyomo_results.problem.sense = sense
+        solver.LB = 1011.6577899409375
+        solver.UB = 1000.0
+        solver.iteration = 1
+        solver._model_is_not_certified_convex = True
+        solver.timing.main_timer_start_time = default_timer()
+        solver.timing.total = 0.0
+
+        config = solver.CONFIG()
+        config.bound_tolerance = 1e-6
+        config.logger = logging.getLogger(__name__)
+        return config
+
+    def test_loa_crossed_bounds_are_not_reported_as_global_optimal(self):
+        solver = GDP_LOA_Solver()
+        config = self._setup_crossed_bound_state(solver)
+
+        self.assertTrue(solver.bounds_converged(config))
+        results = solver._get_final_pyomo_results_object()
+
+        self.assertIs(
+            results.solver.termination_condition, TerminationCondition.feasible
+        )
+        self.assertEqual(results.problem.lower_bound, 1011.6577899409375)
+        self.assertEqual(results.problem.upper_bound, float('inf'))
+
+    def test_loa_nonpolynomial_model_is_not_certified_convex(self):
+        m = ConcreteModel()
+        m.x = Var(bounds=(0, 4), initialize=0.2)
+        m.y = Var(bounds=(-2, 2), initialize=0)
+        m.nonconvex = Constraint(expr=m.y <= sin(3 * m.x) + 0.2 * m.x)
+        m.choose_region = Disjunction(expr=[[m.x <= 2], [m.x >= 2]], xor=True)
+        m.obj = Objective(expr=m.y, sense=maximize)
+
+        self.assertTrue(model_is_not_certified_convex(m, 1e-10))
+
+    @unittest.skipUnless(numpy_available, 'NumPy is not available')
+    def test_loa_distinguishes_basic_quadratic_convexity(self):
+        convex = ConcreteModel()
+        convex.x = Var(bounds=(-2, 2))
+        convex.y = Var(bounds=(-2, 2))
+        convex.c = Constraint(expr=convex.x**2 + convex.y**2 <= 1)
+        convex.obj = Objective(expr=convex.x**2 + convex.y)
+
+        nonconvex = ConcreteModel()
+        nonconvex.x = Var(bounds=(-2, 2))
+        nonconvex.y = Var(bounds=(-2, 2))
+        nonconvex.c = Constraint(expr=nonconvex.x * nonconvex.y <= 1)
+        nonconvex.obj = Objective(expr=nonconvex.y)
+
+        self.assertFalse(model_is_not_certified_convex(convex, 1e-10))
+        self.assertTrue(model_is_not_certified_convex(nonconvex, 1e-10))
+
+    @unittest.skipUnless(numpy_available, 'NumPy is not available')
+    def test_loa_certifies_psd_quadratic_cross_terms(self):
+        m = ConcreteModel()
+        m.x = Var(bounds=(-2, 2))
+        m.y = Var(bounds=(-2, 2))
+        m.c = Constraint(expr=m.x**2 + m.x * m.y + m.y**2 <= 4)
+        m.obj = Objective(expr=m.x)
+
+        self.assertFalse(model_is_not_certified_convex(m, 1e-10))
+
+    @unittest.skipUnless(numpy_available, 'NumPy is not available')
+    def test_loa_eigenvalue_tolerance_is_configurable(self):
+        m = ConcreteModel()
+        m.x = Var()
+        m.c = Constraint(expr=-1e-11 * m.x**2 <= 1)
+        m.obj = Objective(expr=m.x)
+
+        config = GDP_LOA_Solver.CONFIG()
+        self.assertFalse(model_is_not_certified_convex(m, config.eigenvalue_tolerance))
+        config.eigenvalue_tolerance = 1e-12
+        self.assertTrue(model_is_not_certified_convex(m, config.eigenvalue_tolerance))
+
+    def test_gloa_crossed_bounds_preserve_certified_optimal_behavior(self):
+        solver = GDP_GLOA_Solver()
+        config = self._setup_crossed_bound_state(solver)
+
+        self.assertTrue(solver.bounds_converged(config))
+        results = solver._get_final_pyomo_results_object()
+
+        self.assertIs(
+            results.solver.termination_condition, TerminationCondition.optimal
+        )
+        self.assertEqual(results.problem.lower_bound, 1011.6577899409375)
+        self.assertEqual(results.problem.upper_bound, 1011.6577899409375)
+
+    @unittest.skipUnless(numpy_available, 'NumPy is not available')
+    @unittest.skipUnless(LOA_solvers_available, 'Required subsolvers are not available')
+    def test_loa_nonconvex_solve_reports_crossed_bounds_as_feasible(self):
+        m = ConcreteModel()
+        m.x = Var(bounds=(0, 4), initialize=0.2)
+        m.y = Var(bounds=(-2, 2), initialize=0)
+        m.nonconvex = Constraint(expr=m.y <= sin(3 * m.x) + 0.2 * m.x)
+        m.left = Disjunct()
+        m.right = Disjunct()
+        m.left.region = Constraint(expr=m.x <= 2)
+        m.right.region = Constraint(expr=m.x >= 2)
+        m.choose_region = Disjunction(expr=[m.left, m.right], xor=True)
+        m.obj = Objective(expr=m.y, sense=maximize)
+
+        results = SolverFactory('gdpopt.loa').solve(
+            m,
+            mip_solver=mip_solver,
+            nlp_solver=nlp_solver,
+            init_algorithm='set_covering',
+        )
+
+        self.assertIs(
+            results.solver.termination_condition, TerminationCondition.feasible
+        )
+        self.assertEqual(results.problem.lower_bound, value(m.obj))
+        self.assertEqual(results.problem.upper_bound, float('inf'))
 
     @unittest.skipUnless(
         SolverFactory(mip_solver).available(), "MIP solver not available"
@@ -312,6 +438,71 @@ class TestGDPoptUnit(unittest.TestCase):
         self.assertEqual(c2.lower, 0)
         self.assertIsNone(c2.upper)
 
+    @unittest.skipUnless(LOA_solvers_available, "MIP and NLP solvers are not available")
+    @unittest.skipIf(not mcpp_available(), "MC++ is not available")
+    def test_gloa_affine_cut_uses_convex_slope_for_upper_cut(self):
+        m = ConcreteModel()
+        m.P = Var(bounds=(0, 10), initialize=0.05)
+        m.Q = Var(bounds=(1, 10), initialize=1)
+        m.F = Var(bounds=(0, 10), initialize=0.05)
+        m.QP = Var(bounds=(0, 10), initialize=1)
+        m.c = Constraint(expr=m.P * m.Q - m.F * m.QP == 0)
+        m.disjunction = Disjunction(
+            expr=[
+                [m.P == 0.05, m.Q == 1, m.QP == 1],
+                [m.P == 0.05, m.Q == 1.1, m.QP == 1],
+            ]
+        )
+        m.obj = Objective(expr=m.F)
+        m.disjunction.disjuncts[0].indicator_var.set_value(True)
+        m.disjunction.disjuncts[1].indicator_var.set_value(False)
+        cuts_checked = []
+
+        def check_affine_cuts(solver, discrete, util_block):
+            aff_utils = discrete.component('GDPopt_aff')
+            if aff_utils is None:
+                return  # The initialization MIP has no affine cuts yet.
+            aff_cuts = aff_utils.GDPopt_aff_cons
+            self.assertEqual(len(aff_cuts), 2)
+            convex_cut = aff_cuts[1]
+            feasible_point = {
+                id(discrete.P): 0.05,
+                id(discrete.Q): 1.1,
+                id(discrete.F): 0.055,
+                id(discrete.QP): 1.0,
+            }
+            cut_value = value(replace_expressions(convex_cut.body, feasible_point))
+            self.assertLessEqual(cut_value, value(convex_cut.upper) + 1e-12)
+            self.assertAlmostEqual(cut_value, -0.5)
+            cuts_checked.append(True)
+
+        SolverFactory('gdpopt.gloa').solve(
+            m,
+            mip_solver=mip_solver,
+            nlp_solver=nlp_solver,
+            init_algorithm='fix_disjuncts',
+            mip_presolve=False,
+            subproblem_presolve=False,
+            iterlim=1,
+            call_before_discrete_problem_solve=check_affine_cuts,
+        )
+        self.assertTrue(cuts_checked)
+
+    def test_relative_gap_near_zero_primal_bound(self):
+        solver = GDP_LOA_Solver()
+        solver.pyomo_results = SolverResults()
+        solver.pyomo_results.problem.sense = minimize
+
+        # primal bound is -1e-10, so adding the 1e-10 guard before taking
+        # abs() would divide by zero.
+        solver.LB, solver.UB = -1.0 - 1e-10, -1e-10
+        self.assertAlmostEqual(solver.relative_gap(), 1 / 2e-10, delta=1)
+
+        # The gap shouldn't depend on the sign of the primal bound.
+        for primal_bound in (2e-10, -2e-10):
+            solver.LB, solver.UB = primal_bound - 1.0, primal_bound
+            self.assertAlmostEqual(solver.relative_gap(), 1 / 3e-10, delta=1)
+
     def test_complain_when_no_algorithm_specified(self):
         m = self.get_GDP_on_block()
         with self.assertRaisesRegex(
@@ -321,6 +512,34 @@ class TestGDPoptUnit(unittest.TestCase):
             "algorithm-specific solver.",
         ):
             SolverFactory('gdpopt').solve(m)
+
+    @unittest.skipUnless(
+        SolverFactory(mip_solver).available(), "MIP solver not available"
+    )
+    def test_LOA_maximize_matches_minimize_negated_objective(self):
+        def build_model(maximize_objective):
+            m = ConcreteModel()
+            m.x = Var(bounds=(0, 10))
+            m.disjunction = Disjunction(expr=[[m.x == 1], [m.x == 9]])
+            if maximize_objective:
+                m.obj = Objective(expr=m.x, sense=maximize)
+            else:
+                m.obj = Objective(expr=-m.x)
+            return m
+
+        for maximize_objective in (False, True):
+            m = build_model(maximize_objective)
+            results = SolverFactory('gdpopt.loa').solve(
+                m,
+                mip_solver=mip_solver,
+                nlp_solver=nlp_solver,
+                init_algorithm='no_init',
+            )
+
+            self.assertEqual(
+                results.solver.termination_condition, TerminationCondition.optimal
+            )
+            self.assertAlmostEqual(value(m.x), 9)
 
     @unittest.skipIf(
         not LOA_solvers_available,
@@ -753,11 +972,11 @@ class TestGDPopt(unittest.TestCase):
                 eight_process,
                 mip_solver=mip_solver,
                 nlp_solver=nlp_solver,
-                time_limit=1,
+                time_limit=0.25,
             )
             self.assertIn(
                 "GDPopt exiting--Did not converge bounds before "
-                "time limit of 1 seconds.",
+                "time limit of 0.25 seconds.",
                 output.getvalue().strip(),
             )
         self.assertEqual(

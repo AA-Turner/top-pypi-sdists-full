@@ -29,7 +29,12 @@ __all__ = (
     "CidrCollectionChangeActionType",
     "CloudWatchRegionType",
     "ComparisonOperatorType",
+    "EndpointTypeType",
     "HealthCheckRegionType",
+    "HealthCheckSourceCreatedWaiterName",
+    "HealthCheckSourceDeletedWaiterName",
+    "HealthCheckSourceStatusReasonCodeType",
+    "HealthCheckSourceStatusType",
     "HealthCheckTypeType",
     "HostedZoneLimitTypeType",
     "HostedZoneTypeType",
@@ -37,6 +42,8 @@ __all__ = (
     "ListCidrBlocksPaginatorName",
     "ListCidrCollectionsPaginatorName",
     "ListCidrLocationsPaginatorName",
+    "ListHealthCheckSourcesPaginatorName",
+    "ListHealthChecksBySourcePaginatorName",
     "ListHealthChecksPaginatorName",
     "ListHostedZonesPaginatorName",
     "ListQueryLoggingConfigsPaginatorName",
@@ -71,6 +78,7 @@ AcceleratedRecoveryStatusType = Literal[
 ]
 AccountLimitTypeType = Literal[
     "MAX_HEALTH_CHECKS_BY_OWNER",
+    "MAX_HEALTH_CHECK_SOURCES_BY_OWNER",
     "MAX_HOSTED_ZONES_BY_OWNER",
     "MAX_REUSABLE_DELEGATION_SETS_BY_OWNER",
     "MAX_TRAFFIC_POLICIES_BY_OWNER",
@@ -133,6 +141,7 @@ ComparisonOperatorType = Literal[
     "LessThanOrEqualToThreshold",
     "LessThanThreshold",
 ]
+EndpointTypeType = Literal["PRIVATE", "PUBLIC"]
 HealthCheckRegionType = Literal[
     "ap-northeast-1",
     "ap-southeast-1",
@@ -142,6 +151,27 @@ HealthCheckRegionType = Literal[
     "us-east-1",
     "us-west-1",
     "us-west-2",
+]
+HealthCheckSourceCreatedWaiterName = Literal["health_check_source_created"]
+HealthCheckSourceDeletedWaiterName = Literal["health_check_source_deleted"]
+HealthCheckSourceStatusReasonCodeType = Literal[
+    "EC2_LIMIT_EXCEEDED",
+    "INSUFFICIENT_SUBNET_IPS",
+    "INTERNAL_ERROR",
+    "INVALID_CONFIGURATION",
+    "INVALID_SECURITY_GROUP",
+    "INVALID_SUBNET",
+    "SLR_MISSING_OR_NOT_ASSUMABLE",
+]
+HealthCheckSourceStatusType = Literal[
+    "CREATE_COMPLETED",
+    "CREATE_FAILED",
+    "CREATE_IN_PROGRESS",
+    "CREATE_PENDING",
+    "DELETE_COMPLETED",
+    "DELETE_FAILED",
+    "DELETE_IN_PROGRESS",
+    "DELETE_PENDING",
 ]
 HealthCheckTypeType = Literal[
     "CALCULATED",
@@ -159,6 +189,8 @@ InsufficientDataHealthStatusType = Literal["Healthy", "LastKnownStatus", "Unheal
 ListCidrBlocksPaginatorName = Literal["list_cidr_blocks"]
 ListCidrCollectionsPaginatorName = Literal["list_cidr_collections"]
 ListCidrLocationsPaginatorName = Literal["list_cidr_locations"]
+ListHealthCheckSourcesPaginatorName = Literal["list_health_check_sources"]
+ListHealthChecksBySourcePaginatorName = Literal["list_health_checks_by_source"]
 ListHealthChecksPaginatorName = Literal["list_health_checks"]
 ListHostedZonesPaginatorName = Literal["list_hosted_zones"]
 ListQueryLoggingConfigsPaginatorName = Literal["list_query_logging_configs"]
@@ -232,7 +264,7 @@ ResourceRecordSetRegionType = Literal[
 ResourceRecordSetsChangedWaiterName = Literal["resource_record_sets_changed"]
 ReusableDelegationSetLimitTypeType = Literal["MAX_ZONES_BY_REUSABLE_DELEGATION_SET"]
 StatisticType = Literal["Average", "Maximum", "Minimum", "SampleCount", "Sum"]
-TagResourceTypeType = Literal["healthcheck", "hostedzone"]
+TagResourceTypeType = Literal["healthcheck", "healthchecksource", "hostedzone"]
 VPCRegionType = Literal[
     "af-south-1",
     "ap-east-1",
@@ -283,6 +315,7 @@ VPCRegionType = Literal[
 ]
 Route53ServiceName = Literal["route53"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -391,6 +424,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -575,6 +609,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -582,6 +617,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -642,6 +678,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -726,11 +763,15 @@ PaginatorName = Literal[
     "list_cidr_blocks",
     "list_cidr_collections",
     "list_cidr_locations",
+    "list_health_check_sources",
     "list_health_checks",
+    "list_health_checks_by_source",
     "list_hosted_zones",
     "list_query_logging_configs",
     "list_resource_record_set_protections",
     "list_resource_record_sets",
     "list_vpc_association_authorizations",
 ]
-WaiterName = Literal["resource_record_sets_changed"]
+WaiterName = Literal[
+    "health_check_source_created", "health_check_source_deleted", "resource_record_sets_changed"
+]

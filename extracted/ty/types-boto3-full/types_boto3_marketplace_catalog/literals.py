@@ -29,6 +29,7 @@ __all__ = (
     "ChangeStatusType",
     "ContainerProductSortByType",
     "ContainerProductVisibilityStringType",
+    "ContentRecommendationStatusType",
     "ControlAssessmentResultType",
     "DataProductSortByType",
     "DataProductVisibilityStringType",
@@ -40,6 +41,8 @@ __all__ = (
     "ListAssessmentsPaginatorName",
     "ListChangeSetsPaginatorName",
     "ListEntitiesPaginatorName",
+    "ListingFindingStatusType",
+    "ListingQualityTierType",
     "MachineLearningProductSortByType",
     "MachineLearningProductVisibilityStringType",
     "MarketplaceCatalogServiceName",
@@ -52,6 +55,9 @@ __all__ = (
     "OfferTargetingStringType",
     "OwnershipTypeType",
     "PaginatorName",
+    "RecommendationSeverityType",
+    "RecommendedFeatureIdType",
+    "RecommendedFeatureStatusType",
     "RegionName",
     "ResaleAuthorizationResellerRoleStringType",
     "ResaleAuthorizationSortByType",
@@ -63,6 +69,7 @@ __all__ = (
     "SortOrderType",
     "SubsidiaryAuthorizationSortByType",
     "SubsidiaryAuthorizationStatusStringType",
+    "VerificationSourceType",
 )
 
 
@@ -74,6 +81,7 @@ ContainerProductSortByType = Literal[
     "CompatibleAWSServices", "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
 ]
 ContainerProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+ContentRecommendationStatusType = Literal["GENERATED", "INSUFFICIENT_CONTEXT"]
 ControlAssessmentResultType = Literal["EXEMPTION_PASS", "FAIL", "NOT_EXECUTED", "PASS"]
 DataProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 DataProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted", "Unavailable"]
@@ -87,6 +95,8 @@ IntentType = Literal["APPLY", "VALIDATE"]
 ListAssessmentsPaginatorName = Literal["list_assessments"]
 ListChangeSetsPaginatorName = Literal["list_change_sets"]
 ListEntitiesPaginatorName = Literal["list_entities"]
+ListingFindingStatusType = Literal["FAIL", "PASS"]
+ListingQualityTierType = Literal["BASIC", "EXCELLENT", "NEEDS_IMPROVEMENT", "STRONG"]
 MachineLearningProductSortByType = Literal[
     "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
 ]
@@ -108,6 +118,7 @@ OfferSortByType = Literal[
     "ReleaseDate",
     "ResaleAuthorizationId",
     "State",
+    "SubsidiaryAuthorizationId",
     "TargetAgreementId",
     "TargetAgreementIntent",
     "Targeting",
@@ -116,6 +127,11 @@ OfferStateStringType = Literal["Draft", "Released"]
 OfferTargetAgreementIntentStringType = Literal["Renew"]
 OfferTargetingStringType = Literal["BuyerAccounts", "CountryCodes", "None", "ParticipatingPrograms"]
 OwnershipTypeType = Literal["SELF", "SHARED"]
+RecommendationSeverityType = Literal["ADVISORY", "BLOCKING"]
+RecommendedFeatureIdType = Literal[
+    "FREE_TRIAL", "PROMOTIONAL_MEDIA", "QUICK_LAUNCH", "REQUEST_A_DEMO", "REQUEST_PRIVATE_OFFER"
+]
+RecommendedFeatureStatusType = Literal["FAIL", "PASS"]
 ResaleAuthorizationResellerRoleStringType = Literal["ChannelPartner", "Distributor"]
 ResaleAuthorizationSortByType = Literal[
     "AvailabilityEndDate",
@@ -145,6 +161,7 @@ SubsidiaryAuthorizationSortByType = Literal[
     "CreatedDate", "EntityId", "LastModifiedDate", "ResourceId", "Status", "SubsidiaryAccountId"
 ]
 SubsidiaryAuthorizationStatusStringType = Literal["Active", "Draft", "Restricted"]
+VerificationSourceType = Literal["AWS_VERIFIED", "SELF_ATTESTED"]
 MarketplaceCatalogServiceName = Literal["marketplace-catalog"]
 ServiceName = Literal[
     "abuse-signal",
@@ -449,6 +466,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

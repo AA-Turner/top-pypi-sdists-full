@@ -59,8 +59,8 @@ from datamodel_code_generator.imports import (
 from datamodel_code_generator.model._decisions.enum_kind import enum_member_kinds, literal_value_kind
 from datamodel_code_generator.model._decisions.tag_value import struct_union_refusal
 from datamodel_code_generator.model._render_plan import RENDER_READY
-from datamodel_code_generator.model._rendered_names import FieldNameBindings
-from datamodel_code_generator.model.base import BaseClassDataType, DataModel, _bare_loads_of, _model_key_of_model
+from datamodel_code_generator.model._rendered_names import FieldNameBindings, _bare_loads_of
+from datamodel_code_generator.model.base import BaseClassDataType, DataModel, _model_key_of_model
 from datamodel_code_generator.model.enum import Enum, Member, get_raw_enum_member_value
 from datamodel_code_generator.model.output import _model_field_name_collisions
 from datamodel_code_generator.model.type_alias import TypeAliasBase
@@ -1683,7 +1683,7 @@ def change_imported_model_name(parser: ImportsHost[Any], state: _FinalizeState[A
         models, imports = ctx.models, ctx.imports
         imported_names = _imported_names(models, imports, shared_names)
         for model in models:
-            if model.class_name not in imported_names:  # pragma: no cover
+            if model.class_name not in imported_names:
                 continue
             if model.class_name == IMPORT_LITERAL.import_ and alias_reused_variant_literal(parser, models, imports):
                 continue

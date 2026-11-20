@@ -25,12 +25,16 @@ from botocore.response import StreamingBody
 
 from .literals import (
     BusStateType,
+    ConnectivityStateType,
     EventSourceStateType,
     EventSourceTypeType,
     FilterScopeType,
     IncludePayloadType,
     InvocationTypeType,
     LogLevelType,
+    MskAcksType,
+    MskCompressionType,
+    MskConnectivityType,
     OrderingTypeType,
     PointTypeType,
     ResumePositionType,
@@ -38,6 +42,10 @@ from .literals import (
     SubscriberStateType,
     SuccessCodeType,
     TransformerTypeType,
+    WebhookHmacAlgorithmType,
+    WebhookHmacEncodingType,
+    WebhookSecretEncodingType,
+    WebhookSignedMessageCompositionType,
 )
 
 if sys.version_info >= (3, 12):
@@ -69,6 +77,7 @@ __all__ = (
     "DescribeEventSourceRequestTypeDef",
     "DescribeEventSourceResponseTypeDef",
     "DescribeSubscriberRequestTypeDef",
+    "DescribeSubscriberRequestWaitTypeDef",
     "DescribeSubscriberResponseTypeDef",
     "EncryptionConfigurationTypeDef",
     "EventBusSummaryTypeDef",
@@ -76,7 +85,10 @@ __all__ = (
     "EventBusV2ParametersTypeDef",
     "EventBusV2ParametersUnionTypeDef",
     "EventBusV2SystemMetadataTypeDef",
+    "EventSourceConfigurationOutputTypeDef",
     "EventSourceConfigurationTypeDef",
+    "EventSourceConfigurationUnionTypeDef",
+    "EventSourceDetailsTypeDef",
     "EventSourceSummaryTypeDef",
     "FilterConfigurationOutputTypeDef",
     "FilterConfigurationTypeDef",
@@ -108,6 +120,11 @@ __all__ = (
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "LogConfigurationTypeDef",
+    "MskDetailsTypeDef",
+    "MskHeaderTypeDef",
+    "MskParametersOutputTypeDef",
+    "MskParametersTypeDef",
+    "MskParametersUnionTypeDef",
     "OnFailureConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "PartnerEventsSourceConfigurationTypeDef",
@@ -131,6 +148,8 @@ __all__ = (
     "RetryPolicyTypeDef",
     "RevokeResourceRequestTypeDef",
     "RevokeResourceResponseTypeDef",
+    "RotateWebhookCredentialsRequestTypeDef",
+    "RotateWebhookCredentialsResponseTypeDef",
     "SchemaRegistryConfigurationTypeDef",
     "SnsMessageAttributeValueTypeDef",
     "SnsParametersOutputTypeDef",
@@ -143,6 +162,7 @@ __all__ = (
     "StepFunctionsParametersTypeDef",
     "StorageConfigurationOutputTypeDef",
     "StorageConfigurationTypeDef",
+    "SubscriberDetailsTypeDef",
     "SubscriberSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "TimestampTypeDef",
@@ -157,6 +177,15 @@ __all__ = (
     "UpdateSubscriberRequestTypeDef",
     "UpdateSubscriberResponseTypeDef",
     "WaiterConfigTypeDef",
+    "WebhookAuthConfigurationTypeDef",
+    "WebhookBasicHttpAuthConfigurationTypeDef",
+    "WebhookCredentialTypeDef",
+    "WebhookDeduplicationConfigurationTypeDef",
+    "WebhookDetailsTypeDef",
+    "WebhookEventsSourceConfigurationOutputTypeDef",
+    "WebhookEventsSourceConfigurationTypeDef",
+    "WebhookHmacAuthConfigurationTypeDef",
+    "WebhookStaticTokenAuthConfigurationTypeDef",
 )
 
 class OnFailureConfigurationTypeDef(TypedDict):
@@ -245,6 +274,10 @@ class EventBusSummaryTypeDef(TypedDict):
 class EventBusV2SystemMetadataTypeDef(TypedDict):
     EventGroupId: NotRequired[str]
     DeduplicationId: NotRequired[str]
+
+class WebhookDetailsTypeDef(TypedDict):
+    WebhookUrl: NotRequired[str]
+    SecretArn: NotRequired[str]
 
 EventSourceSummaryTypeDef = TypedDict(
     "EventSourceSummaryTypeDef",
@@ -356,6 +389,15 @@ SubscriberSummaryTypeDef = TypedDict(
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
+class MskDetailsTypeDef(TypedDict):
+    ConnectivityState: NotRequired[ConnectivityStateType]
+    StateReason: NotRequired[str]
+    VpcConnectionArn: NotRequired[str]
+
+class MskHeaderTypeDef(TypedDict):
+    Key: str
+    Value: NotRequired[str]
+
 TimestampTypeDef = Union[datetime, str]
 
 class PutEventsSystemMetadataTypeDef(TypedDict):
@@ -390,6 +432,11 @@ class PutResourcePolicyRequestTypeDef(TypedDict):
 class RevokeResourceRequestTypeDef(TypedDict):
     Arn: str
 
+class WebhookCredentialTypeDef(TypedDict):
+    StaticTokenSecretValue: NotRequired[str]
+    BasicHttpPassword: NotRequired[str]
+    HmacSecretValue: NotRequired[str]
+
 class SnsMessageAttributeValueTypeDef(TypedDict):
     DataType: NotRequired[str]
     StringValue: NotRequired[str]
@@ -407,6 +454,31 @@ class TagResourceRequestTypeDef(TypedDict):
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     TagKeys: Sequence[str]
+
+class WebhookBasicHttpAuthConfigurationTypeDef(TypedDict):
+    Username: NotRequired[str]
+    Password: NotRequired[str]
+
+class WebhookHmacAuthConfigurationTypeDef(TypedDict):
+    Algorithm: WebhookHmacAlgorithmType
+    Encoding: WebhookHmacEncodingType
+    SignatureHttpHeader: str
+    SignedMessageComposition: WebhookSignedMessageCompositionType
+    SignaturePrefix: NotRequired[str]
+    Delimiter: NotRequired[str]
+    TimestampHttpHeader: NotRequired[str]
+    TimestampPrefix: NotRequired[str]
+    TimestampToleranceInSeconds: NotRequired[int]
+    MessageIdHttpHeader: NotRequired[str]
+    SecretValue: NotRequired[str]
+    SecretEncoding: NotRequired[WebhookSecretEncodingType]
+
+class WebhookStaticTokenAuthConfigurationTypeDef(TypedDict):
+    TokenHttpHeader: str
+    SecretValue: NotRequired[str]
+
+class WebhookDeduplicationConfigurationTypeDef(TypedDict):
+    DeduplicationType: Literal["CONTENT_BASED"]
 
 class AwsServiceEventsSourceConfigurationTypeDef(TypedDict):
     AwsService: str
@@ -437,14 +509,6 @@ class UpdateEventBusRequestTypeDef(TypedDict):
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     StorageConfiguration: NotRequired[StorageConfigurationTypeDef]
 
-class CreateEventSourceResponseTypeDef(TypedDict):
-    EventSourceArn: str
-    Name: str
-    EventBusArn: str
-    State: EventSourceStateType
-    CreationTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class DeleteResourcePolicyResponseTypeDef(TypedDict):
     RevisionId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -468,6 +532,10 @@ class PutResourcePolicyResponseTypeDef(TypedDict):
 
 class RevokeResourceResponseTypeDef(TypedDict):
     Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RotateWebhookCredentialsResponseTypeDef(TypedDict):
+    SecretArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateEventSourceResponseTypeDef(TypedDict):
@@ -512,41 +580,16 @@ class UpdateEventBusResponseTypeDef(TypedDict):
     LastModifiedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-CreateSubscriberResponseTypeDef = TypedDict(
-    "CreateSubscriberResponseTypeDef",
-    {
-        "SubscriberArn": str,
-        "Name": str,
-        "EventBusArn": str,
-        "Type": OrderingTypeType,
-        "StartingPosition": StartingPositionType,
-        "PointInTimeConfiguration": PointInTimeConfigurationOutputTypeDef,
-        "State": SubscriberStateType,
-        "CreationTime": datetime,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-UpdateSubscriberResponseTypeDef = TypedDict(
-    "UpdateSubscriberResponseTypeDef",
-    {
-        "SubscriberArn": str,
-        "Name": str,
-        "EventBusArn": str,
-        "Type": OrderingTypeType,
-        "StartingPosition": StartingPositionType,
-        "PointInTimeConfiguration": PointInTimeConfigurationOutputTypeDef,
-        "State": SubscriberStateType,
-        "LastModifiedTime": datetime,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-
 class DescribeEventBusRequestWaitExtraTypeDef(TypedDict):
     EventBusArn: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class DescribeEventBusRequestWaitTypeDef(TypedDict):
     EventBusArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeSubscriberRequestWaitTypeDef(TypedDict):
+    SubscriberArn: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class ListEventBusesResponseTypeDef(TypedDict):
@@ -563,6 +606,9 @@ class EventBusV2ParametersTypeDef(TypedDict):
     Metadata: NotRequired[Mapping[str, str]]
     SystemMetadata: NotRequired[EventBusV2SystemMetadataTypeDef]
     DeduplicationConfiguration: NotRequired[DeduplicationConfigurationTypeDef]
+
+class EventSourceDetailsTypeDef(TypedDict):
+    WebhookDetails: NotRequired[WebhookDetailsTypeDef]
 
 class ListEventSourcesResponseTypeDef(TypedDict):
     EventSources: list[EventSourceSummaryTypeDef]
@@ -615,6 +661,27 @@ class ListSubscribersResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class SubscriberDetailsTypeDef(TypedDict):
+    MskDetails: NotRequired[MskDetailsTypeDef]
+
+class MskParametersOutputTypeDef(TypedDict):
+    TopicName: str
+    Connectivity: MskConnectivityType
+    Compression: NotRequired[MskCompressionType]
+    Acks: NotRequired[MskAcksType]
+    PartitionKey: NotRequired[str]
+    Headers: NotRequired[list[MskHeaderTypeDef]]
+    ClientId: NotRequired[str]
+
+class MskParametersTypeDef(TypedDict):
+    TopicName: str
+    Connectivity: MskConnectivityType
+    Compression: NotRequired[MskCompressionType]
+    Acks: NotRequired[MskAcksType]
+    PartitionKey: NotRequired[str]
+    Headers: NotRequired[Sequence[MskHeaderTypeDef]]
+    ClientId: NotRequired[str]
+
 class PointInTimeConfigurationTypeDef(TypedDict):
     PointType: PointTypeType
     StartingPoint: NotRequired[TimestampTypeDef]
@@ -642,6 +709,11 @@ class PutRawEventsResponseTypeDef(TypedDict):
     FailedEntryCount: int
     Entries: list[PutRawEventsResultEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class RotateWebhookCredentialsRequestTypeDef(TypedDict):
+    EventSourceArn: str
+    Credential: NotRequired[WebhookCredentialTypeDef]
+    ClientToken: NotRequired[str]
 
 class SnsParametersOutputTypeDef(TypedDict):
     MessageGroupId: NotRequired[str]
@@ -671,16 +743,58 @@ class SqsParametersTypeDef(TypedDict):
     MessageAttributes: NotRequired[Mapping[str, SqsMessageAttributeValueTypeDef]]
     MessageSystemAttributes: NotRequired[Mapping[str, SqsMessageAttributeValueTypeDef]]
 
-class EventSourceConfigurationTypeDef(TypedDict):
-    AwsServiceEventsConfiguration: NotRequired[AwsServiceEventsSourceConfigurationTypeDef]
-    PartnerEventsConfiguration: NotRequired[PartnerEventsSourceConfigurationTypeDef]
+class WebhookAuthConfigurationTypeDef(TypedDict):
+    StaticTokenAuthConfiguration: NotRequired[WebhookStaticTokenAuthConfigurationTypeDef]
+    BasicHttpAuthConfiguration: NotRequired[WebhookBasicHttpAuthConfigurationTypeDef]
+    HmacAuthConfiguration: NotRequired[WebhookHmacAuthConfigurationTypeDef]
 
 EventBusV2ParametersUnionTypeDef = Union[
     EventBusV2ParametersTypeDef, EventBusV2ParametersOutputTypeDef
 ]
+
+class CreateEventSourceResponseTypeDef(TypedDict):
+    EventSourceArn: str
+    Name: str
+    EventBusArn: str
+    State: EventSourceStateType
+    EventSourceDetails: EventSourceDetailsTypeDef
+    CreationTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 FilterConfigurationUnionTypeDef = Union[
     FilterConfigurationTypeDef, FilterConfigurationOutputTypeDef
 ]
+CreateSubscriberResponseTypeDef = TypedDict(
+    "CreateSubscriberResponseTypeDef",
+    {
+        "SubscriberArn": str,
+        "Name": str,
+        "EventBusArn": str,
+        "Type": OrderingTypeType,
+        "StartingPosition": StartingPositionType,
+        "PointInTimeConfiguration": PointInTimeConfigurationOutputTypeDef,
+        "State": SubscriberStateType,
+        "CreationTime": datetime,
+        "SubscriberDetails": SubscriberDetailsTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateSubscriberResponseTypeDef = TypedDict(
+    "UpdateSubscriberResponseTypeDef",
+    {
+        "SubscriberArn": str,
+        "Name": str,
+        "EventBusArn": str,
+        "Type": OrderingTypeType,
+        "StartingPosition": StartingPositionType,
+        "PointInTimeConfiguration": PointInTimeConfigurationOutputTypeDef,
+        "State": SubscriberStateType,
+        "LastModifiedTime": datetime,
+        "SubscriberDetails": SubscriberDetailsTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+MskParametersUnionTypeDef = Union[MskParametersTypeDef, MskParametersOutputTypeDef]
 PointInTimeConfigurationUnionTypeDef = Union[
     PointInTimeConfigurationTypeDef, PointInTimeConfigurationOutputTypeDef
 ]
@@ -709,6 +823,7 @@ class InvokeConfigurationOutputTypeDef(TypedDict):
     HttpParameters: NotRequired[HttpParametersOutputTypeDef]
     UniversalTargetParameters: NotRequired[UniversalTargetParametersTypeDef]
     EventBusV2Parameters: NotRequired[EventBusV2ParametersOutputTypeDef]
+    MskParameters: NotRequired[MskParametersOutputTypeDef]
 
 class InvokeConfigurationTypeDef(TypedDict):
     RoleArn: str
@@ -721,33 +836,25 @@ class InvokeConfigurationTypeDef(TypedDict):
     HttpParameters: NotRequired[HttpParametersTypeDef]
     UniversalTargetParameters: NotRequired[UniversalTargetParametersTypeDef]
     EventBusV2Parameters: NotRequired[EventBusV2ParametersTypeDef]
+    MskParameters: NotRequired[MskParametersTypeDef]
 
 SqsParametersUnionTypeDef = Union[SqsParametersTypeDef, SqsParametersOutputTypeDef]
 
-class CreateEventSourceRequestTypeDef(TypedDict):
-    Name: str
-    EventBusArn: str
-    Configuration: EventSourceConfigurationTypeDef
-    Description: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-    ClientToken: NotRequired[str]
+class WebhookEventsSourceConfigurationOutputTypeDef(TypedDict):
+    AuthConfiguration: WebhookAuthConfigurationTypeDef
+    RoleArn: str
+    KmsKeyIdentifier: NotRequired[str]
+    MetadataHttpHeaders: NotRequired[list[str]]
+    DeduplicationConfiguration: NotRequired[WebhookDeduplicationConfigurationTypeDef]
+    LogConfiguration: NotRequired[LogConfigurationTypeDef]
 
-class DescribeEventSourceResponseTypeDef(TypedDict):
-    EventSourceArn: str
-    Name: str
-    EventBusArn: str
-    Configuration: EventSourceConfigurationTypeDef
-    Description: str
-    State: EventSourceStateType
-    Revoked: bool
-    CreationTime: datetime
-    LastModifiedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateEventSourceRequestTypeDef(TypedDict):
-    EventSourceArn: str
-    Configuration: NotRequired[EventSourceConfigurationTypeDef]
-    Description: NotRequired[str]
+class WebhookEventsSourceConfigurationTypeDef(TypedDict):
+    AuthConfiguration: WebhookAuthConfigurationTypeDef
+    RoleArn: str
+    KmsKeyIdentifier: NotRequired[str]
+    MetadataHttpHeaders: NotRequired[Sequence[str]]
+    DeduplicationConfiguration: NotRequired[WebhookDeduplicationConfigurationTypeDef]
+    LogConfiguration: NotRequired[LogConfigurationTypeDef]
 
 DescribeSubscriberResponseTypeDef = TypedDict(
     "DescribeSubscriberResponseTypeDef",
@@ -770,6 +877,7 @@ DescribeSubscriberResponseTypeDef = TypedDict(
         "Revoked": bool,
         "CreationTime": datetime,
         "LastModifiedTime": datetime,
+        "SubscriberDetails": SubscriberDetailsTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -787,6 +895,17 @@ class UpdateInvokeConfigurationTypeDef(TypedDict):
     HttpParameters: NotRequired[HttpParametersUnionTypeDef]
     UniversalTargetParameters: NotRequired[UniversalTargetParametersTypeDef]
     EventBusV2Parameters: NotRequired[EventBusV2ParametersUnionTypeDef]
+    MskParameters: NotRequired[MskParametersUnionTypeDef]
+
+class EventSourceConfigurationOutputTypeDef(TypedDict):
+    AwsServiceEventsConfiguration: NotRequired[AwsServiceEventsSourceConfigurationTypeDef]
+    PartnerEventsConfiguration: NotRequired[PartnerEventsSourceConfigurationTypeDef]
+    WebhookEventsConfiguration: NotRequired[WebhookEventsSourceConfigurationOutputTypeDef]
+
+class EventSourceConfigurationTypeDef(TypedDict):
+    AwsServiceEventsConfiguration: NotRequired[AwsServiceEventsSourceConfigurationTypeDef]
+    PartnerEventsConfiguration: NotRequired[PartnerEventsSourceConfigurationTypeDef]
+    WebhookEventsConfiguration: NotRequired[WebhookEventsSourceConfigurationTypeDef]
 
 CreateSubscriberRequestTypeDef = TypedDict(
     "CreateSubscriberRequestTypeDef",
@@ -822,3 +941,33 @@ class UpdateSubscriberRequestTypeDef(TypedDict):
     RetryPolicy: NotRequired[RetryPolicyTypeDef]
     OnFailureConfiguration: NotRequired[OnFailureConfigurationTypeDef]
     LogConfiguration: NotRequired[LogConfigurationTypeDef]
+
+class DescribeEventSourceResponseTypeDef(TypedDict):
+    EventSourceArn: str
+    Name: str
+    EventBusArn: str
+    Configuration: EventSourceConfigurationOutputTypeDef
+    Description: str
+    State: EventSourceStateType
+    Revoked: bool
+    EventSourceDetails: EventSourceDetailsTypeDef
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+EventSourceConfigurationUnionTypeDef = Union[
+    EventSourceConfigurationTypeDef, EventSourceConfigurationOutputTypeDef
+]
+
+class CreateEventSourceRequestTypeDef(TypedDict):
+    Name: str
+    EventBusArn: str
+    Configuration: EventSourceConfigurationUnionTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+
+class UpdateEventSourceRequestTypeDef(TypedDict):
+    EventSourceArn: str
+    Configuration: NotRequired[EventSourceConfigurationUnionTypeDef]
+    Description: NotRequired[str]

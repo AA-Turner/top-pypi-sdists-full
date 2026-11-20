@@ -74,13 +74,13 @@ def _catalogue(api_key: str | None, base_url: str | None) -> dict[str, Model]:
     if cat is None:
 
 
+        from .plugins import first
 
-        from .. import models as _list_models
-
+        api = first("sequence_ai.api")
         by_id: dict[str, Model] = {}
 
 
-        for m in _list_models(kind="model", api_key=api_key, base_url=base_url):
+        for m in (api.models(kind="model", api_key=api_key, base_url=base_url) if api is not None else ()):
             by_id[m.short_id] = m
             by_id[m.id] = m
         _CATALOGUE[key] = cat = by_id

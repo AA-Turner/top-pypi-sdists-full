@@ -34,19 +34,38 @@ def _input_files(*streams):
     return inputs
 
 
-def jsondiff_main():
+def _load(stream, loads=json.loads):
+    """ Parses the JSON document in stream; errors name the file """
     try:
-        diff_files()
+        return loads(stream.read())
+    except ValueError as ex:
+        # invalid JSON or, as a UnicodeDecodeError, invalid UTF-8
+        name = getattr(stream, 'name', '<input>')
+        raise ValueError('{0}: {1}'.format(name, ex)) from ex
+
+
+def _run(parser, program):
+    """ Runs a command line program. Errors in its input, and in reading
+    and writing files, are reported in one line, with exit status 2 """
+    try:
+        program()
     except KeyboardInterrupt:
         sys.exit(1)
+    except (jsonpatch.JsonPatchException, jsonpatch.JsonPointerException,
+            ValueError, OSError) as ex:
+        parser.exit(2, '{0}: error: {1}\n'.format(parser.prog, ex))
+
+
+def jsondiff_main():
+    _run(jsondiff_parser, diff_files)
 
 
 def diff_files():
     """ Diffs two JSON files and prints a patch """
     args = jsondiff_parser.parse_args()
     with _input_files(args.FILE1, args.FILE2):
-        doc1 = json.load(args.FILE1)
-        doc2 = json.load(args.FILE2)
+        doc1 = _load(args.FILE1)
+        doc2 = _load(args.FILE2)
     patch = jsonpatch.make_patch(doc1, doc2, generate_test_ops=args.test_ops)
     if patch.patch:
         print(json.dumps(patch.patch, indent=args.indent, ensure_ascii=not args.preserve_unicode))
@@ -73,11 +92,25 @@ jsonpatch_parser.add_argument('-u', '--preserve-unicode', action='store_true',
                               help='Output Unicode character as-is without using Code Point')
 
 
-def jsonpatch_main():
+def _link_backup(original, temporary):
+    """ Links original to its backup name, replacing an older backup """
+    # link() does not overwrite an existing file, so the link is created
+    # under a temporary name, and then moved over an older backup
+    link = temporary + '.orig'
+    os.link(original, link)
     try:
-        patch_files()
-    except KeyboardInterrupt:
-        sys.exit(1)
+        os.replace(link, original + '.orig')
+    finally:
+        # It is still there if replacing failed, and if the older backup is
+        # a link to original already, as replace() does nothing then
+        try:
+            os.unlink(link)
+        except OSError:
+            pass
+
+
+def jsonpatch_main():
+    _run(jsonpatch_parser, patch_files)
 
 
 def patch_files():
@@ -86,8 +119,9 @@ def patch_files():
     # The inputs are closed before anything is written, as Windows cannot
     # replace ORIGINAL while it is open.
     with _input_files(args.ORIGINAL, args.PATCH):
-        doc = json.load(args.ORIGINAL)
-        result = jsonpatch.apply_patch(doc, args.PATCH.read())
+        doc = _load(args.ORIGINAL)
+        patch = _load(args.PATCH, jsonpatch.JsonPatch.from_string)
+    result = patch.apply(doc)
 
     if args.in_place:
         dirname = os.path.abspath(os.path.dirname(args.ORIGINAL.name))
@@ -121,7 +155,13 @@ def patch_files():
             # the original (if desired) and writing a new file.
 
             if args.backup:
-                os.rename(args.ORIGINAL.name, args.ORIGINAL.name + '.orig')
+                # like in atomic mode, an older backup is replaced
+                os.replace(args.ORIGINAL.name, args.ORIGINAL.name + '.orig')
+                # A same-inode replace may leave the original name in place.
+                try:
+                    os.unlink(args.ORIGINAL.name)
+                except FileNotFoundError:
+                    pass
             fp = open(args.ORIGINAL.name, 'w', encoding='utf-8')
             atomic = False
 
@@ -157,11 +197,12 @@ def patch_files():
         if atomic:
             try:
                 # Complete the atomic replace by linking the original
-                # to a backup (if desired), fixing up the permissions
+                # to a backup (if desired), which replaces an older
+                # backup, fixing up the permissions
                 # on the temporary file, and moving it into place.
 
                 if args.backup:
-                    os.link(args.ORIGINAL.name, args.ORIGINAL.name + '.orig')
+                    _link_backup(args.ORIGINAL.name, pathname)
                 os.chmod(pathname, os.stat(args.ORIGINAL.name).st_mode)
                 os.replace(pathname, args.ORIGINAL.name)
 

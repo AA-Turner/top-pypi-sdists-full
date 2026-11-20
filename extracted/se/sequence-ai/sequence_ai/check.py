@@ -5,14 +5,15 @@ What is on, and what is not, between this machine and a policy server: run it on
 
     python -m sequence_ai.check http://<gpu>:8000
     python -m sequence_ai.check http://<gpu>:8000 --token "$TOKEN" --observation observation.npz
-    python -m sequence_ai.check http://<gpu>:8000 --lines eth0,wwan0      # each uplink too (network.lines)
 
-Each line is one thing that changes how long the robot waits for its answers, marked `ok` (on), `no` (off: the line says
-how to turn it on) or `--` (not something this machine or this server has, or nothing to measure it with):
+It reaches the server as a robot does - sequence_ai.connect(url, token=...), then wait_until_ready() - and each line is
+one thing that changes how long the robot waits for its answers, marked `ok` (on), `no` (off: the line says how to turn
+it on) or `--` (not something this machine or this server has, or nothing to measure it with):
 
-    server              the server answers its ping with 200; what it says it is (X-Seq-Server, and its ping's JSON:
-                        version, process id, how long it has run, policy) - a server that says nothing of it may be
-                        another program at that address; and what it says it restores (X-Seq-Reads)
+    server              the server answers its ping with 200; what it says it is (its ping's JSON: version, process
+                        id, how long it has run, policy, the speed-ups it kept) - a server that says nothing of it
+                        may be another program at that address; and whether it takes the robot's stream
+                        (x-seq-stream/3 in X-Seq-Act-Formats), which connect() sends observations and acts on
     round trip          the median time of a ping on a kept connection, and of a TCP connect: the network's own part
     send window         whether a connection keeps its send window through the robot's pauses between requests: macOS
                         does; Linux does with BBR or net.ipv4.tcp_slow_start_after_idle 0, and otherwise restarts it,
@@ -20,32 +21,22 @@ how to turn it on) or `--` (not something this machine or this server has, or no
     BBR                 whether this machine's connections use BBR (Linux)
     Wi-Fi power saving  whether the Wi-Fi this machine uses saves power, which holds its packets back (read on Linux;
                         on macOS the line says it was not checked, and whether the machine is on Wi-Fi)
-    pings when idle     whether the server answers the ping the robot's connection sends after each 100 ms of idle
-                        time, which keeps the connection, and the Wi-Fi radio, from going idle
+    pings when idle     the robot's stream pings after each 100 ms it has sent nothing, from its first observation
+                        until 60 s after its last observation or act, which keeps the connection, and the Wi-Fi radio,
+                        from going idle; on where the server answers its ping with 200
     pings in inference  whether the server answers pings while its model runs: a server that does not leaves the
                         robot's connection silent for the whole inference
-    pictures as JPEG    whether the server restores pictures sent as JPEG, so connect() sends them so; with an
-                        observation, its pictures' size as arrays and as JPEG
-    compression         whether the server restores compressed items, so connect() compresses large arrays where that
-                        saves time
-    server time         whether the server says how long it took (Server-Timing), and how much of an act was
-                        outside it: the network, and this machine
+    server time         whether the server says how long it took (handler_ms in each act's answer), and how much of
+                        an act was outside it: the network, and this machine
     first act           how long the first act took, against the next ones: a model compiled on its first inference
 
-With --lines, a robot's uplinks, by their network interfaces (connect(url, lines=[...])):
-
-    line <interface>    the median time of a ping on a connection that leaves by that interface alone (network.bind),
-                        or that nothing answered by it; an interface this machine has not is named with the ones it has
-    lines               whether the server runs an act's copies once ("once" in X-Seq-Reads), so each act goes on
-                        every line; one that does not gets each act on one line
-    lines' answers      with an observation, 5 acts sent on every line: how many each line answered first, and the
-                        bytes each act sends on each line - at one act a second, how many MB an hour that is
-
-The lines that send an act - pings in inference, server time, first act - need an observation: `--observation` (a file
+The lines that send an act - pings in inference, server time, first act - send it as a robot does, on its stream: the
+observation handed over (policy.observe), then the act (policy.act). They need an observation - `--observation` (a file
 of msgpack as msgpack_io.pack writes it, a .npz of arrays, or .json), else the one the server hands out at GET /example
-(serve(example=...) does). Without either they say so.
+(serve(example=...) does) - and a server that takes the robot's stream. Without either they say so.
 
-Exit status: 0 when no line is `no`, 1 when one is, 2 when the server cannot be reached or refuses this machine.
+Exit status: 0 when no line is `no`, 1 when one is, 2 when the server cannot be reached, is not ready within --wait, or
+refuses this machine.
 """
 from __future__ import annotations
 
@@ -60,12 +51,13 @@ import time
 from typing import Any, List, NamedTuple, Optional
 from urllib.parse import urlsplit
 
-from .network import compress as _compress
-from .network import compressed as _compressed
-from .network import frames, msgpack_io, wifi_power, window
-from .network.link import FIRST_TIMEOUT_S, READS_HEADER, SERVER_HEADER, Link, reads_of
+from .network import msgpack_io, wifi_power, window
 
 __all__ = ["Row", "main", "run"]
+
+
+
+PING = "/ping"
 
 
 class Row(NamedTuple):
@@ -80,19 +72,16 @@ def _ms(seconds: float) -> str:
 
 
 def _identity(response: Any) -> Optional[str]:
-    """What the server says it is, from its ping's answer: "sequence-ai 0.63.0, pid 4242, up 3.2 min, policy pi05" from
-    its JSON, else the name and version in its X-Seq-Server header; None when it says neither."""
+    """What the server says it is, from its ping's JSON alone - serve() names its server, version, up_s, pid and policy
+    there: "sequence-ai 0.63.0, pid 4242, up 3.2 min, policy pi05"; None when the ping holds no JSON that names a
+    server."""
     said: dict = {}
-    if response is not None and "json" in response.headers.get("content-type", ""):
+    if "json" in response.headers.get("content-type", ""):
         try:
             body = response.json()
             said = body if isinstance(body, dict) and body.get("server") else {}
         except ValueError:
             said = {}
-    header = response.headers.get(SERVER_HEADER) if response is not None else None
-    if not said and header:
-        name, _, version = header.partition("/")
-        said = {"server": name.strip(), "version": version.strip()}
     if not said:
         return None
     parts = [f"{said.get('server')} {said.get('version') or ''}".strip()]
@@ -103,6 +92,9 @@ def _identity(response: Any) -> Optional[str]:
         parts.append(f"up {up / 3600:.1f} h" if up >= 3600 else f"up {up / 60:.1f} min" if up >= 60 else f"up {up:.0f} s")
     if said.get("policy"):
         parts.append(f"policy {said['policy']}")
+    if isinstance(said.get("optimized"), list):
+        on = [str(name) for name in said["optimized"]]
+        parts.append(f"speed-ups on: {' and '.join(on)}" if on else "no speed-up on")
     return ", ".join(parts)
 
 
@@ -237,56 +229,90 @@ def _pings_in_inference(url: str, headers: dict, ping_path: str, act: Any, idle_
                                            "the model on a thread of its own"), totals
 
 
-def run(url: str, *, token: Optional[str] = None, observation: Any = None, ping_path: str = "/ping",
-        act_path: str = "/act", pings: int = 10, wait_s: float = 60.0,
-        lines: Optional[List[str]] = None) -> "tuple[List[Row], int]":
-    """Check the server at `url` (the module's docstring): its rows, and the exit status they give."""
+def _ping_status(url: str, headers: dict) -> int | None:
+    """The status the server answers one ping with now, as this machine asks it (its token, where given); None when
+    nothing answers: what a server that was not ready by the end of the wait says."""
     import httpx
 
+    try:
+        return httpx.get(url.rstrip("/") + PING, headers=headers, timeout=5.0).status_code
+    except httpx.HTTPError:
+        return None
+
+
+def _not_ready(url: str, wait_s: float, status: int | None, token: str | None) -> Row:
+    """The server's line when the robot cannot act on it: its ping refused (401, 403: the token, with how to give one
+    where none was), else not ready within `wait_s` - what its ping answered then, or that nothing did."""
+    if status in (401, 403):
+        hint = ": give it with --token" if not token else ""
+        return Row("no", "server", f"refused this machine's ping ({status}){hint}")
+    return Row("no", "server", f"{url} was not ready in {wait_s:g} s: "
+                               + (f"its ping's answer is {status}" if status is not None else "nothing answered"))
+
+
+def run(url: str, *, token: Optional[str] = None, observation: Any = None, pings: int = 10,
+        wait_s: float = 60.0) -> "tuple[List[Row], int]":
+    """Check the server at `url` (the module's docstring): its rows, and the exit status they give. The server is
+    reached as a robot reaches it - connect(url, token=...), wait_until_ready(), each act an observe() and the act()
+    after it on the robot's stream - so what is measured is what the robot's own loop meets."""
+    import httpx
+
+    from . import connect
+    from ._core.worker_stream import FORMAT as STREAM_FORMAT
+    from ._core.worker_transport import FORMATS_HEADER
+    from .errors import AuthError, InvalidRequest, PermissionDenied, SequencesError, Unavailable
+
+    if "://" not in url:
+
+        return [Row("no", "server", f"{url} is not an address: give it as http://<host>:<port>")], 2
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     rows: List[Row] = []
-    link = Link(url, token=token, act_path=act_path, ping_path=ping_path, check=False)
+    policy = connect(url, token=token)
     try:
         try:
-            link.wait_until_ready(timeout_s=wait_s)
-        except TimeoutError as e:
+            policy.wait_until_ready(timeout_s=wait_s)
+        except (AuthError, PermissionDenied) as e:
+            return [_not_ready(url, wait_s, e.status, token)], 2
+        except InvalidRequest as e:
             return [Row("no", "server", str(e))], 2
-        except httpx.HTTPStatusError as e:
-            code = e.response.status_code
-            hint = ": give it with --token" if code in (401, 403) and not token else ""
-            return [Row("no", "server", f"refused this machine's ping ({code}){hint}")], 2
+        except Unavailable:
+
+            return [_not_ready(url, wait_s, _ping_status(url, headers), token)], 2
 
         with httpx.Client(base_url=url, headers=headers, timeout=10.0,
                           transport=httpx.HTTPTransport(socket_options=window.socket_options())) as client:
             answered = []
-            status, said, response = None, None, None
             for _ in range(max(1, pings)):
                 began = time.perf_counter()
-                response = client.get(ping_path)
+                response = client.get(PING)
                 answered.append(time.perf_counter() - began)
-                status, said = response.status_code, response.headers.get(READS_HEADER)
-        reads = reads_of(said)
-        idle = statistics.median(answered)
-        restores = ", ".join(sorted(reads)) if reads else "nothing (no X-Seq-Reads)"
-        identity = _identity(response)
-        if status == 200 and identity:
-            rows.append(Row("ok", "server", f"{identity}; it answers {ping_path} with 200 and restores {restores}"))
-        elif status == 200:
-            rows.append(Row("no", "server", f"answers {ping_path} with 200 but does not say it is serve() (no "
-                                            f"{SERVER_HEADER}): if serve() was started there, another program answers "
-                                            f"at this address; it restores {restores}"))
+        idle, status, identity = statistics.median(answered), response.status_code, _identity(response)
+
+
+        named = {part.strip().lower() for part in response.headers.get(FORMATS_HEADER, "").split(",")}
+        streams = STREAM_FORMAT in named
+        stream = (f"takes the robot's stream ({STREAM_FORMAT})" if streams else
+                  f"does not take the robot's stream (no {STREAM_FORMAT} in {FORMATS_HEADER}), which connect() sends "
+                  "observations and acts on: serve() takes it where sequence-base is installed (Python 3.10 or later)")
+        if identity:
+            rows.append(Row("ok" if status == 200 and streams else "no", "server",
+                            f"{identity}; it answers {PING} with {status} and {stream}"))
         else:
-            rows.append(Row("no", "server", f"answers {ping_path} with {status}: it has no ping, so nothing keeps the "
-                                            "robot's connection busy between requests; serve() answers it"))
+            rows.append(Row("no", "server", f"answers {PING} with {status} but does not say it is serve() (no server "
+                                            "named in its JSON): if serve() was started there, another program answers "
+                                            f"at this address; it {stream}"))
         tcp = _tcp_connect_s(url)
         rows.append(Row("ok", "round trip", f"{_ms(idle)} for a ping on a kept connection (median of {len(answered)})"
                                             + (f"; {_ms(tcp)} for a TCP connect" if tcp is not None else "")))
         rows += _window_rows()
         rows.append(_wifi_row())
         rows.append(Row("ok", "pings when idle", f"connect() pings after each {_ms(0.1)} of idle time, and the server "
-                                                 "answers them") if status == 200 else
-                    Row("no", "pings when idle", f"the server does not answer {ping_path}: connect() pings it, and "
-                                                 "they keep nothing busy"))
+                                                 f"answers {PING} with 200: the pings go on the robot's stream, from "
+                                                 "its first observation until 60 s after its last observation or act, "
+                                                 "and keep the connection, and the Wi-Fi radio, from going idle")
+                    if status == 200 else
+                    Row("no", "pings when idle", f"the server answers {PING} with {status}, not 200: serve() answers "
+                                                 "200 while its policy is ready"))
 
         source = "--observation"
         if observation is None:
@@ -298,48 +324,28 @@ def run(url: str, *, token: Optional[str] = None, observation: Any = None, ping_
             except (httpx.HTTPError, msgpack_io.MsgpackError):
                 observation = None
 
-        pictures, packed_bytes, array_bytes = 0, None, None
-        if observation is not None:
-            packed, pictures = frames.pack_pictures(observation)
-            array_bytes, packed_bytes = len(msgpack_io.pack(observation)), len(msgpack_io.pack(packed))
-        if frames.PICTURE_KIND in reads:
-            detail = "the server restores them, so connect() sends each HxWx3 uint8 array as JPEG"
-            if observation is not None:
-                detail += (f": {pictures} in this observation, {array_bytes:,} bytes as arrays, {packed_bytes:,} with "
-                           "them as JPEG" if pictures else ": this observation holds none")
-            rows.append(Row("ok", "pictures as JPEG", detail))
-        elif observation is not None and not pictures:
-            rows.append(Row("--", "pictures as JPEG", "this observation holds no picture (an HxWx3 uint8 array)"))
-        else:
-            rows.append(Row("no", "pictures as JPEG", "the server does not restore them (no \"jpeg\" in X-Seq-Reads): "
-                                                      "pictures go as arrays; serve() restores them"
-                            + (f" - this observation would go from {array_bytes:,} to {packed_bytes:,} bytes"
-                               if pictures else "")))
-        codecs = frozenset(_compressed.CODECS) & reads
-        codec = _compress.codec_for(codecs) if codecs else None
-        if codec is not None:
-            rows.append(Row("ok", "compression", f"the server restores {', '.join(sorted(codecs))}, so connect() "
-                                                 f"compresses large arrays with {codec} where that saves time"))
-        elif codecs:
-            rows.append(Row("no", "compression", f"the server restores {', '.join(sorted(codecs))} only, which this "
-                                                 "machine does not have: `pip install zstandard`"))
-        else:
-            rows.append(Row("no", "compression", "the server does not restore compressed items (no codec in "
-                                                 "X-Seq-Reads); serve() restores them"))
-
-        if observation is None:
-            why = "needs an observation: --observation FILE, or a server that hands one out at GET /example"
+        if observation is None or not streams:
+            why = ("needs an observation: --observation FILE, or a server that hands one out at GET /example"
+                   if observation is None else "needs a server that takes the robot's stream")
             rows += [Row("--", "pings in inference", why), Row("--", "server time", why), Row("--", "first act", why)]
         else:
+            def act() -> float | None:
+                """One act, and the seconds its server says it took - handler_ms of the answer's perf, from the act's
+                last byte to its answer, which the robot's client keeps as the last act's - or None where it says
+                none."""
+                policy.observe(observation)
+                policy.act()
+                said = policy._last_perf.get("handler_ms")
+                return said / 1000.0 if isinstance(said, (int, float)) else None
+
             try:
                 began = time.perf_counter()
-                link.act(observation)
+                act()
                 first = time.perf_counter() - began
-                row, totals = _pings_in_inference(url, headers, ping_path,
-                                                  lambda: (link.act(observation), link.last_server_s)[1], idle)
-            except httpx.HTTPStatusError as e:
-                rows.append(Row("no", "act", f"the server refused the observation from {source} "
-                                             f"({e.response.status_code}): {e.response.text[:200]}"))
+                row, totals = _pings_in_inference(url, headers, PING, act, idle)
+            except SequencesError as e:
+
+                rows.append(Row("no", "act", f"an act on the observation from {source} failed: {e}"))
                 return rows, 1
             rows.append(row)
             took = statistics.median(t for t, _ in totals)
@@ -350,77 +356,16 @@ def run(url: str, *, token: Optional[str] = None, observation: Any = None, ping_
                                                      f"{_ms(max(0.0, t - server))} outside it, on the network and in "
                                                      "this machine"))
             else:
-                rows.append(Row("no", "server time", "the server does not say how long its model took (Server-Timing):"
-                                                     " connect() counts that time as the link's"))
-            rows.append(Row("ok", "first act", f"{_ms(first)}, the next ones {_ms(took)} (observation from {source}); "
-                                               f"connect() waits up to {FIRST_TIMEOUT_S:g} s for the first"))
-        if lines:
-            rows += _lines_rows(url, lines, token=token, observation=observation, act_path=act_path,
-                                ping_path=ping_path, pings=pings)
+                rows.append(Row("no", "server time", "the server does not say how long it took (no handler_ms in "
+                                                     "its answers' perf): the robot cannot tell its time from the "
+                                                     "network's"))
+            rows.append(Row("ok", "first act", f"{_ms(first)}, the next ones {_ms(took)} (observation from {source})"))
     except httpx.HTTPError as e:
         rows.append(Row("no", "server", f"{type(e).__name__}: {e}"))
         return rows, 2
     finally:
-        link.close()
+        policy.close()
     return rows, (1 if any(row.status == "no" for row in rows) else 0)
-
-
-LINES_ACTS = 5
-
-
-def _lines_rows(url: str, names: List[str], *, token: Optional[str], observation: Any, act_path: str,
-                ping_path: str, pings: int) -> List[Row]:
-    """--lines' rows (the module's docstring): each line's ping by its own interface, whether the server runs an act's
-    copies once, and with an observation, which line answered first and what each act sends on each."""
-    import httpx
-
-    from .network import bind as _bind
-    from .network.lines import Lines
-
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
-    try:
-        robot = Lines([Link(url, token=token, act_path=act_path, ping_path=ping_path, check=False, bind=name)
-                       for name in names])
-    except (OSError, ValueError) as e:
-        return [Row("no", "lines", str(e))]
-    rows: List[Row] = []
-    try:
-        for name, line in zip(names, robot.links):
-            try:
-                line.wait_until_ready(timeout_s=10.0)
-                transport = _bind.transport(httpx, name, socket_options=window.socket_options())
-                with httpx.Client(base_url=url, headers=headers, timeout=10.0, transport=transport) as client:
-                    answered = []
-                    for _ in range(max(1, pings)):
-                        began = time.perf_counter()
-                        client.get(ping_path)
-                        answered.append(time.perf_counter() - began)
-            except (httpx.HTTPError, TimeoutError, OSError) as e:
-                rows.append(Row("no", f"line {name}", f"nothing answered by {name}: {type(e).__name__}: {e}"))
-                continue
-            rows.append(Row("ok", f"line {name}", f"{_ms(statistics.median(answered))} for a ping by {name} alone "
-                                                  f"(median of {len(answered)})"))
-        if robot.once:
-            rows.append(Row("ok", "lines", "the server runs an act's copies once (\"once\" in X-Seq-Reads), so each "
-                                           "act goes on every line and the first answer is used"))
-        else:
-            rows.append(Row("no", "lines", "the server does not say it runs an act's copies once (no \"once\" in "
-                                           "X-Seq-Reads): each act goes on one line, the next only when it could not "
-                                           "connect; serve() runs them once"))
-        if observation is not None and robot.once:
-            for _ in range(LINES_ACTS):
-                robot.act(observation)
-            each = robot.stats()["lines"]
-            body = len(robot.links[0].pack(observation).body)
-            firsts = ", ".join(f"{line['bind']} {line['wins']}" for line in each)
-            rows.append(Row("ok", "lines' answers", f"of {LINES_ACTS} acts sent on every line, first by {firsts}; "
-                                                    f"each act sends {body:,} bytes on each line - at one act a second, "
-                                                    f"{body * 3600 / 1e6:,.0f} MB an hour on each"))
-    except httpx.HTTPError as e:
-        rows.append(Row("no", "lines", f"{type(e).__name__}: {e}"))
-    finally:
-        robot.close()
-    return rows
 
 
 def main(argv: Optional[List[str]] = None) -> None:
@@ -431,15 +376,10 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser.add_argument("url", help="the server, e.g. http://<gpu>:8000")
     parser.add_argument("--token", help="the server's token: sent to the address given, and nowhere else")
     parser.add_argument("--observation", help="an observation to send: msgpack, .npz or .json")
-    parser.add_argument("--act-path", default="/act")
-    parser.add_argument("--ping-path", default="/ping")
     parser.add_argument("--wait", type=float, default=60.0, help="seconds to wait for the server to be ready")
-    parser.add_argument("--lines", help="the robot's uplinks by network interface, two or more: eth0,wwan0")
     args = parser.parse_args(argv)
     observation = _observation_from(args.observation) if args.observation else None
-    rows, status = run(args.url, token=args.token, observation=observation, act_path=args.act_path,
-                       ping_path=args.ping_path, wait_s=args.wait,
-                       lines=[name.strip() for name in args.lines.split(",") if name.strip()] if args.lines else None)
+    rows, status = run(args.url, token=args.token, observation=observation, wait_s=args.wait)
     width = max(len(row.name) for row in rows)
     print(f"sequence-ai check: {args.url}\n")
     for row in rows:

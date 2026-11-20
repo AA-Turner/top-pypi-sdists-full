@@ -60,11 +60,7 @@ from pyomo.devel.initialization.bounds.bound_variables import (
     bound_all_nonlinear_variables,
 )
 from pyomo.devel.initialization.pwl_init import _minimize_infeasibility
-from pyomo.devel.initialization.utils import (
-    fix_vars_with_equal_bounds,
-    get_vars,
-    shallow_clone,
-)
+from pyomo.devel.initialization.utils import fix_vars_with_equal_bounds, shallow_clone
 from pyomo.repn.linear import LinearRepn, LinearRepnVisitor
 from pyomo.repn.util import ExitNodeDispatcher
 from pyomo.common.dependencies.scipy import stats
@@ -214,21 +210,10 @@ def _initialize_with_LP_approximation(
 
     # solve the LP
     lp_res = lp_solver.solve(
-        lp, load_solutions=True, raise_exception_on_nonoptimal_result=False
+        lp, load_solutions=False, raise_exception_on_nonoptimal_result=False
     )
     logger.info(f'solved LP: {lp_res.solution_status}, {lp_res.termination_condition}')
+    if lp_res.solution_status in {SolutionStatus.feasible, SolutionStatus.optimal}:
+        lp_res.solution_loader.load_vars()
 
-    # try solving the NLP
-    nlp_res = nlp_solver.solve(
-        orig_nlp, load_solutions=False, raise_exception_on_nonoptimal_result=False
-    )
-    logger.info(
-        f'solved NLP: {nlp_res.solution_status}, {nlp_res.termination_condition}'
-    )
-
-    if nlp_res.solution_status in {SolutionStatus.feasible, SolutionStatus.optimal}:
-        nlp_res.solution_loader.load_vars()
-    else:
-        logger.warning('initialization was not successful via LP approximation')
-
-    return nlp_res
+    return lp_res

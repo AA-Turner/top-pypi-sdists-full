@@ -18,7 +18,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, List, Optional, Union  # noqa: UP035
+from typing import Any
 
 from metadata.generated.schema.api.data.createQuery import CreateQueryRequest
 from metadata.generated.schema.api.data.createQueryCostRecord import (
@@ -34,6 +34,9 @@ from metadata.generated.schema.type.tableUsageCount import QueryCostWrapper
 from metadata.ingestion.lineage.masker import mask_query
 from metadata.ingestion.ometa.client import REST, APIError
 from metadata.ingestion.ometa.utils import model_str
+from metadata.utils.lru_cache import SkipNoneLRUCache
+
+QUERY_CACHE_SIZE = 1000
 
 
 class OMetaQueryMixin:
@@ -54,27 +57,45 @@ class OMetaQueryMixin:
     def _qualified_query_fqn(self, service_name: str, query_hash: str) -> str:
         return f"{model_str(service_name)}.{query_hash}"
 
-    def _get_or_create_query(self, query: CreateQueryRequest) -> Optional[Query]:  # noqa: UP045
+    def _get_query_cache(self) -> SkipNoneLRUCache:
+        """
+        Lazily create a Query cache scoped to this specific OpenMetadata
+        client instance, so caches from different clients or catalogs
+        never mix.
+        """
+        cache = getattr(self, "_query_cache_instance", None)
+        if cache is None:
+            cache = SkipNoneLRUCache(QUERY_CACHE_SIZE)
+            self._query_cache_instance = cache
+        return cache
+
+    def _get_or_create_query(self, query: CreateQueryRequest) -> Query | None:
         if query.query.root is None:
             return None
         fqn = self._qualified_query_fqn(
             model_str(query.service),
             self._get_query_hash(query=query.query.root),
         )
+        cache = self._get_query_cache()
+        if fqn in cache:
+            return cache.get(fqn)
         query_entity = self.get_by_name(entity=Query, fqn=fqn)
         if query_entity is None:
             try:
                 resp = self.client.put(self.get_suffix(Query), data=query.model_dump_json())
-                if isinstance(resp, dict) and resp.get("id"):
-                    query_entity = Query.model_validate(resp)
+                if resp and resp.get("id"):  # pyright: ignore[reportAttributeAccessIssue]
+                    query_entity = Query(**resp)  # pyright: ignore[reportCallIssue]
             except APIError as err:
+                # Same SQL created by another table in this run — fetch it so usage still attaches.
                 if err.status_code == 409:
                     query_entity = self.get_by_name(entity=Query, fqn=fqn)
                 else:
                     raise
+        if query_entity is not None:
+            cache.put(fqn, query_entity)
         return query_entity
 
-    def ingest_entity_queries_data(self, entity: Union[Table, Dashboard], queries: List[CreateQueryRequest]) -> None:  # noqa: UP006, UP007
+    def ingest_entity_queries_data(self, entity: Table | Dashboard, queries: list[CreateQueryRequest]) -> None:
         """
         PUT queries for an entity
 
@@ -114,8 +135,8 @@ class OMetaQueryMixin:
     def get_entity_queries(
         self,
         entity_id: Uuid | str,
-        fields: Optional[List[str]] = None,  # noqa: UP006, UP045
-    ) -> Optional[List[Query]]:  # noqa: UP006, UP045
+        fields: list[str] | None = None,
+    ) -> list[Query] | None:
         """Get the queries attached to a table
 
         Args:
@@ -133,7 +154,7 @@ class OMetaQueryMixin:
         return None
 
     @lru_cache(maxsize=5000)  # noqa: B019
-    def __get_query_by_hash(self, query_hash: str, service_name: str) -> Optional[Query]:  # noqa: UP045
+    def __get_query_by_hash(self, query_hash: str, service_name: str) -> Query | None:
         return self.get_by_name(entity=Query, fqn=self._qualified_query_fqn(service_name, query_hash))
 
     def publish_query_cost(self, query_cost_data: QueryCostWrapper, service_name: str):

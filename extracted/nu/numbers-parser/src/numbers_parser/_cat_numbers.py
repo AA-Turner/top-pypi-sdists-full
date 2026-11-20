@@ -1,3 +1,7 @@
+"""cat numbers module helpers."""
+
+# ruff: noqa: T201
+
 import argparse
 import csv
 import logging
@@ -6,6 +10,7 @@ import sys
 from sigfig import round as sigfig
 
 from numbers_parser import (
+    Cell,
     Document,
     ErrorCell,
     FileError,
@@ -22,14 +27,16 @@ logger = logging.getLogger(numbers_parser_name)
 
 
 def experimental_feature_choice(s: str) -> ExperimentalFeatures:
+    """Parse an experimental feature name supplied on the command line."""
     try:
         return ExperimentalFeatures[s]
     except KeyError:
         msg = f"invalid experimental feature: {s}"
-        raise argparse.ArgumentTypeError(msg)  # noqa: B904
+        raise argparse.ArgumentTypeError(msg)  # noqa: B904  # pylint: disable=raise-missing-from
 
 
-def command_line_parser():
+def command_line_parser() -> argparse.ArgumentParser:
+    """Create the argument parser for the cat-numbers command."""
     parser = argparse.ArgumentParser(
         description="Export data from Apple Numbers spreadsheet tables",
     )
@@ -85,25 +92,28 @@ def command_line_parser():
     parser.add_argument(
         "--experimental",
         type=experimental_feature_choice,
-        choices=[ExperimentalFeatures[name] for name in experimental_choices],
+        choices=[ExperimentalFeatures[str(name)] for name in experimental_choices],
         help=argparse.SUPPRESS,
     )
     return parser
 
 
-def print_sheet_names(filename, password) -> None:
-    for sheet in Document(filename, password=password).sheets:
+def print_sheet_names(filename: str, password: str | None) -> None:
+    """Print sheet names."""
+    for sheet in Document(filename, password=password).sheets:  # type: ignore[attr-defined]
         print(f"{filename}: {sheet.name}")
 
 
-def print_table_names(filename, password) -> None:
-    for sheet in Document(filename, password=password).sheets:
+def print_table_names(filename: str, password: str | None) -> None:
+    """Print table names."""
+    for sheet in Document(filename, password=password).sheets:  # type: ignore[attr-defined]
         for table in sheet.tables:
             print(f"{filename}: {sheet.name}: {table.name}")
 
 
-def cell_as_string(args, cell):
-    if isinstance(cell, ErrorCell) and not (args.formulas):
+def cell_as_string(args: argparse.Namespace, cell: Cell) -> str:
+    """Return the cell as string."""
+    if isinstance(cell, ErrorCell) and not args.formulas:
         return "#REF!"
     if args.formulas and cell.formula is not None:
         return cell.formula
@@ -111,14 +121,19 @@ def cell_as_string(args, cell):
         return cell.formatted_value
     if isinstance(cell, NumberCell):
         return sigfig(cell.value, sigfigs=MAX_SIGNIFICANT_DIGITS, warn=False)
-    if cell.value is None:
+    if getattr(cell, "value", None) is None:
         return ""
-    return str(cell.value)
+    return str(getattr(cell, "value", ""))
 
 
-def print_table(args, filename, password) -> None:
+def print_table(
+    args: argparse.Namespace,
+    filename: str,
+    password: str | None,
+) -> None:
+    """Print table."""
     writer = csv.writer(sys.stdout, dialect="excel")
-    for sheet in Document(filename, password=password).sheets:
+    for sheet in Document(filename, password=password).sheets:  # type: ignore[attr-defined]
         if args.sheet is not None and sheet.name not in args.sheet:
             continue
         for table in sheet.tables:
@@ -132,6 +147,7 @@ def print_table(args, filename, password) -> None:
 
 
 def main() -> None:
+    """Run the command-line operation."""
     parser = command_line_parser()
     args = parser.parse_args()
 

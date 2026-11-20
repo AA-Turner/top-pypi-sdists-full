@@ -264,6 +264,8 @@ __all__ = (
     "InputStateType",
     "InputTimecodeSourceType",
     "InputTypeType",
+    "JpegXsInputMaximumBitrateType",
+    "JpegXsInputResolutionType",
     "LastFrameClippingBehaviorType",
     "LinkedChannelTypeType",
     "ListAlertsPaginatorName",
@@ -825,7 +827,7 @@ IFrameOnlyPlaylistTypeType = Literal["DISABLED", "STANDARD"]
 IncludeFillerNalUnitsType = Literal["AUTO", "DROP", "INCLUDE"]
 InputAttachedWaiterName = Literal["input_attached"]
 InputClassType = Literal["SINGLE_PIPELINE", "STANDARD"]
-InputCodecType = Literal["AVC", "HEVC", "MPEG2"]
+InputCodecType = Literal["AVC", "HEVC", "JPEGXS", "MPEG2"]
 InputDeblockFilterType = Literal["DISABLED", "ENABLED"]
 InputDeletedWaiterName = Literal["input_deleted"]
 InputDenoiseFilterType = Literal["DISABLED", "ENABLED"]
@@ -893,6 +895,8 @@ InputTypeType = Literal[
     "UDP_PUSH",
     "URL_PULL",
 ]
+JpegXsInputMaximumBitrateType = Literal["MAX_500_MBPS"]
+JpegXsInputResolutionType = Literal["HD"]
 LastFrameClippingBehaviorType = Literal["EXCLUDE_LAST_FRAME", "INCLUDE_LAST_FRAME"]
 LinkedChannelTypeType = Literal["FOLLOWING_CHANNEL", "PRIMARY_CHANNEL"]
 ListAlertsPaginatorName = Literal["list_alerts"]
@@ -1035,8 +1039,8 @@ PipelineLockingMethodType = Literal["SOURCE_TIMECODE", "VIDEO_ALIGNMENT"]
 PreferredChannelPipelineType = Literal["CURRENTLY_ACTIVE", "PIPELINE_0", "PIPELINE_1"]
 RebootInputDeviceForceType = Literal["NO", "YES"]
 ReservationAutomaticRenewalType = Literal["DISABLED", "ENABLED", "UNAVAILABLE"]
-ReservationCodecType = Literal["AUDIO", "AV1", "AVC", "HEVC", "LINK", "MPEG2"]
-ReservationMaximumBitrateType = Literal["MAX_10_MBPS", "MAX_20_MBPS", "MAX_50_MBPS"]
+ReservationCodecType = Literal["AUDIO", "AV1", "AVC", "HEVC", "JPEGXS", "LINK", "MPEG2"]
+ReservationMaximumBitrateType = Literal["MAX_10_MBPS", "MAX_20_MBPS", "MAX_500_MBPS", "MAX_50_MBPS"]
 ReservationMaximumFramerateType = Literal["MAX_30_FPS", "MAX_60_FPS"]
 ReservationResolutionType = Literal["FHD", "HD", "SD", "UHD"]
 ReservationResourceTypeType = Literal["CHANNEL", "INPUT", "MULTIPLEX", "OUTPUT"]
@@ -1157,6 +1161,7 @@ WavCodingModeType = Literal[
 WebvttDestinationStyleControlType = Literal["MANUAL", "NO_STYLE_DATA", "PASSTHROUGH"]
 MediaLiveServiceName = Literal["medialive"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -1265,6 +1270,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -1449,6 +1455,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -1456,6 +1463,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -1516,6 +1524,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

@@ -1,8 +1,12 @@
 Metadata-Version: 2.5
 Name: django-tree-queries
-Version: 0.28.0
+Version: 0.29.0
 Summary: Tree queries with explicit opt-in, without configurability
-Project-URL: Homepage, https://github.com/matthiask/django-tree-queries/
+Project-URL: Changelog, https://github.com/feincms/django-tree-queries/blob/main/CHANGELOG.rst
+Project-URL: Documentation, https://django-tree-queries.readthedocs.io/en/latest/
+Project-URL: Funding, https://ko-fi.com/matthiask
+Project-URL: Issues, https://github.com/feincms/django-tree-queries/issues
+Project-URL: Repository, https://github.com/feincms/django-tree-queries
 Author-email: Matthias Kestenholz <mk@feinheit.ch>
 License: BSD-3-Clause
 License-File: LICENSE

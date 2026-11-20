@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "BusStateType",
+    "ConnectivityStateType",
     "DeduplicationTypeType",
     "EventBridgeV2ServiceName",
     "EventBusActiveWaiterName",
@@ -38,6 +39,10 @@ __all__ = (
     "ListResourcePoliciesPaginatorName",
     "ListSubscribersPaginatorName",
     "LogLevelType",
+    "MskAcksType",
+    "MskCompressionType",
+    "MskConnectivityType",
+    "MskSubscriberActiveWaiterName",
     "OrderingTypeType",
     "PaginatorName",
     "PointTypeType",
@@ -51,18 +56,24 @@ __all__ = (
     "SuccessCodeType",
     "TransformerTypeType",
     "WaiterName",
+    "WebhookDeduplicationTypeType",
+    "WebhookHmacAlgorithmType",
+    "WebhookHmacEncodingType",
+    "WebhookSecretEncodingType",
+    "WebhookSignedMessageCompositionType",
 )
 
 BusStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
+ConnectivityStateType = Literal["ACTIVE", "PROVISIONING", "PROVISION_FAILED"]
 DeduplicationTypeType = Literal["CONTENT_BASED"]
 EventBusActiveWaiterName = Literal["event_bus_active"]
 EventBusDeletedWaiterName = Literal["event_bus_deleted"]
 EventSourceStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-EventSourceTypeType = Literal["AWS_SERVICE_EVENTS", "PARTNER_EVENTS"]
+EventSourceTypeType = Literal["AWS_SERVICE_EVENTS", "PARTNER_EVENTS", "WEBHOOK_EVENTS"]
 FilterLanguageType = Literal["EVENT_BRIDGE_PATTERN"]
 FilterScopeType = Literal["DATA", "METADATA", "SYSTEM_METADATA"]
 IncludePayloadType = Literal["FULL", "ON_ERROR_ONLY"]
@@ -72,6 +83,10 @@ ListEventSourcesPaginatorName = Literal["list_event_sources"]
 ListResourcePoliciesPaginatorName = Literal["list_resource_policies"]
 ListSubscribersPaginatorName = Literal["list_subscribers"]
 LogLevelType = Literal["ERROR", "INFO", "OFF"]
+MskAcksType = Literal["ALL", "LEADER"]
+MskCompressionType = Literal["GZIP", "LZ4", "NONE", "SNAPPY", "ZSTD"]
+MskConnectivityType = Literal["PRIVATE", "PUBLIC"]
+MskSubscriberActiveWaiterName = Literal["msk_subscriber_active"]
 OrderingTypeType = Literal["FIFO", "UNORDERED"]
 PointTypeType = Literal["HORIZON", "TIMESTAMP"]
 ResumePositionType = Literal["LAST_PROCESSED", "LATEST"]
@@ -80,6 +95,13 @@ StartingPositionType = Literal["LATEST", "POINT_IN_TIME"]
 SubscriberStateType = Literal["RUNNING", "STOPPED"]
 SuccessCodeType = Literal["DEDUPLICATED", "PUBLISHED"]
 TransformerTypeType = Literal["JSONATA", "RAW", "WITH_METADATA"]
+WebhookDeduplicationTypeType = Literal["CONTENT_BASED"]
+WebhookHmacAlgorithmType = Literal["SHA1", "SHA256"]
+WebhookHmacEncodingType = Literal["BASE64", "HEX"]
+WebhookSecretEncodingType = Literal["BASE64", "RAW"]
+WebhookSignedMessageCompositionType = Literal[
+    "BODY", "MESSAGE_ID_DOT_TIMESTAMP_DOT_BODY", "TIMESTAMP_DOT_BODY"
+]
 EventBridgeV2ServiceName = Literal["eventbridgev2"]
 ServiceName = Literal[
     "abuse-signal",
@@ -384,6 +406,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -528,7 +551,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_event_buses", "list_event_sources", "list_resource_policies", "list_subscribers"
 ]
-WaiterName = Literal["event_bus_active", "event_bus_deleted"]
+WaiterName = Literal["event_bus_active", "event_bus_deleted", "msk_subscriber_active"]
 RegionName = Literal[
     "ap-east-1",
     "ap-northeast-1",

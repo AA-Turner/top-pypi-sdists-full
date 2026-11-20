@@ -30,6 +30,7 @@ class VolumeConnector(resource.Resource):
     _query_mapping = resource.QueryParameters(
         'node',
         'detail',
+        include_sorting_defaults=True,
         fields={'format': 'csv'},
     )
 

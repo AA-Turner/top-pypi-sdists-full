@@ -24,6 +24,8 @@ from typing import IO, Any, Union
 from botocore.response import StreamingBody
 
 from .literals import (
+    AssessmentStatusType,
+    BrokerNodeTypeType,
     ChannelDestinationTypeType,
     ChannelStatusType,
     ClientBrokerType,
@@ -33,6 +35,8 @@ from .literals import (
     ConsumerGroupOffsetSyncModeType,
     CustomerActionStatusType,
     EnhancedMonitoringType,
+    FindingCategoryType,
+    FindingSeverityType,
     IcebergCompressionTypeType,
     JwtSigningAlgorithmType,
     KafkaClusterSaslScramMechanismType,
@@ -47,6 +51,9 @@ from .literals import (
     StorageModeType,
     TargetCompressionTypeType,
     TokenEndpointAuthenticationMethodType,
+    TopicReassignmentModeType,
+    TopicReassignmentStatusType,
+    TopicReassignmentType,
     TopicStateType,
     UserIdentityTypeType,
     ValueConverterType,
@@ -62,6 +69,10 @@ else:
 __all__ = (
     "AmazonMskClusterTypeDef",
     "ApacheKafkaClusterTypeDef",
+    "AssessmentFindingTypeDef",
+    "AssessmentInfoTypeDef",
+    "AssessmentParametersTypeDef",
+    "AssessmentSummaryTypeDef",
     "AuthorizerLogsTypeDef",
     "BatchAssociateScramSecretRequestTypeDef",
     "BatchAssociateScramSecretResponseTypeDef",
@@ -76,6 +87,7 @@ __all__ = (
     "BrokerNodeGroupInfoUnionTypeDef",
     "BrokerNodeInfoTypeDef",
     "BrokerSoftwareInfoTypeDef",
+    "BrokerTypeUpgradeInfoTypeDef",
     "CatalogTypeDef",
     "ChannelInfoTypeDef",
     "ChannelLoggingInfoTypeDef",
@@ -104,6 +116,8 @@ __all__ = (
     "ConsumerGroupReplicationUnionTypeDef",
     "ConsumerGroupReplicationUpdateTypeDef",
     "ControllerNodeInfoTypeDef",
+    "CreateAssessmentRequestTypeDef",
+    "CreateAssessmentResponseTypeDef",
     "CreateChannelRequestTypeDef",
     "CreateChannelResponseTypeDef",
     "CreateClusterRequestTypeDef",
@@ -119,6 +133,8 @@ __all__ = (
     "CreateVpcConnectionRequestTypeDef",
     "CreateVpcConnectionResponseTypeDef",
     "DeadLetterQueueS3TypeDef",
+    "DeleteAssessmentRequestTypeDef",
+    "DeleteAssessmentResponseTypeDef",
     "DeleteChannelRequestTypeDef",
     "DeleteChannelResponseTypeDef",
     "DeleteClusterPolicyRequestTypeDef",
@@ -132,6 +148,8 @@ __all__ = (
     "DeleteTopicResponseTypeDef",
     "DeleteVpcConnectionRequestTypeDef",
     "DeleteVpcConnectionResponseTypeDef",
+    "DescribeAssessmentRequestTypeDef",
+    "DescribeAssessmentResponseTypeDef",
     "DescribeChannelRequestTypeDef",
     "DescribeChannelResponseTypeDef",
     "DescribeClusterOperationRequestTypeDef",
@@ -151,6 +169,8 @@ __all__ = (
     "DescribeTopicPartitionsRequestPaginateTypeDef",
     "DescribeTopicPartitionsRequestTypeDef",
     "DescribeTopicPartitionsResponseTypeDef",
+    "DescribeTopicReassignmentRequestTypeDef",
+    "DescribeTopicReassignmentResponseTypeDef",
     "DescribeTopicRequestTypeDef",
     "DescribeTopicResponseTypeDef",
     "DescribeVpcConnectionRequestTypeDef",
@@ -164,6 +184,7 @@ __all__ = (
     "EncryptionInTransitTypeDef",
     "EncryptionInfoTypeDef",
     "ErrorInfoTypeDef",
+    "FindingRemediationTypeDef",
     "FirehoseTypeDef",
     "GetBootstrapBrokersRequestTypeDef",
     "GetBootstrapBrokersResponseTypeDef",
@@ -193,6 +214,12 @@ __all__ = (
     "KafkaClusterSummaryTypeDef",
     "KafkaClusterTypeDef",
     "KafkaVersionTypeDef",
+    "ListAssessmentFindingsRequestPaginateTypeDef",
+    "ListAssessmentFindingsRequestTypeDef",
+    "ListAssessmentFindingsResponseTypeDef",
+    "ListAssessmentsRequestPaginateTypeDef",
+    "ListAssessmentsRequestTypeDef",
+    "ListAssessmentsResponseTypeDef",
     "ListChannelsRequestTypeDef",
     "ListChannelsResponseTypeDef",
     "ListClientVpcConnectionsRequestPaginateTypeDef",
@@ -230,6 +257,9 @@ __all__ = (
     "ListScramSecretsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTopicReassignmentsRequestPaginateTypeDef",
+    "ListTopicReassignmentsRequestTypeDef",
+    "ListTopicReassignmentsResponseTypeDef",
     "ListTopicsRequestPaginateTypeDef",
     "ListTopicsRequestTypeDef",
     "ListTopicsResponseTypeDef",
@@ -286,7 +316,11 @@ __all__ = (
     "ServerlessRequestTypeDef",
     "ServerlessSaslTypeDef",
     "ServerlessTypeDef",
+    "StartTopicReassignmentRequestTypeDef",
+    "StartTopicReassignmentResponseTypeDef",
     "StateInfoTypeDef",
+    "StopTopicReassignmentRequestTypeDef",
+    "StopTopicReassignmentResponseTypeDef",
     "StorageInfoTypeDef",
     "TableCreationTypeDef",
     "TagResourceRequestTypeDef",
@@ -296,6 +330,7 @@ __all__ = (
     "TopicConfigurationTypeDef",
     "TopicInfoTypeDef",
     "TopicPartitionInfoTypeDef",
+    "TopicReassignmentInfoTypeDef",
     "TopicReplicationOutputTypeDef",
     "TopicReplicationTypeDef",
     "TopicReplicationUnionTypeDef",
@@ -358,6 +393,32 @@ class ApacheKafkaClusterTypeDef(TypedDict):
     BootstrapBrokerString: str
 
 
+class FindingRemediationTypeDef(TypedDict):
+    Action: NotRequired[str]
+    DocumentationUrl: NotRequired[str]
+
+
+class AssessmentInfoTypeDef(TypedDict):
+    AssessmentArn: NotRequired[str]
+    AssessmentType: NotRequired[Literal["UPDATE_BROKER_TYPE"]]
+    ClusterArn: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    Status: NotRequired[AssessmentStatusType]
+    Tags: NotRequired[dict[str, str]]
+
+
+class AssessmentParametersTypeDef(TypedDict):
+    TargetInstanceType: NotRequired[str]
+
+
+class AssessmentSummaryTypeDef(TypedDict):
+    ByCategory: NotRequired[dict[str, int]]
+    BySeverity: NotRequired[dict[str, int]]
+    FindingsCapped: NotRequired[bool]
+    HasBlockingFindings: NotRequired[bool]
+    TotalFindings: NotRequired[int]
+
+
 class CloudWatchLogsTypeDef(TypedDict):
     Enabled: bool
     LogGroup: NotRequired[str]
@@ -415,6 +476,11 @@ class BrokerSoftwareInfoTypeDef(TypedDict):
     ConfigurationArn: NotRequired[str]
     ConfigurationRevision: NotRequired[int]
     KafkaVersion: NotRequired[str]
+
+
+class BrokerTypeUpgradeInfoTypeDef(TypedDict):
+    TopicReassignmentMode: NotRequired[TopicReassignmentModeType]
+    TopicReassignmentOperationArn: NotRequired[str]
 
 
 class CatalogTypeDef(TypedDict):
@@ -563,6 +629,11 @@ class DeadLetterQueueS3TypeDef(TypedDict):
     ExpectedBucketOwner: NotRequired[str]
 
 
+class DeleteAssessmentRequestTypeDef(TypedDict):
+    AssessmentArn: str
+    ClusterArn: str
+
+
 class DeleteChannelRequestTypeDef(TypedDict):
     ChannelArn: str
     ClusterArn: str
@@ -593,6 +664,11 @@ class DeleteTopicRequestTypeDef(TypedDict):
 
 class DeleteVpcConnectionRequestTypeDef(TypedDict):
     Arn: str
+
+
+class DescribeAssessmentRequestTypeDef(TypedDict):
+    AssessmentArn: str
+    ClusterArn: str
 
 
 class DescribeChannelRequestTypeDef(TypedDict):
@@ -652,6 +728,11 @@ class TopicPartitionInfoTypeDef(TypedDict):
     Leader: NotRequired[int]
     Replicas: NotRequired[list[int]]
     Isr: NotRequired[list[int]]
+
+
+class DescribeTopicReassignmentRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TopicReassignmentOperationArn: str
 
 
 class DescribeTopicRequestTypeDef(TypedDict):
@@ -753,6 +834,22 @@ class KafkaVersionTypeDef(TypedDict):
     Status: NotRequired[KafkaVersionStatusType]
 
 
+class ListAssessmentFindingsRequestTypeDef(TypedDict):
+    AssessmentArn: str
+    ClusterArn: str
+    Category: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Severity: NotRequired[str]
+
+
+class ListAssessmentsRequestTypeDef(TypedDict):
+    ClusterArn: str
+    AssessmentType: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListChannelsRequestTypeDef(TypedDict):
     ClusterArn: str
     MaxResults: NotRequired[int]
@@ -829,6 +926,22 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
 
+class ListTopicReassignmentsRequestTypeDef(TypedDict):
+    ClusterArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    StatusFilter: NotRequired[str]
+
+
+class TopicReassignmentInfoTypeDef(TypedDict):
+    CompletedTopics: NotRequired[int]
+    CreationTime: NotRequired[datetime]
+    Status: NotRequired[TopicReassignmentStatusType]
+    TargetInstanceType: NotRequired[str]
+    TopicReassignmentOperationArn: NotRequired[str]
+    TotalTopics: NotRequired[int]
+
+
 class ListTopicsRequestTypeDef(TypedDict):
     ClusterArn: str
     MaxResults: NotRequired[int]
@@ -842,6 +955,7 @@ class TopicInfoTypeDef(TypedDict):
     ReplicationFactor: NotRequired[int]
     PartitionCount: NotRequired[int]
     OutOfSyncReplicaCount: NotRequired[int]
+    ReplicaIds: NotRequired[list[int]]
 
 
 class ListVpcConnectionsRequestTypeDef(TypedDict):
@@ -963,6 +1077,19 @@ class VpcConfigOutputTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[list[str]]
 
 
+class StartTopicReassignmentRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TargetInstanceType: str
+    TopicsToInclude: Sequence[str]
+    ClientToken: NotRequired[str]
+    TopicsToExclude: NotRequired[Sequence[str]]
+
+
+class StopTopicReassignmentRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TopicReassignmentOperationArn: str
+
+
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     Tags: Mapping[str, str]
@@ -996,6 +1123,7 @@ class UpdateBrokerTypeRequestTypeDef(TypedDict):
     ClusterArn: str
     CurrentVersion: str
     TargetInstanceType: str
+    TopicReassignment: NotRequired[TopicReassignmentType]
 
 
 class UpdateTopicRequestTypeDef(TypedDict):
@@ -1037,6 +1165,22 @@ class KafkaClusterSummaryTypeDef(TypedDict):
     KafkaClusterAlias: NotRequired[str]
 
 
+class AssessmentFindingTypeDef(TypedDict):
+    Category: FindingCategoryType
+    FindingId: str
+    Message: str
+    Severity: FindingSeverityType
+    Remediation: NotRequired[FindingRemediationTypeDef]
+    Resource: NotRequired[str]
+
+
+class CreateAssessmentRequestTypeDef(TypedDict):
+    AssessmentType: Literal["UPDATE_BROKER_TYPE"]
+    ClusterArn: str
+    AssessmentParameters: NotRequired[AssessmentParametersTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+
+
 class AuthorizerLogsTypeDef(TypedDict):
     CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
     Firehose: NotRequired[FirehoseTypeDef]
@@ -1053,6 +1197,15 @@ class ChannelLoggingInfoTypeDef(TypedDict):
     CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
     Firehose: NotRequired[FirehoseTypeDef]
     S3: NotRequired[S3TypeDef]
+
+
+class CreateAssessmentResponseTypeDef(TypedDict):
+    AssessmentArn: str
+    AssessmentType: Literal["UPDATE_BROKER_TYPE"]
+    ClusterArn: str
+    CreationTime: datetime
+    Status: AssessmentStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateChannelResponseTypeDef(TypedDict):
@@ -1102,6 +1255,12 @@ class CreateVpcConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteAssessmentResponseTypeDef(TypedDict):
+    AssessmentArn: str
+    Status: AssessmentStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteChannelResponseTypeDef(TypedDict):
     ChannelArn: str
     ClusterOperationArn: str
@@ -1139,6 +1298,20 @@ class DeleteVpcConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeAssessmentResponseTypeDef(TypedDict):
+    AssessmentArn: str
+    AssessmentParameters: AssessmentParametersTypeDef
+    AssessmentType: Literal["UPDATE_BROKER_TYPE"]
+    ClusterArn: str
+    CompletionTime: datetime
+    CreationTime: datetime
+    Status: AssessmentStatusType
+    StatusMessage: str
+    Summary: AssessmentSummaryTypeDef
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeConfigurationRevisionResponseTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
@@ -1155,6 +1328,7 @@ class DescribeTopicResponseTypeDef(TypedDict):
     PartitionCount: int
     Configs: str
     Status: TopicStateType
+    ReplicaIds: list[int]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1199,6 +1373,12 @@ class GetClusterPolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListAssessmentsResponseTypeDef(TypedDict):
+    Assessments: list[AssessmentInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListScramSecretsResponseTypeDef(TypedDict):
     SecretArnList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1218,6 +1398,19 @@ class PutClusterPolicyResponseTypeDef(TypedDict):
 class RebootBrokerResponseTypeDef(TypedDict):
     ClusterArn: str
     ClusterOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartTopicReassignmentResponseTypeDef(TypedDict):
+    ClusterArn: str
+    Status: TopicReassignmentStatusType
+    TopicReassignmentOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopTopicReassignmentResponseTypeDef(TypedDict):
+    Status: TopicReassignmentStatusType
+    TopicReassignmentOperationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1347,6 +1540,7 @@ class UpdateStorageRequestTypeDef(TypedDict):
 class BrokerNodeInfoTypeDef(TypedDict):
     AttachedENIId: NotRequired[str]
     BrokerId: NotRequired[float]
+    BrokerNodeType: NotRequired[BrokerNodeTypeType]
     ClientSubnet: NotRequired[str]
     ClientVpcIpAddress: NotRequired[str]
     CurrentBrokerSoftwareInfo: NotRequired[BrokerSoftwareInfoTypeDef]
@@ -1369,6 +1563,23 @@ class UpdateRebalancingRequestTypeDef(TypedDict):
     ClusterArn: str
     CurrentVersion: str
     Rebalancing: RebalancingTypeDef
+
+
+class DescribeTopicReassignmentResponseTypeDef(TypedDict):
+    ClusterArn: str
+    CompletedTopics: int
+    CreationTime: datetime
+    ErrorInfo: ErrorInfoTypeDef
+    LastUpdateTime: datetime
+    MigratedPartitions: int
+    Status: TopicReassignmentStatusType
+    TargetInstanceType: str
+    TopicReassignmentOperationArn: str
+    TopicsToExclude: list[str]
+    TopicsToInclude: list[str]
+    TotalPartitions: int
+    TotalTopics: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ClusterOperationStepTypeDef(TypedDict):
@@ -1453,6 +1664,20 @@ class DescribeTopicPartitionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListAssessmentFindingsRequestPaginateTypeDef(TypedDict):
+    AssessmentArn: str
+    ClusterArn: str
+    Category: NotRequired[str]
+    Severity: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAssessmentsRequestPaginateTypeDef(TypedDict):
+    ClusterArn: str
+    AssessmentType: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListClientVpcConnectionsRequestPaginateTypeDef(TypedDict):
     ClusterArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1507,6 +1732,12 @@ class ListScramSecretsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListTopicReassignmentsRequestPaginateTypeDef(TypedDict):
+    ClusterArn: str
+    StatusFilter: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTopicsRequestPaginateTypeDef(TypedDict):
     ClusterArn: str
     TopicNameFilter: NotRequired[str]
@@ -1549,6 +1780,12 @@ class KafkaClusterSaslOAuthBearerAuthenticationTypeDef(TypedDict):
 
 class ListKafkaVersionsResponseTypeDef(TypedDict):
     KafkaVersions: list[KafkaVersionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListTopicReassignmentsResponseTypeDef(TypedDict):
+    Reassignments: list[TopicReassignmentInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1671,6 +1908,12 @@ class ReplicatorSummaryTypeDef(TypedDict):
     ReplicatorName: NotRequired[str]
     ReplicatorResourceArn: NotRequired[str]
     ReplicatorState: NotRequired[ReplicatorStateType]
+
+
+class ListAssessmentFindingsResponseTypeDef(TypedDict):
+    Findings: list[AssessmentFindingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class LoggingInfoTypeDef(TypedDict):
@@ -2040,6 +2283,7 @@ BrokerNodeGroupInfoUnionTypeDef = Union[
 
 
 class ClusterOperationInfoTypeDef(TypedDict):
+    BrokerTypeUpgradeInfo: NotRequired[BrokerTypeUpgradeInfoTypeDef]
     ClientRequestId: NotRequired[str]
     ClusterArn: NotRequired[str]
     CreationTime: NotRequired[datetime]
@@ -2055,6 +2299,7 @@ class ClusterOperationInfoTypeDef(TypedDict):
 
 
 class ClusterOperationV2ProvisionedTypeDef(TypedDict):
+    BrokerTypeUpgradeInfo: NotRequired[BrokerTypeUpgradeInfoTypeDef]
     OperationSteps: NotRequired[list[ClusterOperationStepTypeDef]]
     SourceClusterInfo: NotRequired[MutableClusterInfoTypeDef]
     TargetClusterInfo: NotRequired[MutableClusterInfoTypeDef]

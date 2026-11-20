@@ -62,7 +62,8 @@ class CMakeBuild(build_ext):
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
-                      '-DPYTHON_EXECUTABLE=' + sys.executable]
+                      '-DPYTHON_EXECUTABLE=' + sys.executable,
+                      '-DBUILD_STATIC=ON']
 
         cfg = 'Debug' if self.debug else 'Release'
         build_args = ['--config', cfg]
@@ -104,7 +105,7 @@ class get_pybind_include(object):
 
 setup(
     name="ur_rtde",
-    version="1.6.5",
+    version="1.6.6",
     author="Anders Prier Lindvig",
     author_email="anpl@mmmi.sdu.dk",
     description="A Python interface for controlling and receiving data from a UR robot using the Real-Time Data Exchange (RTDE) interface of the robot.",
@@ -118,7 +119,6 @@ setup(
     url="https://gitlab.com/sdurobotics/ur_rtde",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ]
 )

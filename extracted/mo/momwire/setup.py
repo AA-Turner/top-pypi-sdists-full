@@ -418,6 +418,10 @@ _ACCEL_HEADERS = [
     # and razor's exact-kernel plan and correction for the C++ route.
     "src/momwire/_exact_kernel_point_inline.h",
     "src/momwire/_exact_kernel_point_core.h",
+    # The k-series' shared text and its Python-free twin (momwire#1454):
+    # `_accel_exact_kernel_series.cpp` compiles the same text.
+    "src/momwire/_exact_kernel_series_inline.h",
+    "src/momwire/_exact_kernel_series_core.h",
     # The coaxial pair moments' shared text and its Python-free twin
     # (momwire#1517 step 0): `_accel_exact_kernel.cpp` compiles the same text.
     "src/momwire/_exact_kernel_coaxial_inline.h",
@@ -438,6 +442,10 @@ _ACCEL_HEADERS = [
     "src/momwire/_nec4_printout_core.h",
     "src/momwire/_sinusoidal_front_core.h",
     "src/momwire/_sinusoidal_fill_core.h",
+    # momwire#1911 in C++: the sinusoidal pair reuse's census, plans and
+    # fused reduction, and the running grouping its census folds into.
+    "src/momwire/_sin_pair_reuse_core.h",
+    "src/momwire/_int_groups_core.h",
     "src/momwire/_sinusoidal_transmitted_core.h",
     # numpy's complex sin / cos / log as the C library's (momwire#1607 B6a).
     "src/momwire/_libm_complex_inline.h",
@@ -462,6 +470,7 @@ _ACCEL_HEADERS = [
     "src/momwire/_somm_pairs_owned_core.h",
     "src/momwire/_somm_grid_core.h",
     "src/momwire/_cpu_count.h",
+    "src/momwire/_thread_policy.h",
     "src/momwire/_accel_somm_proj_py.h",
 ]
 
@@ -580,6 +589,13 @@ _ACCEL_SOURCES = [
     # reduction (`reduce_phi_band`'s order). Its own TU for the reduction's
     # reason: its bits are that order's.
     "src/momwire/_accel_sin_pair_reuse.cpp",
+    # momwire#1911: that reduction, and the census and plans the C++ fill
+    # builds, Python-free; the binding above and the C++ fill call it. Its
+    # own TU: integers and the reduction's fixed order, nothing else.
+    "src/momwire/_sin_pair_reuse_core.cpp",
+    # momwire#2016: the fill report's wire map over a sinusoidal reuse plan's
+    # class map. Its own TU: integers only, run when the map is read.
+    "src/momwire/_accel_fill_report.cpp",
     # The remainder order's per-source scan (`_quadrature.remainder_qp_pairs`).
     # Its own TU so that no existing kernel's codegen can move with it.
     "src/momwire/_accel_qp_pairs.cpp",
@@ -607,6 +623,9 @@ _ACCEL_SOURCES = [
     # `_accel_razor_solve.cpp` binds it for the Python route. Its own TU: it
     # only CALLS the kernels, across a TU boundary.
     "src/momwire/_razor_pair_reuse_core.cpp",
+    # momwire#2016: the fill report's wire map over that plan's class maps.
+    # Its own TU: integers only, and no fill calls it.
+    "src/momwire/_razor_fill_map_core.cpp",
     # The razor-2p FRONT half (construction, geometry, the prepared tables,
     # the port columns), Python-free; `_accel_razor_solve.cpp` binds it too.
     # Its own TU: it calls no kernel and no kernel calls it.
@@ -636,6 +655,10 @@ _ACCEL_SOURCES = [
     # bits). Their own TUs for 1410's reason.
     "src/momwire/_razor_exact_core.cpp",
     "src/momwire/_exact_kernel_point_core.cpp",
+    # The k-series' Python-free twin of `_accel_exact_kernel_series.cpp`
+    # (momwire#1454, the opt-in `exact_kernel_series`): the same inline text,
+    # so the same bits. Its own TU for 1410's reason.
+    "src/momwire/_exact_kernel_series_core.cpp",
     # The coaxial pair moments' Python-free twin of `_accel_exact_kernel.cpp`
     # (the same inline text, so the same bits): the B-spline basis' exact
     # kernel for the standalone path (momwire#1517 step 0). Its own TU for

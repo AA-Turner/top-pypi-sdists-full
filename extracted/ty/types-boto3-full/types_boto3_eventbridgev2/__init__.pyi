@@ -18,6 +18,7 @@ Usage::
         ListEventSourcesPaginator,
         ListResourcePoliciesPaginator,
         ListSubscribersPaginator,
+        MskSubscriberActiveWaiter,
     )
 
     session = Session()
@@ -25,6 +26,7 @@ Usage::
 
     event_bus_active_waiter: EventBusActiveWaiter = client.get_waiter("event_bus_active")
     event_bus_deleted_waiter: EventBusDeletedWaiter = client.get_waiter("event_bus_deleted")
+    msk_subscriber_active_waiter: MskSubscriberActiveWaiter = client.get_waiter("msk_subscriber_active")
 
     list_event_buses_paginator: ListEventBusesPaginator = client.get_paginator("list_event_buses")
     list_event_sources_paginator: ListEventSourcesPaginator = client.get_paginator("list_event_sources")
@@ -40,7 +42,7 @@ from .paginator import (
     ListResourcePoliciesPaginator,
     ListSubscribersPaginator,
 )
-from .waiter import EventBusActiveWaiter, EventBusDeletedWaiter
+from .waiter import EventBusActiveWaiter, EventBusDeletedWaiter, MskSubscriberActiveWaiter
 
 Client = EventBridgeV2Client
 
@@ -53,4 +55,5 @@ __all__ = (
     "ListEventSourcesPaginator",
     "ListResourcePoliciesPaginator",
     "ListSubscribersPaginator",
+    "MskSubscriberActiveWaiter",
 )

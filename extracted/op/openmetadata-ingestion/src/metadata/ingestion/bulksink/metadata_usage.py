@@ -25,14 +25,12 @@ import traceback
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from pydantic import ValidationError
 
 from metadata.config.common import ConfigModel
 from metadata.entity_resolution.engine import EntityResolver
 from metadata.entity_resolution.table import TableResolver
-from metadata.entity_resolution.table_binding import TableLookup
 from metadata.generated.schema.entity.data.database import Database
 from metadata.generated.schema.entity.data.table import (
     ColumnJoins,
@@ -43,7 +41,6 @@ from metadata.generated.schema.entity.data.table import (
 from metadata.generated.schema.entity.services.ingestionPipelines.status import (
     StackTraceError,
 )
-from metadata.generated.schema.entity.teams.user import User
 from metadata.generated.schema.type.basic import Timestamp
 from metadata.generated.schema.type.lifeCycle import AccessDetails, LifeCycle
 from metadata.generated.schema.type.tableUsageCount import (
@@ -53,20 +50,17 @@ from metadata.generated.schema.type.tableUsageCount import (
 )
 from metadata.generated.schema.type.usageRequest import UsageRequest
 from metadata.ingestion.api.steps import BulkSink
-from metadata.ingestion.lineage.sql_lineage import (
-    get_column_fqn,
-)
+from metadata.ingestion.lineage.sql_lineage import get_column_fqn
 from metadata.ingestion.ometa.client import APIError
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
+from metadata.ingestion.ometa.utils import model_str
 from metadata.utils import fqn
 from metadata.utils.constants import UTF_8
 from metadata.utils.life_cycle_utils import get_query_type
 from metadata.utils.logger import ingestion_logger
-from metadata.utils.time_utils import convert_timestamp
+from metadata.utils.time_utils import convert_timestamp, utc_from_timestamp
 
 logger = ingestion_logger()
-
-LRU_CACHE_SIZE = 4096
 
 
 class MetadataUsageSinkConfig(ConfigModel):
@@ -109,7 +103,7 @@ class MetadataUsageBulkSink(BulkSink):
         cls,
         config_dict: dict,
         metadata: OpenMetadata,
-        pipeline_name: Optional[str] = None,  # noqa: UP045
+        pipeline_name: str | None = None,
     ):
         config = MetadataUsageSinkConfig.model_validate(config_dict)
         return cls(config, metadata)
@@ -146,7 +140,7 @@ class MetadataUsageBulkSink(BulkSink):
             table_usage_request = None
             try:
                 table_usage_request = UsageRequest(
-                    date=datetime.fromtimestamp(convert_timestamp(value_dict["usage_date"])).strftime("%Y-%m-%d"),
+                    date=utc_from_timestamp(convert_timestamp(value_dict["usage_date"])).strftime("%Y-%m-%d"),
                     count=value_dict["usage_count"],
                 )
                 self.metadata.publish_table_usage(value_dict["table_entity"], table_usage_request)
@@ -215,7 +209,6 @@ class MetadataUsageBulkSink(BulkSink):
                             database_name=table_usage.databaseName,
                             database_schema=table_usage.databaseSchema,
                             table_name=table_usage.table,
-                            lookup=TableLookup.LINEAGE,
                         )
                     except Exception as exc:
                         logger.debug(traceback.format_exc())
@@ -336,7 +329,7 @@ class MetadataUsageBulkSink(BulkSink):
         Method to get Table Joins
         """
         # TODO: Clean up how we are passing dates from query parsing to here to use timestamps instead of strings
-        start_date = datetime.fromtimestamp(int(table_usage.date) / 1000)
+        start_date = utc_from_timestamp(int(table_usage.date) / 1000)
         table_joins: TableJoins = TableJoins(columnJoins=[], directTableJoins=[], startDate=start_date.date())
         column_joins_dict = {}
         for column_join in table_usage.joins:
@@ -398,7 +391,6 @@ class MetadataUsageBulkSink(BulkSink):
                 database_name=database,
                 database_schema=database_schema,
                 table_name=table_column.table,
-                lookup=TableLookup.LINEAGE,
             )
         except Exception as exc:
             logger.debug(traceback.format_exc())
@@ -422,7 +414,7 @@ class MetadataUsageBulkSink(BulkSink):
                 user = None
                 process_user = None
                 if create_query.users:
-                    user = self.metadata.get_entity_reference(entity=User, fqn=create_query.users[0])
+                    user = self.metadata.get_cached_user_reference(name=model_str(create_query.users[0]))
                 elif create_query.usedBy:
                     process_user = create_query.usedBy[0]
                 query_type = get_query_type(create_query=create_query)

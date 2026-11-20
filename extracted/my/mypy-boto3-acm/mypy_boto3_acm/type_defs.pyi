@@ -34,6 +34,7 @@ from .literals import (
     CertificateStatusType,
     CertificateTransparencyLoggingPreferenceType,
     CertificateTypeType,
+    CertificateUsageType,
     ComparisonOperatorType,
     DomainScopeOptionType,
     DomainStatusType,
@@ -45,6 +46,7 @@ from .literals import (
     RenewalEligibilityType,
     RenewalStatusType,
     RevocationReasonType,
+    RootHierarchyTypeType,
     SearchCertificatesSortByType,
     SearchCertificatesSortOrderType,
     SortOrderType,
@@ -214,6 +216,7 @@ AcmCertificateMetadataFilterTypeDef = TypedDict(
         "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
         "AcmeEndpointArn": NotRequired[str],
         "AcmeAccountId": NotRequired[str],
+        "RootHierarchyType": NotRequired[RootHierarchyTypeType],
     },
 )
 AcmCertificateMetadataTypeDef = TypedDict(
@@ -235,6 +238,8 @@ AcmCertificateMetadataTypeDef = TypedDict(
         "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
         "AcmeEndpointArn": NotRequired[str],
         "AcmeAccountId": NotRequired[str],
+        "CertificateUsage": NotRequired[CertificateUsageType],
+        "RootHierarchyType": NotRequired[RootHierarchyTypeType],
     },
 )
 
@@ -328,6 +333,8 @@ CertificateSummaryTypeDef = TypedDict(
         "RevokedAt": NotRequired[datetime],
         "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
         "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
+        "CertificateUsage": NotRequired[CertificateUsageType],
+        "RootHierarchyType": NotRequired[RootHierarchyTypeType],
     },
 )
 
@@ -697,6 +704,8 @@ class RequestCertificateRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     KeyAlgorithm: NotRequired[KeyAlgorithmType]
     ManagedBy: NotRequired[Literal["CLOUDFRONT"]]
+    CertificateUsage: NotRequired[CertificateUsageType]
+    RootHierarchyType: NotRequired[RootHierarchyTypeType]
 
 class DomainValidationTypeDef(TypedDict):
     DomainName: str
@@ -718,6 +727,7 @@ class PutAccountConfigurationRequestTypeDef(TypedDict):
 class ListCertificatesRequestTypeDef(TypedDict):
     CertificateStatuses: NotRequired[Sequence[CertificateStatusType]]
     CertificateKeyPairOrigins: NotRequired[Sequence[CertificateKeyPairOriginType]]
+    RootHierarchyTypes: NotRequired[Sequence[RootHierarchyTypeType]]
     Includes: NotRequired[FiltersTypeDef]
     NextToken: NotRequired[str]
     MaxItems: NotRequired[int]
@@ -746,6 +756,7 @@ class ListCertificateDomainValidationsRequestPaginateTypeDef(TypedDict):
 class ListCertificatesRequestPaginateTypeDef(TypedDict):
     CertificateStatuses: NotRequired[Sequence[CertificateStatusType]]
     CertificateKeyPairOrigins: NotRequired[Sequence[CertificateKeyPairOriginType]]
+    RootHierarchyTypes: NotRequired[Sequence[RootHierarchyTypeType]]
     Includes: NotRequired[FiltersTypeDef]
     SortBy: NotRequired[Literal["CREATED_AT"]]
     SortOrder: NotRequired[SortOrderType]
@@ -924,6 +935,8 @@ CertificateDetailTypeDef = TypedDict(
         "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
         "AcmeEndpointArn": NotRequired[str],
         "AcmeAccountId": NotRequired[str],
+        "CertificateUsage": NotRequired[CertificateUsageType],
+        "RootHierarchyType": NotRequired[RootHierarchyTypeType],
     },
 )
 

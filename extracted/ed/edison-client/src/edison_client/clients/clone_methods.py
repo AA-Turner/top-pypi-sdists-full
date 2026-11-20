@@ -3,12 +3,7 @@ from typing import NoReturn
 from uuid import UUID
 
 from httpx import AsyncClient, Client, HTTPStatusError, codes
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 
 from edison_client.models.clone import (
     ChatCloneRequest,
@@ -65,11 +60,7 @@ class CloneMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def clone_project(
-        self,
-        project_id: UUID,
-        *,
-        name: str,
-        target_owner_email: str | None = None,
+        self, project_id: UUID, *, name: str, target_owner_email: str | None = None
     ) -> ProjectCloneResponse:
         """Clone a persona project into a new private project.
 
@@ -109,11 +100,7 @@ class CloneMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def aclone_project(
-        self,
-        project_id: UUID,
-        *,
-        name: str,
-        target_owner_email: str | None = None,
+        self, project_id: UUID, *, name: str, target_owner_email: str | None = None
     ) -> ProjectCloneResponse:
         """Clone a persona project into a new private project."""
         try:

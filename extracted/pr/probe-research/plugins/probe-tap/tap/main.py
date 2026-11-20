@@ -75,6 +75,13 @@ from tap import (
 from tap import config as cfg
 from tap import owner as session_owner
 from tap.companion_supervisor import Supervisor
+from tap.hosted import (
+    WAITING_DELETED,
+    WAITING_INGESTION_OFF,
+    WAITING_LOCAL,
+    WAITING_OTHER_CHAT,
+    WAITING_SERVER,
+)
 from tap.outbox import HaltError
 from tap.server_messages import forward_refusal
 from tap.transcripts.session_identity import IdentityMismatch, validate_identity
@@ -400,6 +407,7 @@ def main(argv: list[str] | None = None, *, hosted: object = None) -> int:
         pause=getattr(hosted, "pause", None),
         workers=getattr(hosted, "workers", None),
         claimed=getattr(hosted, "claim", None),
+        waiting=getattr(hosted, "set_waiting", None),
         beat=getattr(hosted, "beat", None),
     )
 
@@ -654,10 +662,13 @@ def _run_durable_loop(c: cfg.WatchConfig, storage: Storage, *, offer: handback.H
                 token=c.token, base_url=wire.base_url
             )
             if not enabled:
+                if not _holds_claim(journal, c.session_id):
+                    _publish_waiting(c, WAITING_INGESTION_OFF)
                 if stopping:
                     return 0
                 time.sleep(min(c.active_interval_s, 60))
                 continue
+            claiming = None  # the step of the claim running, while one runs: its failure's reason
             try:
                 sent_bytes = 0
                 own_blocked = capture_gate.verdict(c.session_id).blocked
@@ -680,15 +691,19 @@ def _run_durable_loop(c: cfg.WatchConfig, storage: Storage, *, offer: handback.H
                         # line). It waited for that before: a sync interval of a
                         # recorder that held nothing and said so (`recording: false`).
                         # Nothing is staged before the identity is proven, below.
+                        claiming = WAITING_SERVER  # the server's receipts
                         remote = wire.receipts(c.session_id)
+                        claiming = WAITING_LOCAL  # this machine's journal, and the claim in it
                         journal = journal or Journal(wire.base_url, remote["customer_id"], wire.source)
                         if not journal.claim_live(c.session_id):
                             return 0  # another compatible daemon owns this session
+                        claiming = None
                         companion.claimed()
                         _publish_claim(c, str(journal.directory))
+                        _publish_waiting(c, None)
                     try:
                         provenance = validate_identity(c.transcript_path, wire.source, c.session_id)
-                    except IdentityMismatch:
+                    except IdentityMismatch as exc:
                         # Another session's transcript: never this recorder's to
                         # hold, so the right one can take the session. Checked
                         # before any claim from now on, as before the early claim.
@@ -698,14 +713,19 @@ def _run_durable_loop(c: cfg.WatchConfig, storage: Storage, *, offer: handback.H
                             log.warning("session %s: its transcript %s is another session's; "
                                         "let go of the session", c.session_id, c.transcript_path)
                         mismatched = True
+                        _publish_waiting(c, WAITING_OTHER_CHAT, exc.other)
                         raise
                     if journal is None or not journal.holds_live(c.session_id):
+                        claiming = WAITING_SERVER  # the server's receipts
                         remote = wire.receipts(c.session_id)
+                        claiming = WAITING_LOCAL  # this machine's journal, and the claim in it
                         journal = journal or Journal(wire.base_url, remote["customer_id"], wire.source)
                         if not journal.claim_live(c.session_id):
                             return 0  # another compatible daemon owns this session
+                        claiming = None
                         companion.claimed()
                         _publish_claim(c, str(journal.directory))
+                        _publish_waiting(c, None)
                     identity_ok, mismatched = True, False
                     journal.ensure(
                         c.session_id,
@@ -929,13 +949,18 @@ def _run_durable_loop(c: cfg.WatchConfig, storage: Storage, *, offer: handback.H
                         ) as exc:
                             log.warning("reconcile %s pending: %s", gap.session_id, exc)
             except _NothingToDrain:
-                pass
+                if c.session_id not in deleted:
+                    _publish_waiting(c, None)  # Probe is off for it: its row's `off` says so
             except SessionDeleted as exc:
                 _settle_deleted(journal, exc, deleted, c.transcript_path)
             except SourceRewritten:
                 _note_rewritten(journal, c.session_id, rewritten)
             except (DeliveryPending, ReconciliationRequired, OSError, sqlite3.Error) as exc:
                 log.warning("capture pending; source and queue retained: %s", exc)
+                if not isinstance(exc, IdentityMismatch) and not _holds_claim(journal, c.session_id):
+                    _publish_waiting(c, _say_why_unclaimed(exc, claiming))
+            if c.session_id in deleted and not _holds_claim(journal, c.session_id):
+                _publish_waiting(c, WAITING_DELETED)
             if stopping:
                 return 0
             companion.claimed()  # a pass done: this recorder keeps the session
@@ -1026,6 +1051,7 @@ def _run_durable_loop(c: cfg.WatchConfig, storage: Storage, *, offer: handback.H
         elif not _paused(c):
             companion.stop()
         _publish_claim(c, None)
+        _publish_waiting(c, None)
         if journal is not None:
             journal.close()
 
@@ -1051,6 +1077,40 @@ def _publish_claim(c: cfg.WatchConfig, folder: str | None) -> None:
         claimed(folder)
     except Exception:  # noqa: BLE001 -- only the service's receipts are at stake
         log.debug("could not publish the journal claim", exc_info=True)
+
+
+def _holds_claim(journal: Journal | None, session_id: str) -> bool:
+    return journal is not None and journal.holds_live(session_id)
+
+
+def _say_why_unclaimed(exc: BaseException, claiming: str | None) -> str | None:
+    """Why a pass that failed holding no claim waits, by the claim step that failed (`claiming`: the
+    error's class cannot say, as a journal version this tap cannot read raises the server's); None
+    when it failed outside one, so nothing stale stays (a transcript that names no chat now)."""
+    if claiming == WAITING_SERVER:
+        return f"{WAITING_SERVER} ({_safe_detail(exc)})"
+    if claiming == WAITING_LOCAL:
+        return f"{WAITING_LOCAL} ({type(exc).__name__})"
+    return None
+
+
+def _safe_detail(exc: BaseException) -> str:
+    """The error's own display wording (`errors._request_failure`), or only its class: an error
+    raised without one carries its raw message there, which may name a path or URL."""
+    said = getattr(exc, "safe_message", None)
+    return said if isinstance(said, str) and said and said != str(exc) else type(exc).__name__
+
+
+def _publish_waiting(c: cfg.WatchConfig, text: str | None, other: str | None = None) -> None:
+    """Hosted: tell the Probe service why this loop holds no claim (None: it holds one, or
+    ends); its row's `last` says it. Never raises."""
+    waiting = getattr(c, "waiting", None)
+    if waiting is None:
+        return
+    try:
+        waiting(None if text is None else {"text": text, "other": other})
+    except Exception:  # noqa: BLE001 -- only the service's status line is at stake
+        log.debug("could not publish why the recorder waits", exc_info=True)
 
 
 def _run_loop(c: cfg.WatchConfig, storage: Storage) -> int:

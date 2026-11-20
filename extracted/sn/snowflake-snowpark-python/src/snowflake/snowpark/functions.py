@@ -4087,10 +4087,12 @@ def char(col: ColumnOrName, _emit_ast: bool = True) -> Column:
 
 @publicapi
 def to_char(
-    c: ColumnOrName, format: Optional[str] = None, _emit_ast: bool = True
+    c: ColumnOrName,
+    format: Optional[ColumnOrLiteralStr] = None,
+    _emit_ast: bool = True,
 ) -> Column:
     """Converts a Unicode code point (including 7-bit ASCII) into the character that
-    matches the input Unicode.
+    matches the input Unicode. ``format`` can be a literal str or a Column.
 
     Example::
         >>> df = session.create_dataframe([1, 2, 3, 4], schema=['a'])
@@ -4202,9 +4204,13 @@ def to_time(
 
 @publicapi
 def to_timestamp(
-    e: ColumnOrName, fmt: Optional["Column"] = None, _emit_ast: bool = True
+    e: ColumnOrName,
+    fmt: Optional[Union[ColumnOrLiteralStr, int]] = None,
+    _emit_ast: bool = True,
 ) -> Column:
     """Converts an input expression into the corresponding timestamp.
+
+    ``fmt`` can be a str literal, an int scale or a Column.
 
     Per default fmt is set to auto, which makes Snowflake detect the format automatically. With `to_timestamp` strings
     can be converted to timestamps. The format has to be specified according to the rules set forth in
@@ -4247,11 +4253,22 @@ def to_timestamp(
         >>> df.select(to_timestamp(col("a")).as_("ans")).collect()
         [Row(ANS=datetime.datetime(1970, 1, 1, 0, 0, 20)), Row(ANS=datetime.datetime(1971, 1, 1, 0, 0)), Row(ANS=datetime.datetime(1971, 1, 1, 0, 0)), Row(ANS=datetime.datetime(1971, 1, 1, 0, 0))]
     """
+    ast = (
+        build_function_expr("to_timestamp", [e] if fmt is None else [e, fmt])
+        if _emit_ast
+        else None
+    )
     c = _to_col_if_str(e, "to_timestamp")
     return (
-        _call_function("to_timestamp", c, fmt, _emit_ast=_emit_ast)
+        _call_function(
+            "to_timestamp",
+            c,
+            _to_col_if_lit(fmt, "to_timestamp"),
+            _ast=ast,
+            _emit_ast=_emit_ast,
+        )
         if fmt is not None
-        else _call_function("to_timestamp", c, _emit_ast=_emit_ast)
+        else _call_function("to_timestamp", c, _ast=ast, _emit_ast=_emit_ast)
     )
 
 
@@ -8486,9 +8503,10 @@ def as_timestamp_tz(variant: ColumnOrName, _emit_ast: bool = True) -> Column:
 
 @publicapi
 def to_binary(
-    e: ColumnOrName, fmt: Optional[str] = None, _emit_ast: bool = True
+    e: ColumnOrName, fmt: Optional[ColumnOrLiteralStr] = None, _emit_ast: bool = True
 ) -> Column:
     """Converts the input expression to a binary value. For NULL input, the output is NULL.
+    ``fmt`` can be a literal str or a Column.
 
     Example::
 
@@ -8502,12 +8520,26 @@ def to_binary(
 
         >>> df.select(to_binary(col('a'), 'UTF-8').as_('ans')).collect()
         [Row(ANS=bytearray(b'aGVsbG8=')), Row(ANS=bytearray(b'd29ybGQ=')), Row(ANS=bytearray(b'IQ=='))]
+
+        >>> df.select(to_binary(col('a'), lit('BASE64')).as_('ans')).collect()
+        [Row(ANS=bytearray(b'hello')), Row(ANS=bytearray(b'world')), Row(ANS=bytearray(b'!'))]
     """
+    ast = (
+        build_function_expr("to_binary", [e] if fmt is None else [e, fmt])
+        if _emit_ast
+        else None
+    )
     c = _to_col_if_str(e, "to_binary")
     return (
-        _call_function("to_binary", c, fmt, _emit_ast=_emit_ast)
-        if fmt
-        else _call_function("to_binary", c, _emit_ast=_emit_ast)
+        _call_function(
+            "to_binary",
+            c,
+            _to_col_if_lit(fmt, "to_binary"),
+            _ast=ast,
+            _emit_ast=_emit_ast,
+        )
+        if fmt is not None
+        else _call_function("to_binary", c, _ast=ast, _emit_ast=_emit_ast)
     )
 
 
@@ -12065,24 +12097,37 @@ def regr_syy(y: ColumnOrName, x: ColumnOrName, _emit_ast: bool = True) -> Column
 
 @publicapi
 def try_to_binary(
-    e: ColumnOrName, fmt: Optional[str] = None, _emit_ast: bool = True
+    e: ColumnOrName, fmt: Optional[ColumnOrLiteralStr] = None, _emit_ast: bool = True
 ) -> Column:
     """
     A special version of TO_BINARY that performs the same operation (i.e. converts an input expression to
     a binary value), but with error handling support (i.e. if the conversion cannot be performed,
-    it returns a NULL value instead of raising an error).
+    it returns a NULL value instead of raising an error). ``fmt`` can be a literal str or a Column.
 
     Example::
 
         >>> df = session.create_dataframe(["01", "A B", "Hello", None], schema=["hex_encoded_string"])
         >>> df.select(try_to_binary(df["hex_encoded_string"], 'HEX').alias("b")).collect()
         [Row(B=bytearray(b'\\x01')), Row(B=None), Row(B=None), Row(B=None)]
+        >>> df.select(try_to_binary(df["hex_encoded_string"], lit('HEX')).alias("b")).collect()
+        [Row(B=bytearray(b'\\x01')), Row(B=None), Row(B=None), Row(B=None)]
     """
+    ast = (
+        build_function_expr("try_to_binary", [e] if fmt is None else [e, fmt])
+        if _emit_ast
+        else None
+    )
     c = _to_col_if_str(e, "try_to_binary")
     return (
-        _call_function("try_to_binary", c, fmt, _emit_ast=_emit_ast)
-        if fmt
-        else _call_function("try_to_binary", c, _emit_ast=_emit_ast)
+        _call_function(
+            "try_to_binary",
+            c,
+            _to_col_if_lit(fmt, "try_to_binary"),
+            _ast=ast,
+            _emit_ast=_emit_ast,
+        )
+        if fmt is not None
+        else _call_function("try_to_binary", c, _ast=ast, _emit_ast=_emit_ast)
     )
 
 
@@ -14224,7 +14269,8 @@ def ai_complete(
         model: A string specifying the model to be used. Different input types have different supported models.
             See details in `AI_COMPLETE <https://docs.snowflake.com/en/sql-reference/functions/ai_complete>`_.
         prompt: A string prompt, or a Column object from :func:`prompt()`.
-        file: The FILE type column representing an image. When provided, prompt should be a string.
+        file: The FILE type column representing an image or a document, such as a PDF. When provided,
+            prompt should be a string.
         model_parameters: Optional object containing model hyperparameters:
 
             - temperature: A value from 0 to 1 controlling randomness (default: ``0``)
@@ -14238,11 +14284,13 @@ def ai_complete(
             of returning NULL on failure.
 
     Returns:
-        ``response_format`` and ``show_details`` are only supported for single string.
+        ``response_format`` and ``show_details`` are supported with a string prompt, and with a string prompt
+        and a ``file``.
         When ``show_details`` is ``FALSE`` and ``response_format`` is not specified: Returns a string containing the response.
         When ``show_details`` is ``FALSE`` and ``response_format`` is specified: Returns an object following the provided format.
         When ``show_details`` is ``TRUE``: Returns a JSON object with detailed inference information including
-        choices, created timestamp, model name, and token usage statistics.
+        choices (or ``structured_output`` when ``response_format`` is specified), created timestamp, model name,
+        and token usage statistics.
         See details in `AI_COMPLETE Returns <https://docs.snowflake.com/en/sql-reference/functions/ai_complete-single-string#returns>`_.
 
     Examples::

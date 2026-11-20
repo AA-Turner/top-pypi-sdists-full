@@ -9,8 +9,12 @@
 //!
 //! See the [tutorial notebook](https://github.com/relf/egobox/notebooks/Gpx_Tutorial.ipynb) for usage.
 //!
-use crate::errors::{gp_file_format, input_x, moe_err, moe_file_err, output_y, training_data};
+use crate::errors::{
+    gp_file_format, input_x, interruptible_moe_err, moe_err, moe_file_err, output_y, training_data,
+};
+use crate::interrupt_flag::{InterruptFlag, interruption};
 use crate::logging::init_logger;
+use crate::sigint::SigintGuard;
 use crate::surrogate_api;
 use crate::types::*;
 use crate::{domain::parse, gp_config::GpConfig, gp_config::seeded_rng};
@@ -165,20 +169,32 @@ impl GpMix {
     /// Parameters
     /// ----------
     /// xt : array[nsamples, nx] or array[nsamples] when nx == 1
-    ///     input samples
+    ///     input samples, one column per variable: an ENUM variable is given
+    ///     by its category index, as returned by `egx.lhs(xspecs, n)`
     /// yt : array[nsamples] or array[nsamples, 1]
     ///     output samples
+    /// interrupt : InterruptFlag, optional
+    ///     the training is interrupted (Interrupted raised) once this flag is set,
+    ///     e.g. from another thread
     ///
     /// Returns
     /// -------
     /// Gpx
     ///     the fitted Gaussian process mixture
     ///
+    /// Notes
+    /// -----
+    /// Ctrl-C (KeyboardInterrupt) stops the training at once, unless called from another
+    /// thread than the main one or with a custom SIGINT handler. The training is also
+    /// interrupted when the `interrupt` flag is set, raising Interrupted.
+    ///
+    #[pyo3(signature = (xt, yt, interrupt = None))]
     fn fit(
         &mut self,
         py: Python,
         xt: PyReadonlyArrayDyn<f64>,
         yt: PyReadonlyArrayDyn<f64>,
+        interrupt: Option<Py<InterruptFlag>>,
     ) -> PyResult<Gpx> {
         self.gp_config.validate()?;
         let (xt, yt) = training_data(xt.as_array(), yt.as_array())?;
@@ -215,8 +231,17 @@ impl GpMix {
             vec![theta_tuning; 1] // used as default theta tuning for all experts
         };
 
+        // xt has one column per variable, enum variables given by their category index
+        let mut params = MixintGpMixture::params(self.xtypes.as_deref());
+        params.work_in_folded_space(true);
+        // Ctrl-C stops the training at once
+        let sigint = SigintGuard::install(py);
+        let cancellation = sigint.as_ref().map(SigintGuard::cancellation);
+        let flag = interrupt.as_ref().map(|flag| flag.get());
+        let cancellation = interruption(cancellation, flag);
         let moe = py.detach(|| {
-            MixintGpMixture::params(self.xtypes.as_deref())
+            params
+                .cancellation(cancellation)
                 .n_clusters(n_clusters)
                 .recombination(recomb)
                 .regression_spec(self.gp_config.regression_spec())
@@ -228,8 +253,9 @@ impl GpMix {
                 .with_rng(rng)
                 .fit(&dataset)
         });
+        drop(sigint);
 
-        Ok(Gpx(moe.map_err(moe_err)?))
+        Ok(Gpx(moe.map_err(|e| interruptible_moe_err(py, e, flag))?))
     }
 }
 
@@ -410,6 +436,7 @@ impl Gpx {
     /// array[nsamples, nx]
     ///     the output derivatives wrt inputs at the nsamples x points.
     ///     The ith column is the partial derivative wrt the ith component of x.
+    ///     It is NaN for an ENUM variable, which has no derivative.
     ///
     fn predict_gradients<'py>(
         &self,
@@ -431,6 +458,7 @@ impl Gpx {
     /// array[nsamples, nx]
     ///     the variance derivatives wrt inputs at the nsamples x points.
     ///     The ith column is the partial derivative wrt the ith component of x.
+    ///     It is NaN for an ENUM variable, which has no derivative.
     ///
     fn predict_var_gradients<'py>(
         &self,

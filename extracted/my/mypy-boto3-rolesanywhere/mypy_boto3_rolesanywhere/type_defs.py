@@ -23,7 +23,14 @@ from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
-from .literals import CertificateFieldType, NotificationEventType, TrustAnchorTypeType
+from .literals import (
+    CertificateFieldType,
+    NotificationEventType,
+    TipStatusType,
+    TipSubjectSourceType,
+    TipSubjectTypeType,
+    TrustAnchorTypeType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
@@ -91,6 +98,7 @@ __all__ = (
     "SubjectSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
+    "TipConfigurationTypeDef",
     "TrustAnchorDetailResponseTypeDef",
     "TrustAnchorDetailTypeDef",
     "UntagResourceRequestTypeDef",
@@ -110,6 +118,12 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 class TagTypeDef(TypedDict):
     key: str
     value: str
+
+
+class TipConfigurationTypeDef(TypedDict):
+    status: TipStatusType
+    subjectType: NotRequired[TipSubjectTypeType]
+    subjectSource: NotRequired[TipSubjectSourceType]
 
 
 class NotificationSettingTypeDef(TypedDict):
@@ -277,17 +291,6 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
-class UpdateProfileRequestTypeDef(TypedDict):
-    profileId: str
-    name: NotRequired[str]
-    sessionPolicy: NotRequired[str]
-    roleArns: NotRequired[Sequence[str]]
-    managedPolicyArns: NotRequired[Sequence[str]]
-    durationSeconds: NotRequired[int]
-    acceptRoleSessionName: NotRequired[bool]
-    aliasName: NotRequired[str]
-
-
 class AttributeMappingTypeDef(TypedDict):
     certificateField: NotRequired[CertificateFieldType]
     mappingRules: NotRequired[list[MappingRuleTypeDef]]
@@ -306,19 +309,6 @@ class UpdateCrlRequestTypeDef(TypedDict):
     aliasName: NotRequired[str]
 
 
-class CreateProfileRequestTypeDef(TypedDict):
-    name: str
-    roleArns: Sequence[str]
-    requireInstanceProperties: NotRequired[bool]
-    sessionPolicy: NotRequired[str]
-    managedPolicyArns: NotRequired[Sequence[str]]
-    durationSeconds: NotRequired[int]
-    enabled: NotRequired[bool]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    acceptRoleSessionName: NotRequired[bool]
-    aliasName: NotRequired[str]
-
-
 class ImportCrlRequestTypeDef(TypedDict):
     name: str
     crlData: BlobTypeDef
@@ -331,6 +321,32 @@ class ImportCrlRequestTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Sequence[TagTypeDef]
+
+
+class CreateProfileRequestTypeDef(TypedDict):
+    name: str
+    roleArns: Sequence[str]
+    requireInstanceProperties: NotRequired[bool]
+    sessionPolicy: NotRequired[str]
+    managedPolicyArns: NotRequired[Sequence[str]]
+    durationSeconds: NotRequired[int]
+    enabled: NotRequired[bool]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    acceptRoleSessionName: NotRequired[bool]
+    aliasName: NotRequired[str]
+    tipConfiguration: NotRequired[TipConfigurationTypeDef]
+
+
+class UpdateProfileRequestTypeDef(TypedDict):
+    profileId: str
+    name: NotRequired[str]
+    sessionPolicy: NotRequired[str]
+    roleArns: NotRequired[Sequence[str]]
+    managedPolicyArns: NotRequired[Sequence[str]]
+    durationSeconds: NotRequired[int]
+    acceptRoleSessionName: NotRequired[bool]
+    aliasName: NotRequired[str]
+    tipConfiguration: NotRequired[TipConfigurationTypeDef]
 
 
 class PutNotificationSettingsRequestTypeDef(TypedDict):
@@ -419,6 +435,7 @@ class ProfileDetailTypeDef(TypedDict):
     attributeMappings: NotRequired[list[AttributeMappingTypeDef]]
     aliasName: NotRequired[str]
     aliasArn: NotRequired[str]
+    tipConfiguration: NotRequired[TipConfigurationTypeDef]
     previousAliasName: NotRequired[str]
 
 

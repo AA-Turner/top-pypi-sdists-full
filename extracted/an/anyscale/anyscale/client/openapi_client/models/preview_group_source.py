@@ -29,6 +29,7 @@ class PreviewGroupSource(object):
     allowed enum values
     """
     ALL_USERS = "all_users"
+    SERVICE_ACCOUNTS = "service_accounts"
     LEGACY_ROLE = "legacy_role"
     CLOUD_MEMBERS = "cloud_members"
     SUGGESTED = "suggested"
@@ -38,7 +39,7 @@ class PreviewGroupSource(object):
     EXISTING = "existing"
     DIRECTORY = "directory"
 
-    allowable_values = [ALL_USERS, LEGACY_ROLE, CLOUD_MEMBERS, SUGGESTED, OWNERS, ORGANIZATION_ADMIN, STAGED, EXISTING, DIRECTORY]  # noqa: E501
+    allowable_values = [ALL_USERS, SERVICE_ACCOUNTS, LEGACY_ROLE, CLOUD_MEMBERS, SUGGESTED, OWNERS, ORGANIZATION_ADMIN, STAGED, EXISTING, DIRECTORY]  # noqa: E501
 
     """
     Attributes:

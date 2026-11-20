@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: canvas
-Version: 1.9.0
+Version: 1.12.0
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT
@@ -45,8 +45,6 @@ Requires-Dist: websocket-client<2,>=1.7.0
 Provides-Extra: test-utils
 Requires-Dist: pytest-canvas>=0.2.0; extra == 'test-utils'
 Description-Content-Type: text/markdown
-
-[![codecov](https://codecov.io/gh/canvas-medical/canvas-plugins/graph/badge.svg?token=P8JJUOJ8FH)](https://codecov.io/gh/canvas-medical/canvas-plugins)
 
 ### Getting Started
 

@@ -208,6 +208,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 _log = logging.getLogger(__name__)
@@ -222,6 +223,7 @@ from coord.board_doctor import (
     CAUSE_LATCH_STALE_MERGEABLE,
     CAUSE_MERGE_NEVER_ATTEMPTED,
     CAUSE_MERGE_PENDING_STUCK,
+    CAUSE_NEXT_ACTION_UNPERFORMED,
     CAUSE_SMOKE_NO_VERDICT,
     CAUSE_STRANDED_PREREQ,
     TIER_ALERT,
@@ -824,6 +826,104 @@ def _restage_test_stale_row(row: StuckRow) -> bool:
     return _restage_stale_gate_row(row, stage="test")
 
 
+def _perform_next_action_unperformed(row: StuckRow) -> bool:
+    """#4045: re-derive *row*'s live :class:`~coord.entry_truth.EntryTruth`
+    right before acting — never trusting :func:`coord.board_doctor.
+    next_action_unperformed_rows`'s own classification, which can be a
+    sweep or more stale — and perform whichever gated primitive its FRESH
+    ``next_action`` names: ``restage`` (review), ``merge``, or
+    ``mark_done``. Registered against :data:`coord.board_doctor.
+    CAUSE_NEXT_ACTION_UNPERFORMED` under the nominal action name
+    ``"restage"`` (#4045's own motivating quadraui#2744 case, a stuck
+    ``dispatch_review``) — every branch below still re-authorizes its REAL
+    action through :func:`coord.board_doctor_permissions.
+    dispatch_investigator_action` (``authorize_investigator_action`` ->
+    ``authorize_sweep_action``) before touching the board, so the nominal
+    registration name never grants anything the real call would not
+    already permit on its own (#2096: one question, one answer, asked
+    again at the real call site, not a second judgment this module invents).
+
+    ``NEXT_ACTION_DISPATCH_TEST`` is deliberately absent from the branches
+    below, mirroring its exclusion from :func:`coord.board_doctor.
+    next_action_unperformed_rows`'s own ``dispatchable`` set (see that
+    function's docstring for why) — a fresh truth read reporting it falls
+    straight to the "no longer dispatchable" branch, a confirmed no-op,
+    the same as ``WAIT``/``ESCALATE``/``UNKNOWN``.
+
+    Returns ``True`` only once the matching wrapper confirms it actually
+    acted. A live truth that no longer names a dispatchable ``next_action``
+    at all — reality moved on between classification and this call: an
+    operator already acted (exactly the quadraui#2744 incident's own
+    resolution, `coord review <leg>` run by hand), or a leg is now in
+    flight — is a confirmed no-op, never a false success. Any OTHER
+    exception — `reconcile_entry`, and every primitive the three verbs below
+    reach, are live-GitHub/network-bound — is caught by
+    :func:`_run_mechanical_action` rather than aborting the sweep.
+    """
+    def _body() -> bool:
+        parsed = _parse_row_key(row.key)
+        if parsed is None:
+            return False
+        repo_name, issue_number = parsed
+
+        resolved = _resolve_board_and_config_for_mechanical_action(
+            repo_name, issue_number, action="next_action_unperformed",
+        )
+        if resolved is None:
+            return False
+        board, config = resolved
+
+        from coord import github_ops as gh_ops  # noqa: PLC0415
+        from coord.entry_truth import (  # noqa: PLC0415
+            NEXT_ACTION_DISPATCH_REVIEW,
+            NEXT_ACTION_MARK_DONE,
+            NEXT_ACTION_MERGE,
+            reconcile_entry,
+        )
+
+        truth = reconcile_entry(board, config, repo_name, issue_number, gh_ops=gh_ops)
+
+        if truth.next_action == NEXT_ACTION_DISPATCH_REVIEW:
+            action_name = "restage(review)"
+            result = dispatch_investigator_action(
+                "restage", repo_name, issue_number, board, config,
+                stage="review", reason=_SWEEP_REASON, actor="sweep",
+            )
+            acted = result["acted"]
+        elif truth.next_action == NEXT_ACTION_MERGE:
+            action_name = "merge"
+            # #3902: `allow_fix_dispatch=False` — see `_merge_pending_
+            # stuck_row`'s own comment on the identical call: this cause is
+            # not routed through `InvestigateCapacityGate`/the per-repo
+            # `fixit_leg_budget`, so `investigator_merge`'s own post-merge
+            # fan-out must not spend a worker leg on this call's behalf.
+            result = dispatch_investigator_action(
+                "merge", repo_name, issue_number, board, config, gh_ops,
+                reason=_SWEEP_REASON, actor="sweep", allow_fix_dispatch=False,
+            )
+            acted = result["acted"]
+        elif truth.next_action == NEXT_ACTION_MARK_DONE:
+            action_name = "mark_done"
+            result = dispatch_investigator_action(
+                "mark_done", repo_name, issue_number, board, config,
+                reason=_SWEEP_REASON, actor="sweep",
+            )
+            acted = result["acted"]
+        else:
+            return _warn_noop(
+                "next_action_unperformed", repo_name, issue_number,
+                f"live gates now read next_action={truth.next_action!r} — "
+                "no longer a dispatchable action; reality moved on since "
+                "this row was classified",
+            )
+
+        if not acted:
+            return _warn_noop(action_name, repo_name, issue_number, result["detail"])
+        return True
+
+    return _run_mechanical_action("next_action_unperformed", row, _body)
+
+
 def _redispatch_head_unmoved_conflict_fix(row: StuckRow) -> bool:
     """#3887 case 3, pairs with #3871: re-dispatch the ordinary
     conflict-fix for a `HUMAN_REQUIRED` row whose last attempt completed
@@ -1258,6 +1358,16 @@ _register_auto_action(
     "merge",
     _merge_pending_stuck_row,
 )
+# #4045: a row whose live gates already name a dispatchable `next_action`
+# that nothing has performed — `_perform_next_action_unperformed` re-derives
+# that `next_action` fresh and routes to the matching `restage`/`merge`/
+# `mark_done` primitive itself; see its own docstring for why "restage" is
+# the nominal registration name here.
+_register_auto_action(
+    CAUSE_NEXT_ACTION_UNPERFORMED,
+    "restage",
+    _perform_next_action_unperformed,
+)
 
 
 def _queue_stranded_prereq(row: StuckRow) -> bool:
@@ -1556,6 +1666,102 @@ def _stale_race_tier_enabled(repo_name: str, config: "Config") -> bool:
         return False
     repo = config.repo(repo_name)
     return bool(repo is not None and repo.board_doctor.stale_race)
+
+
+NO_CONFIG_DRIFT_AUTOFIX_ENV_VAR = "COORD_BOARD_DOCTOR_NO_CONFIG_DRIFT_AUTOFIX"
+"""Process-wide kill switch read by :func:`_config_drift_autofix_enabled`
+(#4035) — mirrors :data:`NO_STALE_RACE_ENV_VAR` and friends."""
+
+
+def _config_drift_autofix_enabled(repo_name: str, config: "Config") -> bool:
+    """Whether *repo_name* has opted in to the #4035 config-drift autofix
+    disposition — same three-gate shape as
+    :func:`_stale_race_tier_enabled`, but the per-repo polarity of
+    ``auto_refile``/``auto_split``.
+
+    1. :data:`NO_CONFIG_DRIFT_AUTOFIX_ENV_VAR` — a process-wide kill switch.
+    2. ``board_doctor.config_drift_autofix`` — the fleet-wide config switch.
+    3. ``repos[].board_doctor.config_drift_autofix`` — the per-repo opt-in,
+       default ``False`` (:class:`~coord.models.BoardDoctorRepoConfig`).
+
+    Feeds :func:`plan_config_drift_fix`'s ``ConfigDriftFix.enabled``/
+    ``patched_command`` fields and the wording of its ``alert_message``.
+    ``True`` here is what :func:`coord.board_doctor.
+    run_config_drift_fix_sweep` reads to decide whether to actually write
+    ``coordinator.yml`` and commit in ``coord-settings`` (#4048) —
+    ``False`` instead routes the row to the ordinary alert tier with the
+    one-line patch in ``alert_message`` for a human to apply by hand.
+    """
+    if os.environ.get(NO_CONFIG_DRIFT_AUTOFIX_ENV_VAR):
+        return False
+    if not config.board_doctor.config_drift_autofix:
+        return False
+    repo = config.repo(repo_name)
+    return bool(repo is not None and repo.board_doctor.config_drift_autofix)
+
+
+@dataclass(frozen=True)
+class ConfigDriftFix:
+    """One #4035 fix-path decision for a single dangling cargo target.
+
+    ``patched_command`` is the exact *token*-removed command text, set
+    ONLY when the autofix disposition is enabled for the repo AND the
+    token was found exactly once in the command (see
+    :func:`coord.smoke.remove_dangling_target_token` — ambiguous or
+    absent matches refuse rather than guess). :func:`coord.board_doctor.
+    run_config_drift_fix_sweep` reads ``patched_command`` and writes it
+    back to the live, symlinked ``coordinator.yml``, committing in the
+    ``coord-settings`` repo, whenever it is set (#4048). ``alert_message``
+    is always populated too, independent of ``enabled`` — the opted-out
+    path's only outcome — so the row is never left silently unexplained.
+    """
+
+    enabled: bool
+    patched_command: str | None
+    alert_message: str
+
+
+def plan_config_drift_fix(
+    repo_name: str, *, command: str, source: str, token: str, config: "Config",
+) -> ConfigDriftFix:
+    """Decide the #4035 fix-path outcome for one dangling *token* found in
+    *command* (*source* names where that command comes from, e.g.
+    ``"repos[quadraui].ci_command"`` — :class:`coord.smoke.SmokeCommand.
+    source`).
+
+    Never mutates anything, and never claims to have: this only COMPUTES
+    the patch — writing it back to the live, symlinked
+    ``coordinator.yml`` and committing in the ``coord-settings`` repo is
+    :func:`coord.board_doctor.run_config_drift_fix_sweep`'s job, gated on
+    ``enabled``. ``alert_message`` always describes the patch
+    PROSPECTIVELY — "apply this" rather than "applied this" — regardless
+    of ``enabled``, since it is also what the opted-out path shows a
+    human instead of applying it automatically. Edits exactly the matched
+    *token* (:func:`coord.smoke.remove_dangling_target_token`), never
+    anything else in *command* — a *token* that is absent, or appears
+    more than once, produces no ``patched_command`` at all, only the
+    alert naming the exact one-line
+    patch for a human to apply.
+    """
+    from coord.smoke import remove_dangling_target_token  # noqa: PLC0415
+
+    enabled = _config_drift_autofix_enabled(repo_name, config)
+    patched = remove_dangling_target_token(command, token) if enabled else None
+
+    if patched is not None:
+        alert_message = (
+            f"{repo_name}: {source} still runs the dangling `{token}` "
+            f"(#4035) — apply this one-line patch to clear it: `{patched}`"
+        )
+    else:
+        alert_message = (
+            f"{repo_name}: {source} still runs `{token}`, naming a target "
+            f"this branch's own diff deletes (#4035). Remove `{token}` "
+            f"from {source} in coordinator.yml to clear this."
+        )
+    return ConfigDriftFix(
+        enabled=enabled, patched_command=patched, alert_message=alert_message,
+    )
 
 
 def _at_repo_capacity(
@@ -2058,6 +2264,52 @@ def _release_leaked_review_claim_for_row(
     return released
 
 
+def _try_auto_split(repo_name: str, issue_number: int) -> bool:
+    """#4034: attempt the board-doctor auto-split disposition for a
+    ceiling-blocked row that is NOT eligible for the fix-it rebudget
+    exemption, instead of falling straight to :func:`_alert_fallback`.
+
+    Loads its own config (the caller's own `config` is not yet resolved at
+    this point in :func:`_investigate` — the ceiling check runs before that)
+    and builds its own board, so a caller that declines this (for ANY
+    reason — the repo hasn't opted in, config failed to load, the row's
+    queue entry is already gone, or the latest review's remaining blocking
+    findings don't classify as missing-scope-only) falls through to the
+    existing alert-fallback behaviour completely unaffected.
+
+    Returns ``True`` only when `coord.board_doctor.run_auto_split_for_row`
+    returns a disposition AND that disposition's own ``action`` confirms
+    ``ACTION_AUTO_SPLIT_FILED`` — never merely because a disposition object
+    came back (#2096: a write-failed disposition still alerted on its own,
+    so returning `True` for it here would both double-alert AND tell the
+    caller a human page never fired for a row that, in fact, still needs
+    one).
+
+    Only `ConfigError` is caught here; `build_auto_split_candidate`'s own
+    live-GitHub reads (``get_issue``/``get_issue_parent``) and
+    `run_auto_split_for_row`'s review-stage reset can both raise beyond
+    that. The caller wraps this call in `_run_mechanical_action` so any of
+    those exceptions is reported and reads as "declined" rather than
+    aborting the whole sweep.
+    """
+    from coord.board_doctor import run_auto_split_for_row  # noqa: PLC0415
+    from coord.board_doctor_followthrough import ACTION_AUTO_SPLIT_FILED  # noqa: PLC0415
+    from coord.commands._common import ConfigError, resolve_and_load_config  # noqa: PLC0415
+
+    try:
+        config = resolve_and_load_config(None)
+    except ConfigError:
+        return False
+
+    from coord.state import build_board  # noqa: PLC0415
+
+    board = build_board()
+    disposition = run_auto_split_for_row(
+        repo_name, issue_number, config=config, board=board,
+    )
+    return disposition is not None and disposition.action == ACTION_AUTO_SPLIT_FILED
+
+
 def _investigate(row: StuckRow) -> bool:
     """#3769's C1 wiring: dispatch a fix-it leg for an alert-eligible
     cause instead of paging a human outright.
@@ -2140,6 +2392,10 @@ def _investigate(row: StuckRow) -> bool:
     ceiling_bypassed = False
     if fix_round_ceiling_blocked_for_issue(repo_name, issue_number):
         if not _fixit_rebudget_eligible(row, repo_name, issue_number):
+            if _run_mechanical_action(
+                "auto_split", row, lambda: _try_auto_split(repo_name, issue_number),
+            ):
+                return True
             click.echo(
                 f"warning: board-doctor NOT investigating {repo_name}#{issue_number} "
                 "— its drive-queue row already gave up on the fix-round ceiling "
@@ -3574,27 +3830,65 @@ def _is_relaunch_shaped_remedy(proposed_command: str) -> bool:
 def _covering_escalation_remedy_refused_now(
     existing: Mapping[str, Any], row: StuckRow,
 ) -> bool:
-    """#3999: true when *existing* — a covering escalation for a DIFFERENT
-    stage than *row*'s own board-doctor alert — names a relaunch remedy
-    that THIS row's own fresh evidence already proves would be refused.
+    """#3999/#4033: true when *existing* — a covering escalation for a
+    DIFFERENT stage than *row*'s own board-doctor alert — names a relaunch
+    remedy that is already known to be a dead end for *row*.
 
-    Both halves are required: *existing*'s own ``proposed_command`` must
-    be relaunch-shaped (:func:`_is_relaunch_shaped_remedy` — otherwise its
+    *existing*'s own ``proposed_command`` must be relaunch-shaped
+    (:func:`_is_relaunch_shaped_remedy`) in every case — otherwise its
     remedy (a retry, an override, a human decision) is orthogonal to
-    whether checks are red and must not be second-guessed from here), AND
-    *row* must be :attr:`StuckRow.fresh` evidence of exactly the shape
-    that makes a relaunch unsafe to even attempt right now — a live-red
-    check combined with the branch's OWN diff already reading green
-    (:data:`queue_diagnose.CAUSE_INTEGRATION_RED`) or red
-    (:data:`queue_diagnose.CAUSE_CI_RED`); a stale/non-fresh row, or one
-    whose cause says nothing about the PR's checks at all, proves nothing
-    about whether *existing*'s remedy still works and must not override
-    it (#3777's same "new evidence only" bar `_fixit_rebudget_environmental`
-    applies).
+    whether checks are red and must not be second-guessed from here. Given
+    that, either of two independent reasons proves the relaunch dead:
+
+    1. *row* is :attr:`StuckRow.fresh` evidence of exactly the shape that
+       makes a relaunch unsafe to even attempt right now — a live-red
+       check combined with the branch's OWN diff already reading green
+       (:data:`queue_diagnose.CAUSE_INTEGRATION_RED`) or red
+       (:data:`queue_diagnose.CAUSE_CI_RED`). A stale/non-fresh row, or
+       one whose cause says nothing about the PR's checks at all, proves
+       nothing about whether *existing*'s remedy still works here (#3777's
+       same "new evidence only" bar `_fixit_rebudget_environmental`
+       applies).
+    2. *row*'s own issue already gave up on the #2972/#3454 fix-round
+       ceiling (`coord.drive_queue.fix_round_ceiling_blocked_for_issue`).
+       A relaunch-shaped command is exactly `_requeue_command`'s ``remove``
+       + ``add`` pair, and that helper's own docstring states plainly that
+       the pair does NOT reset the ceiling's own budget — so proposing it
+       as "the" remedy for a row the ceiling has already given up on is a
+       dead end by construction, independent of *row*'s cause/freshness:
+       a diagnosed gate-blocked or merge-conflict cause still means the
+       ceiling's own remedy never runs again (#4033 — the hours-long
+       silent gap `_covering_escalation_names_concrete_action` alone could
+       not close, because `_requeue_command`'s output is never blank).
     """
-    if not row.fresh or row.cause not in _CI_SHAPED_INVESTIGATE_CAUSES:
+    command = str(existing.get("proposed_command") or "")
+    if not _is_relaunch_shaped_remedy(command):
         return False
-    return _is_relaunch_shaped_remedy(str(existing.get("proposed_command") or ""))
+    if row.fresh and row.cause in _CI_SHAPED_INVESTIGATE_CAUSES:
+        return True
+    from coord.drive_queue import fix_round_ceiling_blocked_for_issue  # noqa: PLC0415
+
+    parsed = _parse_row_key(row.key)
+    if parsed is None:
+        return False
+    repo_name, issue_number = parsed
+    return fix_round_ceiling_blocked_for_issue(repo_name, issue_number)
+
+
+def _covering_escalation_names_concrete_action(existing: Mapping[str, Any]) -> bool:
+    """Does *existing* — a different-stage escalation `write_drive_escalation`
+    is weighing deferring to — actually tell an operator what to do next?
+
+    `coord.state.get_drive_escalation` only ever returns a row that is
+    still open (a dismissed row is deleted, not marked closed), so a
+    non-``None`` *existing* already answers "is the covering record still
+    live". It says nothing about whether that record ever carried a real
+    remedy: a row whose ``proposed_command`` is blank or whitespace-only
+    names nothing to run, so deferring to it leaves the stuck row with no
+    alert and no actionable next step at all — worse than no cover,
+    because it also blocks this writer's own alert from ever landing.
+    """
+    return bool(str(existing.get("proposed_command") or "").strip())
 
 
 def write_drive_escalation(
@@ -3616,14 +3910,22 @@ def write_drive_escalation(
     covers this issue — `drive_escalations` holds one row per issue, so an
     unconditional write here would clobber a live e.g. `plan.blocked`
     escalation's `reason`/`gate_readings`/`created_at` with a generic one.
-    That case returns :data:`ALERT_SKIPPED` — UNLESS *row* is given and
+    A covering row only actually counts as cover when
+    :func:`_covering_escalation_names_concrete_action` confirms it still
+    names something to run; one that does not falls straight through to
+    recording this writer's own alert instead, the same as if no covering
+    row existed at all. Given a row that does name an action, the skip case
+    returns :data:`ALERT_SKIPPED` — UNLESS *row* is given and
     :func:`_covering_escalation_remedy_refused_now` confirms the covering
-    escalation's own remedy is a relaunch this row's fresh evidence
-    already proves would be refused (#3999): a dead end never "covers"
-    anything, and leaving it in place would leave the row un-alerted
-    forever rather than just until the stuck cause resolves, so this
-    upgrades (overwrites) it with the real cause/evidence instead of
-    skipping. *row* is ``None`` for `_followthrough_notify`'s own calls
+    escalation's own remedy is a relaunch already known to be a dead end
+    for *row* — either because *row*'s fresh evidence already proves the
+    relaunch unsafe (#3999), or because *row*'s own issue already gave up
+    on the #2972/#3454 fix-round ceiling, which a relaunch does not reset
+    (#4033): a dead end never "covers" anything, and leaving it in place
+    would leave the row un-alerted forever rather than just until the
+    stuck cause resolves, so this upgrades (overwrites) it with the real
+    cause/evidence instead of skipping. *row* is ``None`` for
+    `_followthrough_notify`'s own calls
     (no `StuckRow` to check), which keeps today's skip-only behavior.
     Otherwise records (or renews) the row and returns only once the write
     is confirmed by reading it back — a clean `record_drive_escalation`
@@ -3638,18 +3940,29 @@ def write_drive_escalation(
     try:
         existing = get_drive_escalation(repo_name, issue_number)
         if existing is not None and existing.get("stage") != stage:
-            if row is None or not _covering_escalation_remedy_refused_now(existing, row):
+            if not _covering_escalation_names_concrete_action(existing):
+                click.echo(
+                    f"warning: board-doctor NOT deferring to a covering "
+                    f"{existing.get('stage')!r} escalation for "
+                    f"{repo_name}#{issue_number} — it names no "
+                    "proposed_command at all, so it covers nothing; recording "
+                    "this row's own cause/evidence instead",
+                    err=True,
+                )
+            elif row is None or not _covering_escalation_remedy_refused_now(existing, row):
                 return ALERT_SKIPPED
-            click.echo(
-                f"warning: board-doctor overriding a covering "
-                f"{existing.get('stage')!r} escalation for "
-                f"{repo_name}#{issue_number} — its own remedy "
-                f"({existing.get('proposed_command')!r}) names a relaunch "
-                f"this row's fresh {row.cause} evidence already shows would "
-                "be refused (#3999); recording the real cause instead of "
-                "leaving a dead end as cover",
-                err=True,
-            )
+            else:
+                click.echo(
+                    f"warning: board-doctor overriding a covering "
+                    f"{existing.get('stage')!r} escalation for "
+                    f"{repo_name}#{issue_number} — its own remedy "
+                    f"({existing.get('proposed_command')!r}) names a relaunch "
+                    f"already known to be a dead end for this row (its fresh "
+                    f"{row.cause} evidence, or its issue having already given "
+                    "up on the fix-round ceiling — #3999/#4033); recording the "
+                    "real cause instead of leaving a dead end as cover",
+                    err=True,
+                )
         record_drive_escalation(
             repo_name,
             issue_number,
@@ -3687,14 +4000,16 @@ def escalation_alert_dispatcher(row: StuckRow) -> bool | str:
     than ``True``, because no board-doctor alert exists to suppress future
     ones — `drive_escalations` holds one row per issue, so the covering
     escalation may be dismissed by its own writer at any time, and the
-    next sweep must then be free to file this row's alert itself. #3999:
-    passing *row* through to :func:`write_drive_escalation` lets THAT
-    skip be bypassed too, but only for the narrow case
+    next sweep must then be free to file this row's alert itself. #3999/
+    #4033: passing *row* through to :func:`write_drive_escalation` lets
+    THAT skip be bypassed too, but only for the narrow case
     :func:`_covering_escalation_remedy_refused_now` confirms — a covering
-    escalation whose own remedy is a relaunch this row's fresh evidence
-    already proves would be refused never actually "covers" anything, so
-    leaving it in place would dead-end the row rather than defer to a
-    cover that could still resolve on its own.
+    escalation whose own remedy is a relaunch already known to be a dead
+    end for *row* (its fresh evidence proves the relaunch unsafe, or its
+    issue already gave up on the fix-round ceiling a relaunch cannot
+    reset) never actually "covers" anything, so leaving it in place would
+    dead-end the row rather than defer to a cover that could still resolve
+    on its own.
 
     Never raises: an escalation write failing must not take the sweep
     down with it, the same contract

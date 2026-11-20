@@ -211,7 +211,7 @@ class Transport:
 
 
 
-        from sequence_ai._core.login import PERSON_REFUSAL, LoginAuth, login_for
+        from sequence_ai._core.signin import PERSON_REFUSAL, auth_of, login_for
 
         key = None if person else (api_key or os.environ.get("SEQUENCES_API_KEY"))
         signed_in = login_for(self._base) if (person or (login and not key)) else None
@@ -260,7 +260,7 @@ class Transport:
             **({"transport": _through(ipv4, local_address, interface)}
                if ipv4 or local_address or interface or _THROUGH is not None else {}),
 
-            **({"auth": LoginAuth(signed_in)} if signed_in is not None else {}),
+            **({"auth": auth_of(signed_in)} if signed_in is not None else {}),
         )
 
     def post(self, path: str, payload: dict[str, Any],

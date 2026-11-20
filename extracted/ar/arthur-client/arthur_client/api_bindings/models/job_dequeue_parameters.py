@@ -28,7 +28,8 @@ class JobDequeueParameters(BaseModel):
     """ # noqa: E501
     memory_limit_mb: StrictInt = Field(description="Available memory in megabytes for job execution")
     discovery_source_test: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["memory_limit_mb", "discovery_source_test"]
+    agent_task_sync: Optional[StrictBool] = None
+    __properties: ClassVar[List[str]] = ["memory_limit_mb", "discovery_source_test", "agent_task_sync"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -74,6 +75,11 @@ class JobDequeueParameters(BaseModel):
         if self.discovery_source_test is None and "discovery_source_test" in self.model_fields_set:
             _dict['discovery_source_test'] = None
 
+        # set to None if agent_task_sync (nullable) is None
+        # and model_fields_set contains the field
+        if self.agent_task_sync is None and "agent_task_sync" in self.model_fields_set:
+            _dict['agent_task_sync'] = None
+
         return _dict
 
     @classmethod
@@ -87,7 +93,8 @@ class JobDequeueParameters(BaseModel):
 
         _obj = cls.model_validate({
             "memory_limit_mb": obj.get("memory_limit_mb"),
-            "discovery_source_test": obj.get("discovery_source_test")
+            "discovery_source_test": obj.get("discovery_source_test"),
+            "agent_task_sync": obj.get("agent_task_sync")
         })
         return _obj
 

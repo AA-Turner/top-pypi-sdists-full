@@ -420,15 +420,16 @@ def build_stream_patch(orig_func, patch_policy):
             return
 
         async for item in wrapped(*args, **kwargs):
-            safe_cs__apply_source(
-                context,
-                source_node,
-                item,
-                instance,
-                item,
-                args,
-                kwargs,
-            )
+            with scope.contrast_scope():
+                safe_cs__apply_source(
+                    context,
+                    source_node,
+                    item,
+                    instance,
+                    item,
+                    args,
+                    kwargs,
+                )
             yield item
 
     return wrap_and_watermark(orig_func, stream_patch)

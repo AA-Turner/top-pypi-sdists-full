@@ -44,6 +44,7 @@ from pyomo.contrib.solver.solvers.gams import GAMS
 
 from pyomo.contrib.solver.solvers.ipopt import Ipopt
 from pyomo.contrib.solver.solvers.knitro.direct import KnitroDirectSolver
+from pyomo.contrib.solver.solvers.xpress import XpressDirect, XpressPersistent
 from pyomo.contrib.solver.tests.solvers import instances
 from pyomo.core.expr.compare import assertExpressionsEqual
 from pyomo.core.expr.numeric_expr import LinearExpression
@@ -80,6 +81,8 @@ all_solvers = [
     ('scip_persistent', ScipPersistent),
     ('gams', GAMS),
     ('knitro_direct', KnitroDirectSolver),
+    ('xpress_direct', XpressDirect),
+    ('xpress_persistent', XpressPersistent),
 ]
 mip_solvers = [
     ('gurobi_persistent', GurobiPersistent),
@@ -89,6 +92,8 @@ mip_solvers = [
     ('scip_direct', ScipDirect),
     ('scip_persistent', ScipPersistent),
     ('knitro_direct', KnitroDirectSolver),
+    ('xpress_direct', XpressDirect),
+    ('xpress_persistent', XpressPersistent),
 ]
 nlp_solvers = [
     ('gurobi_direct_minlp', GurobiDirectMINLP),
@@ -96,6 +101,8 @@ nlp_solvers = [
     ('scip_direct', ScipDirect),
     ('scip_persistent', ScipPersistent),
     ('knitro_direct', KnitroDirectSolver),
+    ('xpress_direct', XpressDirect),
+    ('xpress_persistent', XpressPersistent),
 ]
 qcp_solvers = [
     ('gurobi_persistent', GurobiPersistent),
@@ -104,6 +111,8 @@ qcp_solvers = [
     ('scip_direct', ScipDirect),
     ('scip_persistent', ScipPersistent),
     ('knitro_direct', KnitroDirectSolver),
+    ('xpress_direct', XpressDirect),
+    ('xpress_persistent', XpressPersistent),
 ]
 qp_solvers = qcp_solvers + [("highs", Highs)]
 miqcqp_solvers = [
@@ -2497,16 +2506,22 @@ class TestLegacySolverInterface(unittest.TestCase):
             raise unittest.SkipTest(f'Solver {opt.name} not available.')
         m = pyo.ConcreteModel()
         m.x = pyo.Var()
-        m.obj = pyo.Objective(expr=m.x)
+        m.y = pyo.Var(bounds=(0, None))
+        m.obj = pyo.Objective(expr=m.x + m.y)
         m.c = pyo.Constraint(expr=(-1, m.x, 1))
         if (name, opt_class) in dual_solvers:
             m.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
+            m.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT)
         res = opt.solve(m, load_solutions=False)
         pyo.assert_optimal_termination(res)
         self.assertIsNone(m.x.value)
+        self.assertIsNone(m.y.value)
         if (name, opt_class) in dual_solvers:
             self.assertNotIn(m.c, m.dual)
+            self.assertNotIn(m.y, m.rc)
         m.solutions.load_from(res)
         self.assertAlmostEqual(m.x.value, -1)
+        self.assertAlmostEqual(m.y.value, 0)
         if (name, opt_class) in dual_solvers:
             self.assertAlmostEqual(m.dual[m.c], 1)
+            self.assertAlmostEqual(m.rc[m.y], 1)

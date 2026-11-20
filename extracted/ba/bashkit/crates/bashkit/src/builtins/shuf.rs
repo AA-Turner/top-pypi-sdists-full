@@ -94,14 +94,14 @@ impl Builtin for Shuf {
                 None => ctx.stdin.map(ToString::to_string).unwrap_or_default(),
                 Some(s) if s == "-" => ctx.stdin.map(ToString::to_string).unwrap_or_default(),
                 Some(file) => {
-                    let path = if Path::new(file).is_absolute() {
+                    let path = if Path::new(file).has_root() {
                         file.clone()
                     } else {
                         vfs_join(ctx.cwd, file).to_string_lossy().into_owned()
                     };
                     match read_text_file(&*ctx.fs, Path::new(&path), "shuf").await {
                         Ok(t) => t,
-                        Err(e) => return Ok(e),
+                        Err(e) => return Ok(*e),
                     }
                 }
             };
@@ -122,7 +122,7 @@ impl Builtin for Shuf {
         };
 
         if let Some(path) = output_path {
-            let resolved = if path.is_absolute() {
+            let resolved = if path.has_root() {
                 path.clone()
             } else {
                 vfs_join(ctx.cwd, &path)

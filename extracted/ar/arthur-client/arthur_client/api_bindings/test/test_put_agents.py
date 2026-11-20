@@ -96,6 +96,9 @@ class TestPutAgents(unittest.TestCase):
                                 config = null, )
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        trace_count = 0.0, 
+                        inference_count = 0.0, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         evidence = [
                             arthur_client.api_bindings.models.evidence.Evidence(
@@ -195,6 +198,9 @@ class TestPutAgents(unittest.TestCase):
                                 config = null, )
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        trace_count = 0.0, 
+                        inference_count = 0.0, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         evidence = [
                             arthur_client.api_bindings.models.evidence.Evidence(

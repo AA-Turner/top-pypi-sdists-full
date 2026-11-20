@@ -96,7 +96,17 @@ class AssertionCode(TypedDict):
 
 
 class TraceAssertion(StatusFields):
-    """A saved assertion. ``category_assertion_id`` is a deprecated alias carrying the same value as ``category_id``."""
+    """A saved assertion. ``category_assertion_id`` is a deprecated alias carrying the same value as ``category_id``.
+
+    ``codeHints`` holds pointers for whoever writes code to check the
+    assertion: span names, field paths, which span holds the answer. The LLM
+    judge never reads them. It is ``None`` when there are none.
+
+    ``passCriteria`` and ``failCriteria`` are deprecated: write the assertion
+    specific enough to need no criteria, and put where to look in
+    ``codeHints``. They are still returned, and the LLM judge still reads them
+    on an assertion that has them.
+    """
 
     id: str
     traceId: str
@@ -107,6 +117,7 @@ class TraceAssertion(StatusFields):
     category: CategorySummary | None
     passCriteria: str | None
     failCriteria: str | None
+    codeHints: str | None
     targetOnEvaluatedTrace: TraceTarget | None
     kind: AssertionKind
     code: AssertionCode | None
@@ -491,6 +502,18 @@ class SaveAssertion(TypedDict):
     code leaves the setting as it is. Removing the code turns it back on.
     Omit it to keep the current setting.
 
+    ``codeHints`` holds pointers for whoever writes code to check the
+    assertion: span names, field paths, which span holds the answer. The LLM
+    judge never reads them, so never put a requirement there: it belongs in
+    ``assertion``. Omit it to keep the current hints, or pass an empty string
+    or ``None`` to clear them. Changing only the hints does not return the
+    assertion to draft.
+
+    ``passCriteria`` and ``failCriteria`` are deprecated: write the assertion
+    specific enough to need no criteria, and put where to look in
+    ``codeHints``. They are still accepted, and the LLM judge still reads them
+    on an assertion that has them.
+
     Pass ``kind="external"`` only on the save that creates the assertion, for
     one Bitfab never judges: your own system posts its verdicts with
     ``verdicts.save_external``, and it takes no code. A different kind on an
@@ -504,6 +527,7 @@ class SaveAssertion(TypedDict):
     humanNote: NotRequired[str | None]
     passCriteria: NotRequired[str | None]
     failCriteria: NotRequired[str | None]
+    codeHints: NotRequired[str | None]
     targetOnEvaluatedTrace: NotRequired[TraceTarget | None]
     kind: NotRequired[AssertionKind | None]
     code: NotRequired[AssertionCode | None]

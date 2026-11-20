@@ -12,7 +12,7 @@ before the refusal, which the worker could no longer decode, go as left out with
 
 WHY one encoder set per worker-side episode: an episode the platform starts anew (a copy that stopped, another worker)
 is a fresh decoder at the worker, whose first frame must be a keyframe - a new episode id, new encoders, so it is.
-WHY imported only for a marker: sequence_base and the encoders need Python 3.10 and an extra; a robot that marks
+WHY imported only for a marker: sequence_base and the encoders need Python 3.10; a robot that marks
 nothing needs neither, and this core stays 3.9 and httpx-only.
 """
 from __future__ import annotations
@@ -25,11 +25,118 @@ from typing import Any, Callable, Optional
 from ..errors import InvalidRequest, MissingPackage
 from ..markers import _Marked
 from . import observe_stream as _observe
+from .warn import warn
 
 _EPISODES_KEPT = 8
 _NEEDS = ("the observation format's markers (sequence_ai.Video, Depth, Tactile) need Python 3.10 or later and their "
           "encoders")
-_INSTALL = "pip install 'sequence-ai[observe]'"
+_INSTALL = "pip install -U sequence-ai, on Python 3.10 or later (3.11 or later on Windows on ARM)"
+
+
+PICTURES = ("keyframes", "exact")
+PICTURE_MIN_SIDE = 32
+
+
+class _Picture(_Marked):
+    """An unmarked camera picture (HxWx3 uint8, each side PICTURE_MIN_SIDE or more), as connect(pictures="keyframes")
+    sends it: a video keyframe of its own, never a frame another is decoded from."""
+
+    kind = "video"
+    __slots__ = ()
+
+
+def is_picture(value: Any) -> bool:
+    """Whether `value` is an unmarked camera picture: a numpy array HxWx3 of uint8, each side PICTURE_MIN_SIDE or more."""
+    shape = getattr(value, "shape", None)
+    return (type(value).__name__ == "ndarray" and str(getattr(value, "dtype", "")) == "uint8" and shape is not None
+            and len(shape) == 3 and shape[2] == 3 and min(shape[0], shape[1]) >= PICTURE_MIN_SIDE)
+
+
+def _holds_picture(value: Any) -> bool:
+    if is_picture(value):
+        return True
+    if isinstance(value, dict):
+        return any(_holds_picture(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_holds_picture(v) for v in value)
+    return False
+
+
+def _pictures_marked(value: Any) -> Any:
+    """`value` with each unmarked picture in it - in dicts, lists and tuples - marked to go as a keyframe of its own."""
+    if is_picture(value):
+        return _Picture(value)
+    if isinstance(value, dict):
+        return {k: _pictures_marked(v) for k, v in value.items()} if _holds_picture(value) else value
+    if isinstance(value, (list, tuple)):
+        return [_pictures_marked(v) for v in value] if _holds_picture(value) else value
+    return value
+
+
+def _keyframes(conn: Any, inputs: Any) -> Any:
+    """`inputs` as connect(pictures=) sends them: with "keyframes", the default, each unmarked picture marked to go as a
+    keyframe of its own - as it is, said once a connection, where this machine has no encoder for it."""
+    if getattr(conn, "pictures", "keyframes") != "keyframes" or not _holds_picture(inputs):
+        return inputs
+    if not _can_encode():
+        if not conn.__dict__.get("_pictures_said"):
+            conn.__dict__["_pictures_said"] = True
+            warn("observe(): pictures go as they are, every byte of them: sending each as a video keyframe, "
+                 f"connect()'s default, needs Python 3.10 or later and the encoders: {_INSTALL}")
+        return inputs
+    return _pictures_marked(inputs)
+
+
+_ENCODES: list = []
+
+
+def _can_encode() -> bool:
+    """Whether a picture can go as video here: sequence-base's encoders and PyAV installed - looked up once, PyAV not
+    imported (its first import takes seconds)."""
+    if not _ENCODES:
+        import importlib.util
+
+        try:
+            _codec()
+            here = importlib.util.find_spec("av") is not None
+        except (MissingPackage, ImportError, ValueError):
+            here = False
+        _ENCODES.append(here)
+    return _ENCODES[0]
+
+
+_WARM: list = []
+_WARM_LOCK = threading.Lock()
+
+
+def warm() -> threading.Event:
+    """The encoders a first picture loads - sequence-base's codec, PyAV and the H.264 encoder it opens - loaded now, on a
+    thread of their own, once a process: the event set when they are, or are found missing here (which that first
+    picture then says, as it would have). wait_until_ready() waits for it, so the robot's first act does not.
+    WHY: PyAV's first import after its install loads its own libraries for the first time, and a first observe() of a
+    picture paid that inside the robot's first act - 20.8 s in a fresh venv on a Mac mini, 20.1 s installed with
+    --compile-bytecode (so not the bytecode), 0.25 s in every process after.
+
+"""
+    with _WARM_LOCK:
+        if _WARM:
+            return _WARM[0]
+        done = threading.Event()
+        _WARM.append(done)
+
+    def load() -> None:
+        try:
+            if _can_encode():
+                import numpy as np
+
+                _codec().encoder("video").encode(np.zeros((PICTURE_MIN_SIDE, PICTURE_MIN_SIDE, 3), np.uint8))
+        except Exception:
+            return
+        finally:
+            done.set()
+
+    threading.Thread(target=load, daemon=True, name="seq-encoders").start()
+    return done
 
 
 def holds(value: Any) -> bool:
@@ -46,8 +153,7 @@ def holds(value: Any) -> bool:
 def _codec():
     try:
         from sequence_base.codec import marked
-        marked.encoder
-    except (ImportError, AttributeError):
+    except ImportError:
         raise MissingPackage(_NEEDS, hint=_INSTALL) from None
     return marked
 
@@ -85,6 +191,8 @@ class Marked:
                     enc = encoders.get(path)
                     if enc is None or enc.kind != m.kind:
                         enc = encoders[path] = marked.encoder(m.kind)
+                if isinstance(m, _Picture):
+                    enc.force_keyframe()
                 wire = enc.encode(m.value)
             except marked.MarkedError as exc:
                 raise InvalidRequest(f"observe(): {where}: {exc}") from None
@@ -93,7 +201,7 @@ class Marked:
 
                 raise MissingPackage(f"observe(): {where}: a {m.kind} item is encoded with {exc.name or exc}, which "
                                      "this machine lacks", hint=_INSTALL) from None
-            if wire.get("codec") == "h264":
+            if wire.get("codec") == "h264" and not isinstance(m, _Picture):
                 video.append(path)
             return wire
 
@@ -134,7 +242,9 @@ class Marked:
 def packed(conn: Any, inputs: Any, episode_id: str, squeeze: Any = None) -> "tuple[bytes, Optional[_Pending]]":
     """observe()'s packing: data with markers encoded for the episode's worker-side id and packed (and a _Pending to
     settle once it is numbered), anything else packed as it always was - its large arrays and bytes compressed where
-    that pays, and its blocks cut (`squeeze`: blocks.Cut, compress.Squeeze). ValueError (msgpack's) as _observe.packed."""
+    that pays, and its blocks cut (`squeeze`: blocks.Cut, compress.Squeeze); its unmarked pictures as connect(pictures=)
+    says (_keyframes). ValueError (msgpack's) as _observe.packed."""
+    inputs = _keyframes(conn, inputs)
     if not holds(inputs):
         return _observe.packed(inputs if squeeze is None else squeeze.apply(inputs)), None
     marks = of(conn)

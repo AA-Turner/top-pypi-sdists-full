@@ -31,6 +31,7 @@ from .literals import (
     BatchUpdateBillScenarioUsageModificationErrorCodeType,
     BillEstimateStatusType,
     BillScenarioStatusType,
+    GetUsageLinesEstimatedCostErrorCodeType,
     GroupSharingPreferenceEnumType,
     ListBillEstimateLineItemsFilterNameType,
     ListBillEstimatesFilterNameType,
@@ -129,6 +130,12 @@ __all__ = (
     "GetBillScenarioRequestTypeDef",
     "GetBillScenarioResponseTypeDef",
     "GetPreferencesResponseTypeDef",
+    "GetUsageLinesEstimatedCostErrorTypeDef",
+    "GetUsageLinesEstimatedCostEstimatedCostTypeDef",
+    "GetUsageLinesEstimatedCostInputTypeDef",
+    "GetUsageLinesEstimatedCostLineItemTypeDef",
+    "GetUsageLinesEstimatedCostRequestTypeDef",
+    "GetUsageLinesEstimatedCostResponseTypeDef",
     "GetWorkloadEstimateRequestTypeDef",
     "GetWorkloadEstimateResponseTypeDef",
     "HistoricalUsageEntityOutputTypeDef",
@@ -380,6 +387,27 @@ class GetBillEstimateRequestTypeDef(TypedDict):
 
 class GetBillScenarioRequestTypeDef(TypedDict):
     identifier: str
+
+class GetUsageLinesEstimatedCostErrorTypeDef(TypedDict):
+    key: str
+    serviceCode: str
+    usageType: str
+    operation: str
+    errorCode: GetUsageLinesEstimatedCostErrorCodeType
+    errorMessage: str
+
+class GetUsageLinesEstimatedCostEstimatedCostTypeDef(TypedDict):
+    usageAmount: NotRequired[float]
+    usageUnit: NotRequired[str]
+    cost: NotRequired[float]
+    currency: NotRequired[Literal["USD"]]
+
+class GetUsageLinesEstimatedCostInputTypeDef(TypedDict):
+    serviceCode: str
+    usageType: str
+    operation: str
+    key: str
+    amount: float
 
 class GetWorkloadEstimateRequestTypeDef(TypedDict):
     identifier: str
@@ -717,6 +745,17 @@ ExpressionPaginatorTypeDef = TypedDict(
 )
 ExpressionFilterUnionTypeDef = Union[ExpressionFilterTypeDef, ExpressionFilterOutputTypeDef]
 
+class GetUsageLinesEstimatedCostLineItemTypeDef(TypedDict):
+    key: str
+    serviceCode: NotRequired[str]
+    usageType: NotRequired[str]
+    operation: NotRequired[str]
+    estimatedCost: NotRequired[GetUsageLinesEstimatedCostEstimatedCostTypeDef]
+
+class GetUsageLinesEstimatedCostRequestTypeDef(TypedDict):
+    usage: Sequence[GetUsageLinesEstimatedCostInputTypeDef]
+    rateType: RateTypeType
+
 class ListBillEstimateCommitmentsRequestPaginateTypeDef(TypedDict):
     billEstimateId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -916,6 +955,15 @@ ExpressionTypeDef = TypedDict(
         "tags": NotRequired[ExpressionFilterUnionTypeDef],
     },
 )
+
+class GetUsageLinesEstimatedCostResponseTypeDef(TypedDict):
+    rateType: RateTypeType
+    totalCost: float
+    currency: Literal["USD"]
+    lineItems: list[GetUsageLinesEstimatedCostLineItemTypeDef]
+    errors: list[GetUsageLinesEstimatedCostErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 CreateBillEstimateResponseTypeDef = TypedDict(
     "CreateBillEstimateResponseTypeDef",
     {

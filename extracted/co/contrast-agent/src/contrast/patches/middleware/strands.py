@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from contrast_fireball import SpanType
 
 import contrast
+from contrast.agent import scope
 from contrast.agent.policy import patch_manager
 from contrast.utils.decorators import fail_loudly, fail_quietly
 from contrast.utils.patch_utils import (
@@ -177,15 +178,18 @@ def build__init__patch(orig_func, patch_policy):
     from contrast.agent import agent_state
 
     def __init__patch(wrapped, instance, args, kwargs) -> None:
-        result = wrapped(*args, **kwargs)
+        with scope.contrast_scope():
+            # The application's own constructor must not run in contrast scope
+            with scope.pop_contrast_scope():
+                result = wrapped(*args, **kwargs)
 
-        logger.info("Detected application: strands")
+            logger.info("Detected application: strands")
 
-        if not agent_state.is_initialized():
-            with agent_state.automatic_middleware():
-                agent_state.initialize()
+            if not agent_state.is_initialized():
+                with agent_state.automatic_middleware():
+                    agent_state.initialize()
 
-        _discover_tools(instance)
+            _discover_tools(instance)
 
         return result
 

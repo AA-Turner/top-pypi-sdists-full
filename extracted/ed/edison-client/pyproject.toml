@@ -4,6 +4,7 @@ requires = ["setuptools>=64", "setuptools_scm>=8"]
 
 [dependency-groups]
 dev = ["edison-client[dev]"]
+notebooks = ["jupyter"]
 
 [project]
 authors = [
@@ -21,6 +22,7 @@ dependencies = [
     "aiofiles",
     "cloudpickle",
     "fhaviary",
+    "fhlmi<2",
     "google-resumable-media",
     "httpx",
     "httpx-aiohttp",
@@ -32,6 +34,7 @@ dependencies = [
     "requests",
     "tenacity",
     "tqdm>=4.62",  # For tqdm.asyncio stdlib consistency
+    "typing-extensions>=4.4",
 ]
 description = "A client for interacting with endpoints of the Edison Scientific service."
 dynamic = ["version"]
@@ -42,17 +45,7 @@ requires-python = ">=3.11,<3.15"
 
 [project.optional-dependencies]
 dev = [
-    "black",
     "edison-client[typing]",
-    "ipykernel",
-    "jupyter",
-    "jupyterlab",
-    "mypy",
-    "notebook",
-    "pre-commit",
-    "pylint-per-file-ignores",
-    "pylint-pydantic",
-    "pylint>=4",  # Pin to keep recent
     "pytest",
     "pytest-asyncio",
     "pytest-rerunfailures",
@@ -60,7 +53,7 @@ dev = [
     "pytest-timeout",
     "pytest-timer[colorama]",
     "pytest-xdist",
-    "ruff>=0.15.5",
+    "ruff>=0.17.5",
     "setuptools_scm",
 ]
 typing = [
@@ -69,16 +62,17 @@ typing = [
     "types-requests",
     "types-tqdm",
 ]
+yaml = ["pyyaml"]
 
 [tool.ruff]
-extend = "../../pyproject.toml"
+extend = "../../ruff.toml"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools_scm]
 fallback_version = "0.1.0"
-git_describe_command = "git describe --dirty --tags --long --match 'sdk/*'"
+git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "sdk/*"]
 local_scheme = "no-local-version"
 root = "../.."
 tag_regex = '^sdk/v?(?P<version>[^/]+)$'

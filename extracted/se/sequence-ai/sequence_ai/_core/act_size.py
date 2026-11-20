@@ -48,5 +48,4 @@ class Observations:
             return
         self.said = True
         warn(f"{self.model}: an observation sent {size_words(sent)}, past {size_words(OWN_INPUTS_BYTES)} - to send "
-             "camera frames smaller, wrap each in sequence_ai.Video, which sends them as compressed video "
-             '(pip install -U "sequence-ai[observe]")')
+             "camera frames smaller, wrap each in sequence_ai.Video, which sends them as compressed video")

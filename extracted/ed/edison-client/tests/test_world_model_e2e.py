@@ -1,5 +1,4 @@
-"""
-End-to-end tests for world model operations.
+"""End-to-end tests for world model operations.
 
 Tests cover:
 1. Creating world models with both content_location types (INLINE and DATA_STORAGE)
@@ -11,16 +10,9 @@ from uuid import uuid4
 
 import pytest
 
-from edison_client.clients.data_storage_methods import (
-    DataStorageError,
-)
-from edison_client.clients.rest_client import (
-    RestClient,
-)
-from edison_client.models.rest import (
-    ContentLocation,
-    WorldModel,
-)
+from edison_client.clients.data_storage_methods import DataStorageError
+from edison_client.clients.rest_client import RestClient
+from edison_client.models.rest import ContentLocation, WorldModel
 
 
 class TestWorldModelContentLocationInline:
@@ -30,7 +22,7 @@ class TestWorldModelContentLocationInline:
     @pytest.mark.asyncio
     async def test_create_and_get_inline_world_model_async(
         self, admin_client: RestClient
-    ):
+    ) -> None:
         """Test creating and retrieving an INLINE world model asynchronously."""
         test_name = f"E2E Test Inline World Model {uuid4()}"
         test_content = "This is the world model content stored inline in the database."
@@ -67,7 +59,7 @@ class TestWorldModelContentLocationInline:
     @pytest.mark.asyncio
     async def test_create_and_get_inline_world_model_sync(
         self, admin_client: RestClient
-    ):
+    ) -> None:
         """Test creating and retrieving an INLINE world model synchronously."""
         test_name = f"E2E Test Inline World Model Sync {uuid4()}"
         test_content = "Sync test content for inline world model."
@@ -100,7 +92,9 @@ class TestWorldModelContentLocationDataStorage:
 
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_create_and_get_dss_world_model_async(self, admin_client: RestClient):
+    async def test_create_and_get_dss_world_model_async(
+        self, admin_client: RestClient
+    ) -> None:
         """Test creating and retrieving a DATA_STORAGE world model asynchronously."""
         test_name = f"E2E Test DSS World Model {uuid4()}"
         test_content = (
@@ -138,7 +132,9 @@ class TestWorldModelContentLocationDataStorage:
 
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_create_and_get_dss_world_model_sync(self, admin_client: RestClient):
+    async def test_create_and_get_dss_world_model_sync(
+        self, admin_client: RestClient
+    ) -> None:
         """Test creating and retrieving a DATA_STORAGE world model synchronously."""
         test_name = f"E2E Test DSS World Model Sync {uuid4()}"
         test_content = "Sync test content stored in GCS."
@@ -174,7 +170,9 @@ class TestWorldModelVersioning:
 
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_inline_world_model_versioning(self, admin_client: RestClient):
+    async def test_inline_world_model_versioning(
+        self, admin_client: RestClient
+    ) -> None:
         """Test creating multiple versions of an INLINE world model."""
         test_name = f"E2E Test Versioned WM {uuid4()}"
 
@@ -210,7 +208,7 @@ class TestWorldModelVersioning:
 
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_dss_world_model_versioning(self, admin_client: RestClient):
+    async def test_dss_world_model_versioning(self, admin_client: RestClient) -> None:
         """Test creating multiple versions of a DATA_STORAGE world model."""
         test_name = f"E2E Test Versioned DSS WM {uuid4()}"
 
@@ -258,8 +256,7 @@ class TestWorldModelVersioning:
 
 
 class TestWorldModelDataStorageAccess:
-    """
-    Tests for data storage access control on world model underlying data.
+    """Tests for data storage access control on world model underlying data.
 
     World models with content_location=DATA_STORAGE have their content stored
     in a data storage entry marked as platform_only=True. This means:
@@ -272,9 +269,8 @@ class TestWorldModelDataStorageAccess:
     @pytest.mark.asyncio
     async def test_public_user_cannot_access_dss_entry_directly(
         self, admin_client: RestClient, pub_client: RestClient
-    ):
-        """
-        Test that a public user cannot directly access the data storage entry.
+    ) -> None:
+        """Test that a public user cannot directly access the data storage entry.
 
         The world model content is accessible via the world model API for authorized
         users, but the raw data storage entry should not be accessible.
@@ -310,7 +306,7 @@ class TestWorldModelDataStorageAccess:
     @pytest.mark.asyncio
     async def test_public_user_cannot_access_dss_entry_directly_sync(
         self, admin_client: RestClient, pub_client: RestClient
-    ):
+    ) -> None:
         test_name = f"E2E Test DSS Access Control Sync {uuid4()}"
         test_content = "Sync test content that should not be directly accessible"
 
@@ -339,7 +335,7 @@ class TestWorldModelDataStorageAccess:
     @pytest.mark.asyncio
     async def test_admin_cannot_access_dss_entry_directly(
         self, admin_client: RestClient
-    ):
+    ) -> None:
         test_name = f"E2E Test Admin DSS Access {uuid4()}"
         test_content = "Admin-accessible DSS content"
         test_metadata = {"admin_test": True}

@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
+import json
+
 import pytest
 
 from socid_extractor.activation import get_twitter_headers
 from socid_extractor.main import parse, extract, mutate_url, HEADERS
+
+
+def test_lemmy_api():
+    """Lemmy API"""
+    body, status = parse('https://lemmy.nz/api/v3/user?username=Dave', timeout=10)
+    assert status == 200
+    info = extract(body)
+    assert info.get('uid') == '2'
+    assert info.get('username') == 'Dave'
 
 
 @pytest.mark.skip(reason="VK web is SPA; static fetch has no embed with ownerId (2026)")
@@ -117,7 +128,9 @@ def test_medium():
 
 
 def test_odnoklassniki():
-    info = extract(parse('https://ok.ru/profile/46054003')[0])
+    # ok.ru answers in under a second from most places but times out on CI
+    # runners with parse()'s 3s default
+    info = extract(parse('https://ok.ru/profile/46054003', timeout=10)[0])
 
     assert info.get('ok_id') == '46054003'
 
@@ -141,6 +154,12 @@ def test_habr():
     assert info.get("is_readonly") == "False"
     assert info.get(
         "image") == "//habrastorage.org/getpro/habr/avatars/4ec/bd0/85d/4ecbd085d692835a931d03174ff19539.png"
+    # the whole scheme went empty when Habr started sending "reach": null, which
+    # the regex it used to cut authorRefs out with required to be a string
+    assert info.get("created_at") == "2016-12-13T13:34:40+00:00"
+    # read out of followStats, which the field used to re-read instead of its count
+    assert info.get("following_count") == "6"
+    assert int(info.get("posts_count")) >= 689
 
 
 @pytest.mark.github_failed
@@ -151,6 +170,10 @@ def test_habr_no_image():
     # assert info.get('uid') == '1800409'  # No more presented within the new site version
     assert info.get('username') == 'ne555'
     assert 'image' not in info
+    # habrastorage.org used to be a flag of this scheme, and an author with no
+    # avatar is exactly the page that does not carry it
+    assert info.get('_extractor') == 'Habrahabr JSON'
+    assert info.get('created_at') == '2018-08-07T10:04:01+00:00'
 
 
 @pytest.mark.skip(reason="down")
@@ -338,6 +361,7 @@ def test_yandex_o_user_profile():  # The page parsed redirects to realty.ya.ru. 
     assert info.get('score') == 'Ten'
 
 
+@pytest.mark.skip(reason="down")  # yandex.ru/q answers 504, including its own root
 def test_yandex_znatoki_user_profile():
     info = extract(parse('https://yandex.ru/q/profile/zftrw5fzczde6841qgmfn7d2ag/')[0])
 
@@ -417,23 +441,19 @@ def test_behance():
     assert 'appreciations' in info
 
 
-@pytest.mark.skip(reason="non-actual, 500px requires POST requests for now")
 def test_500px():
     """500px GraphQL API"""
-    info = extract(parse(
-        'https://api.500px.com/graphql?operationName=ProfileRendererQuery&variables=%7B%22username%22%3A%22the-maksimov%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22105058632482dd2786fd5775745908dc928f537b28e28356b076522757d65c19%22%7D%7D')[
-                       0])
+    mutated_url = mutate_url('https://500px.com/p/iansobolev')
+    url, add_headers = mutated_url[0]
+    info = extract(parse(url, headers=add_headers)[0])
 
-    assert info.get('uid') == 'dXJpOm5vZGU6VXNlcjoyMzg5Ng=='
-    assert info.get('legacy_id') == '23896'
-    assert info.get('username') == 'The-Maksimov'
-    assert info.get('name') == 'Maxim Maximov'
-    assert info.get('qq_uid') is None
-    assert info.get('fb_uid') is None
-    assert info.get('instagram_username') == 'the.maksimov'
-    assert info.get('twitter_username') == 'The_Maksimov'
-    assert info.get('website') == 'www.instagram.com/the.maksimov'
-    assert info.get('facebook_link') == 'www.facebook.com/the.maksimov'
+    assert info.get('uid') == 'HRA5PXRDuG'
+    assert info.get('username') == 'iansobolev'
+    assert info.get('fullname') == 'Ian Sobolev'
+    assert info.get('city') == 'Toronto'
+    assert info.get('country') == 'Canada'
+    assert info.get('image').startswith('https://cdn-static-prod-com.500px.cloud/user-avatar/')
+    assert int(info.get('follower_count')) > 0
 
 
 def test_google_documents():  # Does work on the second try
@@ -519,6 +539,51 @@ def test_gitlab_cookies():
     assert info.get('image') == 'https://gitlab.com/uploads/-/system/user/avatar/419655/avatar.png'
 
 
+def test_gitlab_api():
+    """Gitlab API"""
+    # an instance that is not gitlab.com: the scheme used to be pinned to that host
+    url, _ = mutate_url('https://gitlab.eclipse.org/gallasko')[0]
+    info = extract(parse(url, timeout=15)[0])
+
+    assert info.get('_extractor') == 'Gitlab API'
+    assert info.get('uid') == '19437'
+    assert info.get('username') == 'gallasko'
+    assert info.get('fullname') == 'Gallas Gaye'
+    assert info.get('state') == 'active'
+    assert info.get('website') == 'https://gitlab.eclipse.org/gallasko'
+
+
+def test_flarum_api():
+    """Flarum API"""
+    # /u/<name> is Discourse's route too, so the link yields several mutations and
+    # only the Flarum one answers with a user object
+    url = next(u for u, _ in mutate_url('https://discuss.flarum.org/u/luceos') if '/api/users?' in u)
+    # filter[q] is a search, so the answer is a list and the transform has to pick
+    # the exact match out of it -- hence the request URL being passed in
+    info = extract(parse(url, timeout=15)[0], request_url=url)
+
+    assert info.get('_extractor') == 'Flarum API'
+    assert info.get('uid') == '1376'
+    assert info.get('username') == 'luceos'
+    assert info.get('created_at') == '2015-08-27T08:12:58+00:00'
+    assert info.get('image', '').startswith('https://discuss.flarum.org/assets/avatars/')
+
+
+def test_mastodon_api():
+    """Mastodon API"""
+    # mastodon.social was never in the list of 23 hosts this scheme used to carry
+    url, _ = mutate_url('https://mastodon.social/@Gargron')[0]
+    info = extract(parse(url, timeout=15)[0])
+
+    assert info.get('_extractor') == 'Mastodon API'
+    assert info.get('uid') == '1'
+    assert info.get('username') == 'Gargron'
+    assert info.get('fullname') == 'Eugen Rochko'
+    assert info.get('created_at').startswith('2016-03-16')
+    # counts and last-seen move every day, so only their presence is asserted
+    assert int(info.get('posts_count')) > 0
+
+
 @pytest.mark.skip(reason='Failed in GitHub CI')
 def test_blogger():
     info = extract(parse('https://b0ltay.blogspot.ru')[0])
@@ -548,6 +613,7 @@ def test_stack_exchange():
 
 @pytest.mark.skip(reason="SoundCloud returns 403 / empty embed for automated clients (2026)")
 def test_soundcloud():
+    """SoundCloud"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36'}
     info = extract(parse('https://soundcloud.com/danielpatterson', headers=headers)[0])
@@ -561,7 +627,10 @@ def test_soundcloud():
     assert info.get('image') == 'https://i1.sndcdn.com/avatars-000222811304-x9f1ao-large.jpg'
     assert info.get('location') == 'Baton Rouge'
     assert info.get('country_code') == 'US'
-    assert info.get('created_at') == '2009-02-27T16:08:17Z'
+    assert info.get('created_at') is None
+    assert info.get('updated_at') == '2018-08-23T17:22:43Z'
+    assert info.get('comments_count') == '0'
+    assert info.get('likes_count') == '17'
 
 
 @pytest.mark.skip(reason="broken")
@@ -690,72 +759,6 @@ def test_gravatar():
     assert 'emails_username' not in info
 
 
-@pytest.mark.skip(reason="broken")
-def test_pinterest_api():
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36'}
-    info = extract(parse(
-        'https://www.pinterest.ru/resource/UserResource/get/?source_url=%2Fgergelysndorszendrenyi%2F_saved%2F&data=%7B%22options%22%3A%7B%22isPrefetch%22%3Atrue%2C%22field_set_key%22%3A%22profile%22%2C%22username%22%3A%22gergelysndorszendrenyi%22%2C%22no_fetch_context_on_resource%22%3Afalse%7D%2C%22context%22%3A%7B%7D%7D&_=1615737383499',
-        headers=headers)[0])
-    assert info.get('pinterest_id') == '730849983187756836'
-    assert info.get('pinterest_username') == 'gergelysndorszendrenyi'
-    assert info.get('fullname') == 'Gergely Sándor-Szendrenyi'
-    assert info.get('type') == 'user'
-    assert info.get('image') == 'https://s.pinimg.com/images/user/default_280.png'
-    # assert info.get('country') == 'HU' # Doesn't exist within the page anymore
-    assert info.get('is_indexed') == 'True'
-    assert info.get('is_partner') == 'False'
-    assert info.get('is_tastemaker') == 'False'
-    assert info.get('is_indexed') == 'True'
-    # assert info.get('has_board') == 'True'
-    assert info.get('is_verified_merchant') == 'False'
-    assert info.get('website') == 'https://plus.google.com/106803550602898494752'
-    assert info.get('last_pin_save_datetime') is not None
-    assert info.get('is_website_verified') == 'False'
-    assert info.get('group_board_count') == '1'
-    assert 'follower_count' in info
-    assert 'following_count' in info
-    assert info.get('board_count') == '11'
-    assert int(info.get('pin_count')) > 100
-
-
-@pytest.mark.skip(reason="broken")
-def test_pinterest_profile():
-    info = extract(parse('https://www.pinterest.ru/gergelysndorszendrenyi/boards/')[0])
-
-    assert info.get('pinterest_id') is None
-    assert info.get('username') == 'gergelysndorszendrenyi'
-    assert info.get('fullname') == 'Gergely Sándor-Szendrenyi'
-    assert info.get('type') is None
-    assert info.get('image') == 'https://s.pinimg.com/images/user/default_280.png'
-    assert info.get('country') == 'HU'
-    assert info.get('is_indexed') == 'True'
-    assert info.get('is_partner') is None
-    assert info.get('is_tastemaker') is None
-    assert info.get('is_indexed') == 'True'
-    assert info.get('is_website_verified') == 'False'
-    assert info.get('follower_count') == '2'
-    assert info.get('following_count') == '16'
-    assert info.get('board_count') == '11'
-    assert int(info.get('pin_count')) > 100
-
-
-@pytest.mark.skip(reason="broken")
-def test_pinterest_board():
-    info = extract(parse('https://www.pinterest.ru/gergelysndorszendrenyi/garden-ideas/')[0])
-
-    assert info.get('pinterest_id') == '730849983187756836'
-    assert info.get('pinterest_username') == 'gergelysndorszendrenyi'
-    assert info.get('fullname') == 'Gergely Sándor-Szendrenyi'
-    assert info.get('type') == 'user'
-    assert info.get('image') == 'https://s.pinimg.com/images/user/default_280.png'
-    assert info.get('country') == 'HU'
-    assert info.get('is_indexed') == 'True'
-    assert info.get('is_partner') == 'False'
-    assert info.get('is_tastemaker') == 'False'
-    assert info.get('locale') == 'hu-HU'
-
-
 def test_pinterest_account():
     """Pinterest profile/board page"""
     info = extract(parse('https://www.pinterest.com/melgaspar666/')[0])
@@ -766,6 +769,19 @@ def test_pinterest_account():
     assert 'follower_count' in info
     assert 'following_count' in info
     assert 'created_at' in info
+
+
+def test_pinterest_boards_page():
+    """Pinterest profile/board page, /boards/ URL variant"""
+    info = extract(parse('https://www.pinterest.com/pinterest/boards/')[0])
+
+    assert info.get('uid') == '424605208526455283'
+    assert info.get('username') == 'pinterest'
+    assert info.get('fullname') == 'Pinterest'
+    assert info.get('bio') == 'Find your reason to go offline. 📌'
+    assert info.get('is_partner') == 'True'
+    assert int(info.get('board_count')) > 0
+    assert int(info.get('follower_count')) > 100
 
 
 @pytest.mark.skip(reason="service no longer public")
@@ -912,7 +928,7 @@ def test_mssg_me():
     assert info.get('messenger_values') == "['+77026924715', 'adamcigelnik']"
 
 
-@pytest.mark.skip(reason="broken")
+@pytest.mark.rate_limited  # Cloudflare challenges datacenter IPs; needs a residential proxy
 def test_patreon():
     info = extract(parse('https://www.patreon.com/annetlovart')[0])
 
@@ -926,6 +942,21 @@ def test_patreon():
     assert 'image_bg' in info
     assert info.get('created_at') == '2020-04-19T16:29:11.000+00:00'
     assert 'bio' in info
+
+
+@pytest.mark.rate_limited  # Cloudflare challenges datacenter IPs; needs a residential proxy
+def test_patreon_rsc():
+    """Patreon RSC"""
+    # App Router profile: no __NEXT_DATA__, payload comes from the RSC stream.
+    info = extract(parse('https://www.patreon.com/kurzgesagt')[0])
+
+    assert info.get('patreon_id') == '43579'
+    assert info.get('patreon_username') == 'Kurzgesagt'
+    assert info.get('is_nsfw') == 'False'
+    assert info.get('created_at') == '2013-08-30T16:09:54.000+00:00'
+    assert 'https://www.instagram.com/kurzgesagt' in info.get('links', '')
+    # a "$38"-style RSC reference must be resolved to the real summary
+    assert info.get('bio', '').startswith('<p ')
 
 
 @pytest.mark.github_failed
@@ -1446,6 +1477,7 @@ def test_chess_com_api_e2e():
     assert info.get('is_verified') == 'False'
 
 
+@pytest.mark.skip(reason="chess.com HTML endpoint times out from CI (2026)")
 def test_chess_com_html_e2e():
     """Chess.com HTML"""
     info = extract(parse('https://www.chess.com/member/john')[0])
@@ -1532,13 +1564,14 @@ def test_paragraph_api_e2e():
     info = extract(parse('https://paragraph.com/api/blogs/@vitalik')[0])
 
     assert info.get('uid') == 'aLOC85RCnjhDinsLDfUr'
-    assert info.get('fullname') == 'Vitalik Buterin'
+    assert info.get('fullname') == 'vitalik.eth'
     assert info.get('username') == 'vitalik'
     assert info.get('twitter_username') == 'VitalikButerin'
     assert info.get('wallet_address') == '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
 
 
-def test_fragment_e2e():
+@pytest.mark.skip(reason="broken")
+def test_fragment_e2e():  # Broken. The page is a bid list now, not one owner.
     """Fragment"""
     info = extract(parse('https://fragment.com/username/durov')[0])
 
@@ -1575,7 +1608,7 @@ def test_buymeacoffee():
     info = extract(parse('https://buymeacoffee.com/johndoe')[0])
 
     assert info.get("fullname") == "John Doe"
-    assert info.get("bio") == "Designer & Art Director, Growing brands.Welcome to my BMC page. If you like my content, please consider buying me a coffee. Thank you for your support!"
+    assert info.get("bio") == "Designer &amp; Art Director, Growing brands.Welcome to my BMC page. If you like my content, please consider buying me a coffee. Thank you for your support!"
     assert "15211" in info.get("image") or "cdn.buymeacoffee.com" in info.get("image")
 
 
@@ -1605,19 +1638,57 @@ def test_instagram_graphql_e2e():
     assert int(info.get('follower_count', 0)) > 500000000
 
 
+def test_instagram_graphql_bio_links_and_tagged_usernames():
+    """Instagram GraphQL"""
+    body = json.dumps({
+        'data': {
+            'user': {
+                'username': 'ronaldinho',
+                'full_name': 'Ronaldinho Gaúcho',
+                'biography': 'Instagram oficial de Ronaldinho Gaúcho.\n@tropadobruxo_',
+                'bio_links': [{'url': 'https://r10score.net/ronaldinho'}],
+                'biography_with_entities': {
+                    'entities': [
+                        {'user': {'username': 'tropadobruxo_'}},
+                        {'hashtag': 'melhor'},
+                    ]
+                },
+                'edge_followed_by': {'count': 80107703},
+                'edge_follow': {'count': 600},
+                'edge_owner_to_timeline_media': {'count': 3200},
+                'is_verified': True,
+                'is_private': False,
+                'profile_pic_url_hd': 'https://example.com/pic.jpg',
+            }
+        }
+    })
+
+    info = extract(body)
+
+    assert info.get('username') == 'ronaldinho'
+    assert info.get('fullname') == 'Ronaldinho Gaúcho'
+    assert 'tropadobruxo_' in info.get('bio')
+    assert info.get('links') == "['https://r10score.net/ronaldinho']"
+    assert info.get('usernames') == "['tropadobruxo_']"
+    assert info.get('post_count') == '3200'
+    assert info.get('follower_count') == '80107703'
+    assert info.get('following_count') == '600'
+
+
 def test_snapchat():
     """Snapchat"""
-    info = extract(parse('https://www.snapchat.com/@ogovorka')[0])
+    info = extract(parse('https://www.snapchat.com/@teamsnapchat')[0])
 
-    assert info.get('username') == 'ogovorka'
-    assert info.get('fullname') == 'Катерина Иванова'
-    assert info.get('bio') == 'Катерина Иванова is on Snapchat! (@ogovorka)'
-    assert info.get('url') == 'https://www.snapchat.com/@ogovorka'
-    assert info.get(
-        'image') == 'https://us-east1-aws.api.snapchat.com/web-capture/www.snapchat.com/@ogovorka/preview/square.jpeg?xp_id=1'
-    assert info.get(
-        'snapcode_image') == 'https://app.snapchat.com/web/deeplink/snapcode?username=ogovorka&type=SVG&bitmoji=enable'
-    assert info.get('profile_type') == 'userInfo'
+    # Only the ld+json fields are asserted. Snapchat withholds the meta tags from
+    # some clients -- CI gets a page with no description and no og:image, while
+    # the same request from a laptop gets both -- so bio and image are extracted
+    # when offered but cannot be required. The snapcode host moves too
+    # (app.snapchat.com -> gcp.api.snapchat.com), hence the match on shape.
+    assert info.get('username') == 'teamsnapchat'
+    assert info.get('fullname') == 'Team Snapchat'
+    assert info.get('url') == 'https://www.snapchat.com/@teamsnapchat'
+    assert 'deeplink/snapcode' in info.get('snapcode_image', '')
+    assert 'username=teamsnapchat' in info.get('snapcode_image', '')
 
 
 def test_bio_site():
@@ -1656,3 +1727,351 @@ def test_faceit_api():
     assert info.get('social_links') == "{'twitch': 'umarooff'}"
     assert 'faceit-cdn.net' in info.get('image', '')
     assert 'faceit-cdn.net' in info.get('image_bg', '')
+
+
+def test_fansly_api():
+    """Fansly API"""
+    info = extract(parse('https://apiv2.fansly.com/api/v1/account?usernames=karpathy')[0])
+
+    assert info.get('uid') == '913584311872020480'
+    assert info.get('username') == 'karpathy'
+
+
+def test_osu():
+    """osu!"""
+    info = extract(parse("https://osu.ppy.sh/users/peppy")[0])
+
+    assert info.get("uid") == "2"
+    assert info.get("username") == "peppy"
+    assert info.get("country") == "Australia"
+    assert info.get("country_code") == "AU"
+    # osu! spells the same instant as "...12Z" now and as "...12+00:00" before,
+    # so the suffix is theirs to change and the instant is what we assert
+    assert info.get("created_at").startswith("2007-08-28T03:09:12")
+
+
+def test_lens_account():
+    """Lens (Hey/Orb/Buttrfly) account"""
+    # Real wire response from POST https://api.lens.xyz/graphql (compact JSON,
+    # no spaces after colons — Maigret feeds this body straight to extract()).
+    body = '{"data":{"account":{"address":"0x6a0DD735C2a2Ad6514E7dCBC854efC01228BeFE4","username":{"localName":"paulburke","namespace":"0x1aA55B9042f08f45825dC4b651B64c9F98Af4615"},"score":9996,"metadata":{"name":"Paul Burke","bio":"developer","picture":"https://ik.imagekit.io/lens/pic.webp","coverPicture":"https://ik.imagekit.io/lens/cover.png","attributes":[{"key":"location","value":"New York City","type":"STRING"},{"key":"website","value":"https://paulburke.co","type":"STRING"},{"key":"x","value":"ipaulpro","type":"STRING"},{"key":"timestamp","value":"2025-04-13T11:48:59.187Z","type":"STRING"}]},"createdAt":"2022-05-18T13:43:42+00:00"}}}'
+    info = extract(body)
+
+    assert info.get("uid") == "0x6a0DD735C2a2Ad6514E7dCBC854efC01228BeFE4"
+    assert info.get("username") == "paulburke"
+    assert info.get("lens_namespace") == "0x1aA55B9042f08f45825dC4b651B64c9F98Af4615"
+    assert info.get("fullname") == "Paul Burke"
+    assert info.get("bio") == "developer"
+    assert info.get("image") == "https://ik.imagekit.io/lens/pic.webp"
+    assert info.get("image_bg") == "https://ik.imagekit.io/lens/cover.png"
+    assert info.get("location") == "New York City"
+    assert info.get("website") == "https://paulburke.co"
+    assert info.get("twitter_username") == "ipaulpro"
+    assert info.get("lens_score") == "9996"
+    assert info.get("created_at") == "2022-05-18 13:43:42+00:00"
+
+
+def test_lens_account_absent():
+    """Lens (Hey/Orb/Buttrfly) account"""
+    # Missing account -> {"data":{"account":null}}; scheme must not fire.
+    assert extract('{"data":{"account":null}}') == {}
+def test_huggingface_api_e2e():
+    """HuggingFace API"""
+    info = extract(parse('https://huggingface.co/api/users/julien-c/overview')[0])
+
+    assert info.get('username') == 'julien-c'
+    assert info.get('fullname')
+    assert info.get('bio')
+    assert info.get('created_at')
+    assert 'cdn-avatars.huggingface.co' in info.get('image', '')
+    assert int(info.get('huggingface_models', -1)) >= 0
+    assert int(info.get('huggingface_datasets', -1)) >= 0
+    assert int(info.get('huggingface_spaces', -1)) >= 0
+    assert int(info.get('follower_count', -1)) > 0
+    assert int(info.get('following_count', -1)) >= 0
+
+
+def test_hackernews():
+    """HackerNews"""
+    html = '<tr class="athing"><td valign="top">user:</td><td timestamp="1160418092"><a href="user?id=pg" class="hnuser">pg</a></td></tr><tr><td valign="top">created:</td><td><span class="age"><a href="front?day=2006-10-09&birth=pg">October 9, 2006</a></span></td></tr><tr><td valign="top">karma:</td><td>157316</td></tr><tr><td valign="top">about:</td><td style="overflow:hidden">Bug fixer.</td></tr>'
+    info = extract(html)
+
+    assert info.get('username') == 'pg'
+    assert '2006' in info.get('created_at', '')
+    assert int(info.get('karma', -1)) > 100000
+    assert info.get('bio') == 'Bug fixer.'
+
+@pytest.mark.skip(reason="down")  # DNS resolves, nothing answers on 80 or 443
+def test_teletype():
+    """Teletype"""
+    info = extract(parse('https://teletype.in/@johndoe')[0])
+
+    assert info.get('uid') == '133496'
+    assert info.get('username') == 'johndoe'
+    assert info.get('fullname') == 'John Doe'
+    assert info.get('image') == 'https://teletype.in/files/f4/f418d759-3732-429c-b28b-dbcc498560d0.png'
+    assert info.get('is_verified') == 'False'
+
+
+@pytest.mark.skip(reason="cloudflare")
+def test_gdbrowser_api_e2e():
+    """GDBrowser API"""
+    info = extract(parse('https://gdbrowser.com/api/profile/john')[0])
+
+    assert info.get('username') == 'John'
+    assert info.get('uid') == '3158367'
+    assert info.get('gd_account_id') == '2103'
+
+
+def test_streamelements_api_e2e():
+    """StreamElements API"""
+    info = extract(parse('https://api.streamelements.com/kappa/v2/channels/john')[0])
+
+    assert info.get('uid') == '5b02f77a398dff6c3fbd887d'
+    assert info.get('username') == 'john'
+    assert info.get('fullname') == 'John'
+    assert info.get('provider') == 'youtube'
+    assert info.get('provider_id') == 'UC_j3Wd_7i1mgyoxnU7_yFfg'
+
+
+def test_streamlabs_api_e2e():
+    """Streamlabs API"""
+    info = extract(parse('https://streamlabs.com/api/v6/user/john')[0])
+
+    assert info.get('uid') == '4350278'
+    assert info.get('primary_account_type') == 'youtube_account'
+    assert info.get('primary_account_id') == 'UCzzotlhxYmISG-HUidWa8VA'
+
+
+def test_donatty_api_e2e():
+    """Donatty API"""
+    info = extract(parse('https://api.donatty.com/users/find/john')[0])
+
+    assert info.get('uid')
+    assert info.get('username') == 'john'
+    assert info.get('fullname')
+    assert info.get('twitch_url')
+    assert info.get('created_at')
+
+
+@pytest.mark.github_failed
+def test_visnesscard_api_e2e():
+    """VisnessCard API"""
+    import requests as req
+    r = req.get('https://my.visnesscard.com/Home/GetCard/JOHN', timeout=10)
+    info = extract(r.text)
+
+    assert info.get('uid') == '6700'
+    assert info.get('username') == 'JOHN'
+    assert info.get('fullname') == 'JOHN SMITH'
+    assert info.get('email')
+    assert info.get('company') == 'GRINDTIME FITNESS'
+    assert 'Detroit' in info.get('location', '')
+
+
+def test_nodebb_api():
+    """NodeBB API"""
+    # Second board to go down under this test: NodeBB runs on self-hosted
+    # forums only and its own community site sits behind Cloudflare, so there
+    # is no flagship instance to lean on. The rule of thumb that is left is a
+    # founder account (uid 1) on a board with years of posts behind it.
+    url, _ = mutate_url('https://efelsefe.com/user/phi')[0]
+    info = extract(parse(url, timeout=15)[0])
+    assert info.get('_extractor') == 'NodeBB API'
+    assert info.get('uid') == '1'
+    assert info.get('username') == 'phi'
+    assert info.get('created_at') == '2022-01-02 18:27:05.595 UTC'
+    assert int(info.get('posts_count')) >= 2301
+
+
+def test_discourse_api():
+    """Discourse API"""
+    # a host that is not in the url_hints list — the mutation has to carry it
+    url, _ = mutate_url('https://discuss.python.org/u/hugovk')[0]
+    info = extract(parse(url)[0])
+
+    assert info.get('uid') == '358'
+    assert info.get('username') == 'hugovk'
+    assert info.get('trust_level')
+    assert info.get('created_at')
+
+
+def test_discourse_html_profile():
+    """Discourse HTML profile"""
+    # the HTML shell, which is all that is left when an instance closes its API
+    info = extract(parse('https://discuss.python.org/u/hugovk')[0])
+
+    assert info.get('username') == 'hugovk'
+    assert info.get('bio')
+    assert 'user_avatar' in info.get('image', '')
+
+
+def test_xenforo():
+    """XenForo"""
+    # the URL shape maigret stores: a member search that redirects to the profile
+    info = extract(parse('https://nullcave.club/members/?username=lomba_ii')[0])
+
+    assert info.get('uid') == '36147'
+    assert info.get('username') == 'lomba_ii'
+    # XenForo renders times in the viewer's timezone, so only the date is stable
+    assert info.get('created_at', '').startswith('2024-01-3')
+    assert info.get('posts_count', '').isdigit()
+
+
+@pytest.mark.github_failed  # the member list answers runners without the member row
+def test_phpbb():
+    """phpBB"""
+    # the URL shape maigret stores for boards that let anyone read the member
+    # list: the list filtered by name, which answers with the one exact match
+    info = extract(parse('https://forums.mozfr.org/memberlist.php?username=geckozonefr')[0])
+
+    assert info.get('uid') == '2'
+    assert info.get('username') == 'geckozonefr'
+    assert info.get('posts_count', '').isdigit()
+    # the join date comes as the board renders it, in the board's own language
+    assert info.get('created_at', '').startswith('10 juin 2003')
+
+
+def test_phpbb_author_search():
+    """phpBB"""
+    # the other shape maigret stores: the member's posts, each headed by the
+    # profile link. The search carries no counters, so only the identity is checked.
+    info = extract(parse('https://forum.openoffice.org/en/forum/search.php?author=alex')[0])
+
+    assert info.get('uid') == '1743'
+    assert info.get('username') == 'alex'
+
+
+def test_gitea_forgejo():
+    """Gitea / Forgejo"""
+    # gitea.com runs Gitea itself; the same scheme covers every Forgejo instance
+    info = extract(parse('https://gitea.com/lunny')[0])
+
+    assert info.get('username') == 'lunny'
+    assert info.get('fullname') == 'Lunny Xiao'
+    assert info.get('created_at') == '2018-11-27T17:33:38Z'
+    assert info.get('image', '').startswith('https://gitea.com/avatars/')
+    assert info.get('follower_count', '').isdigit()
+    assert info.get('following_count', '').isdigit()
+
+
+def test_bbpress():
+    """bbPress"""
+    # the WordPress support forums are the largest bbPress board there is, and
+    # the only reason this account is the fixture: it was opened in 2003 and the
+    # board prints that date outright, where bbPress core prints "N years ago"
+    info = extract(parse('https://wordpress.org/support/users/matt/', timeout=15)[0])
+
+    assert info.get('_extractor') == 'bbPress'
+    assert info.get('username') == 'matt'
+    assert info.get('fullname') == 'Matt Mullenweg'
+    assert info.get('created_at') == 'April 4th, 2003'
+    # the role is in the board's own language, and this board speaks English
+    assert info.get('role') == 'Keymaster'
+    assert info.get('topics_count', '').isdigit()
+    # the counter is printed with a thousands separator at this size
+    assert int(info.get('replies_count')) > 1000
+    # Gravatar serves a sha256 of the address here; taking the first half of it
+    # for an md5 is what the postprocessor used to do
+    assert len(info.get('gravatar_email_sha256_hash', '')) == 64
+    assert info.get('gravatar_url', '').endswith(info.get('gravatar_email_sha256_hash', 'x'))
+
+
+def test_buddypress():
+    """BuddyPress"""
+    # the project's own site, and a lead developer's account on it: the member
+    # stopped posting in 2020, so the last-activity stamp no longer moves
+    info = extract(parse('https://buddypress.org/members/boonebgorges/', timeout=15)[0])
+
+    assert info.get('_extractor') == 'BuddyPress'
+    assert info.get('uid') == '2881701'
+    assert info.get('username') == 'boonebgorges'
+    # the title reads "Boone Gorges \u00b7 BuddyPress.org"; the board's name is not part of it
+    assert info.get('fullname') == 'Boone Gorges'
+    assert info.get('latest_activity_at') == '2020-04-21T20:05:45+0000'
+    # the avatar is linked without a scheme here, and is given back with one
+    assert info.get('image', '').startswith('https://www.gravatar.com/avatar/')
+
+
+def test_vanilla():
+    """Vanilla"""
+    # a studio forum that has run Vanilla for years, which is the point of
+    # picking it; its theme drops the About panel, so only the identity is here
+    info = extract(parse('https://forums.beamdog.com/profile/JuliusBorisov', timeout=15)[0])
+
+    assert info.get('_extractor') == 'Vanilla'
+    assert info.get('username') == 'JuliusBorisov'
+    assert info.get('image', '').startswith('https://forums.beamdog.com/uploads/')
+
+
+def test_vanilla_about_panel():
+    """Vanilla"""
+    # a board that leaves Vanilla's About panel in place. Its labels are the
+    # board's own words, so everything below is read by class, and the dates
+    # come from the <time> element rather than the text beside it
+    info = extract(parse('https://vintagemoviepostersforum.com/profile/David', timeout=15)[0])
+
+    assert info.get('username') == 'David'
+    assert info.get('created_at') == '2014-03-29T05:33:15+00:00'
+    assert info.get('latest_activity_at') == '2020-07-27T20:57:44+00:00'
+    assert info.get('role') == 'Member'
+    assert info.get('visits_count', '').isdigit()
+
+
+def test_mediawiki_api():
+    """MediaWiki API"""
+    # the /w/ candidate is the one Wikipedia answers; the root one 404s
+    url = [u for u, _ in mutate_url('https://en.wikipedia.org/wiki/User:Jimbo_Wales') if '/w/api.php' in u][0]
+    info = extract(parse(url)[0])
+
+    assert info.get('uid') == '24'
+    assert info.get('username') == 'Jimbo Wales'
+    assert info.get('created_at') == '2001-03-27T20:47:31Z'
+    assert 'founder' in info.get('groups', '')
+
+
+def test_mediawiki_user_page():
+    """MediaWiki user page"""
+    # what maigret reads without --enrich: the page it already fetches
+    info = extract(parse('https://wiki.openstreetmap.org/User:Leijurv')[0])
+
+    assert info.get('username') == 'Leijurv'
+
+
+def _bunq_me_profile(username):
+    """POST the bunq.me fundraiser-profile lookup (parse() only does GET)."""
+    import requests
+
+    resp = requests.post(
+        'https://api.bunq.me/v1/bunqme-fundraiser-profile',
+        json={'pointer': {'type': 'URL', 'value': f'https://bunq.me/{username}'}},
+        headers={**HEADERS, 'X-Bunq-Client-Request-Id': 'socid_extractor'},
+        timeout=10,
+    )
+    return resp.text, resp.status_code
+
+
+def test_bunq_me_api():
+    """bunq.me API"""
+    import re
+
+    body, status = _bunq_me_profile('ali')
+    assert status == 200
+    info = extract(body)
+
+    # Shape-only assertions: this is a private person's payment profile, so no
+    # names, photos or account numbers are hard-coded here.
+    assert re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', info.get('uid', ''))
+    assert info.get('username', '').lower() == 'ali'
+    assert info.get('fullname')
+    assert info.get('image', '').startswith('https://')
+    supported = {'DE', 'FR', 'IE', 'ES', 'IT', 'NL'}
+    assert info.get('country_code') in supported
+    assert re.fullmatch(r'[A-Z]{2}\d{2}[A-Z0-9]{10,30}', info.get('iban', ''))
+    assert info.get('iban')[:2] in supported
+    assert info.get('bunq_invite_username')
+    assert info.get('account_type')
+
+    body, status = _bunq_me_profile('noonewouldeverusethis7')
+    assert status == 404
+    assert extract(body) == {}

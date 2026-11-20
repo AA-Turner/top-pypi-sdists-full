@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from ..models.list_completed_jobs_response_200_item_flow_status_retry import (
         ListCompletedJobsResponse200ItemFlowStatusRetry,
     )
+    from ..models.list_completed_jobs_response_200_item_flow_status_test_subflows import (
+        ListCompletedJobsResponse200ItemFlowStatusTestSubflows,
+    )
 
 
 T = TypeVar("T", bound="ListCompletedJobsResponse200ItemFlowStatus")
@@ -39,6 +42,9 @@ class ListCompletedJobsResponse200ItemFlowStatus:
         continued_on_error (Union[Unset, List['ListCompletedJobsResponse200ItemFlowStatusContinuedOnErrorItem']]): On a
             root flow, the steps at any depth that failed and that the flow went past because of continue_on_error (at most
             100).
+        test_subflows (Union[Unset, ListCompletedJobsResponse200ItemFlowStatusTestSubflows]): In a flow test run,
+            deployed subflow path -> the flow value with the test's step overrides applied, run in place of the deployed
+            subflow.
     """
 
     step: int
@@ -48,6 +54,7 @@ class ListCompletedJobsResponse200ItemFlowStatus:
     preprocessor_module: Union[Unset, "ListCompletedJobsResponse200ItemFlowStatusPreprocessorModule"] = UNSET
     retry: Union[Unset, "ListCompletedJobsResponse200ItemFlowStatusRetry"] = UNSET
     continued_on_error: Union[Unset, List["ListCompletedJobsResponse200ItemFlowStatusContinuedOnErrorItem"]] = UNSET
+    test_subflows: Union[Unset, "ListCompletedJobsResponse200ItemFlowStatusTestSubflows"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -77,6 +84,10 @@ class ListCompletedJobsResponse200ItemFlowStatus:
 
                 continued_on_error.append(continued_on_error_item)
 
+        test_subflows: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.test_subflows, Unset):
+            test_subflows = self.test_subflows.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -94,6 +105,8 @@ class ListCompletedJobsResponse200ItemFlowStatus:
             field_dict["retry"] = retry
         if continued_on_error is not UNSET:
             field_dict["continued_on_error"] = continued_on_error
+        if test_subflows is not UNSET:
+            field_dict["test_subflows"] = test_subflows
 
         return field_dict
 
@@ -113,6 +126,9 @@ class ListCompletedJobsResponse200ItemFlowStatus:
         )
         from ..models.list_completed_jobs_response_200_item_flow_status_retry import (
             ListCompletedJobsResponse200ItemFlowStatusRetry,
+        )
+        from ..models.list_completed_jobs_response_200_item_flow_status_test_subflows import (
+            ListCompletedJobsResponse200ItemFlowStatusTestSubflows,
         )
 
         d = src_dict.copy()
@@ -154,6 +170,13 @@ class ListCompletedJobsResponse200ItemFlowStatus:
 
             continued_on_error.append(continued_on_error_item)
 
+        _test_subflows = d.pop("test_subflows", UNSET)
+        test_subflows: Union[Unset, ListCompletedJobsResponse200ItemFlowStatusTestSubflows]
+        if isinstance(_test_subflows, Unset):
+            test_subflows = UNSET
+        else:
+            test_subflows = ListCompletedJobsResponse200ItemFlowStatusTestSubflows.from_dict(_test_subflows)
+
         list_completed_jobs_response_200_item_flow_status = cls(
             step=step,
             modules=modules,
@@ -162,6 +185,7 @@ class ListCompletedJobsResponse200ItemFlowStatus:
             preprocessor_module=preprocessor_module,
             retry=retry,
             continued_on_error=continued_on_error,
+            test_subflows=test_subflows,
         )
 
         list_completed_jobs_response_200_item_flow_status.additional_properties = d

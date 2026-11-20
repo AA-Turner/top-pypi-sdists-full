@@ -26,6 +26,7 @@ __all__ = (
     "ArtifactTypeType",
     "AuthenticationProviderTypeType",
     "CleanUpStrategyType",
+    "CodeRemediationJobStatusType",
     "CodeRemediationStrategyType",
     "CodeRemediationTaskStatusType",
     "ConfidenceLevelType",
@@ -108,6 +109,9 @@ AuthenticationProviderTypeType = Literal[
     "AWS_IAM_ROLE", "AWS_INTERNAL", "AWS_LAMBDA", "SECRETS_MANAGER"
 ]
 CleanUpStrategyType = Literal["BEST_EFFORT_DELETE", "RETAIN_ALL"]
+CodeRemediationJobStatusType = Literal[
+    "COMPLETED", "FAILED", "IN_PROGRESS", "NO_CHANGE_REQUIRED", "UNKNOWN"
+]
 CodeRemediationStrategyType = Literal["AUTOMATIC", "DISABLED"]
 CodeRemediationTaskStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 ConfidenceLevelType = Literal["FALSE_POSITIVE", "HIGH", "LOW", "MEDIUM", "UNCONFIRMED"]
@@ -526,6 +530,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

@@ -27,7 +27,7 @@ def _stub_response(status_code: int, payload: dict | None = None) -> MagicMock:
 
 
 @contextmanager
-def _make_client(response: MagicMock) -> Generator[_Harness, None, None]:
+def _make_client(response: MagicMock) -> Generator[_Harness]:
     async_client = MagicMock(spec=httpx.AsyncClient)
     async_client.get = AsyncMock(return_value=response)
     async_client.patch = AsyncMock(return_value=response)
@@ -50,7 +50,7 @@ def _make_client(response: MagicMock) -> Generator[_Harness, None, None]:
 
 class TestAgetProject:
     @pytest.mark.asyncio
-    async def test_returns_row(self):
+    async def test_returns_row(self) -> None:
         project_id = uuid4()
         payload = {"id": str(project_id), "name": "demo", "metadata": None}
         with _make_client(_stub_response(200, payload)) as (client, async_client):
@@ -58,7 +58,7 @@ class TestAgetProject:
             async_client.get.assert_awaited_once_with(f"/v0.1/projects/{project_id}")
 
     @pytest.mark.asyncio
-    async def test_404_maps_to_not_found(self):
+    async def test_404_maps_to_not_found(self) -> None:
         with (
             _make_client(_stub_response(404)) as (client, _),
             pytest.raises(ProjectError, match="not found"),
@@ -66,7 +66,7 @@ class TestAgetProject:
             await client.aget_project(uuid4())
 
     @pytest.mark.asyncio
-    async def test_403_maps_to_permission(self):
+    async def test_403_maps_to_permission(self) -> None:
         with (
             _make_client(_stub_response(403)) as (client, _),
             pytest.raises(ProjectError, match="Permission denied"),
@@ -76,7 +76,7 @@ class TestAgetProject:
 
 class TestAupdateProject:
     @pytest.mark.asyncio
-    async def test_name_only_rename_omits_metadata(self):
+    async def test_name_only_rename_omits_metadata(self) -> None:
         project_id = uuid4()
         with _make_client(_stub_response(202)) as (client, async_client):
             await client.aupdate_project(project_id, name="renamed")
@@ -85,7 +85,7 @@ class TestAupdateProject:
             )
 
     @pytest.mark.asyncio
-    async def test_sends_metadata_when_given(self):
+    async def test_sends_metadata_when_given(self) -> None:
         project_id = uuid4()
         metadata = {"agent": "kosmos", "description": "new"}
         with _make_client(_stub_response(202)) as (client, async_client):
@@ -96,7 +96,7 @@ class TestAupdateProject:
             )
 
     @pytest.mark.asyncio
-    async def test_404_maps_to_not_found(self):
+    async def test_404_maps_to_not_found(self) -> None:
         with (
             _make_client(_stub_response(404)) as (client, _),
             pytest.raises(ProjectError, match="not found"),
@@ -104,7 +104,7 @@ class TestAupdateProject:
             await client.aupdate_project(uuid4(), name="x")
 
     @pytest.mark.asyncio
-    async def test_403_maps_to_permission(self):
+    async def test_403_maps_to_permission(self) -> None:
         with (
             _make_client(_stub_response(403)) as (client, _),
             pytest.raises(ProjectError, match="Permission denied"),
@@ -114,7 +114,7 @@ class TestAupdateProject:
 
 class TestAcreateProjectHandoff:
     @pytest.mark.asyncio
-    async def test_handoff_message_sent_in_body(self):
+    async def test_handoff_message_sent_in_body(self) -> None:
         persona_id = uuid4()
         project_id = uuid4()
         with _make_client(_stub_response(201, {"id": str(project_id)})) as (
@@ -132,7 +132,7 @@ class TestAcreateProjectHandoff:
             assert kwargs["json"]["handoff_message"] == "context to carry over"
 
     @pytest.mark.asyncio
-    async def test_handoff_message_requires_persona_id(self):
+    async def test_handoff_message_requires_persona_id(self) -> None:
         with (
             _make_client(_stub_response(201, {})) as (client, _),
             pytest.raises(ValueError, match="persona_id"),
@@ -140,7 +140,7 @@ class TestAcreateProjectHandoff:
             await client.acreate_project(name="spinoff", handoff_message="context")
 
     @pytest.mark.asyncio
-    async def test_no_handoff_message_omits_field(self):
+    async def test_no_handoff_message_omits_field(self) -> None:
         persona_id = uuid4()
         project_id = uuid4()
         with _make_client(_stub_response(201, {"id": str(project_id)})) as (
@@ -155,7 +155,7 @@ class TestAcreateProjectHandoff:
 
 class TestAcreateProjectJobName:
     @pytest.mark.asyncio
-    async def test_job_name_sent_in_body(self):
+    async def test_job_name_sent_in_body(self) -> None:
         persona_id = uuid4()
         project_id = uuid4()
         with _make_client(_stub_response(201, {"id": str(project_id)})) as (
@@ -173,12 +173,11 @@ class TestAcreateProjectJobName:
             assert kwargs["json"]["job_name"] == "job-futurehouse-data-analysis-chat"
 
     @pytest.mark.asyncio
-    async def test_job_name_requires_persona_id(self):
+    async def test_job_name_requires_persona_id(self) -> None:
         with (
             _make_client(_stub_response(201, {})) as (client, _),
             pytest.raises(ValueError, match="persona_id"),
         ):
             await client.acreate_project(
-                name="spinoff",
-                job_name="job-futurehouse-data-analysis-chat",
+                name="spinoff", job_name="job-futurehouse-data-analysis-chat"
             )

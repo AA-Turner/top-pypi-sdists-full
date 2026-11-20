@@ -6,13 +6,13 @@
 from pathlib import Path
 import datetime
 import json
-import os
 import re
 import textwrap
 
 import pytest
 
 from glean_parser import metrics
+from glean_parser import pings
 from glean_parser import parser
 
 import util
@@ -725,6 +725,21 @@ def test_do_not_disable_expired():
 
     metrics = all_metrics.value
     assert metrics["category"]["metric"].disabled is False
+
+
+def test_skip_schema_validation():
+    contents = [{"category": {"metric": {"type": "boolean", "description": 42}}}]
+    contents = [util.add_required(x) for x in contents]
+
+    all_metrics = parser.parse_objects(contents)
+    errors = list(all_metrics)
+    assert len(errors) == 1
+    assert "description" in errors[0]
+
+    all_metrics = parser.parse_objects(contents, {"skip_schema_validation": True})
+    errors = list(all_metrics)
+    assert len(errors) == 0
+    assert all_metrics.value["category"]["metric"].description == 42
 
 
 def test_interesting_disables_others():
@@ -1556,7 +1571,10 @@ def test_forbid_non_ext_non_object_attribution_distribution():
     )
 
 
-def test_expire_epoch_can_be_overriden():
+def test_expire_epoch_can_be_overriden(monkeypatch):
+    # Don't inherit an override from the environment (e.g. reproducible builds).
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+
     metrics = [
         {
             "category": {
@@ -1576,14 +1594,12 @@ def test_expire_epoch_can_be_overriden():
 
     # A date definitely before the above expiry.
     dt = datetime.datetime.strptime("2020-01-01", "%Y-%m-%d")
-    os.environ["SOURCE_DATE_EPOCH"] = str(int(dt.timestamp()))
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", str(int(dt.timestamp())))
 
     all_metrics = parser.parse_objects(metrics)
     errors = list(all_metrics)
     assert len(errors) == 0
     assert all_metrics.value["category"]["metric"].disabled is False
-
-    del os.environ["SOURCE_DATE_EPOCH"]
 
 
 @pytest.mark.parametrize(
@@ -1594,7 +1610,7 @@ def test_expire_epoch_can_be_overriden():
         "",
     ],
 )
-def test_overriden_expire_epoch_must_be_valid(invalid_epoch):
+def test_overriden_expire_epoch_must_be_valid(monkeypatch, invalid_epoch):
     metrics = [
         {
             "category": {
@@ -1607,12 +1623,10 @@ def test_overriden_expire_epoch_must_be_valid(invalid_epoch):
     ]
     metrics = [util.add_required(x) for x in metrics]
 
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", invalid_epoch)
     with pytest.raises(ValueError, match="Invalid SOURCE_DATE_EPOCH"):
-        os.environ["SOURCE_DATE_EPOCH"] = invalid_epoch
         all_metrics = parser.parse_objects(metrics)
         list(all_metrics)
-
-    del os.environ["SOURCE_DATE_EPOCH"]
 
 
 def test_categories():
@@ -1624,3 +1638,12 @@ def test_categories():
 
     errs = list(all_metrics)
     assert len(errs) == 0
+
+
+def test_reserved_pings():
+    all_metrics = parser.parse_objects(ROOT / "data" / "reserved_pings.yamlx")
+
+    errors = list(all_metrics)
+    assert len(errors) == len(pings.RESERVED_PING_NAMES)
+    for error in errors:
+        assert "Ping uses a reserved name" in error

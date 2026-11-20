@@ -26,6 +26,7 @@ from .literals import (
     RecordTypeType,
     RegistryRecordFilterNameType,
     RegistryRecordStatusType,
+    SearchTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -55,10 +56,12 @@ __all__ = (
     "McpServerDescriptorTypeDef",
     "McpToolsDescriptorTypeDef",
     "PaginatorConfigTypeDef",
+    "RegistryRecordArtifactDownloadTypeDef",
     "RegistryRecordFilterTypeDef",
     "RegistryRecordSummaryTypeDef",
     "RegistryRecordsEntryTypeDef",
     "ResponseMetadataTypeDef",
+    "SearchDiscoverableRegistryRecordsRequestPaginateTypeDef",
     "SearchDiscoverableRegistryRecordsRequestTypeDef",
     "SearchDiscoverableRegistryRecordsResponseTypeDef",
 )
@@ -113,11 +116,17 @@ class McpToolsDescriptorTypeDef(TypedDict):
     data: NotRequired[str]
     dataSchemaVersion: NotRequired[str]
 
+class RegistryRecordArtifactDownloadTypeDef(TypedDict):
+    sha256: NotRequired[str]
+    downloadUrl: NotRequired[str]
+
 class SearchDiscoverableRegistryRecordsRequestTypeDef(TypedDict):
     searchQuery: str
     registryIds: Sequence[str]
     maxResults: NotRequired[int]
     filters: NotRequired[Mapping[str, Any]]
+    searchType: NotRequired[SearchTypeType]
+    nextToken: NotRequired[str]
 
 class BatchGetDiscoverableRegistryRecordRequestTypeDef(TypedDict):
     entries: Sequence[RegistryRecordsEntryTypeDef]
@@ -129,6 +138,13 @@ class ListDiscoverableRegistryRecordsResponseTypeDef(TypedDict):
     registryRecords: list[DiscoverableRegistryRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class SearchDiscoverableRegistryRecordsRequestPaginateTypeDef(TypedDict):
+    searchQuery: str
+    registryIds: Sequence[str]
+    filters: NotRequired[Mapping[str, Any]]
+    searchType: NotRequired[SearchTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDiscoverableRegistryRecordsRequestPaginateTypeDef(TypedDict):
     registryId: str
@@ -196,6 +212,7 @@ class RegistryRecordSummaryTypeDef(TypedDict):
     description: NotRequired[str]
     displayName: NotRequired[str]
     customMetadata: NotRequired[dict[str, Any]]
+    artifact: NotRequired[RegistryRecordArtifactDownloadTypeDef]
 
 class BatchGetDiscoverableRegistryRecordResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]
@@ -204,4 +221,6 @@ class BatchGetDiscoverableRegistryRecordResponseTypeDef(TypedDict):
 
 class SearchDiscoverableRegistryRecordsResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]
+    searchType: SearchTypeType
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]

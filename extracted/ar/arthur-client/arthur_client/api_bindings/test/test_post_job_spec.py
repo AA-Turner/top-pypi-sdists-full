@@ -77,7 +77,6 @@ class TestPostJobSpec(unittest.TestCase):
                 check_range_end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 workspace_id = '',
                 data_plane_id = '',
-                discovery_source_id = '',
         )
         """
 

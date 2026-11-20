@@ -14,7 +14,7 @@ Client to interact with Kafka Connect REST APIs
 
 import re
 import traceback
-from typing import Iterable, List, Optional  # noqa: UP035
+from collections.abc import Iterable
 from urllib.parse import urlparse
 
 import requests
@@ -143,7 +143,7 @@ INTERNAL_TOPIC_CONFIG_KEYS = (
 )
 
 
-def extract_internal_topic_names(connector_config: Optional[dict]) -> set[str]:  # noqa: UP045
+def extract_internal_topic_names(connector_config: dict | None) -> set[str]:
     """
     Topic names a connector creates for its own bookkeeping, derived from its config.
 
@@ -502,7 +502,7 @@ class KafkaConnectClient:
         logger.info("Resolved %s topic(s) for '%s' from Confluent telemetry", len(topics), connector)
         return [KafkaConnectTopics(name=topic) for topic in sorted(topics)]
 
-    def _infer_cdc_topics_from_server_name(self, database_server_name: str) -> Optional[List[KafkaConnectTopics]]:  # noqa: UP006, UP045
+    def _infer_cdc_topics_from_server_name(self, database_server_name: str) -> list[KafkaConnectTopics] | None:
         """
         For CDC connectors, infer topic names based on database.server.name or topic.prefix.
         CDC connectors create topics with pattern: {server-name}.{database}.{table}
@@ -550,7 +550,7 @@ class KafkaConnectClient:
                     if inferred_topics:
                         connector_details.topics = inferred_topics
 
-    def get_cluster_info(self) -> Optional[dict]:  # noqa: UP045
+    def get_cluster_info(self) -> dict | None:
         """
         Get the version and other details of the Kafka Connect cluster.
 
@@ -594,7 +594,7 @@ class KafkaConnectClient:
         expand: str = None,  # noqa: RUF013
         pattern: str = None,  # noqa: RUF013
         state: str = None,  # noqa: RUF013
-    ) -> Optional[dict]:  # noqa: UP045
+    ) -> dict | None:
         """
         Get the list of connectors.
         Args:
@@ -611,7 +611,7 @@ class KafkaConnectClient:
 
         return None
 
-    def get_connector_plugins(self) -> Optional[dict]:  # noqa: UP045
+    def get_connector_plugins(self) -> dict | None:
         """
         Get the list of connector plugins.
         """
@@ -644,12 +644,9 @@ class KafkaConnectClient:
         self._query_dataflow_topics_by_client(cluster_id, max_pages=1)
         return True
 
-    def get_connector_config(self, connector: str) -> Optional[dict]:  # noqa: UP045
+    def get_connector_config(self, connector: str) -> dict | None:
         """
         Get the details of a single connector.
-
-        For Confluent Cloud, the API returns configs as an array of {config, value} objects.
-        For self-hosted Kafka Connect, it returns a flat config dictionary.
 
         Args:
             connector (str): The name of the connector.
@@ -659,19 +656,8 @@ class KafkaConnectClient:
             if not result:
                 return None
 
-            # Check if this is Confluent Cloud format (array of {config, value})
-            if self.is_confluent_cloud and "configs" in result:
-                # Transform Confluent Cloud format: [{config: "key", value: "val"}] -> {key: val}
-                configs_array = result.get("configs", [])
-                if isinstance(configs_array, list):
-                    config_dict = {
-                        item["config"]: item["value"]
-                        for item in configs_array
-                        if isinstance(item, dict) and "config" in item and "value" in item
-                    }
-                    return config_dict or None
-
-            # Standard self-hosted Kafka Connect format
+            # Confluent Cloud and self-hosted Connect both return a flat config map here
+            # (verified against the Connect v1 API on 2026-08-05).
             return result.get("config")
 
         except Exception as exc:
@@ -680,7 +666,7 @@ class KafkaConnectClient:
 
         return None
 
-    def extract_column_mappings(self, connector_config: dict) -> Optional[List[KafkaConnectColumnMapping]]:  # noqa: UP006, UP045
+    def extract_column_mappings(self, connector_config: dict) -> list[KafkaConnectColumnMapping] | None:
         """
         Extract column mappings from connector configuration.
         For Debezium and JDBC connectors, columns are typically mapped 1:1
@@ -730,7 +716,7 @@ class KafkaConnectClient:
 
         return None
 
-    def _list_topics_from_api(self, connector: str) -> Optional[List[KafkaConnectTopics]]:  # noqa: UP006, UP045
+    def _list_topics_from_api(self, connector: str) -> list[KafkaConnectTopics] | None:
         """
         Ask the Connect runtime which topics the connector actually produced (KIP-558).
 
@@ -771,15 +757,19 @@ class KafkaConnectClient:
                         else ""
                     )
                     logger.info(
-                        f"Connect /connectors/{{name}}/topics is unavailable on this cluster ({exc})."
-                        f"{remedy} Falling back to topic names declared in connector configs. "
+                        "Connect /connectors/{name}/topics is unavailable on this cluster (%s)."
+                        "%s Falling back to topic names declared in connector configs. "
                         "Connectors that route by row value (e.g. a Debezium outbox EventRouter) "
-                        "cannot be resolved this way."
+                        "cannot be resolved this way.",
+                        exc,
+                        remedy,
                     )
             else:
                 logger.warning(
-                    f"Transient failure listing topics for connector '{connector}' ({exc}); "
-                    "will retry the endpoint for the next connector."
+                    "Transient failure listing topics for connector '%s' (%s); "
+                    "will retry the endpoint for the next connector.",
+                    connector,
+                    exc,
                 )
             logger.debug(traceback.format_exc())
         return None
@@ -787,8 +777,8 @@ class KafkaConnectClient:
     def _list_data_topics_from_api(
         self,
         connector: str,
-        connector_config: Optional[dict],  # noqa: UP045
-    ) -> Optional[List[KafkaConnectTopics]]:  # noqa: UP006, UP045
+        connector_config: dict | None,
+    ) -> list[KafkaConnectTopics] | None:
         """
         The topics the Connect runtime says this connector touched, minus its own
         bookkeeping topics.
@@ -808,13 +798,15 @@ class KafkaConnectClient:
         dropped = len(topics) - len(data_topics)
         if dropped:
             logger.debug(
-                f"Excluded {dropped} internal topic(s) from connector '{connector}': "
-                f"{sorted(excluded & {topic.name for topic in topics})}"
+                "Excluded %s internal topic(s) from connector '%s': %s",
+                dropped,
+                connector,
+                sorted(excluded & {topic.name for topic in topics}),
             )
         return data_topics or None
 
     @staticmethod
-    def _parse_topics_from_config(connector_config: Optional[dict]) -> Optional[List[KafkaConnectTopics]]:  # noqa: UP006, UP045
+    def _parse_topics_from_config(connector_config: dict | None) -> list[KafkaConnectTopics] | None:
         """Topic names written explicitly in the connector config, as a sink's `topics` list is."""
         if not connector_config:
             return None
@@ -830,8 +822,8 @@ class KafkaConnectClient:
     def get_connector_topics(
         self,
         connector: str,
-        connector_config: Optional[dict] = None,  # noqa: UP045
-    ) -> Optional[List[KafkaConnectTopics]]:  # noqa: UP006, UP045
+        connector_config: dict | None = None,
+    ) -> list[KafkaConnectTopics] | None:
         """
         Get the list of data topics for a connector, most authoritative source first.
 
@@ -873,7 +865,7 @@ class KafkaConnectClient:
 
         return None
 
-    def get_connector_list(self) -> Optional[Iterable[KafkaConnectPipelineDetails]]:  # noqa: UP045
+    def get_connector_list(self) -> Iterable[KafkaConnectPipelineDetails] | None:
         """
         Get the information of all connectors.
         Returns:

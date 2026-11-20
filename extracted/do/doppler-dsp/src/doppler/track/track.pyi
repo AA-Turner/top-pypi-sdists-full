@@ -313,6 +313,773 @@ class LoopFilter:
         """
 
 @final
+class StateFilter:
+    """Create a state filter, validating its arguments: the one constructor the
+    Python class `StateFilter` calls.
+
+    Parameters
+    ----------
+    bn : float, default 0.01
+        Loop noise bandwidth, normalized cycles/sample; >= 0 (default 0.01).
+        `bn = 0` is a deliberately frozen loop.
+    t : float, default 1.0
+        Update period in samples; > 0 (default 1.0).
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is the reason the
+        constructor gives, or ``bn must be >= 0 and t > 0, both finite, with
+        bn*t inside the domain`` when it gives none.
+
+    Examples
+    --------
+    >>> from doppler.track import StateFilter
+    >>> sf = StateFilter(bn=0.01, t=1.0)
+    >>> round(sf.kp, 6), round(sf.ki, 6)   # the gains follow from bn and t
+    (0.023622, 0.000279)
+    >>> sf.integ, sf.rate                  # both estimates start at zero
+    (0.0, 0.0)
+    >>> StateFilter(bn=0.5)                # bn*t past the stability bound
+    Traceback (most recent call last):
+        ...
+    ValueError: bn*t is above the largest the filter accepts, the bound the third-order loop is stable to
+
+    """
+
+    def __init__(self, bn: float = 0.01, t: float = 1.0) -> None: ...
+    def step(self, x: float, /) -> float:
+        """Advance the loop one update with error x and return the control
+        value the tracker should apply.
+
+        `rate += kr*x; integ += rate + ki*x; control = integ + kp*x`. Inline,
+        with no test of any kind: this is the hot step of a tracking loop.
+
+        Parameters
+        ----------
+        x : float
+            Loop error (discriminator output) for this update.
+
+        Returns
+        -------
+        float
+            Control value `integ + kp*x`.
+
+        Examples
+        --------
+        >>> from doppler.track import StateFilter
+        >>> sf = StateFilter(bn=0.02, t=1.0)
+        >>> round(sf.step(1.0), 6)             # unit error: kr + ki + kp
+        0.047602
+        >>> round(sf.rate, 8), round(sf.integ, 8)
+        (1.257e-05, 0.00109406)
+
+        """
+
+    def steps(
+        self,
+        x: npt.NDArray[np.float64],
+        out: npt.NDArray[np.float64] | None = None,
+    ) -> NDArray[np.float64]:
+        """Filter a block of loop errors, one control value per update.
+
+        Equivalent to dp_state_filter_step() once per element in order,
+        carrying both accumulators across the block.
+
+        Parameters
+        ----------
+        x : npt.NDArray[np.float64]
+            Loop-error array, one discriminator sample per update.
+
+        Returns
+        -------
+        NDArray[np.float64]
+            Output.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import StateFilter
+        >>> sf = StateFilter(bn=0.05, t=1.0)
+        >>> ctl = sf.steps(np.full(50, 0.1))   # constant error into the loop
+        >>> round(float(ctl[0]), 4)            # the first nudge
+        0.0117
+        >>> round(float(ctl[-1]), 4)           # open loop: ramping
+        0.0638
+
+        """
+
+    def configure(self, bn: float, t: float) -> None:
+        """Recompute the gains for a new (bn, t); preserves the frequency and
+        rate estimates. Raises ValueError, changing nothing, when (bn, t) is
+        outside the domain.
+
+        As dp_loop_filter_configure() does for the second-order filter: widen
+        to acquire, narrow to track, holding the estimates. A `(bn, t)` outside
+        dp_state_filter_params_ok() is refused and changes nothing.
+
+        Parameters
+        ----------
+        bn : float
+            Loop noise bandwidth, normalized cycles/sample.
+        t : float
+            Update period in samples.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure refused (bn, t): t must be positive and finite, bn
+            finite and >= 0, and bn*t inside the domain; nothing changed``,
+            with the return code appended (gh-869).
+
+        Examples
+        --------
+        >>> from doppler.track import StateFilter
+        >>> sf = StateFilter(bn=0.01, t=1.0)
+        >>> _ = sf.step(1.0)
+        >>> before = sf.rate
+        >>> sf.configure(0.05, 1.0)            # widen the loop, keep lock
+        >>> sf.rate == before                  # the estimates are preserved
+        True
+        >>> round(sf.kp, 6)                    # the gains rose
+        0.111058
+
+        """
+
+    def reset(self) -> None:
+        """Zero the frequency and rate estimates; keep the configured gains.
+
+        Examples
+        --------
+        >>> from doppler.track import StateFilter
+        >>> sf = StateFilter(bn=0.02, t=1.0)
+        >>> for _ in range(10):
+        ...     _ = sf.step(1.0)               # open loop: both estimates ramp
+        >>> round(sf.integ, 6), round(sf.rate, 6)
+        (0.011506, 0.000126)
+        >>> sf.reset()
+        >>> sf.integ, sf.rate                  # cleared, gains kept
+        (0.0, 0.0)
+
+        """
+
+    def bandwidth(self, delay: float = 0.0, gain: float = 1.0) -> float:
+        """Exact delivered noise bandwidth of this loop, in cycles per update,
+        for a detector delay of `delay` updates and a loop gain of `gain` times
+        nominal. NaN when the loop is not stable there.
+
+        Parameters
+        ----------
+        delay : float
+            Detector delay in updates.
+        gain : float
+            Loop gain as a multiple of nominal.
+
+        Returns
+        -------
+        float
+            Cycles per update, or NaN if not stable there.
+
+        See Also
+        --------
+        dp_state_filter_loop_bandwidth()
+
+        Examples
+        --------
+        >>> from doppler.track import StateFilter
+        >>> sf = StateFilter(bn=0.03, t=1.0)
+        >>> round(sf.bandwidth(), 6)           # delay 0: the bandwidth asked for
+        0.03
+        >>> round(sf.bandwidth(delay=1.0), 6)  # one update of detector delay
+        0.032646
+        >>> sf.bandwidth(gain=0.05)            # unstable: no bandwidth
+        nan
+
+        """
+
+    def stable(self, delay: float = 0.0, gain: float = 1.0) -> bool:
+        """Whether this loop is stable for a detector delay of `delay` updates
+        and a loop gain of `gain` times nominal.
+
+        Parameters
+        ----------
+        delay : float
+            Detector delay in updates.
+        gain : float
+            Loop gain as a multiple of nominal.
+
+        Returns
+        -------
+        bool
+            true if stable, false if not.
+
+        See Also
+        --------
+        dp_state_filter_loop_stable()
+
+        Examples
+        --------
+        >>> from doppler.track import StateFilter
+        >>> sf = StateFilter(bn=0.12, t=1.0)   # the bound itself
+        >>> sf.stable(delay=2.0, gain=2.0)     # worst corner of the rectangle
+        True
+        >>> sf.stable(delay=2.0, gain=400.0)   # a detector slope far too high
+        False
+        >>> sf.stable(gain=0.05)               # ...and far too low
+        False
+
+        """
+
+    def state_bytes(self) -> int:
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the StateFilter has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
+    def get_state(self) -> bytes:
+        """Serialize this object's mutable state to bytes.
+
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the StateFilter has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
+    def set_state(self, blob: bytes, /) -> None:
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the StateFilter has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
+
+    @property
+    def kp(self) -> float:
+        """proportional gain (from bn, t)."""
+
+    @property
+    def ki(self) -> float:
+        """frequency-path gain (from bn, t)."""
+
+    @property
+    def kr(self) -> float:
+        """rate-path gain (from bn, t)."""
+
+    @property
+    def integ(self) -> float:
+        """frequency estimate, control units per update."""
+    @integ.setter
+    def integ(self, value: float) -> None: ...
+    @property
+    def rate(self) -> float:
+        """slope of the frequency estimate: control units per update per update
+        (a Doppler rate R in Hz/s at an update period T in seconds is R * T^2
+        cycles per update per update).
+        """
+    @rate.setter
+    def rate(self, value: float) -> None: ...
+    @property
+    def bn(self) -> float:
+        """loop noise bandwidth, normalized cycles/sample."""
+
+    @property
+    def t(self) -> float:
+        """update period in samples."""
+
+    def destroy(self) -> None:
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on
+        exit.
+
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
+        """
+
+    def __enter__(self) -> "StateFilter":
+        """Enter a context manager, returning this object.
+
+        Lets a StateFilter be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        StateFilter
+            This same object, not a copy.
+        """
+
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+        /,
+    ) -> None:
+        """Exit a context manager, releasing the StateFilter.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
+
+@final
+class KalmanStateFilter:
+    """The third-order loop filter whose gains come from a Kalman covariance
+    recursion instead of being held: the loop of `StateFilter`, sized from the
+    signal. Give the rms detector error when the loop is locked (`sigma_e`) and
+    the rms change of the rate per update (`sigma_a`), in the loop's own units,
+    or a bandwidth alone (`bn`); the steady-state bandwidth follows from their
+    ratio. An optional initial frequency uncertainty (`sigma_f0`) gives a
+    high-gain start that settles a frequency step about 1.7 times as fast,
+    within a cap the constructor enforces. `step` and `steps` take loop errors
+    and return control values; `kp`, `ki`, `kr` are the gains in force now.
+
+    Parameters
+    ----------
+    sigma_e : float, default 0.0
+        RMS detector error when the loop is locked, in the loop's error units
+        per update. With `sigma_a`: the figures form. Leave 0 for the automatic
+        case (`bn`).
+    sigma_a : float, default 0.0
+        RMS change of the rate per update, in the same units per update per
+        update. With `sigma_e`: the figures form.
+    t : float, default 1.0
+        Update period in samples.
+    sigma_f0 : float, default 0.0
+        Initial frequency uncertainty (figures form), 0 for the steady state:
+        at least the steady state's own frequency deviation and at most the
+        largest start whose gains stay inside the stability rectangle (5 times
+        it up to bn*t 0.04, less above).
+    bn : float, default 0.0
+        The automatic case: the noise bandwidth in cycles per sample, with `t`,
+        and no `sigma_e`, `sigma_a` or `sigma_f0`. The steady-state gains of
+        the optimal filter with that exact bandwidth, from the first update.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is the reason the
+        constructor gives, or ``give sigma_e and sigma_a, or bn alone, in
+        range`` when it gives none.
+
+    Examples
+    --------
+    >>> from doppler.track import KalmanStateFilter
+    >>> k = KalmanStateFilter(bn=0.01)             # the automatic case
+    >>> round(k.bandwidth(), 6)
+    0.01
+    >>> k.stable()
+    True
+    >>> f = KalmanStateFilter(sigma_e=1.0, sigma_a=1e-3)   # the two figures
+    >>> round(f.bandwidth(), 4)
+    0.0904
+    >>> KalmanStateFilter()                        # neither form
+    Traceback (most recent call last):
+        ...
+    ValueError: give sigma_e and sigma_a, or bn alone
+
+    """
+
+    def __init__(
+        self,
+        sigma_e: float = 0.0,
+        sigma_a: float = 0.0,
+        t: float = 1.0,
+        sigma_f0: float = 0.0,
+        bn: float = 0.0,
+    ) -> None: ...
+    def reset(self) -> None:
+        """Return to the start: the estimates zero and the covariance back to
+        the one the filter began with. The noise figures are kept.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import KalmanStateFilter
+        >>> k = KalmanStateFilter(bn=0.01)
+        >>> _ = k.steps(np.full(50, 0.1))
+        >>> round(k.integ, 4)
+        0.0016
+        >>> k.reset()
+        >>> k.integ
+        0.0
+
+        """
+
+    def step(self, x: float, /) -> float:
+        """One update, the call to use: the loop's three lines on the gains in
+        force, then the covariance advanced and the gains refreshed. Inline,
+        over dp_state_filter_kalman_update().
+
+        Parameters
+        ----------
+        x : float
+            Input.
+
+        Returns
+        -------
+        float
+            The control value `integ + kp*e`.
+
+        Examples
+        --------
+        >>> from doppler.track import KalmanStateFilter
+        >>> k = KalmanStateFilter(bn=0.01)
+        >>> round(k.step(0.1), 4)             # the first nudge
+        0.0024
+
+        """
+
+    def steps(
+        self,
+        x: npt.NDArray[np.float64],
+        out: npt.NDArray[np.float64] | None = None,
+    ) -> NDArray[np.float64]:
+        """A block of updates, equivalent to dp_state_filter_kalman_step() once
+        per element.
+
+        Parameters
+        ----------
+        x : npt.NDArray[np.float64]
+            Loop errors.
+
+        Returns
+        -------
+        NDArray[np.float64]
+            Output.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import KalmanStateFilter
+        >>> k = KalmanStateFilter(bn=0.01)
+        >>> y = k.steps(np.full(50, 0.1))     # constant error: open loop, ramping
+        >>> round(float(y[0]), 4), round(float(y[-1]), 4)
+        (0.0024, 0.004)
+
+        """
+
+    def configure(
+        self,
+        sigma_e: float = 0.0,
+        sigma_a: float = 0.0,
+        t: float = 0.0,
+        sigma_f0: float = 0.0,
+        bn: float = 0.0,
+    ) -> None:
+        """Change the figures (or `bn` alone), keeping the frequency and rate
+        estimates; the covariance restarts from the new steady state, so a
+        retune restarts the gain schedule while the estimates carry. An
+        argument of 0 keeps its current value (`sigma_f0` 0 is the steady
+        state), so a call names only what changes. A filter built from `bn`
+        holds the figures that bandwidth implies (`sigma_e` 1), a call with
+        `bn` replaces the stored figures by those it implies, and `bn` may not
+        be mixed with the figures. With no arguments the gains go to the steady
+        state at once and the estimates carry (this ends a high-gain start
+        early); `configure(sigma_f0=x)` alone re-opens the gains with the same
+        figures. Raises ValueError, changing nothing, outside the domain.
+
+        A retune restarts the gain schedule; the estimates carry: the
+        covariance restarts from the new steady state (scaled by the start
+        sigma_f0 means), the gains follow it, and `integ` and `rate` are
+        untouched. An argument of 0 keeps its current value (sigma_f0 0 is the
+        steady state), so a call names only what changes. bn alone is the
+        automatic case and may not be mixed with the figures. A call outside
+        the domain (dp_state_filter_kalman_params_ok()) changes nothing.
+
+        Three behaviors, all in the blob (q, r and t are reject keys, the start
+        is P0):
+
+        - The automatic case holds the figures its bandwidth implies, with
+          `sigma_e` 1 (the detector's rms as the unit) and `sigma_a` the square
+          root of the noise ratio that bandwidth selects; a figures-form call
+          that names one figure keeps the other at that implied value.
+        - A call with bn replaces the stored figures by those the bandwidth
+          implies: a figures-form call that follows keeps the implied `r` and
+          `q`, not the ones the filter was built with.
+        - A call with every argument 0 puts the gains at the steady state at
+          once and keeps the estimates: it ends a high-gain start early, once
+          the loop has pulled in, without changing the design. `configure (k,
+          0, 0, 0, f, 0)` with a frequency uncertainty f alone does the
+          opposite and re-opens the gains with the same figures, as after a
+          loss of lock.
+
+        Parameters
+        ----------
+        sigma_e : float
+            RMS detector error when locked, 0 to keep.
+        sigma_a : float
+            RMS change of the rate per update, 0 to keep.
+        t : float
+            Update period in samples, 0 to keep.
+        sigma_f0 : float
+            Frequency uncertainty, 0 for the steady state.
+        bn : float
+            Noise bandwidth in cycles per sample (automatic form), 0 for the
+            figures form.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``configure refused: name sigma_e and sigma_a (and optionally
+            sigma_f0), or bn alone, with t positive and finite and the result
+            inside the domain; nothing changed``, with the return code appended
+            (gh-869).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import KalmanStateFilter
+        >>> k = KalmanStateFilter(bn=0.01)
+        >>> _ = k.steps(np.full(50, 0.1))
+        >>> k.configure(bn=0.02)               # widen the loop, keep lock
+        >>> round(k.integ, 4), round(k.bn, 4)
+        (0.0016, 0.02)
+
+        """
+
+    def bandwidth(self, delay: float = 0.0, gain: float = 1.0) -> float:
+        """Exact delivered noise bandwidth of this loop AT THE GAINS IN FORCE
+        NOW, in cycles per update, for a detector delay of `delay` updates and
+        a loop gain of `gain` times nominal; the loop it would be if the gains
+        stopped changing. NaN when that loop is not stable there.
+
+        Parameters
+        ----------
+        delay : float
+            Detector delay in updates.
+        gain : float
+            Loop gain as a multiple of nominal.
+
+        Returns
+        -------
+        float
+            Cycles per update, NaN where the frozen loop is not stable.
+
+        Examples
+        --------
+        >>> from doppler.track import KalmanStateFilter
+        >>> k = KalmanStateFilter(bn=0.01)
+        >>> round(k.bandwidth(delay=1.0), 4)   # a detector delay of one update
+        0.0103
+
+        """
+
+    def stable(self, delay: float = 0.0, gain: float = 1.0) -> bool:
+        """Whether the loop at the gains in force now is stable for a detector
+        delay of `delay` updates and a loop gain of `gain` times nominal. A
+        statement about frozen gains, not about the converging loop.
+
+        Parameters
+        ----------
+        delay : float
+            Detector delay in updates.
+        gain : float
+            Loop gain as a multiple of nominal.
+
+        Returns
+        -------
+        bool
+            true where the frozen loop is stable.
+
+        Examples
+        --------
+        >>> from doppler.track import KalmanStateFilter
+        >>> KalmanStateFilter(bn=0.01).stable(delay=2.0)
+        True
+
+        """
+
+    def state_bytes(self) -> int:
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the KalmanStateFilter has already been
+        destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
+    def get_state(self) -> bytes:
+        """Serialize this object's mutable state to bytes.
+
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the KalmanStateFilter has already been
+        destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
+    def set_state(self, blob: bytes, /) -> None:
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the KalmanStateFilter has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
+
+    @property
+    def kp(self) -> float:
+        """Proportional gain in force now (rewritten each update)."""
+
+    @property
+    def ki(self) -> float:
+        """Integral gain in force now."""
+
+    @property
+    def kr(self) -> float:
+        """Rate gain in force now."""
+
+    @property
+    def integ(self) -> float:
+        """The frequency estimate."""
+
+    @property
+    def rate(self) -> float:
+        """The rate estimate."""
+
+    @property
+    def bn(self) -> float:
+        """The steady-state noise bandwidth in cycles per sample."""
+
+    @property
+    def t(self) -> float:
+        """The update period in samples."""
+
+    @property
+    def sigma_f(self) -> float:
+        """The steady state's frequency deviation for these figures, in the
+        loop's units: the lowest `sigma_f0` accepted; the highest is 5 times it
+        up to bn*t 0.04 and less above (see the validation report).
+        """
+
+    def destroy(self) -> None:
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on
+        exit.
+
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
+        """
+
+    def __enter__(self) -> "KalmanStateFilter":
+        """Enter a context manager, returning this object.
+
+        Lets a KalmanStateFilter be used in a `with` statement so its C
+        resources are released deterministically on exit rather than at
+        collection time.
+
+        Returns
+        -------
+        KalmanStateFilter
+            This same object, not a copy.
+        """
+
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+        /,
+    ) -> None:
+        """Exit a context manager, releasing the KalmanStateFilter.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
+
+@final
 class Costas:
     """Costas component.
 
@@ -427,7 +1194,7 @@ class Costas:
         decim: int = 1,
     ) -> None:
         """Attach (or detach) a telemetry context and register the carrier
-        loop's probes on it. Registers five probes, emitted once per dumped
+        loop's probes on it. Registers seven probes, emitted once per dumped
         symbol and further thinned by decim: "<prefix>.lock" (the |Re P|/|P|
         lock-metric EMA, 1 = phase-locked), "<prefix>.e" (the PLL discriminator
         output — the loop stress), "<prefix>.freq" (the NCO's frequency
@@ -437,16 +1204,25 @@ class Costas:
         (the complete loop-filter output, the integrator plus the proportional
         term, cycles/sample — dp_costas_get_nco_freq(); its mean rides a
         frequency ramp with no lag, where ".freq" lags by the loop's ramp
-        error). Passing NULL detaches. Setup path, never hot: call before the
-        producer thread starts stepping; the context is borrowed and must
-        outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
+        error), "<prefix>.freq_rate" (the norm_rate property: the third-order
+        filter's rate, cycles/sample^2 — dp_costas_get_norm_rate(); a loop's
+        complete output includes every integrator) and "<prefix>.order" (the
+        order property, 2 or 3, so a capture shows when a switch happened).
+        Both are registered and emitted at either order, ".freq_rate" reading
+        exactly 0 at order 2, which holds no rate: the order can change on a
+        live, attached loop (dp_costas_set_order()), so a probe present only at
+        order 3 would make the probe table depend on when the attach happened.
+        Passing NULL detaches. Setup path, never hot: call before the producer
+        thread starts stepping; the context is borrowed and must outlive the
+        attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
 
         Parameters
         ----------
         tlm : object | None
             Telemetry context to attach, or NULL to detach.
         prefix : str
-            Probe-name prefix, e.g. "car" or "ch0.car".
+            Probe-name prefix, e.g. "car" or "ch0.car"; at most 21 characters,
+            since "<prefix>.freq_rate" must fit the 31-character probe name.
         decim : int
             Emit every decim-th symbol; >= 1.
 
@@ -465,11 +1241,11 @@ class Costas:
         >>> c = Costas(bn=0.05, zeta=0.707, tsamps=64)
         >>> c.set_telemetry(tlm, "car")
         >>> sorted(tlm.probe_names)
-        ['car.e', 'car.freq', 'car.lock', 'car.locked', 'car.nco']
+        ['car.e', 'car.freq', 'car.freq_rate', 'car.lock', 'car.locked', 'car.nco', 'car.order']
         >>> x = np.ones(64 * 100, dtype=np.complex64)
         >>> _ = c.steps(x)
-        >>> recs = tlm.read()   # five records per dumped symbol
-        >>> len(recs) == 5 * 100
+        >>> recs = tlm.read()   # seven records per dumped symbol
+        >>> len(recs) == 7 * 100
         True
 
         """
@@ -485,6 +1261,10 @@ class Costas:
         left untouched, so a converged loop keeps tracking straight through the
         re-tune — narrow the bandwidth once pulled in for lower phase jitter,
         or widen it to chase a faster-moving residual.
+
+        At order 3 both filters are retuned and both keep their estimates
+        (frequency, and the third-order filter's rate); zeta reaches only the
+        second-order filter, which has the damping argument.
 
         Parameters
         ----------
@@ -561,15 +1341,71 @@ class Costas:
 
         """
 
+    def set_order(self, order: int, bn: float) -> None:
+        """Select the active loop filter on a live loop: order 2 (the PI loop
+        every Costas starts on) or order 3 (StateFilter, which also tracks the
+        carrier's rate), at loop bandwidth bn. The frequency estimate carries
+        across; a new order-3 rate starts at 0 (norm_rate seeds one). Raises
+        ValueError, changing nothing, for an order other than 2 or 3, a bn
+        outside the loop's domain (bn >= 0 and finite at either order, and at
+        most 0.12 at order 3), or order 3 while bn_fll > 0.
+
+        What carries across (docs/design/costas.md section 3.2):
+
+        - 2 to 3: the third-order filter is initialised at bn and takes the
+          frequency estimate `lf.integ`; its rate starts at 0
+          (dp_costas_set_norm_rate() seeds one).
+        - 3 to 2: the PI loop takes the third-order filter's frequency
+          estimate; the rate is dropped.
+        - Either way, and to the same order: `lf` is retuned to (bn, the
+          retained zeta), keeping its estimate; the NCO's phase and frequency,
+          the lock metric and decision, the FLL's previous prompt and the
+          integrate-and-dump are untouched, so the NCO frequency is continuous.
+
+        Costas never chooses the order; the embedder does.
+
+        Parameters
+        ----------
+        order : int
+            2 or 3.
+        bn : float
+            Loop noise bandwidth per update: in dp_loop_filter_params_ok() at
+            the retained zeta, and at order 3 also in
+            dp_state_filter_params_ok() at `t = 1`, which bounds it at 0.12.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``Costas.set_order: order must be 2 or 3, bn >= 0 and finite (at
+            most 0.12 at order 3), and bn_fll must be 0 for order 3``, with the
+            return code appended (gh-869).
+
+        Examples
+        --------
+        >>> from doppler.track import Costas
+        >>> c = Costas(bn=0.05, zeta=0.707, init_norm_freq=0.01, tsamps=16)
+        >>> c.set_order(3, 0.02)
+        >>> c.order, round(c.norm_freq, 6), c.bn  # the estimate carries across
+        (3, 0.01, 0.02)
+        >>> c.norm_rate = 1e-9                    # seed the carrier's rate
+        >>> round(c.norm_rate * 1e9, 9)
+        1.0
+        >>> c.set_order(2, 0.05)                  # back to the PI loop
+        >>> c.order, c.norm_rate                  # the rate is dropped
+        (2, 0.0)
+
+        """
+
     def reset(self) -> None:
-        """Re-seed the loop to the create-time frequency/phase; preserve
-        config.
+        """Re-seed the loop to the create-time frequency/phase, keeping the
+        configuration and the loop order; at order 3 the rate is zeroed.
 
         Drops the lock and rewinds the NCO, loop integrator and
         integrate-and-dump accumulators to the create-time seed frequency,
-        while retaining the configured loop bandwidth, damping and
-        lock-detector thresholds. Reprocess the same input after a reset and
-        the output is bit-identical.
+        while retaining the configured loop bandwidth, damping, lock-detector
+        thresholds and loop order. At order 3 the rate is zeroed as well.
+        Reprocess the same input after a reset and the output is bit-identical.
 
         Examples
         --------
@@ -693,10 +1529,34 @@ class Costas:
         ValueError
             On assignment, if ``dp_costas_set_bn_fll`` refuses the value by
             returning non-zero. The exception message is ``Costas: bn_fll must
-            be >= 0 and finite (0 = pure PLL)``, with the return code appended.
+            be >= 0 and finite (0 = pure PLL), and 0 at order 3``, with the
+            return code appended.
         """
     @bn_fll.setter
     def bn_fll(self, value: float) -> None: ...
+    @property
+    def order(self) -> int:
+        """The active loop filter's order: 2 (the PI loop) or 3 (StateFilter);
+        set with set_order().
+        """
+
+    @property
+    def norm_rate(self) -> float:
+        """The carrier's rate the third-order filter holds, in cycles per
+        sample per sample (R / fs**2 for R Hz/s at sample rate fs); 0 at order
+        2. Writable at order 3 only: it seeds the rate, as norm_freq seeds the
+        frequency.
+
+        Raises
+        ------
+        ValueError
+            On assignment, if ``dp_costas_set_norm_rate`` refuses the value by
+            returning non-zero. The exception message is ``Costas: norm_rate is
+            held only at order 3 (set_order(3, bn) first)``, with the return
+            code appended.
+        """
+    @norm_rate.setter
+    def norm_rate(self, value: float) -> None: ...
     def destroy(self) -> None:
         """Release the underlying C resources immediately.
 
@@ -1829,9 +2689,12 @@ class SymbolSync:
         variance*((Q^-1(pfa)-Q^-1(pd))/mean)^2 / threshold =
         Q^-1(pfa)*mean/(Q^-1(pfa)-Q^-1(pd)) derivation gives (avgs, threshold).
         No level hysteresis by default (up=down=threshold, matching
-        Dll.configure_lock's shape); n_up=1, n_down=8. Raises ValueError if
-        pfa/pd are outside (0, 1) or pd does not exceed pfa. Read the result
-        from the locked / lock_stat properties.
+        Dll.configure_lock's shape). The verify counts derive from the same
+        (pfa, pd) and a per-decision false-transition budget of 1e-6: n_up =
+        det_verify_count(pfa, 1e-6) and n_down = det_verify_count(1 - pd,
+        1e-6), 2 and 6 at pfa=1e-3, pd=0.9. Raises ValueError if pfa/pd are
+        outside (0, 1) or pd does not exceed pfa. Read the result from the
+        locked / lock_stat properties.
 
         Sizes the non-coherent block size (avgs) and declare threshold from a
         Gaussian sizing of the eye-opening statistic lock_signal =

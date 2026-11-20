@@ -13,6 +13,7 @@ re-acted on, and ``dry_run=True`` mutates nothing.
 from __future__ import annotations
 
 from dataclasses import replace
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -22,37 +23,60 @@ from coord import board_doctor_followthrough as ft
 from coord.board_doctor import (
     ALERT_SKIPPED,
     CAUSE_BASELINE_RED,
+    CAUSE_BRANCH_MERGED_GUARD,
     CAUSE_CEILING_BLOCKED_MERGEABLE,
     CAUSE_CHECKS_STALE_RACE,
     CAUSE_MERGE_NEVER_ATTEMPTED,
     CAUSE_MERGE_PENDING_STUCK,
     CAUSE_MERGED_PARTIAL,
+    CAUSE_NEXT_ACTION_UNPERFORMED,
     CAUSE_SMOKE_NO_VERDICT,
     CAUSE_STRANDED_PREREQ,
     CAUSE_STRANDED_PREREQ_BLOCKED,
+    IDLE_FLEET_ROOT_QUEUE,
     MECHANICAL_MERGE_PENDING_STALE_AFTER_SECONDS,
     MECHANICAL_SWEEP_COUNTER_NAMESPACE,
     MERGE_PENDING_STALE_AFTER_SECONDS,
+    NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS,
     STRANDED_PREREQ_OPT_OUT_LABEL,
     TIER_ALERT,
     TIER_AUTO,
     StuckRow,
+    _ceiling_blocked_ci_pending_candidates,
+    _ceiling_blocked_integration_red_candidates,
+    _dispatch_base_sync_fix,
+    _episode_stuck_row,
+    _reclassify_branch_merged_guard,
     _reclassify_ceiling_blocked,
     _reclassify_checks_stale_race,
     _reclassify_merge_never_attempted,
     _refresh_ceiling_blocked_settled_rows,
     baseline_red_rows,
+    branch_merged_guard_rows,
+    build_refile_candidate,
+    config_drift_candidates,
+    config_drift_rows,
+    default_tier_of,
     dispatch_plan_leg,
     drive_queue_rows,
+    drop_stale_predicted_after_edges,
+    idle_fleet_root_rows,
     merge_queue_rows,
     merged_partial_rows,
+    next_action_unperformed_rows,
     no_progress_rows,
+    predicted_after_target_drop_reason,
+    run_base_sync_fix_ceiling_sweep,
+    run_conflict_fix_ceiling_pending_sweep,
     run_followthrough_sweep,
+    run_pending_refile_close_sweep,
+    run_refile_sweep,
     smoke_no_verdict_rows,
     stranded_prereq_dep,
     stranded_prereq_guard,
     stranded_prereq_rows,
     sweep,
+    sweep_predicted_after_edges,
 )
 from coord.config import (
     BoardDoctorConfig,
@@ -62,9 +86,24 @@ from coord.config import (
     PreflightGuardRepoConfig,
     _parse_board_doctor,
 )
-from coord.drive_queue import BoardView, IssueFacts, QueueEntry, STATE_MERGED_PARTIAL, STATE_WAITING
+from coord.drive_queue import (
+    BoardView,
+    CONFLICT_FIX_PUSH_CI_GREEN,
+    CONFLICT_FIX_PUSH_CI_PENDING,
+    CONFLICT_FIX_PUSH_CI_RED,
+    IssueFacts,
+    QueueEntry,
+    STATE_BLOCKED,
+    STATE_MERGED_PARTIAL,
+    STATE_PARKED,
+    STATE_RUNNING,
+    STATE_WAITING,
+    conflict_fix_push_ci_verdict,
+    remaining_fix_rounds,
+    requeue_after_conflict_fix,
+)
 from coord.models import Assignment, Board, BoardDoctorRepoConfig, Machine, Repo
-from coord.queue_diagnose import LiveState
+from coord.queue_diagnose import CheckReading, LiveState
 from coord.smoke import (
     ABANDONED_BACKGROUND_SMOKE_MARKER,
     ENVIRONMENTAL_SMOKE_MARKER,
@@ -3235,6 +3274,14 @@ class TestParseBoardDoctorLogAndBackoffKnobs:
         with pytest.raises(ConfigError, match="fixit_leg_budget"):
             _parse_board_doctor({"fixit_leg_budget": "3"})
 
+    def test_auto_split_defaults_true_and_parses(self) -> None:
+        assert _parse_board_doctor(None).auto_split is True
+        assert _parse_board_doctor({"auto_split": False}).auto_split is False
+
+    def test_auto_split_rejects_non_boolean(self) -> None:
+        with pytest.raises(ConfigError, match="auto_split"):
+            _parse_board_doctor({"auto_split": "yes"})
+
 
 class TestBoardDoctorLogKnobsTakeEffectWithoutRestart:
     """#3889 config acceptance: a changed knob affects the very next
@@ -4895,6 +4942,452 @@ class TestSmokeNoVerdictRows:
         assert row.key == "acme/widgets#10"
 
 
+class TestNextActionUnperformedRows:
+    """#4045: classify a row whose live gates already name a dispatchable
+    ``next_action`` that nothing has performed — the quadraui#2744 shape
+    (a fix leg's own review bound to the wrong assignment, so its gates kept
+    reading ``next_action=dispatch_review`` for ~50 minutes with no leg in
+    flight) and the quadraui#2528/#2531 ``next_action=merge`` shape.
+    """
+
+    @staticmethod
+    def _truth(next_action: str, reason: str = "x"):
+        return SimpleNamespace(next_action=next_action, next_action_reason=reason)
+
+    def test_dispatch_review_is_classified_once_aged_past_the_threshold(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_DISPATCH_REVIEW
+
+        entry = QueueEntry(
+            repo="acme/widgets", issue=2744, state="running", launched_at=0.0,
+        )
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_DISPATCH_REVIEW),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        [row] = rows
+        assert row.key == entry.key
+        assert row.cause == CAUSE_NEXT_ACTION_UNPERFORMED
+        assert row.fresh is True
+        assert "dispatch_review" in row.evidence[-1]
+
+    def test_merge_is_classified_once_aged_past_the_threshold(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_MERGE
+
+        entry = QueueEntry(repo="acme/widgets", issue=2528, state="blocked", reason_at=0.0)
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_MERGE),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        [row] = rows
+        assert row.cause == CAUSE_NEXT_ACTION_UNPERFORMED
+        assert "merge" in row.evidence[-1]
+
+    def test_a_leg_in_flight_is_left_alone(self) -> None:
+        # `reconcile_entry`'s own worker-status check already resolves to
+        # WAIT whenever a leg is in flight — never read as dispatchable.
+        from coord.entry_truth import NEXT_ACTION_WAIT
+
+        entry = QueueEntry(repo="acme/widgets", issue=2745, state="running", launched_at=0.0)
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_WAIT),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+
+    def test_escalate_and_unknown_are_also_left_alone(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_ESCALATE, NEXT_ACTION_UNKNOWN
+
+        entry = QueueEntry(repo="acme/widgets", issue=2746, state="running", launched_at=0.0)
+
+        for action in (NEXT_ACTION_ESCALATE, NEXT_ACTION_UNKNOWN):
+            rows = next_action_unperformed_rows(
+                [entry],
+                covered_keys=frozenset(),
+                truth_of=lambda e, action=action: self._truth(action),
+                now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+            )
+            assert rows == []
+
+    def test_dispatch_test_is_excluded_even_when_aged_past_the_threshold(self) -> None:
+        # #4045 review: `reconcile_entry`'s `latest_worker_status` check is
+        # scoped to `WORK_LIKE_TYPES` — a `smoke` leg in flight is invisible
+        # to it, so `dispatch_test` must never be treated as dispatchable
+        # here (the restage it would otherwise trigger clears a live
+        # `test_state="running"` marker with no liveness check at all).
+        from coord.entry_truth import NEXT_ACTION_DISPATCH_TEST
+
+        entry = QueueEntry(repo="acme/widgets", issue=2752, state="running", launched_at=0.0)
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_DISPATCH_TEST),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+
+    def test_under_the_threshold_is_not_classified(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_DISPATCH_REVIEW
+
+        entry = QueueEntry(repo="acme/widgets", issue=2747, state="running", launched_at=0.0)
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_DISPATCH_REVIEW),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS - 1.0,
+        )
+
+        assert rows == []
+
+    def test_an_already_covered_key_is_skipped_without_probing(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_DISPATCH_REVIEW
+
+        entry = QueueEntry(repo="acme/widgets", issue=2748, state="running", launched_at=0.0)
+        calls: list[str] = []
+
+        def _truth_of(e):
+            calls.append(e.key)
+            return self._truth(NEXT_ACTION_DISPATCH_REVIEW)
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset({entry.key}),
+            truth_of=_truth_of,
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+        assert calls == []
+
+    def test_a_done_like_state_is_never_classified(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_MERGE
+
+        entry = QueueEntry(repo="acme/widgets", issue=2749, state="done", reason_at=0.0)
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_MERGE),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+
+    def test_a_probe_failure_is_a_confirmed_skip_not_a_crash(self) -> None:
+        entry = QueueEntry(repo="acme/widgets", issue=2750, state="running", launched_at=0.0)
+
+        def _raise(e):
+            raise RuntimeError("gh unreachable")
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=_raise,
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+
+    def test_a_none_truth_is_read_as_nothing_to_say(self) -> None:
+        entry = QueueEntry(repo="acme/widgets", issue=2751, state="running", launched_at=0.0)
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: None,
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+
+    def test_waiting_row_with_every_prereq_landed_overrides_the_stale_stranded_text(
+        self,
+    ) -> None:
+        # The exact collision this cause must win: `last_reason` still
+        # reads the stale "waiting on X (open, not queued)" text
+        # `stranded_prereq_rows` keys off, but the dep has genuinely landed
+        # by now, and this row's OWN gates read a live, dispatchable
+        # `next_action`.
+        from coord.entry_truth import NEXT_ACTION_MERGE
+
+        entry = QueueEntry(
+            repo="acme/widgets", issue=2744, state="waiting",
+            after=("acme/widgets#2172",), reason_at=0.0,
+            last_reason="waiting on acme/widgets#2172 (open, not queued)",
+        )
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_MERGE),
+            board_view=BoardView(
+                issues={"acme/widgets#2172": IssueFacts(issue_state="closed")},
+            ),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        [row] = rows
+        assert row.cause == CAUSE_NEXT_ACTION_UNPERFORMED
+
+    def test_waiting_row_with_an_unlanded_prereq_is_left_for_stranded_prereq(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_MERGE
+
+        entry = QueueEntry(
+            repo="acme/widgets", issue=2174, state="waiting",
+            after=("acme/widgets#2172",), reason_at=0.0,
+            last_reason="waiting on acme/widgets#2172 (open, not queued)",
+        )
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_MERGE),
+            board_view=BoardView(
+                issues={"acme/widgets#2172": IssueFacts(issue_state="open")},
+            ),
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+
+    def test_waiting_row_fails_closed_with_no_board_view_supplied(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_MERGE
+
+        entry = QueueEntry(
+            repo="acme/widgets", issue=2175, state="waiting",
+            after=("acme/widgets#2172",), reason_at=0.0,
+            last_reason="waiting on acme/widgets#2172 (open, not queued)",
+        )
+
+        rows = next_action_unperformed_rows(
+            [entry],
+            covered_keys=frozenset(),
+            truth_of=lambda e: self._truth(NEXT_ACTION_MERGE),
+            board_view=None,
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert rows == []
+
+    def test_probe_cap_bounds_how_many_rows_are_probed_per_sweep(self) -> None:
+        from coord.entry_truth import NEXT_ACTION_MERGE
+
+        entries = [
+            QueueEntry(repo="acme/widgets", issue=2800 + i, state="running", launched_at=0.0)
+            for i in range(3)
+        ]
+        calls: list[str] = []
+
+        def _truth_of(e):
+            calls.append(e.key)
+            return self._truth(NEXT_ACTION_MERGE)
+
+        rows = next_action_unperformed_rows(
+            entries,
+            covered_keys=frozenset(),
+            truth_of=_truth_of,
+            probe_cap=1,
+            now=NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS + 1.0,
+        )
+
+        assert len(calls) == 1
+        assert len(rows) == 1
+
+
+class TestNextActionUnperformedAllowlist:
+    """#4045: the cause is registered on the C2 auto allow-list, never the
+    generic investigate tier — the fix is a direct gated primitive
+    (restage/merge/mark_done), not a fresh fix-it leg."""
+
+    def test_allowlisted_as_restage_never_the_generic_fixit_leg(self) -> None:
+        import coord.board_doctor_policy as board_doctor_policy
+
+        assert board_doctor_policy.ALLOWLIST[CAUSE_NEXT_ACTION_UNPERFORMED] == "restage"
+        assert CAUSE_NEXT_ACTION_UNPERFORMED not in board_doctor_policy.INVESTIGATE_CAUSES
+        assert default_tier_of(CAUSE_NEXT_ACTION_UNPERFORMED) == TIER_AUTO
+
+
+class TestNextActionUnperformedDispatcher:
+    """#4045 acceptance: the auto tier re-derives the row's live gates right
+    before acting and performs the matching gated primitive through the
+    REAL :mod:`coord.board_doctor_permissions` plumbing. Only
+    ``coord.entry_truth.reconcile_entry`` is stubbed (its own derivation is
+    covered end-to-end by ``tests/test_entry_truth.py``); everything below
+    it — ``sweep_restage``'s own "newest completed work leg" pick,
+    ``coord.merge_queue``'s own merge primitives — is the REAL code.
+    """
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(repos=[Repo(name="acme/widgets", github="acme/widgets")], machines=[])
+
+    def _wire_board_and_config(self, monkeypatch, board: Board, config: Config) -> None:
+        import coord.board_doctor_policy as policy
+
+        monkeypatch.setattr(
+            policy, "_resolve_board_and_config_for_mechanical_action",
+            lambda *a, **k: (board, config),
+        )
+
+    def _dispatch(self, row: StuckRow) -> bool:
+        from coord.board_doctor_policy import AUTO_DISPATCHERS
+
+        return AUTO_DISPATCHERS[CAUSE_NEXT_ACTION_UNPERFORMED](row)
+
+    def test_dispatches_a_review_of_the_newest_work_leg(self, monkeypatch) -> None:
+        # quadraui#2744 shape: the chain root's own review verdict is
+        # recorded against the ROOT assignment, so the newer fix leg still
+        # reads as never-reviewed.
+        root = Assignment(
+            machine_name="m1", repo_name="acme/widgets", issue_number=2744,
+            issue_title="t", assignment_id="root", type="work", status="done",
+            branch="issue-2744-root", dispatched_at=1.0,
+        )
+        root_review = Assignment(
+            machine_name="m2", repo_name="acme/widgets", issue_number=2744,
+            issue_title="t", assignment_id="root-review", type="review",
+            status="done", review_of_assignment_id="root",
+            review_verdict="request_changes", dispatched_at=2.0,
+        )
+        fix = Assignment(
+            machine_name="m1", repo_name="acme/widgets", issue_number=2744,
+            issue_title="t", assignment_id="fix", type="work", status="done",
+            branch="issue-2744-fix", dispatched_at=3.0,
+        )
+        board = Board(active=[], completed=[root, root_review, fix])
+        config = self._config()
+        self._wire_board_and_config(monkeypatch, board, config)
+
+        from coord.entry_truth import NEXT_ACTION_DISPATCH_REVIEW
+
+        monkeypatch.setattr(
+            "coord.entry_truth.reconcile_entry",
+            lambda *a, **k: SimpleNamespace(
+                next_action=NEXT_ACTION_DISPATCH_REVIEW,
+                next_action_reason="review required but not approved",
+            ),
+        )
+
+        dispatched_against: list[Assignment] = []
+
+        def _fake_dispatch_review(work, b, c):
+            dispatched_against.append(work)
+            work.review_state = "dispatched"
+            return SimpleNamespace(assignment_id="review-fresh")
+
+        monkeypatch.setattr("coord.review.dispatch_review", _fake_dispatch_review)
+
+        row = _row("acme/widgets#2744", CAUSE_NEXT_ACTION_UNPERFORMED)
+        performed = self._dispatch(row)
+
+        assert performed is True
+        assert dispatched_against == [fix]
+
+    def test_runs_the_gated_merge_for_an_approved_green_row(self, monkeypatch) -> None:
+        from coord import merge_queue as mq
+        from coord.entry_truth import NEXT_ACTION_MERGE
+
+        board = Board()
+        config = self._config()
+        self._wire_board_and_config(monkeypatch, board, config)
+
+        entry = mq.QueuedMerge(
+            assignment_id="w1", repo_name="acme/widgets", repo_github="acme/widgets",
+            branch="issue-2528-fix", target_branch="main", issue_number=2528,
+            issue_title="t", state=mq.PENDING,
+        )
+        mq.save_queue([entry])
+
+        monkeypatch.setattr(
+            "coord.entry_truth.reconcile_entry",
+            lambda *a, **k: SimpleNamespace(
+                next_action=NEXT_ACTION_MERGE, next_action_reason="all gates clear",
+            ),
+        )
+        monkeypatch.setattr("coord.merge_queue.has_approved_review", lambda *a, **k: True)
+        landed_kind = next(iter(mq.MERGE_LANDED_KINDS))
+        monkeypatch.setattr(
+            "coord.merge_queue.process",
+            lambda *a, **k: [SimpleNamespace(kind=landed_kind, message="merged")],
+        )
+
+        row = _row("acme/widgets#2528", CAUSE_NEXT_ACTION_UNPERFORMED)
+        performed = self._dispatch(row)
+
+        assert performed is True
+
+    def test_a_row_whose_live_gates_no_longer_read_dispatchable_is_a_confirmed_noop(
+        self, monkeypatch,
+    ) -> None:
+        # Reality moved on between classification and this call (e.g. an
+        # operator already dispatched it by hand) — never a false success.
+        from coord.entry_truth import NEXT_ACTION_WAIT
+
+        board = Board()
+        config = self._config()
+        self._wire_board_and_config(monkeypatch, board, config)
+        monkeypatch.setattr(
+            "coord.entry_truth.reconcile_entry",
+            lambda *a, **k: SimpleNamespace(
+                next_action=NEXT_ACTION_WAIT, next_action_reason="a leg is now in flight",
+            ),
+        )
+
+        row = _row("acme/widgets#9999", CAUSE_NEXT_ACTION_UNPERFORMED)
+        performed = self._dispatch(row)
+
+        assert performed is False
+
+    def test_a_fresh_dispatch_test_truth_is_a_confirmed_noop_never_a_restage(
+        self, monkeypatch,
+    ) -> None:
+        # #4045 review: even if a row were ever classified under this cause
+        # with a next_action that has since read `dispatch_test` (excluded
+        # from the classifier, but re-derived fresh here regardless), this
+        # must fall to the "no longer dispatchable" branch rather than
+        # restaging the Test stage unconditionally — restaging a genuinely
+        # live smoke leg this way wipes its in-flight marker with no
+        # liveness check at all.
+        from coord.entry_truth import NEXT_ACTION_DISPATCH_TEST
+
+        board = Board()
+        config = self._config()
+        self._wire_board_and_config(monkeypatch, board, config)
+        monkeypatch.setattr(
+            "coord.entry_truth.reconcile_entry",
+            lambda *a, **k: SimpleNamespace(
+                next_action=NEXT_ACTION_DISPATCH_TEST,
+                next_action_reason="test required but not yet passed",
+            ),
+        )
+
+        restage_calls: list[tuple] = []
+        monkeypatch.setattr(
+            "coord.board_doctor_policy.dispatch_investigator_action",
+            lambda *a, **k: restage_calls.append((a, k)) or {"acted": True},
+        )
+
+        row = _row("acme/widgets#9998", CAUSE_NEXT_ACTION_UNPERFORMED)
+        performed = self._dispatch(row)
+
+        assert performed is False
+        assert restage_calls == []
+
+
 class TestStrandedPrereqDep:
     """#3944: :func:`stranded_prereq_dep` is the one place outside
     `coord.drive_queue` that knows `_resolve_prereqs`'s "open, not queued"
@@ -5364,6 +5857,393 @@ class TestMergedPartialRows:
         assert any(r.key == "quadraui#2180" and r.cause == CAUSE_MERGED_PARTIAL for r in rows)
 
 
+class TestCollectRowsOnlySweepsLiveQueueRows:
+    """#4039: a row removed from the live drive-queue must stop producing
+    a `StuckRow` the moment it leaves — never resurrected from a
+    `block_log` episode `needs_diagnosis` has already concluded (and so
+    never re-probes), which is the exact shape that kept
+    quadraui#2467/#2537 showing up in every hourly sweep log for hours
+    after they were removed from the queue.
+    """
+
+    def _episode(self, key: str) -> dict:
+        return {
+            "key": key,
+            "state": STATE_PARKED,
+            "diagnosed_cause": queue_diagnose.CAUSE_PREMISE_REFUSAL,
+            "diagnosis_confidence": queue_diagnose.CONFIDENCE_HIGH,
+            "diagnosis_evidence": ("last_reason: premise-refusal park",),
+            "resolved": False,
+            "diagnoses": 1,
+        }
+
+    def _collect(self, monkeypatch, *, live_entry: QueueEntry | None) -> list[StuckRow]:
+        import coord.board_doctor as board_doctor_mod
+
+        key = "quadraui#2467"
+        episode = self._episode(key)
+        monkeypatch.setattr(board_doctor_mod, "merge_queue_rows", lambda *a, **k: [])
+        monkeypatch.setattr(board_doctor_mod, "merged_partial_rows", lambda *a, **k: [])
+        monkeypatch.setattr(board_doctor_mod, "no_progress_rows", lambda *a, **k: [])
+        monkeypatch.setattr(board_doctor_mod, "smoke_no_verdict_rows", lambda *a, **k: [])
+        monkeypatch.setattr(board_doctor_mod, "stranded_prereq_rows", lambda *a, **k: [])
+        monkeypatch.setattr(board_doctor_mod, "branch_merged_guard_rows", lambda *a, **k: [])
+        monkeypatch.setattr(board_doctor_mod, "config_drift_rows", lambda *a, **k: [])
+        monkeypatch.setattr(board_doctor_mod.queue_diagnose, "run_pass", lambda *a, **k: [])
+        monkeypatch.setattr("coord.block_log.episodes", lambda *a, **k: [episode])
+        monkeypatch.setattr("coord.block_log.read_events", lambda *a, **k: [])
+        monkeypatch.setattr(
+            "coord.commands.drive_queue._fetch_board_view_with_retry",
+            lambda: (_ for _ in ()).throw(RuntimeError("no board view in this test")),
+        )
+        monkeypatch.setattr("coord.commands.drive_queue._local_host_id", lambda: "host")
+        monkeypatch.setattr("coord.drive.list_drive_sessions", lambda: [])
+        monkeypatch.setattr(
+            "coord.health.aggregate.local_fleet_health_block", lambda *a, **k: {},
+        )
+        monkeypatch.setattr("coord.merge_queue.load_queue", lambda: [])
+        monkeypatch.setattr("coord.state.baseline_red_merge_blocked", lambda *a, **k: False)
+        monkeypatch.setattr("coord.state.baseline_red_streaks", lambda: {})
+        monkeypatch.setattr("coord.state.build_board", lambda: Board())
+        live_entries = [live_entry] if live_entry is not None else []
+        monkeypatch.setattr(
+            "coord.state.list_drive_queue",
+            lambda: [live_entry.__dict__] if live_entry is not None else [],
+        )
+        monkeypatch.setattr(
+            "coord.drive_queue.entries_from_rows", lambda rows: live_entries,
+        )
+        monkeypatch.setattr(
+            "coord.drive_queue.read_systemd_max_parallel_flags", lambda: {},
+        )
+
+        config = Config(repos=[Repo(name="quadraui", github="acme/quadraui")], machines=[])
+        return board_doctor_mod.collect_rows(config=config)
+
+    def test_a_row_removed_from_the_live_queue_yields_nothing(self, monkeypatch) -> None:
+        rows = self._collect(monkeypatch, live_entry=None)
+
+        assert rows == []
+
+    def test_a_row_still_live_is_still_rebuilt_from_its_settled_episode(
+        self, monkeypatch,
+    ) -> None:
+        """Control: the same settled-episode reconstruction this fix
+        gates must still fire for a row that genuinely IS still in the
+        queue — #4039 narrows `_episode_stuck_row`'s reach, it must not
+        remove it."""
+        live_entry = QueueEntry(repo="quadraui", issue=2467, state=STATE_PARKED)
+
+        rows = self._collect(monkeypatch, live_entry=live_entry)
+
+        assert any(
+            r.key == "quadraui#2467" and r.cause == queue_diagnose.CAUSE_PREMISE_REFUSAL
+            for r in rows
+        )
+
+
+class TestIdleFleetRootRows:
+    """A repo with 0 `running` drive-queue rows collapses every row that
+    is merely cascading off an unsatisfied ``after=`` down to just the
+    root(s) actually stuck, one :class:`StuckRow` per root — never one
+    per dependent."""
+
+    def _parked_root(self, repo: str, issue: int) -> QueueEntry:
+        from coord.models import PREMISE_REFUSAL_MARKER
+
+        return QueueEntry(
+            repo=repo, issue=issue, state=STATE_PARKED,
+            last_reason=f"blocked {PREMISE_REFUSAL_MARKER} missing prerequisite",
+        )
+
+    def _waiting_dependent(self, repo: str, issue: int, root: QueueEntry) -> QueueEntry:
+        """A row chained behind a `parked` root — `_resolve_prereqs`
+        leaves this `waiting`, never `blocked` (real production text)."""
+        return QueueEntry(
+            repo=repo, issue=issue, state=STATE_WAITING, after=(root.key,),
+            last_reason=f"waiting on {root.key} (queued, {root.state})",
+        )
+
+    def test_two_parked_roots_with_24_waiting_dependents_yield_two_alerts(self) -> None:
+        """The 2026-11-19 quadraui incident shape: two `parked` roots, 24
+        rows chained behind them left `waiting` (never `blocked`) — the
+        repo has 0 `running` rows, so it is idle, and the root alert must
+        still fire despite every dependent reading `waiting`."""
+        repo = "quadraui"
+        root_a = self._parked_root(repo, 2695)
+        root_b = self._parked_root(repo, 2531)
+        entries = [root_a, root_b]
+        for i in range(24):
+            root = root_a if i % 2 == 0 else root_b
+            entries.append(self._waiting_dependent(repo, 3000 + i, root))
+
+        alerts = idle_fleet_root_rows(entries)
+
+        assert len(entries) == 26
+        assert {a.key for a in alerts} == {root_a.key, root_b.key}
+        assert all(a.queue == IDLE_FLEET_ROOT_QUEUE for a in alerts)
+        assert all(a.cause == queue_diagnose.CAUSE_PREMISE_REFUSAL for a in alerts)
+        for alert in alerts:
+            assert any("0 running drive-queue rows" in e for e in alert.evidence)
+            assert any("12 row(s) queued behind this root" in e for e in alert.evidence)
+
+    def test_a_removed_row_yields_nothing(self) -> None:
+        """A row no longer in *entries* — removed from the live queue —
+        leaves no trace at all, root or dependent."""
+        assert idle_fleet_root_rows([]) == []
+
+    def test_a_repo_with_a_running_row_is_not_idle(self) -> None:
+        repo = "quadraui"
+        root = self._parked_root(repo, 2695)
+        busy = QueueEntry(repo=repo, issue=1, state=STATE_RUNNING)
+        dep = self._waiting_dependent(repo, 2, root)
+
+        assert idle_fleet_root_rows([root, busy, dep]) == []
+
+    def test_a_blocked_root_whose_dependents_cascade_to_blocked_yields_one_alert(
+        self,
+    ) -> None:
+        """A `blocked` (not `parked`) root's dependents DO cascade to
+        `blocked` themselves (`_resolve_prereqs`'s unsatisfiable verdict),
+        but each carries the cascade's own ``it will never satisfy`` text
+        — never the root's — so only the root itself qualifies."""
+        from coord.models import PREMISE_REFUSAL_MARKER
+
+        repo = "quadraui"
+        root = QueueEntry(
+            repo=repo, issue=2695, state=STATE_BLOCKED,
+            last_reason=f"blocked {PREMISE_REFUSAL_MARKER} missing prerequisite",
+        )
+        dep = QueueEntry(
+            repo=repo, issue=3000, state=STATE_BLOCKED, after=(root.key,),
+            last_reason=f"pre-req {root.key} is queued but {root.state} — it will never satisfy",
+        )
+
+        alerts = idle_fleet_root_rows([root, dep])
+
+        assert [a.key for a in alerts] == [root.key]
+        assert alerts[0].cause == queue_diagnose.CAUSE_PREMISE_REFUSAL
+
+    def test_a_cause_this_epic_already_auto_fixes_is_not_double_alerted(self) -> None:
+        """`CAUSE_NEVER_DISPATCHED` already has a registered `requeue`
+        handler (`coord.board_doctor_policy`'s mechanical tier) that acts
+        on the root directly — a second, redundant page adds nothing."""
+        repo = "quadraui"
+        # No terminal-park marker, no attempts — the plain #2944
+        # never-dispatched shape.
+        root = QueueEntry(repo=repo, issue=2695, state=STATE_PARKED)
+
+        assert idle_fleet_root_rows([root]) == []
+
+    def test_a_permanent_block_marker_still_alerts(self) -> None:
+        """A #1844/#2019/#2972/#3522 permanent block is exactly the shape
+        "no handler in this epic will fix automatically" describes — it
+        must not be excluded the way `coord.drive_queue.
+        is_unreachable_wait_shape` excludes it for its OWN (different)
+        purpose."""
+        repo = "quadraui"
+        root = QueueEntry(
+            repo=repo, issue=2695, state=STATE_BLOCKED, attempts=1,
+            last_reason="guard refused the relaunch (#1844)",
+        )
+        diagnosed_row = StuckRow(
+            queue="drive-queue", key=root.key, state=STATE_BLOCKED,
+            cause=queue_diagnose.CAUSE_GATE_BLOCKED, confidence=queue_diagnose.CONFIDENCE_HIGH,
+            evidence=("guard refused the relaunch (#1844)",), fresh=True,
+        )
+
+        alerts = idle_fleet_root_rows([root], [diagnosed_row])
+
+        assert [a.key for a in alerts] == [root.key]
+        assert alerts[0].cause == queue_diagnose.CAUSE_GATE_BLOCKED
+
+    def test_an_exhausted_investigate_tier_cause_still_alerts_via_its_2972_marker(
+        self,
+    ) -> None:
+        """`CAUSE_CI_RED` has its own investigate-tier auto fix-it-leg
+        handler (`default_tier_of` reads it as auto) — but once that
+        handler's own retry budget is exhausted, `coord.drive_queue`'s
+        #2972 fix-round-ceiling writer stamps its marker straight into
+        `last_reason`, superseding the plain "still red" text. The
+        normally-auto cause must not keep this root unpaged once that
+        marker is present — the handler that cause names has, in fact,
+        already given up on this exact row."""
+        repo = "quadraui"
+        root = QueueEntry(
+            repo=repo, issue=2695, state=STATE_BLOCKED, attempts=5,
+            last_reason="fix-round ceiling reached across relaunches (#2972): still ci-red",
+        )
+        diagnosed_row = StuckRow(
+            queue="drive-queue", key=root.key, state=STATE_BLOCKED,
+            cause=queue_diagnose.CAUSE_CI_RED, confidence=queue_diagnose.CONFIDENCE_HIGH,
+            evidence=("the required check is still red",), fresh=True,
+        )
+        assert default_tier_of(queue_diagnose.CAUSE_CI_RED) == TIER_AUTO
+
+        alerts = idle_fleet_root_rows([root], [diagnosed_row])
+
+        assert [a.key for a in alerts] == [root.key]
+        assert alerts[0].cause == queue_diagnose.CAUSE_CI_RED
+
+    def test_a_repo_with_no_rows_at_all_is_not_idle(self) -> None:
+        repo = "quadraui"
+        done = QueueEntry(repo=repo, issue=1, state="done")
+
+        assert idle_fleet_root_rows([done]) == []
+
+    def test_a_baseline_red_repo_is_skipped_in_favor_of_the_repo_wide_alert(self) -> None:
+        """`baseline_red_rows` already files the one repo-wide alert a
+        streak-blocked repo needs — this must not also fire a second,
+        fallback-classified page for the same repo."""
+        repo = "quadraui"
+        root = self._parked_root(repo, 2695)
+
+        assert idle_fleet_root_rows([root], blocked_streaks={repo: 5}) == []
+
+
+class TestPostIdleFleetRootAlert:
+    """#4039: :func:`coord.notify.post_idle_fleet_root_alert` — the
+    delivery half, independent of `drive_escalations`."""
+
+    def _row(self) -> StuckRow:
+        return StuckRow(
+            queue=IDLE_FLEET_ROOT_QUEUE, key="quadraui#2695", state=STATE_PARKED,
+            cause=queue_diagnose.CAUSE_PREMISE_REFUSAL,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            evidence=("quadraui: 0 running/waiting drive-queue rows", "12 row(s) queued behind this root"),
+        )
+
+    def test_writes_a_drive_escalation_the_notifier_will_page_on(self) -> None:
+        """The write goes through `write_drive_escalation` — the SAME
+        path `coord.notifier.collect.halted_drives` reads to build the
+        actual ntfy push, unlike a GitHub issue comment, which pages
+        nobody."""
+        from coord import notify
+
+        result = notify.post_idle_fleet_root_alert(self._row())
+
+        assert result is True
+        escalation = state.get_drive_escalation("(idle-fleet-root:quadraui)", 2695)
+        assert escalation is not None
+        assert escalation["stage"] == "board-doctor:idle-fleet-root"
+        assert "premise-refusal" in escalation["reason"]
+        assert "12 row(s) queued behind this root" in escalation["reason"]
+
+    def test_does_not_collide_with_the_roots_own_ordinary_escalation(self) -> None:
+        """The root's own ``(repo, issue)`` already owns a
+        `board-doctor:drive-queue` escalation slot — writing the
+        idle-fleet-root alert must land under its OWN synthetic key,
+        never overwrite that row."""
+        from coord import notify
+
+        state.record_drive_escalation(
+            "quadraui", 2695,
+            stage="board-doctor:drive-queue",
+            reason="board-doctor: drive-queue row stuck",
+            gate_readings="queue=drive-queue | cause=premise-refusal",
+            proposed_command="coord drive-queue list --repo quadraui",
+        )
+
+        result = notify.post_idle_fleet_root_alert(self._row())
+
+        assert result is True
+        own_row_escalation = state.get_drive_escalation("quadraui", 2695)
+        assert own_row_escalation is not None
+        assert own_row_escalation["stage"] == "board-doctor:drive-queue"
+        root_alert = state.get_drive_escalation("(idle-fleet-root:quadraui)", 2695)
+        assert root_alert is not None
+        assert root_alert["stage"] == "board-doctor:idle-fleet-root"
+
+    def test_an_unparseable_key_returns_false_not_an_exception(self) -> None:
+        from coord import notify
+
+        bad_row = StuckRow(
+            queue=IDLE_FLEET_ROOT_QUEUE, key="not-a-repo-issue-key", state=STATE_PARKED,
+            cause=queue_diagnose.CAUSE_PREMISE_REFUSAL,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+        )
+
+        assert notify.post_idle_fleet_root_alert(bad_row) is False
+
+    def test_a_failed_write_returns_false_not_an_exception(self, monkeypatch) -> None:
+        from coord import notify
+
+        def _raise(*a, **k):
+            raise RuntimeError("db exploded")
+
+        monkeypatch.setattr("coord.state.record_drive_escalation", _raise)
+
+        assert notify.post_idle_fleet_root_alert(self._row()) is False
+
+
+class TestRunSweepRoutesIdleFleetRootAlerts:
+    """`run_sweep`'s own `_route_alert` wrapper: an `idle-fleet-root` row
+    must reach `coord.notify.post_idle_fleet_root_alert`, never the
+    ordinary *alert_dispatcher* — and every other row must still reach
+    *alert_dispatcher* unchanged."""
+
+    def test_idle_fleet_root_row_routes_to_the_notify_alert(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+        from coord import notify
+
+        captured: dict = {}
+
+        def _fake_sweep(rows, **kwargs):
+            captured.update(kwargs)
+            return board_doctor_mod.SweepReport(sweep_id="s1")
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([], Board()),
+        )
+        monkeypatch.setattr(board_doctor_mod, "sweep", _fake_sweep)
+
+        notify_calls: list = []
+        monkeypatch.setattr(
+            notify, "post_idle_fleet_root_alert",
+            lambda row: notify_calls.append(row) or True,
+        )
+        ordinary_calls: list = []
+
+        board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            alert_dispatcher=lambda row: ordinary_calls.append(row) or True,
+        )
+
+        root_row = StuckRow(
+            queue=IDLE_FLEET_ROOT_QUEUE, key="quadraui#2695", state=STATE_PARKED,
+            cause=queue_diagnose.CAUSE_PREMISE_REFUSAL,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+        )
+        drive_row = _row("quadraui#1", "merge-conflict")
+
+        assert captured["alert_dispatcher"](root_row) is True
+        assert notify_calls == [root_row]
+        assert ordinary_calls == []
+
+        assert captured["alert_dispatcher"](drive_row) is True
+        assert ordinary_calls == [drive_row]
+
+    def test_no_dispatcher_means_no_routing_wrapper(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        captured: dict = {}
+
+        def _fake_sweep(rows, **kwargs):
+            captured.update(kwargs)
+            return board_doctor_mod.SweepReport(sweep_id="s1")
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([], Board()),
+        )
+        monkeypatch.setattr(board_doctor_mod, "sweep", _fake_sweep)
+
+        board_doctor_mod.run_sweep(config=Config(repos=[], machines=[]))
+
+        assert captured["alert_dispatcher"] is None
+
+
 class TestBuildPartialMerge:
     """:func:`build_partial_merge` — the real (best-effort)
     :class:`~coord.board_doctor_followthrough.PartialMerge` builder."""
@@ -5816,6 +6696,113 @@ class TestRunSweepFollowthroughWiring:
         assert report.followthrough == []
 
 
+class TestRunSweepRefileWiring:
+    """:func:`run_sweep`'s own split for a `branch-merged-guard` row: it
+    is pulled out of the tier loop and handed to *refile_sweep* ONLY when
+    it is actually eligible to be refiled THIS call (``auto_refile`` AND
+    the row's own repo opted in via ``board_doctor.auto_refile: true``) —
+    a repo that has not opted in (the fleet default) keeps seeing the row
+    on the ordinary alert/mechanical path instead of it vanishing from
+    both `report.decisions` and `report.refile`."""
+
+    def test_opted_in_row_bypasses_the_tier_loop(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        rows = [
+            _row("quadraui#1", "merge-conflict"),
+            guard_row := StuckRow(
+                queue="drive-queue", key="quadraui#2467", state=STATE_BLOCKED,
+                cause=CAUSE_BRANCH_MERGED_GUARD, confidence="high",
+            ),
+        ]
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: (rows, Board()),
+        )
+        captured_refile_rows: list = []
+
+        def _fake_refile_sweep(refile_rows, *, config, board, dry_run):
+            captured_refile_rows.extend(refile_rows)
+            return ["sentinel-disposition"]
+
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_refile=True),
+        )
+        config = Config(repos=[repo], machines=[])
+
+        report = board_doctor_mod.run_sweep(
+            config=config,
+            tier_of=lambda cause: TIER_ALERT,
+            alert_dispatcher=lambda row: True,
+            refile_sweep=_fake_refile_sweep,
+        )
+
+        # Only the non-guard row reached the tier loop.
+        assert [d.key for d in report.decisions] == ["quadraui#1"]
+        # The opted-in guard row was handed to the dedicated pass instead.
+        assert captured_refile_rows == [guard_row]
+        assert report.refile == ["sentinel-disposition"]
+        assert report.rows_observed == 2
+
+    def test_not_opted_in_row_stays_on_the_alert_path(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        guard_row = StuckRow(
+            queue="drive-queue", key="quadraui#2467", state=STATE_BLOCKED,
+            cause=CAUSE_BRANCH_MERGED_GUARD, confidence="high",
+        )
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([guard_row], Board()),
+        )
+        refile_called = []
+
+        report = board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),  # no repo entry => not opted in
+            tier_of=lambda cause: TIER_ALERT,
+            alert_dispatcher=lambda row: True,
+            refile_sweep=lambda *a, **k: refile_called.append(1) or [],
+        )
+
+        # The row stayed on the ordinary tier loop — it still alerts and
+        # still lands in `touched`, so a live escalation for it is never
+        # dismissed by `clear_absent_rows` — rather than vanishing from
+        # both `report.decisions` and `report.refile`.
+        assert [d.key for d in report.decisions] == ["quadraui#2467"]
+        assert refile_called == []
+        assert report.refile == []
+
+    def test_auto_refile_false_disarms_the_pass(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        guard_row = StuckRow(
+            queue="drive-queue", key="quadraui#2467", state=STATE_BLOCKED,
+            cause=CAUSE_BRANCH_MERGED_GUARD, confidence="high",
+        )
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([guard_row], Board()),
+        )
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_refile=True),
+        )
+        refile_called = []
+
+        report = board_doctor_mod.run_sweep(
+            config=Config(repos=[repo], machines=[]),
+            tier_of=lambda cause: TIER_ALERT,
+            alert_dispatcher=lambda row: True,
+            auto_refile=False,
+            refile_sweep=lambda *a, **k: refile_called.append(1) or [],
+        )
+
+        assert refile_called == []
+        assert report.refile == []
+        assert [d.key for d in report.decisions] == ["quadraui#2467"]
+
+
 class TestRunSweepMechanicalCausesFilter:
     """``mechanical_causes`` (the tight-cadence entry point) must drop
     every row outside the named set BEFORE classification — never merely
@@ -6163,3 +7150,3943 @@ class TestDispatchPlanLeg:
                 now=clock.__next__,
                 timeout_seconds=20.0,
             )
+
+
+class TestCeilingBlockedClassifiesByLastFailingGate:
+    """#4033: a drive-queue row that already gave up on the #2972 fix-round
+    ceiling gets no further diagnosis pass and no further relaunch, so the
+    cause this one classification names is the only chance any
+    auto-dispatcher or alert ever gets to point at the real blocker. A
+    standing merge conflict must not win over a currently-failing gate just
+    because `_rule_conflict` runs ahead of the gate/CI rules for an
+    ordinary row — once nothing will retry this row, a standing conflict
+    is only the real story when nothing else is also wrong.
+    """
+
+    @staticmethod
+    def _ceiling_blocked_entry(issue: int) -> QueueEntry:
+        return QueueEntry(
+            repo="acme/widgets",
+            issue=issue,
+            state=STATE_BLOCKED,
+            attempts=3,
+            last_reason=(
+                "fix-round ceiling reached across relaunches (#2972): giving up"
+            ),
+        )
+
+    def test_a_ceiling_row_whose_last_smoke_failed_classifies_by_the_smoke_failure(
+        self,
+    ) -> None:
+        # quadraui#2695's shape: a dell64 smoke stage failing identically
+        # every round, with the branch ALSO conflicting with develop
+        # (secondary, per the incident's own read).
+        live = LiveState(
+            pr_number=42,
+            pr_state="OPEN",
+            mergeable=False,
+            gate_ready=False,
+            gate_blockers=("test: no example target named win_panel",),
+        )
+        diagnosis = queue_diagnose.diagnose(self._ceiling_blocked_entry(2695), live)
+
+        assert diagnosis.cause != queue_diagnose.CAUSE_MERGE_CONFLICT
+        assert diagnosis.cause == queue_diagnose.CAUSE_GATE_BLOCKED
+        assert any(
+            "no example target named win_panel" in line for line in diagnosis.evidence
+        )
+
+    def test_a_ceiling_row_whose_last_review_requested_changes_classifies_by_the_review_block(
+        self,
+    ) -> None:
+        # quadraui#2531's shape: a review `request-changes` with a blocking
+        # finding left after the last fix round, with the branch ALSO
+        # carrying a standing conflict.
+        live = LiveState(
+            pr_number=43,
+            pr_state="OPEN",
+            mergeable=False,
+            gate_ready=False,
+            gate_blockers=("review: review required but not approved",),
+        )
+        diagnosis = queue_diagnose.diagnose(self._ceiling_blocked_entry(2531), live)
+
+        assert diagnosis.cause != queue_diagnose.CAUSE_MERGE_CONFLICT
+        assert diagnosis.cause == queue_diagnose.CAUSE_GATE_BLOCKED
+        assert any(
+            "review required but not approved" in line for line in diagnosis.evidence
+        )
+
+    def test_a_pure_standing_conflict_with_nothing_else_wrong_still_classifies_as_conflict(
+        self,
+    ) -> None:
+        # The conflict-fix mechanical action still has a real job here —
+        # only reclassify away from it when a real gate is ALSO failing.
+        live = LiveState(
+            pr_number=44,
+            pr_state="OPEN",
+            mergeable=False,
+            gate_ready=True,
+            gate_blockers=(),
+        )
+        diagnosis = queue_diagnose.diagnose(self._ceiling_blocked_entry(9001), live)
+
+        assert diagnosis.cause == queue_diagnose.CAUSE_MERGE_CONFLICT
+
+    def test_a_non_ceiling_blocked_row_keeps_leading_with_the_conflict(self) -> None:
+        # A row that WILL get another diagnosis pass is unaffected by this
+        # reordering — naming the conflict first is still a safe, cheap
+        # first move there, and a later pass catches a gate still failing
+        # once the conflict clears.
+        entry = QueueEntry(
+            repo="acme/widgets",
+            issue=2700,
+            state=STATE_BLOCKED,
+            attempts=1,
+            last_reason="checks failed: build (failure)",
+        )
+        live = LiveState(
+            pr_number=45,
+            pr_state="OPEN",
+            mergeable=False,
+            gate_ready=False,
+            gate_blockers=("test: no example target named win_panel",),
+        )
+        diagnosis = queue_diagnose.diagnose(entry, live)
+
+        assert diagnosis.cause == queue_diagnose.CAUSE_MERGE_CONFLICT
+
+    def test_ceiling_blocked_rule_order_has_every_rule_the_ordinary_order_has(
+        self,
+    ) -> None:
+        # `_RULES_CEILING_BLOCKED` is derived from `_RULES` (moving
+        # `_rule_conflict` after `_rule_gate_blocked`), not hand-copied —
+        # this guards against the two ever silently drifting apart again
+        # if a rule is added to/removed from `_RULES` later.
+        assert set(queue_diagnose._RULES) == set(queue_diagnose._RULES_CEILING_BLOCKED)
+        assert len(queue_diagnose._RULES) == len(queue_diagnose._RULES_CEILING_BLOCKED)
+
+
+class TestCeilingBlockedGateBlockedRowRoutesToTheMatchingHandlerAndStillAlerts:
+    """#4033: once the diagnosis correctly names the failing gate instead
+    of the standing conflict, the EXISTING cause-routing table
+    (`coord.board_doctor_policy.policy_tier_of`/`AUTO_DISPATCHERS`) already
+    sends it to the fixit-leg investigate tier rather than the mechanical
+    conflict-fix allowlist action — no new dispatcher needs wiring up.
+
+    This exercises the REAL `AUTO_DISPATCHERS[CAUSE_GATE_BLOCKED]` entry
+    (`_investigate`, through its own `_register_investigate_action`
+    gating) and the REAL `write_drive_escalation`, not fakes standing in
+    for either: `_investigate` itself consults
+    `coord.drive_queue.fix_round_ceiling_blocked_for_issue` before
+    anything else and — because `gate-blocked` is not one of the three
+    `_FIXIT_REBUDGET_ENVIRONMENTAL_CAUSES` — correctly declines to spend
+    another fix-it leg on a row that already gave up on the #2972
+    ceiling, falling back to the alert tier instead. The real production
+    shape this issue is about is that fallback alert then getting
+    silently skipped behind the ceiling's own covering escalation (a
+    `remove && add` relaunch command that `_requeue_command`'s own
+    docstring says never resets the ceiling) — so the assertion that
+    matters is not just "a handler ran", it is "a real alert for the real
+    cause landed," which only holds once `write_drive_escalation`'s dead-
+    cover check also refuses a relaunch-shaped remedy for an issue that
+    is itself ceiling-blocked.
+    """
+
+    def test_gate_blocked_ceiling_row_declines_another_leg_and_still_alerts_for_real(
+        self, monkeypatch,
+    ) -> None:
+        from coord.board_doctor_policy import AUTO_DISPATCHERS
+
+        monkeypatch.setattr(
+            "coord.drive_queue.fix_round_ceiling_blocked_for_issue",
+            lambda repo_name, issue_number: True,
+        )
+
+        # The #2972 ceiling escalation a real `plan.blocked`-shaped tick
+        # would already have on file for this issue (`coord.commands.
+        # drive_queue._blocked_escalation_command` falling through to
+        # `_requeue_command`) — a DIFFERENT stage than the board-doctor
+        # alert below, and it names a command, so the pre-#4033 dead-cover
+        # check alone (blank `proposed_command` only) would still defer to
+        # it forever.
+        state.record_drive_escalation(
+            "acme/widgets",
+            2695,
+            stage="drive-queue",
+            reason="fix-round ceiling reached across relaunches (#2972)",
+            gate_readings="",
+            proposed_command=(
+                "coord drive-queue remove acme/widgets 2695 && "
+                "coord drive-queue add acme/widgets 2695"
+            ),
+        )
+
+        row = _row(
+            "acme/widgets#2695", queue_diagnose.CAUSE_GATE_BLOCKED,
+            fresh=True,
+        )
+
+        dispatched = AUTO_DISPATCHERS[queue_diagnose.CAUSE_GATE_BLOCKED](row)
+
+        # No second fix-it leg — the ceiling correctly still blocks it.
+        assert dispatched is False
+
+        # But the row is NOT left silently uncovered: the real alert
+        # fired with the row's own cause, overriding the dead relaunch
+        # cover instead of deferring to it.
+        escalation = state.get_drive_escalation("acme/widgets", 2695)
+        assert escalation is not None
+        assert escalation["stage"] == "board-doctor:drive-queue"
+        assert "gate-blocked" in escalation["gate_readings"]
+
+
+class TestCoveringEscalationMustNameAConcreteAction:
+    """#4033: `write_drive_escalation` must not defer to a covering,
+    different-stage escalation that names no `proposed_command` at all —
+    deferring there would leave the row with no alert and no actionable
+    next step, the exact silent gap the #2972 ceiling's own fallback alert
+    hit every hour against a cover with nothing behind it."""
+
+    def test_a_covering_escalation_with_no_proposed_command_is_not_deferred_to(
+        self,
+    ) -> None:
+        from coord.board_doctor_policy import write_drive_escalation
+
+        state.record_drive_escalation(
+            "acme/widgets",
+            3001,
+            stage="plan.blocked",
+            reason="plan.blocked: waiting on a dependency",
+            gate_readings="",
+            proposed_command="",
+        )
+
+        result = write_drive_escalation(
+            "acme/widgets",
+            3001,
+            stage="board-doctor:drive-queue",
+            reason="board-doctor: drive-queue row stuck",
+            gate_readings="queue=drive-queue | cause=gate-blocked",
+            proposed_command="coord status",
+        )
+
+        assert result is True
+        escalation = state.get_drive_escalation("acme/widgets", 3001)
+        assert escalation is not None
+        assert escalation["stage"] == "board-doctor:drive-queue"
+        assert escalation["proposed_command"] == "coord status"
+
+    def test_a_covering_escalation_with_a_real_proposed_command_is_still_deferred_to(
+        self,
+    ) -> None:
+        from coord.board_doctor_policy import write_drive_escalation
+
+        state.record_drive_escalation(
+            "acme/widgets",
+            3002,
+            stage="plan.blocked",
+            reason="plan.blocked: waiting on a dependency",
+            gate_readings="",
+            proposed_command="coord plan --dry-run",
+        )
+
+        result = write_drive_escalation(
+            "acme/widgets",
+            3002,
+            stage="board-doctor:drive-queue",
+            reason="board-doctor: drive-queue row stuck",
+            gate_readings="queue=drive-queue | cause=gate-blocked",
+            proposed_command="coord status",
+        )
+
+        assert result == ALERT_SKIPPED
+        escalation = state.get_drive_escalation("acme/widgets", 3002)
+        assert escalation is not None
+        assert escalation["stage"] == "plan.blocked"
+
+
+class TestPredictedAfterTargetDropReason:
+    """#4037: :func:`predicted_after_target_drop_reason`'s four droppable
+    target shapes, plus the cases that must NOT drop."""
+
+    def test_dequeued_and_open_target_drops(self) -> None:
+        reason = predicted_after_target_drop_reason(
+            "quadraui#2532", {}, issue_open=lambda repo, issue: True,
+        )
+        assert reason == "dequeued"
+
+    def test_dequeued_but_closed_target_is_kept(self) -> None:
+        # A closed/merged target is `_resolve_prereqs`'s own satisfied case,
+        # not a stale edge -- this predicate must never claim one is.
+        reason = predicted_after_target_drop_reason(
+            "quadraui#2532", {}, issue_open=lambda repo, issue: False,
+        )
+        assert reason == ""
+
+    def test_blocked_target_drops(self) -> None:
+        target = QueueEntry(repo="quadraui", issue=2695, state=STATE_BLOCKED)
+        reason = predicted_after_target_drop_reason(target.key, {target.key: target})
+        assert reason == "blocked"
+
+    def test_parked_target_drops(self) -> None:
+        target = QueueEntry(repo="quadraui", issue=2695, state=STATE_PARKED)
+        reason = predicted_after_target_drop_reason(target.key, {target.key: target})
+        assert reason == "parked"
+
+    def test_waiting_behind_a_blocked_row_drops_transitively(self) -> None:
+        root = QueueEntry(repo="quadraui", issue=2695, state=STATE_BLOCKED)
+        mid = QueueEntry(
+            repo="quadraui", issue=2731, state=STATE_WAITING, after=(root.key,),
+        )
+        entries_by_key = {root.key: root, mid.key: mid}
+
+        reason = predicted_after_target_drop_reason(mid.key, entries_by_key)
+
+        assert reason == "blocked chain"
+
+    def test_never_launched_but_otherwise_healthy_target_is_kept(self) -> None:
+        """An unstarted target with nothing blocking it may simply be next
+        in line — dropping on launch status alone would delete the exact
+        declared-vs-declared edge the predictor writes for two rows that
+        both have no branch yet."""
+        target = QueueEntry(repo="quadraui", issue=2712, state=STATE_WAITING)
+        assert target.attempts == 0 and target.launched_at is None
+
+        reason = predicted_after_target_drop_reason(target.key, {target.key: target})
+
+        assert reason == ""
+
+    def test_never_launched_and_chained_behind_blocked_drops_as_blocked_chain(
+        self,
+    ) -> None:
+        """An unstarted target chained behind a blocked/parked row IS
+        droppable — but via the blocked-chain shape, never a standalone
+        "never launched" one."""
+        root = QueueEntry(repo="quadraui", issue=2695, state=STATE_BLOCKED)
+        target = QueueEntry(
+            repo="quadraui", issue=2712, state=STATE_WAITING, after=(root.key,),
+        )
+        assert target.attempts == 0 and target.launched_at is None
+        entries_by_key = {root.key: root, target.key: target}
+
+        reason = predicted_after_target_drop_reason(target.key, entries_by_key)
+
+        assert reason == "blocked chain"
+
+    def test_dequeued_check_resolves_the_github_slug_before_opening(self) -> None:
+        """The local `coordinator.yml` repo name is not a slug `gh`
+        accepts — the dequeued-and-open check must address GitHub by the
+        configured ``github:`` slug, never the bare local name."""
+        from coord.config import Config, Repo
+
+        config = Config(
+            repos=[Repo(name="quadraui", github="acme/quadraui")], machines=[],
+        )
+        seen: list[str] = []
+
+        def _issue_open(repo: str, issue: int) -> bool:
+            seen.append(repo)
+            return True
+
+        reason = predicted_after_target_drop_reason(
+            "quadraui#2532", {}, config=config, issue_open=_issue_open,
+        )
+
+        assert reason == "dequeued"
+        assert seen == ["acme/quadraui"]
+
+    def test_dequeued_check_without_config_falls_back_to_the_local_name(self) -> None:
+        seen: list[str] = []
+
+        def _issue_open(repo: str, issue: int) -> bool:
+            seen.append(repo)
+            return True
+
+        predicted_after_target_drop_reason(
+            "quadraui#2532", {}, issue_open=_issue_open,
+        )
+
+        assert seen == ["quadraui"]
+
+    def test_a_running_target_with_no_blocked_chain_is_kept(self) -> None:
+        target = QueueEntry(
+            repo="quadraui", issue=2712, state=STATE_RUNNING,
+            attempts=1, launched_at=100.0,
+        )
+
+        reason = predicted_after_target_drop_reason(target.key, {target.key: target})
+
+        assert reason == ""
+
+
+class TestDropStalePredictedAfterEdges:
+    """#4037 acceptance shapes: a predicted edge into a dequeued or blocked
+    row is dropped; an operator-declared edge to the same kind of row never
+    is."""
+
+    def test_2537_shape_predicted_edge_to_a_dequeued_row_is_dropped(self) -> None:
+        """quadraui#2537 waited forever on quadraui#2532, which had been
+        deferred and dequeued — the edge came from the predictor sharing
+        `extra_paint.rs`, not a real dependency."""
+        entry = QueueEntry(
+            repo="quadraui", issue=2537, state=STATE_WAITING,
+            after=("quadraui#2532",),
+        )
+
+        notes = drop_stale_predicted_after_edges(
+            [entry],
+            predicted_keys_for=lambda e: frozenset({"quadraui#2532"}),
+            issue_open=lambda repo, issue: True,
+        )
+
+        assert notes == [
+            "quadraui#2537: edge dropped: quadraui#2532 (predicted, target dequeued)"
+        ]
+
+    def test_2534_shape_predicted_edges_into_a_blocked_chain_are_dropped(self) -> None:
+        """quadraui#2534 waited on four MCP/CellGrid rows — all of them
+        unstarted AND blocked behind quadraui#2695 — every edge came from
+        the predictor sharing `leaf.rs`/`a11y/`."""
+        root = QueueEntry(repo="quadraui", issue=2695, state=STATE_BLOCKED)
+        mid = QueueEntry(
+            repo="quadraui", issue=2731, state=STATE_WAITING, after=(root.key,),
+        )
+        never_started_a = QueueEntry(
+            repo="quadraui", issue=2713, state=STATE_WAITING, after=(root.key,),
+        )
+        never_started_b = QueueEntry(
+            repo="quadraui", issue=2725, state=STATE_WAITING, after=(root.key,),
+        )
+        entry = QueueEntry(
+            repo="quadraui", issue=2534, state=STATE_WAITING,
+            after=(root.key, mid.key, never_started_a.key, never_started_b.key),
+        )
+        predicted = frozenset(entry.after)
+
+        notes = drop_stale_predicted_after_edges(
+            [root, mid, never_started_a, never_started_b, entry],
+            predicted_keys_for=lambda e: predicted if e.key == entry.key else frozenset(),
+        )
+
+        assert notes == [
+            f"{entry.key}: edge dropped: {root.key} (predicted, target blocked)",
+            f"{entry.key}: edge dropped: {mid.key} (predicted, target blocked chain)",
+            f"{entry.key}: edge dropped: {never_started_a.key} "
+            "(predicted, target blocked chain)",
+            f"{entry.key}: edge dropped: {never_started_b.key} "
+            "(predicted, target blocked chain)",
+        ]
+
+    def test_operator_after_to_a_blocked_row_is_kept(self) -> None:
+        """An operator's own ``--after`` (or an epic's ``{after:}``) to a
+        blocked row must never be dropped — only the predictor's edges are
+        candidates, whatever the target looks like."""
+        target = QueueEntry(repo="quadraui", issue=2000, state=STATE_BLOCKED)
+        entry = QueueEntry(
+            repo="quadraui", issue=2001, state=STATE_WAITING, after=(target.key,),
+        )
+
+        notes = drop_stale_predicted_after_edges(
+            [target, entry], predicted_keys_for=lambda e: frozenset(),
+        )
+
+        assert notes == []
+
+    def test_write_after_receives_only_the_surviving_edges(self) -> None:
+        target = QueueEntry(repo="quadraui", issue=2000, state=STATE_BLOCKED)
+        kept = QueueEntry(
+            repo="quadraui", issue=1999, state=STATE_RUNNING,
+            attempts=1, launched_at=1.0,
+        )
+        entry = QueueEntry(
+            repo="quadraui", issue=2001, state=STATE_WAITING,
+            after=(target.key, kept.key),
+        )
+        writes: list[tuple[str, tuple[str, ...]]] = []
+
+        notes = drop_stale_predicted_after_edges(
+            [target, kept, entry],
+            predicted_keys_for=lambda e: (
+                frozenset({target.key, kept.key}) if e.key == entry.key else frozenset()
+            ),
+            write_after=lambda e, after: writes.append((e.key, tuple(after))),
+        )
+
+        assert writes == [(entry.key, (kept.key,))]
+        assert notes == [
+            f"{entry.key}: edge dropped: {target.key} (predicted, target blocked)"
+        ]
+
+    def test_write_after_is_never_called_with_nothing_to_drop(self) -> None:
+        kept = QueueEntry(
+            repo="quadraui", issue=1999, state=STATE_RUNNING,
+            attempts=1, launched_at=1.0,
+        )
+        entry = QueueEntry(
+            repo="quadraui", issue=2001, state=STATE_WAITING, after=(kept.key,),
+        )
+        writes: list[tuple[str, tuple[str, ...]]] = []
+
+        notes = drop_stale_predicted_after_edges(
+            [kept, entry],
+            predicted_keys_for=lambda e: frozenset({kept.key}),
+            write_after=lambda e, after: writes.append((e.key, tuple(after))),
+        )
+
+        assert notes == []
+        assert writes == []
+
+    def test_record_drop_receives_the_dropped_edges_for_a_changed_entry(self) -> None:
+        """Each drop is recorded on the row (the issue's own acceptance
+        text), not only returned in this call's notes — *record_drop* is
+        the seam a caller uses to persist that durably."""
+        target = QueueEntry(repo="quadraui", issue=2000, state=STATE_BLOCKED)
+        entry = QueueEntry(
+            repo="quadraui", issue=2001, state=STATE_WAITING, after=(target.key,),
+        )
+        recorded: list[tuple[str, tuple[tuple[str, str], ...]]] = []
+
+        notes = drop_stale_predicted_after_edges(
+            [target, entry],
+            predicted_keys_for=lambda e: frozenset({target.key}),
+            write_after=lambda e, after: None,
+            record_drop=lambda e, drops: recorded.append((e.key, tuple(drops))),
+        )
+
+        assert recorded == [(entry.key, ((target.key, "blocked"),))]
+        assert notes == [
+            f"{entry.key}: edge dropped: {target.key} (predicted, target blocked)"
+        ]
+
+    def test_record_drop_is_never_called_with_nothing_to_drop(self) -> None:
+        kept = QueueEntry(
+            repo="quadraui", issue=1999, state=STATE_RUNNING,
+            attempts=1, launched_at=1.0,
+        )
+        entry = QueueEntry(
+            repo="quadraui", issue=2001, state=STATE_WAITING, after=(kept.key,),
+        )
+        recorded: list[tuple[str, tuple[tuple[str, str], ...]]] = []
+
+        drop_stale_predicted_after_edges(
+            [kept, entry],
+            predicted_keys_for=lambda e: frozenset({kept.key}),
+            record_drop=lambda e, drops: recorded.append((e.key, tuple(drops))),
+        )
+
+        assert recorded == []
+
+
+class TestSweepPredictedAfterEdgesIntegration:
+    """#4037: the production wiring, end-to-end through the real audit log
+    and drive-queue DB — exactly the provenance
+    :func:`coord.overlap_predict.predicted_after_targets` reads and the
+    write :func:`coord.drive_queue.write_queue_after` performs."""
+
+    def test_real_predicted_edge_to_a_dequeued_target_is_dropped_and_persisted(
+        self, monkeypatch,
+    ) -> None:
+        import coord.board_doctor as board_doctor_mod
+        from coord.audit import record_audit
+        from coord.drive_queue import entries_from_rows
+        from coord.overlap_predict import AUDIT_CATEGORY, EVENT_PREDICTED
+        from coord.state import enqueue_drive_queue, list_drive_queue
+
+        enqueue_drive_queue("quadraui", 2537, after=["quadraui#2532"])
+        record_audit(
+            tier="business",
+            category=AUDIT_CATEGORY,
+            event_type=EVENT_PREDICTED,
+            actor="drive-queue",
+            summary="predicted file overlap (#2247) — ordered --after quadraui#2532",
+            repo="quadraui",
+            issue=2537,
+            details={
+                "predicted_files": ["src/extra_paint.rs"],
+                "overlaps": [{"key": "quadraui#2532", "source": "declared"}],
+                "after": ["quadraui#2532"],
+                "applied_after": ["quadraui#2532"],
+            },
+        )
+        monkeypatch.setattr(board_doctor_mod, "_issue_open", lambda repo, issue: True)
+
+        notes = sweep_predicted_after_edges()
+
+        assert notes == [
+            "quadraui#2537: edge dropped: quadraui#2532 (predicted, target dequeued)"
+        ]
+        [entry] = [e for e in entries_from_rows(list_drive_queue()) if e.issue == 2537]
+        assert entry.after == ()
+
+    def test_real_drop_is_recorded_on_the_row_and_in_the_audit_log(
+        self, monkeypatch,
+    ) -> None:
+        """Acceptance: "each drop is recorded on the row" — not only
+        returned from this call. Checked against the real `last_reason`
+        column and the real audit log, the same two sinks
+        `_record_overlap_prediction` uses for the opposite event."""
+        import coord.board_doctor as board_doctor_mod
+        from coord.audit import query_audit_log, record_audit
+        from coord.overlap_predict import (
+            AUDIT_CATEGORY,
+            EVENT_PREDICTED,
+            EVENT_PREDICTED_DROPPED,
+        )
+        from coord.state import enqueue_drive_queue, list_drive_queue
+
+        enqueue_drive_queue("quadraui", 2540, after=["quadraui#2541"])
+        record_audit(
+            tier="business",
+            category=AUDIT_CATEGORY,
+            event_type=EVENT_PREDICTED,
+            actor="drive-queue",
+            summary="predicted file overlap",
+            repo="quadraui",
+            issue=2540,
+            details={"applied_after": ["quadraui#2541"], "after": ["quadraui#2541"]},
+        )
+        monkeypatch.setattr(board_doctor_mod, "_issue_open", lambda repo, issue: True)
+
+        sweep_predicted_after_edges()
+
+        [row] = [r for r in list_drive_queue() if r["issue_number"] == 2540]
+        assert row["last_reason"] == (
+            "edge dropped: quadraui#2541 (predicted, target dequeued)"
+        )
+        dropped_events = query_audit_log(
+            event_type=EVENT_PREDICTED_DROPPED, category=AUDIT_CATEGORY,
+            repo="quadraui", issue=2540,
+        )
+        assert len(dropped_events["entries"]) == 1
+
+    def test_dry_run_computes_but_never_writes(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+        from coord.audit import record_audit
+        from coord.drive_queue import entries_from_rows
+        from coord.overlap_predict import AUDIT_CATEGORY, EVENT_PREDICTED
+        from coord.state import enqueue_drive_queue, list_drive_queue
+
+        enqueue_drive_queue("quadraui", 2538, after=["quadraui#2533"])
+        record_audit(
+            tier="business",
+            category=AUDIT_CATEGORY,
+            event_type=EVENT_PREDICTED,
+            actor="drive-queue",
+            summary="predicted file overlap (#2247)",
+            repo="quadraui",
+            issue=2538,
+            details={"applied_after": ["quadraui#2533"], "after": ["quadraui#2533"]},
+        )
+        monkeypatch.setattr(board_doctor_mod, "_issue_open", lambda repo, issue: True)
+
+        notes = sweep_predicted_after_edges(dry_run=True)
+
+        assert notes == [
+            "quadraui#2538: edge dropped: quadraui#2533 (predicted, target dequeued)"
+        ]
+        [entry] = [e for e in entries_from_rows(list_drive_queue()) if e.issue == 2538]
+        assert entry.after == ("quadraui#2533",)
+
+    def test_an_operators_after_edge_with_no_predicted_record_is_kept(self) -> None:
+        """No :data:`EVENT_PREDICTED` audit row was ever written for this
+        entry's own ``add`` — the SAME shape an operator's own ``--after``
+        (never passed through the predictor) produces — so nothing in the
+        sweep's provenance read says "predicted", and the edge survives
+        even though its target never queued at all."""
+        from coord.drive_queue import entries_from_rows
+        from coord.state import enqueue_drive_queue, list_drive_queue
+
+        enqueue_drive_queue("quadraui", 2539, after=["quadraui#9999"])
+
+        notes = sweep_predicted_after_edges()
+
+        assert notes == []
+        [entry] = [e for e in entries_from_rows(list_drive_queue()) if e.issue == 2539]
+        assert entry.after == ("quadraui#9999",)
+
+
+class TestSelfCorrectionAfterDropIsExistingBehaviour:
+    """#4037: dropping a stale predicted edge must never disable the
+    ordinary predictor. The moment a previously-dropped target has a REAL
+    branch again, :func:`coord.overlap_predict.predict_overlap` — entirely
+    unchanged by this sweep — still orders a fresh candidate against it."""
+
+    def test_predict_overlap_still_orders_against_the_relaunched_target(self) -> None:
+        from coord.overlap_predict import SOURCE_BRANCH, Footprint, predict_overlap
+
+        footprints = [
+            Footprint(
+                key="quadraui#2532",
+                issue_number=2532,
+                files=("src/extra_paint.rs",),
+                source=SOURCE_BRANCH,
+                branch="quadraui-2532-fix",
+            ),
+        ]
+
+        prediction = predict_overlap(
+            candidate_files=["src/extra_paint.rs"], footprints=footprints,
+        )
+
+        assert prediction.after_keys == ("quadraui#2532",)
+
+
+class TestBranchMergedGuardRows:
+    """:func:`branch_merged_guard_rows` — the `StuckRow` source that feeds
+    :func:`run_refile_sweep` (#4038)."""
+
+    def test_a_branch_merged_guard_entry_is_flagged(self) -> None:
+        from coord.dispatch_liveness import BRANCH_MERGED_GUARD_MARKER
+
+        entry = QueueEntry(
+            repo="quadraui", issue=2467, state=STATE_BLOCKED,
+            last_reason=(
+                "quadraui#2467's branch has already merged into the target "
+                f"branch — dispatching now cannot matter (#3376). "
+                f"{BRANCH_MERGED_GUARD_MARKER} — refused by a pre-dispatch "
+                "guard, which cannot change on retry (#1844); blocking "
+                "without spending an attempt"
+            ),
+        )
+        [row] = branch_merged_guard_rows([entry])
+        assert row.key == "quadraui#2467"
+        assert row.queue == "drive-queue"
+        assert row.cause == CAUSE_BRANCH_MERGED_GUARD
+        assert row.fresh is True
+
+    def test_a_plain_blocked_entry_is_not_flagged(self) -> None:
+        plain = QueueEntry(
+            repo="quadraui", issue=1, state=STATE_BLOCKED,
+            last_reason="refused by a pre-dispatch guard (#1844)",
+        )
+        waiting = QueueEntry(repo="quadraui", issue=2, state=STATE_WAITING)
+        assert branch_merged_guard_rows([plain, waiting]) == []
+
+
+class TestReclassifyBranchMergedGuard:
+    """:func:`_reclassify_branch_merged_guard` must win over whatever cause
+    the episode walk already assigned, since the marker is deterministic
+    and the episode walk's own guess can be wrong (#4038)."""
+
+    def test_overrides_an_existing_generic_cause(self) -> None:
+        from coord.dispatch_liveness import BRANCH_MERGED_GUARD_MARKER
+
+        entry = QueueEntry(
+            repo="quadraui", issue=2467, state=STATE_BLOCKED,
+            last_reason=f"some refusal text {BRANCH_MERGED_GUARD_MARKER}",
+        )
+        row = StuckRow(
+            queue="drive-queue", key="quadraui#2467", state=STATE_BLOCKED,
+            cause=queue_diagnose.CAUSE_UNKNOWN, confidence="low",
+        )
+        [reclassified] = _reclassify_branch_merged_guard(
+            [row], {"quadraui#2467": entry},
+        )
+        assert reclassified.cause == CAUSE_BRANCH_MERGED_GUARD
+
+    def test_leaves_an_unrelated_row_untouched(self) -> None:
+        entry = QueueEntry(
+            repo="quadraui", issue=9, state=STATE_BLOCKED,
+            last_reason="refused by a pre-dispatch guard (#1844)",
+        )
+        row = StuckRow(
+            queue="drive-queue", key="quadraui#9", state=STATE_BLOCKED,
+            cause=queue_diagnose.CAUSE_GATE_BLOCKED, confidence="high",
+        )
+        [reclassified] = _reclassify_branch_merged_guard(
+            [row], {"quadraui#9": entry},
+        )
+        assert reclassified.cause == queue_diagnose.CAUSE_GATE_BLOCKED
+
+
+class TestBuildRefileCandidate:
+    """:func:`build_refile_candidate` — the real (best-effort)
+    :class:`~coord.board_doctor_followthrough.RefileCandidate` builder."""
+
+    def test_pulls_issue_epic_and_queue_snapshot(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        def fake_get_issue(repo, number):
+            if number == 2467:
+                return {
+                    "number": 2467, "title": "Py-port the app layer",
+                    "body": "Do A. Do B.", "milestone": {"title": "M1"},
+                    "labels": [{"name": "backend:python"}],
+                }
+            raise AssertionError(f"unexpected issue number {number}")
+
+        monkeypatch.setattr("coord.github_ops.get_issue", fake_get_issue)
+        monkeypatch.setattr(
+            "coord.github_ops.get_issue_parent", lambda repo, number: {"number": 50},
+        )
+        entry = QueueEntry(
+            repo="quadraui", issue=2467, position=3, state=STATE_BLOCKED,
+            after=("quadraui#2400",), machine="precision",
+        )
+
+        candidate = board_doctor_mod.build_refile_candidate(
+            "quadraui", 2467, config=Config(repos=[], machines=[]), entry=entry,
+        )
+
+        assert candidate.repo_name == "quadraui" and candidate.issue_number == 2467
+        assert candidate.title == "Py-port the app layer"
+        assert candidate.epic_number == 50
+        assert candidate.milestone == "M1"
+        assert candidate.labels == ("backend:python",)
+        assert candidate.queue_position == 3
+        assert candidate.queue_after == ("quadraui#2400",)
+        assert candidate.queue_machine == "precision"
+
+
+class _FakeRefileWriter:
+    def __init__(self, *, new_number: int = 2739) -> None:
+        self.new_number = new_number
+        self.created: list[tuple[str, str]] = []
+        self.closed: list[int] = []
+        self.commented: list[tuple[int, str]] = []
+        self.epic_bodies: dict[int, str] = {}
+        self.linked: list[tuple[int, int]] = []
+
+    def create_issue(self, repo_name, *, title, body, milestone, labels=()):
+        self.created.append((title, body))
+        return self.new_number
+
+    def add_child(self, repo_name, *, epic, child, after):
+        self.linked.append((epic, child))
+
+    def get_issue_body(self, repo_name, number):
+        return self.epic_bodies.get(number, "")
+
+    def set_issue_body(self, repo_name, number, body):
+        self.epic_bodies[number] = body
+
+    def close_issue(self, repo_name, number, *, comment):
+        self.closed.append(number)
+
+    def comment_issue(self, repo_name, number, *, body):
+        self.commented.append((number, body))
+
+
+class TestRunRefileSweep:
+    """:func:`run_refile_sweep` — the production wiring between a
+    `branch-merged-guard` :class:`StuckRow` and
+    :func:`coord.board_doctor_followthrough.run_refile` (#4038)."""
+
+    @staticmethod
+    def _config(*, opted_in: bool = True) -> Config:
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_refile=opted_in),
+        )
+        return Config(repos=[repo], machines=[])
+
+    @staticmethod
+    def _fake_plan_leg(remainder_on_default_branch: bool, evidence: str = "e"):
+        import json as _json
+
+        def leg(prompt, *, partial, config):
+            payload = {
+                "remainder_on_default_branch": remainder_on_default_branch,
+                "evidence": evidence,
+            }
+            return ft.PlanLegResult(
+                assignment_id="plan-1", output="```json\n" + _json.dumps(payload) + "\n```",
+            )
+        return leg
+
+    def _row(self, issue: int = 2467) -> StuckRow:
+        return StuckRow(
+            queue="drive-queue", key=f"quadraui#{issue}", state=STATE_BLOCKED,
+            cause=CAUSE_BRANCH_MERGED_GUARD, confidence="high",
+        )
+
+    def _stub_get_issue(self, monkeypatch, *, epic_number: int | None = None) -> None:
+        def fake_get_issue(repo, number):
+            return {"number": number, "title": "T", "body": "B"}
+        monkeypatch.setattr("coord.github_ops.get_issue", fake_get_issue)
+        monkeypatch.setattr(
+            "coord.github_ops.get_issue_parent",
+            lambda repo, number: {"number": epic_number} if epic_number else None,
+        )
+
+    def test_remainder_absent_refiles_moves_the_row_and_repoints_dependents(
+        self, monkeypatch,
+    ) -> None:
+        """The #2467 shape: a guard refusal with the remainder still
+        missing produces a refile, a moved drive-queue row (same position,
+        same `after=`), and a re-pointed dependent."""
+        self._stub_get_issue(monkeypatch)
+        state.enqueue_drive_queue("quadraui", 2467, after=["quadraui#2400"])
+        state.enqueue_drive_queue("quadraui", 2468, after=["quadraui#2467"])
+        writer = _FakeRefileWriter(new_number=2739)
+
+        dispositions = run_refile_sweep(
+            [self._row()], config=self._config(),
+            plan_leg_dispatcher=self._fake_plan_leg(False, "B is not on develop"),
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+
+        assert len(dispositions) == 1
+        disposition = dispositions[0]
+        assert disposition.action == ft.ACTION_REFILE_FILED
+        assert disposition.follow_ups == [2739]
+        assert writer.created and writer.created[0][0] == "T (refile of #2467)"
+        assert writer.commented and writer.commented[0][0] == 2467
+        assert writer.closed == []  # not closed yet — deferred to step 4
+
+        rows = state.list_drive_queue()
+        by_issue = {r["issue_number"]: r for r in rows}
+        assert 2467 not in by_issue
+        assert 2739 in by_issue
+        assert by_issue[2739]["after_json"] == ["quadraui#2400"]
+        assert by_issue[2468]["after_json"] == ["quadraui#2739"]
+        # #2467 was the head of the queue (position 0) — the refile must
+        # inherit that slot, not get appended behind the whole queue
+        # (which would put its own dependent, #2468, ahead of it).
+        assert by_issue[2739]["position"] == 0
+        assert by_issue[2468]["position"] == 1
+
+    def test_remainder_present_closes_the_issue_as_done(self, monkeypatch) -> None:
+        self._stub_get_issue(monkeypatch)
+        state.enqueue_drive_queue("quadraui", 2467)
+        writer = _FakeRefileWriter()
+
+        dispositions = run_refile_sweep(
+            [self._row()], config=self._config(),
+            plan_leg_dispatcher=self._fake_plan_leg(True, "B already on develop"),
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+
+        assert len(dispositions) == 1
+        assert dispositions[0].action == ft.ACTION_REFILE_ALL_LANDED
+        assert writer.closed == [2467]
+        assert writer.created == []
+
+    def test_a_repo_without_opt_in_is_skipped(self, monkeypatch) -> None:
+        state.enqueue_drive_queue("quadraui", 2467)
+        dispositions = run_refile_sweep(
+            [self._row()], config=self._config(opted_in=False),
+            issue_open=lambda r, n: True,
+        )
+        assert dispositions == []
+
+    def test_an_already_closed_issue_is_skipped(self, monkeypatch) -> None:
+        state.enqueue_drive_queue("quadraui", 2467)
+        dispositions = run_refile_sweep(
+            [self._row()], config=self._config(), issue_open=lambda r, n: False,
+        )
+        assert dispositions == []
+
+    def test_a_row_with_no_matching_queue_entry_is_skipped(self, monkeypatch) -> None:
+        """The original row was already refiled by an earlier iteration
+        (or a concurrent writer) — retrying would refile it twice."""
+        dispositions = run_refile_sweep(
+            [self._row()], config=self._config(), issue_open=lambda r, n: True,
+        )
+        assert dispositions == []
+
+
+class TestRunPendingRefileCloseSweep:
+    """:func:`run_pending_refile_close_sweep` — step 4's deferred close:
+    "once the refile merges, close #N as superseded" (#4038)."""
+
+    def test_closes_the_original_once_the_refile_is_observed_closed(self) -> None:
+        state.record_board_doctor_decision({
+            "queue": "drive-queue",
+            "key": "quadraui#2467",
+            "cause": CAUSE_BRANCH_MERGED_GUARD,
+            "action": ft.ACTION_REFILE_FILED,
+            "dry_run": False,
+            "plan_leg_assignment_id": "plan-1",
+            "follow_ups": [2739],
+            "follow_up_keys": {"refile": 2739},
+            "deduped": {},
+            "queued": {},
+            "reasons": [],
+            "evidence": [ft.PENDING_REFILE_CLOSE_EVIDENCE_PREFIX + '{"refile_issue": 2739}'],
+        })
+        writer = _FakeRefileWriter()
+
+        results = run_pending_refile_close_sweep(
+            config=Config(repos=[Repo(name="quadraui", github="acme/quadraui")], machines=[]),
+            issue_closed=lambda repo, number: number == 2739,
+            writer=writer,
+        )
+
+        assert len(results) == 1
+        assert results[0]["action"] == ft.ACTION_REFILE_SUPERSEDED
+        assert writer.closed == [2467]
+
+    def test_leaves_it_alone_while_the_refile_is_still_open(self) -> None:
+        state.record_board_doctor_decision({
+            "queue": "drive-queue",
+            "key": "quadraui#2467",
+            "cause": CAUSE_BRANCH_MERGED_GUARD,
+            "action": ft.ACTION_REFILE_FILED,
+            "dry_run": False,
+            "plan_leg_assignment_id": "plan-1",
+            "follow_ups": [2739],
+            "follow_up_keys": {"refile": 2739},
+            "deduped": {},
+            "queued": {},
+            "reasons": [],
+            "evidence": [ft.PENDING_REFILE_CLOSE_EVIDENCE_PREFIX + '{"refile_issue": 2739}'],
+        })
+        writer = _FakeRefileWriter()
+
+        results = run_pending_refile_close_sweep(
+            config=Config(repos=[Repo(name="quadraui", github="acme/quadraui")], machines=[]),
+            issue_closed=lambda repo, number: False,
+            writer=writer,
+        )
+
+        assert results == []
+        assert writer.closed == []
+
+    def test_dry_run_writes_nothing(self) -> None:
+        state.record_board_doctor_decision({
+            "queue": "drive-queue",
+            "key": "quadraui#2467",
+            "cause": CAUSE_BRANCH_MERGED_GUARD,
+            "action": ft.ACTION_REFILE_FILED,
+            "dry_run": False,
+            "plan_leg_assignment_id": "plan-1",
+            "follow_ups": [2739],
+            "follow_up_keys": {"refile": 2739},
+            "deduped": {},
+            "queued": {},
+            "reasons": [],
+            "evidence": [ft.PENDING_REFILE_CLOSE_EVIDENCE_PREFIX + '{"refile_issue": 2739}'],
+        })
+        writer = _FakeRefileWriter()
+
+        results = run_pending_refile_close_sweep(
+            config=Config(repos=[Repo(name="quadraui", github="acme/quadraui")], machines=[]),
+            issue_closed=lambda repo, number: True,
+            writer=writer,
+            dry_run=True,
+        )
+
+        assert len(results) == 1 and results[0]["action"] == "would-close"
+        assert writer.closed == []
+
+
+class TestAutoRefileEnabled:
+    """:func:`coord.board_doctor_followthrough.auto_refile_enabled` — the
+    #4038 opt-in gate: ``board_doctor.auto_refile: true`` fleet-wide AND
+    the per-repo opt-in."""
+
+    def test_disabled_by_default(self) -> None:
+        repo = Repo(name="quadraui", github="acme/quadraui")
+        config = Config(repos=[repo], machines=[])
+        assert ft.auto_refile_enabled("quadraui", config) is False
+
+    def test_enabled_when_both_opt_in(self) -> None:
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_refile=True),
+        )
+        config = Config(repos=[repo], machines=[])
+        assert ft.auto_refile_enabled("quadraui", config) is True
+
+    def test_fleet_kill_switch_disarms_a_repo_that_opted_in(self) -> None:
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_refile=True),
+        )
+        config = Config(
+            repos=[repo], machines=[], board_doctor=BoardDoctorConfig(auto_refile=False),
+        )
+        assert ft.auto_refile_enabled("quadraui", config) is False
+
+
+class TestRunRefileDirect:
+    """:func:`coord.board_doctor_followthrough.run_refile` exercised
+    directly (not through the sweep) — the epic sub-issue swap and the
+    depth limit, which :class:`TestRunRefileSweep` does not touch."""
+
+    @staticmethod
+    def _candidate(**overrides) -> "ft.RefileCandidate":
+        base = dict(
+            repo_name="quadraui", issue_number=2467, title="Py-port",
+            body="Do A. Do B.", github_repo="acme/quadraui",
+        )
+        base.update(overrides)
+        return ft.RefileCandidate(**base)
+
+    @staticmethod
+    def _fake_plan_leg(remainder_on_default_branch: bool):
+        import json as _json
+
+        def leg(prompt):
+            payload = {"remainder_on_default_branch": remainder_on_default_branch}
+            return ft.PlanLegResult(
+                assignment_id="plan-1", output="```json\n" + _json.dumps(payload) + "\n```",
+            )
+        return leg
+
+    def test_refile_swaps_the_old_reference_in_the_epic_body(self) -> None:
+        writer = _FakeRefileWriter(new_number=2739)
+        writer.epic_bodies[50] = "## Sub-issues\n- [ ] #2467 — app layer\n"
+        candidate = self._candidate(epic_number=50)
+        recorded: list[dict] = []
+
+        disposition = ft.run_refile(
+            candidate,
+            plan_leg=self._fake_plan_leg(False),
+            writer=writer,
+            alert=lambda *a: None,
+            record=recorded.append,
+            requeue=lambda candidate, new_number: None,
+        )
+
+        assert disposition.action == ft.ACTION_REFILE_FILED
+        assert writer.linked == [(50, 2739)]
+        assert "#2739" in writer.epic_bodies[50]
+        assert "#2467" not in writer.epic_bodies[50]
+        assert recorded and recorded[0]["action"] == ft.ACTION_REFILE_FILED
+
+    def test_depth_limit_pages_instead_of_recursing(self) -> None:
+        candidate = self._candidate(
+            body=f"B\n{ft.REFILE_MARKER.format(issue=1)}",
+        )
+        writer = _FakeRefileWriter()
+        paged: list[tuple[str, str]] = []
+
+        def boom_plan_leg(prompt):
+            raise AssertionError("must not dispatch a plan leg for a depth-limited row")
+
+        disposition = ft.run_refile(
+            candidate, plan_leg=boom_plan_leg, writer=writer,
+            alert=lambda subject, body: paged.append((subject, body)),
+            record=lambda entry: None,
+        )
+
+        assert disposition.action == ft.ACTION_REFILE_DEPTH_PAGED
+        assert writer.created == [] and writer.closed == []
+        assert len(paged) == 1
+
+    def test_refile_note_is_present_in_the_filed_body(self) -> None:
+        writer = _FakeRefileWriter(new_number=2739)
+        candidate = self._candidate()
+
+        ft.run_refile(
+            candidate, plan_leg=self._fake_plan_leg(False), writer=writer,
+            alert=lambda *a: None, record=lambda entry: None,
+            requeue=lambda candidate, new_number: None,
+        )
+
+        [(title, body)] = writer.created
+        assert title == "Py-port (refile of #2467)"
+        assert "Refiled from #2467 for execution" in body
+        assert "issue-2467-*" in body
+        assert "#3376" in body
+
+
+class TestClassifySplitFindings:
+    """:func:`coord.board_doctor_followthrough.classify_split_findings` —
+    #4034 point 1's own unit tests."""
+
+    def test_a_missing_scope_only_set_is_eligible(self) -> None:
+        verdict = ft.classify_split_findings([
+            "nothing in the crate consumes `ItemsWindow` in layout or paint",
+            "the new flag is not implemented in the CLI parser",
+        ])
+        assert verdict.eligible is True
+        assert len(verdict.findings) == 2
+
+    def test_an_issue_resolution_partial_naming_the_gap_is_eligible(self) -> None:
+        verdict = ft.classify_split_findings([
+            "ISSUE_RESOLUTION: partial — the dashboard half never landed",
+        ])
+        assert verdict.eligible is True
+
+    def test_any_wrong_code_finding_blocks_the_split(self) -> None:
+        verdict = ft.classify_split_findings([
+            "nothing in the crate consumes `ItemsWindow` in layout or paint",
+            "`coord/board_doctor.py:120` reads the wrong field and corrupts "
+            "the written row",
+        ])
+        assert verdict.eligible is False
+        assert "delivered code" in verdict.reason
+
+    def test_a_nit_only_set_is_not_eligible(self) -> None:
+        """An empty blocking-findings set (nit-only reviews never add to
+        this list — #3835's Finisher tier handles them, never this
+        disposition) has nothing to classify."""
+        verdict = ft.classify_split_findings([])
+        assert verdict.eligible is False
+        assert verdict.findings == ()
+
+    def test_blank_findings_are_ignored_not_misread_as_missing_scope(self) -> None:
+        verdict = ft.classify_split_findings(["   ", ""])
+        assert verdict.eligible is False
+
+
+class TestSplitBlockingFindings:
+    """:func:`coord.board_doctor_followthrough.split_blocking_findings`."""
+
+    def test_splits_one_finding_per_top_level_bullet(self) -> None:
+        text = (
+            "- (from #4033) first finding, with\n"
+            "  a continuation line.\n"
+            "- (from #4037) second finding."
+        )
+        findings = ft.split_blocking_findings(text)
+        assert len(findings) == 2
+        assert findings[0].startswith("- (from #4033) first finding")
+        assert "continuation line" in findings[0]
+        assert findings[1].startswith("- (from #4037) second finding")
+
+    def test_no_bullets_returns_the_whole_text_as_one_finding(self) -> None:
+        assert ft.split_blocking_findings("just prose, no list") == ["just prose, no list"]
+
+    def test_blank_text_returns_nothing(self) -> None:
+        assert ft.split_blocking_findings("   ") == []
+
+
+class TestAutoSplitEnabled:
+    """:func:`coord.board_doctor_followthrough.auto_split_enabled` — the
+    #4034 opt-in gate: ``board_doctor.auto_split: true`` fleet-wide AND the
+    per-repo opt-in."""
+
+    def test_disabled_by_default(self) -> None:
+        repo = Repo(name="quadraui", github="acme/quadraui")
+        config = Config(repos=[repo], machines=[])
+        assert ft.auto_split_enabled("quadraui", config) is False
+
+    def test_enabled_when_both_opt_in(self) -> None:
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_split=True),
+        )
+        config = Config(repos=[repo], machines=[])
+        assert ft.auto_split_enabled("quadraui", config) is True
+
+    def test_fleet_kill_switch_disarms_a_repo_that_opted_in(self) -> None:
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_split=True),
+        )
+        config = Config(
+            repos=[repo], machines=[], board_doctor=BoardDoctorConfig(auto_split=False),
+        )
+        assert ft.auto_split_enabled("quadraui", config) is False
+
+    def test_env_var_kill_switch(self, monkeypatch) -> None:
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_split=True),
+        )
+        config = Config(repos=[repo], machines=[])
+        monkeypatch.setenv("COORD_BOARD_DOCTOR_NO_AUTO_SPLIT", "1")
+        assert ft.auto_split_enabled("quadraui", config) is False
+
+
+class TestBuildAutoSplitCandidate:
+    """:func:`coord.board_doctor.build_auto_split_candidate` — the real
+    :class:`~coord.board_doctor_followthrough.AutoSplitCandidate` builder."""
+
+    def test_pulls_issue_epic_and_queue_snapshot(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        def fake_get_issue(repo, number):
+            if number == 2531:
+                return {
+                    "number": 2531, "title": "ItemsWindow index-space fix",
+                    "body": "Do A.", "milestone": {"title": "M1"},
+                    "labels": [{"name": "backend:rust"}],
+                }
+            raise AssertionError(f"unexpected issue number {number}")
+
+        monkeypatch.setattr("coord.github_ops.get_issue", fake_get_issue)
+        monkeypatch.setattr(
+            "coord.github_ops.get_issue_parent", lambda repo, number: {"number": 50},
+        )
+        entry = QueueEntry(
+            repo="quadraui", issue=2531, position=2, state=STATE_BLOCKED,
+            after=("quadraui#2400",), machine="precision",
+        )
+
+        candidate = board_doctor_mod.build_auto_split_candidate(
+            "quadraui", 2531, config=Config(repos=[], machines=[]), entry=entry,
+            findings=("no consumer of ItemsWindow",),
+        )
+
+        assert candidate.repo_name == "quadraui" and candidate.issue_number == 2531
+        assert candidate.title == "ItemsWindow index-space fix"
+        assert candidate.epic_number == 50
+        assert candidate.milestone == "M1"
+        assert candidate.labels == ("backend:rust",)
+        assert candidate.queue_position == 2
+        assert candidate.queue_after == ("quadraui#2400",)
+        assert candidate.queue_machine == "precision"
+        assert candidate.findings == ("no consumer of ItemsWindow",)
+
+
+class _FakeAutoSplitWriter:
+    def __init__(self, *, new_number: int = 2744) -> None:
+        self.new_number = new_number
+        self.created: list[tuple[str, str]] = []
+        self.commented: list[tuple[int, str]] = []
+        self.bodies: dict[int, str] = {}
+        self.linked: list[tuple[int, int]] = []
+
+    def create_issue(self, repo_name, *, title, body, milestone, labels=()):
+        self.created.append((title, body))
+        return self.new_number
+
+    def add_child(self, repo_name, *, epic, child, after):
+        self.linked.append((epic, child))
+
+    def get_issue_body(self, repo_name, number):
+        return self.bodies.get(number, "")
+
+    def set_issue_body(self, repo_name, number, body):
+        self.bodies[number] = body
+
+    def close_issue(self, repo_name, number, *, comment):
+        raise AssertionError("auto-split must never close the original")
+
+    def comment_issue(self, repo_name, number, *, body):
+        self.commented.append((number, body))
+
+
+class TestRunAutoSplitForRow:
+    """:func:`coord.board_doctor.run_auto_split_for_row` — the real wiring
+    between a ceiling-blocked drive-queue row and
+    :func:`coord.board_doctor_followthrough.run_auto_split` (#4034). This is
+    the issue's own end-to-end acceptance: a ceiling row with one
+    missing-scope finding produces a follow-up issue, a rescoped body, a
+    review reset and a requeued row, with no operator call."""
+
+    REPO = "quadraui"
+    ISSUE = 2531
+
+    @staticmethod
+    def _config(*, opted_in: bool = True) -> Config:
+        repo = Repo(
+            name="quadraui", github="acme/quadraui",
+            board_doctor=BoardDoctorRepoConfig(auto_split=opted_in),
+        )
+        return Config(repos=[repo], machines=[])
+
+    def _stub_github(self, monkeypatch, *, epic_number: int | None = None) -> None:
+        monkeypatch.setattr(
+            "coord.github_ops.get_issue",
+            lambda repo, number: {
+                "number": number, "title": "ItemsWindow index-space fix",
+                "body": "## What\n\nFix the index math.\n\n## Acceptance\n\n"
+                "- `src/items.rs` consumers all use the fixed index\n",
+            },
+        )
+        monkeypatch.setattr(
+            "coord.github_ops.get_issue_parent",
+            lambda repo, number: {"number": epic_number} if epic_number else None,
+        )
+
+    def _stub_review(self, monkeypatch, *, assignment_id: str = "review-1") -> None:
+        review = Assignment(
+            machine_name="precision", repo_name=self.REPO, issue_number=self.ISSUE,
+            issue_title="T", assignment_id=assignment_id, status="done",
+            branch=f"issue-{self.ISSUE}-fix", dispatched_at=1.0, finished_at=2.0,
+            type="review", review_of_assignment_id="work-1",
+        )
+        self._board = Board(active=[], completed=[review])
+        monkeypatch.setattr(
+            "coord.review.fetch_review_findings_from_github",
+            lambda repo_github, issue_number, aid: SimpleNamespace(
+                verdict="request-changes",
+                body=(
+                    "## Blocking findings\n\n"
+                    "- nothing in the crate consumes `ItemsWindow` in "
+                    "layout or paint\n"
+                ),
+            ),
+        )
+
+    def test_files_a_follow_up_rescopes_resets_and_requeues(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        self._stub_github(monkeypatch)
+        self._stub_review(monkeypatch)
+        state.enqueue_drive_queue(self.REPO, self.ISSUE, after=["quadraui#2400"])
+        writer = _FakeAutoSplitWriter(new_number=2744)
+        reset_calls: list[tuple[str, int]] = []
+
+        disposition = board_doctor_mod.run_auto_split_for_row(
+            self.REPO, self.ISSUE, config=self._config(), board=self._board,
+            writer=writer, reset_review=lambda r, n: reset_calls.append((r, n)),
+        )
+
+        assert disposition is not None
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_FILED
+        assert disposition.follow_ups == [2744]
+
+        # A follow-up issue was filed quoting the missing-scope finding.
+        [(title, body)] = writer.created
+        assert title == "ItemsWindow index-space fix (split from #2531)"
+        assert "nothing in the crate consumes" in body
+        assert ft.AUTO_SPLIT_MARKER.format(issue=self.ISSUE) in body
+
+        # The original was rescoped with a dated note, never closed.
+        rescoped = writer.bodies[self.ISSUE]
+        assert "Rescoped" in rescoped
+        assert "#2744" in rescoped
+
+        # The review stage was reset — no operator call.
+        assert reset_calls == [(self.REPO, self.ISSUE)]
+
+        # A pointer comment landed on the original.
+        assert writer.commented and writer.commented[0][0] == self.ISSUE
+
+        # The original row was re-added unchanged, and the follow-up is
+        # queued right behind it.
+        rows = state.list_drive_queue()
+        by_issue = {r["issue_number"]: r for r in rows}
+        assert self.ISSUE in by_issue
+        assert by_issue[self.ISSUE]["after_json"] == ["quadraui#2400"]
+        assert 2744 in by_issue
+        assert by_issue[2744]["after_json"] == [f"quadraui#{self.ISSUE}"]
+
+    def test_a_repo_without_opt_in_declines(self, monkeypatch) -> None:
+        self._stub_github(monkeypatch)
+        self._stub_review(monkeypatch)
+        state.enqueue_drive_queue(self.REPO, self.ISSUE)
+        import coord.board_doctor as board_doctor_mod
+
+        disposition = board_doctor_mod.run_auto_split_for_row(
+            self.REPO, self.ISSUE, config=self._config(opted_in=False), board=self._board,
+        )
+
+        assert disposition is None
+
+    def test_a_wrong_code_finding_declines_rather_than_splitting(self, monkeypatch) -> None:
+        self._stub_github(monkeypatch)
+        self._stub_review(monkeypatch)
+        monkeypatch.setattr(
+            "coord.review.fetch_review_findings_from_github",
+            lambda repo_github, issue_number, aid: SimpleNamespace(
+                verdict="request-changes",
+                body=(
+                    "## Blocking findings\n\n"
+                    "- `src/items.rs:40` reads the wrong field and corrupts "
+                    "the index\n"
+                ),
+            ),
+        )
+        state.enqueue_drive_queue(self.REPO, self.ISSUE)
+        import coord.board_doctor as board_doctor_mod
+
+        disposition = board_doctor_mod.run_auto_split_for_row(
+            self.REPO, self.ISSUE, config=self._config(), board=self._board,
+        )
+
+        assert disposition is None
+
+    def test_no_live_queue_row_declines(self, monkeypatch) -> None:
+        self._stub_github(monkeypatch)
+        self._stub_review(monkeypatch)
+        import coord.board_doctor as board_doctor_mod
+
+        disposition = board_doctor_mod.run_auto_split_for_row(
+            self.REPO, self.ISSUE, config=self._config(), board=self._board,
+        )
+
+        assert disposition is None
+
+    def test_a_reset_that_cannot_stop_the_live_session_is_a_write_failure(
+        self, monkeypatch,
+    ) -> None:
+        """#4034 review (#2096): `diagnose_stage(reset=True)` has non-raising
+        failure paths — it can report `needs_reset=True` without actually
+        clearing the review stage (e.g. it could not stop the live
+        session). The mere absence of an exception from that call must not
+        read as "reset and requeue succeeded"; it has to surface as
+        `ACTION_AUTO_SPLIT_WRITE_FAILED`, with the original never requeued
+        behind a review stage that is still blocking it."""
+        self._stub_github(monkeypatch)
+        self._stub_review(monkeypatch)
+        state.enqueue_drive_queue(self.REPO, self.ISSUE)
+        writer = _FakeAutoSplitWriter(new_number=2744)
+        import coord.board_doctor as board_doctor_mod
+        from coord.diagnose import DiagnoseResult
+
+        monkeypatch.setattr(
+            "coord.diagnose.diagnose_stage",
+            lambda board, config, repo, issue, stage, reset, dry_run: DiagnoseResult(
+                repo_name=repo, issue_number=issue, stage=stage,
+                recovered=False, needs_reset=True,
+                findings=["could not stop the live session"],
+            ),
+        )
+
+        disposition = board_doctor_mod.run_auto_split_for_row(
+            self.REPO, self.ISSUE, config=self._config(), board=self._board,
+            writer=writer,
+        )
+
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_WRITE_FAILED
+        # The original was never re-added behind a still-blocked review.
+        rows = state.list_drive_queue()
+        assert len([r for r in rows if r["issue_number"] == self.ISSUE]) == 1
+
+    def test_adds_to_the_epics_sub_issues_checklist_when_present(self, monkeypatch) -> None:
+        self._stub_github(monkeypatch, epic_number=50)
+        self._stub_review(monkeypatch)
+        state.enqueue_drive_queue(self.REPO, self.ISSUE)
+        writer = _FakeAutoSplitWriter(new_number=2744)
+        # #4034 review: a hand-written, checkbox-free row carrying its own
+        # trailing prose must come back byte-for-byte, not rewritten as a
+        # bare `- [ ] #2531` — `_splice_epic_checklists` guards exactly
+        # this (unlike a hand-rolled parse/render round trip through
+        # `WorkOrderNode`, which has no free-text field to carry it).
+        writer.bodies[50] = (
+            "Epic body.\n\n## Sub-issues\n- #2531 — tranche 2 of #101\n\n"
+            "## Notes\nkeep me\n"
+        )
+        import coord.board_doctor as board_doctor_mod
+
+        disposition = board_doctor_mod.run_auto_split_for_row(
+            self.REPO, self.ISSUE, config=self._config(), board=self._board,
+            writer=writer, reset_review=lambda r, n: None,
+        )
+
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_FILED
+        assert writer.linked == [(50, 2744)]
+        epic_body = writer.bodies[50]
+        assert "#2744" in epic_body
+        # The original's hand-written row survives byte-for-byte, prose and all.
+        assert "- #2531 — tranche 2 of #101" in epic_body
+        assert "- [ ] #2531" not in epic_body  # not rewritten into the checkbox grammar
+        assert "keep me" in epic_body  # #4034: add-child must not strip rows
+
+
+class TestRunAutoSplitDirect:
+    """:func:`coord.board_doctor_followthrough.run_auto_split` exercised
+    directly (not through :func:`run_auto_split_for_row`) — the depth limit
+    and write-failure paths :class:`TestRunAutoSplitForRow` does not touch."""
+
+    @staticmethod
+    def _candidate(**overrides) -> "ft.AutoSplitCandidate":
+        base = dict(
+            repo_name="quadraui", issue_number=2531, title="Index-space fix",
+            body="Do A.", github_repo="acme/quadraui",
+            findings=("no consumer of `ItemsWindow` in layout or paint",),
+        )
+        base.update(overrides)
+        return ft.AutoSplitCandidate(**base)
+
+    def test_depth_limit_pages_instead_of_recursing(self) -> None:
+        candidate = self._candidate(
+            body=f"B\n{ft.AUTO_SPLIT_MARKER.format(issue=1)}",
+        )
+        writer = _FakeAutoSplitWriter()
+        paged: list[tuple[str, str]] = []
+
+        disposition = ft.run_auto_split(
+            candidate, writer=writer,
+            alert=lambda subject, body: paged.append((subject, body)),
+            record=lambda entry: None,
+        )
+
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_DEPTH_PAGED
+        assert writer.created == []
+        assert len(paged) == 1
+
+    def test_write_failure_alerts_with_what_was_filed_so_far(self) -> None:
+        candidate = self._candidate()
+        writer = _FakeAutoSplitWriter(new_number=2744)
+
+        def boom_set_body(repo_name, number, body):
+            raise RuntimeError("gh is down")
+
+        writer.set_issue_body = boom_set_body
+        alerted: list[tuple[str, str]] = []
+        recorded: list[dict] = []
+
+        disposition = ft.run_auto_split(
+            candidate, writer=writer,
+            alert=lambda subject, body: alerted.append((subject, body)),
+            record=recorded.append,
+        )
+
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_WRITE_FAILED
+        assert disposition.follow_ups == [2744]
+        assert alerted and "#2744" in alerted[0][1]
+        assert recorded and recorded[0]["action"] == ft.ACTION_AUTO_SPLIT_WRITE_FAILED
+
+    def test_dry_run_writes_nothing(self) -> None:
+        candidate = self._candidate()
+        writer = _FakeAutoSplitWriter()
+
+        disposition = ft.run_auto_split(
+            candidate, writer=writer, alert=lambda *a: None,
+            record=lambda entry: (_ for _ in ()).throw(
+                AssertionError("dry_run must not record"),
+            ),
+            dry_run=True,
+        )
+
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_FILED
+        assert writer.created == []
+
+    def test_malformed_epic_sub_issues_fails_write_rather_than_wiping_it(self) -> None:
+        """#4034 review: a `## Sub-issues` section that merely fails to
+        parse (here, the SAME issue number declared twice) must not come
+        back as a single bare row replacing every existing one —
+        `_splice_epic_checklists` raises, and `run_auto_split` must report
+        that as a write failure, with the epic body left untouched."""
+        candidate = self._candidate(epic_number=50)
+        writer = _FakeAutoSplitWriter(new_number=2744)
+        writer.bodies[50] = "Epic body.\n\n## Sub-issues\n- #10\n- #10\n"
+        alerted: list[tuple[str, str]] = []
+        recorded: list[dict] = []
+
+        disposition = ft.run_auto_split(
+            candidate, writer=writer,
+            alert=lambda subject, body: alerted.append((subject, body)),
+            record=recorded.append,
+        )
+
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_WRITE_FAILED
+        assert alerted
+        # The malformed section was never overwritten with a lossy rewrite.
+        assert writer.bodies[50] == "Epic body.\n\n## Sub-issues\n- #10\n- #10\n"
+
+    def test_epic_with_no_checklist_at_all_fails_rather_than_wiping_it(self) -> None:
+        """#4034 review: an epic body with neither `## Work order` nor
+        `## Sub-issues` has nowhere to splice an `{after: #orig}` edge
+        that still parses, since `#orig` itself is never declared in a
+        brand-new section — this must surface as a write failure, with
+        the epic body never set to the unparseable result, rather than
+        landing a checklist `parse_sub_issues` can no longer read."""
+        candidate = self._candidate(epic_number=50)
+        writer = _FakeAutoSplitWriter(new_number=2744)
+        writer.bodies[50] = "Epic body.\n\nNo checklist here.\n"
+        alerted: list[tuple[str, str]] = []
+
+        disposition = ft.run_auto_split(
+            candidate, writer=writer,
+            alert=lambda subject, body: alerted.append((subject, body)),
+            record=lambda entry: None,
+        )
+
+        assert disposition.action == ft.ACTION_AUTO_SPLIT_WRITE_FAILED
+        assert alerted
+        assert writer.bodies[50] == "Epic body.\n\nNo checklist here.\n"
+
+
+class TestTryAutoSplit:
+    """:func:`coord.board_doctor_policy._try_auto_split` — the confirmed-
+    success wiring :func:`coord.board_doctor_policy._investigate` consults
+    before paging a human for a ceiling-blocked row (#4034)."""
+
+    def test_true_only_when_the_disposition_confirms_filed(self, monkeypatch) -> None:
+        import coord.board_doctor_policy as board_doctor_policy_mod
+
+        monkeypatch.setattr(
+            "coord.commands._common.resolve_and_load_config",
+            lambda *a, **k: Config(repos=[], machines=[]),
+        )
+        monkeypatch.setattr("coord.state.build_board", lambda: Board(active=[], completed=[]))
+        monkeypatch.setattr(
+            "coord.board_doctor.run_auto_split_for_row",
+            lambda *a, **k: ft.Disposition(
+                repo_name="quadraui", issue_number=2531,
+                action=ft.ACTION_AUTO_SPLIT_FILED, cause=ft.AUTO_SPLIT_CAUSE,
+            ),
+        )
+
+        assert board_doctor_policy_mod._try_auto_split("quadraui", 2531) is True
+
+    def test_false_when_the_disposition_is_a_write_failure(self, monkeypatch) -> None:
+        """A disposition object coming back is not the same as it having
+        confirmed success (#2096) — a write-failed split must still fall
+        through to the caller's own alert fallback."""
+        import coord.board_doctor_policy as board_doctor_policy_mod
+
+        monkeypatch.setattr(
+            "coord.commands._common.resolve_and_load_config",
+            lambda *a, **k: Config(repos=[], machines=[]),
+        )
+        monkeypatch.setattr("coord.state.build_board", lambda: Board(active=[], completed=[]))
+        monkeypatch.setattr(
+            "coord.board_doctor.run_auto_split_for_row",
+            lambda *a, **k: ft.Disposition(
+                repo_name="quadraui", issue_number=2531,
+                action=ft.ACTION_AUTO_SPLIT_WRITE_FAILED, cause=ft.AUTO_SPLIT_CAUSE,
+            ),
+        )
+
+        assert board_doctor_policy_mod._try_auto_split("quadraui", 2531) is False
+
+    def test_false_when_not_eligible_at_all(self, monkeypatch) -> None:
+        import coord.board_doctor_policy as board_doctor_policy_mod
+
+        monkeypatch.setattr(
+            "coord.commands._common.resolve_and_load_config",
+            lambda *a, **k: Config(repos=[], machines=[]),
+        )
+        monkeypatch.setattr("coord.state.build_board", lambda: Board(active=[], completed=[]))
+        monkeypatch.setattr(
+            "coord.board_doctor.run_auto_split_for_row", lambda *a, **k: None,
+        )
+
+        assert board_doctor_policy_mod._try_auto_split("quadraui", 2531) is False
+
+
+class TestTryAutoSplitExceptionShielding:
+    """#4034 review: `_try_auto_split` only catches `ConfigError` itself,
+    but `_investigate`'s own call site (and `coord.board_doctor.sweep`'s
+    bare `performed = dispatcher(row)` beyond it) has no shield of its
+    own — an uncaught exception there would abort the WHOLE sweep. A
+    GitHub blip out of `build_auto_split_candidate` or the review-stage
+    reset must instead read as a declined split and fall through to
+    `_alert_fallback`, exactly like any other decline."""
+
+    def test_an_exception_out_of_try_auto_split_does_not_escape_investigate(
+        self, monkeypatch,
+    ) -> None:
+        import coord.board_doctor_policy as board_doctor_policy_mod
+
+        monkeypatch.setattr(
+            "coord.drive_queue.fix_round_ceiling_blocked_for_issue",
+            lambda repo_name, issue_number: True,
+        )
+        monkeypatch.setattr(
+            board_doctor_policy_mod, "_try_auto_split",
+            lambda repo_name, issue_number: (_ for _ in ()).throw(
+                RuntimeError("GitHub 503"),
+            ),
+        )
+        alerted: list[str] = []
+        monkeypatch.setattr(
+            board_doctor_policy_mod, "_alert_fallback",
+            lambda row: alerted.append(row.key),
+        )
+
+        # `gate-blocked` is not one of `_FIXIT_REBUDGET_ENVIRONMENTAL_CAUSES`,
+        # so `_fixit_rebudget_eligible` declines and `_investigate` reaches
+        # `_try_auto_split` on the ceiling-blocked path.
+        row = _row("acme/widgets#2695", queue_diagnose.CAUSE_GATE_BLOCKED, fresh=True)
+
+        dispatched = board_doctor_policy_mod._investigate(row)
+
+        assert dispatched is False
+        assert alerted == ["acme/widgets#2695"]
+
+
+# ── #4035: board doctor config drift ────────────────────────────────────────
+
+import coord.board_doctor_policy as board_doctor_policy_mod  # noqa: E402
+import coord.smoke as smoke  # noqa: E402
+
+
+class TestExtractDanglingCargoTarget:
+    """`coord.queue_diagnose.extract_dangling_cargo_target` — the pure
+    cargo-error-wording parser both the Detect-step classifier and this
+    test suite build on."""
+
+    def test_an_example_target_is_extracted(self) -> None:
+        assert queue_diagnose.extract_dangling_cargo_target(
+            "error: no example target named `win_panel` in `quadraui` package"
+        ) == ("example", "win_panel")
+
+    def test_a_bin_target_is_extracted(self) -> None:
+        assert queue_diagnose.extract_dangling_cargo_target(
+            "error: no bin target named `old_tool`"
+        ) == ("bin", "old_tool")
+
+    def test_an_ordinary_test_failure_extracts_nothing(self) -> None:
+        assert queue_diagnose.extract_dangling_cargo_target(
+            "FAILED tests/test_panel.py::test_render - AssertionError"
+        ) is None
+
+    def test_empty_output_extracts_nothing(self) -> None:
+        assert queue_diagnose.extract_dangling_cargo_target("") is None
+        assert queue_diagnose.extract_dangling_cargo_target(None) is None
+
+
+class TestClassifyConfigDrift:
+    """`coord.queue_diagnose.classify_config_drift` — acceptance #1: the
+    quadraui#2695 shape classifies as config-drift, not a test failure."""
+
+    def test_the_2695_shape_classifies_as_config_drift(self) -> None:
+        test_reason = (
+            "error: no example target named `win_panel` in `quadraui` package"
+        )
+        deleted_paths = ["examples/win_panel.rs"]
+
+        assert queue_diagnose.classify_config_drift(test_reason, deleted_paths) == (
+            "example", "win_panel",
+        )
+
+    def test_a_named_target_the_diff_does_not_delete_is_not_config_drift(self) -> None:
+        # The target is dangling for some OTHER reason (a real regression)
+        # — this must never guess config drift just because the error text
+        # matches the shape.
+        test_reason = (
+            "error: no example target named `win_panel` in `quadraui` package"
+        )
+        deleted_paths = ["examples/some_other_example.rs"]
+
+        assert queue_diagnose.classify_config_drift(test_reason, deleted_paths) is None
+
+    def test_an_ordinary_failure_is_not_config_drift(self) -> None:
+        assert queue_diagnose.classify_config_drift(
+            "FAILED tests/test_panel.py::test_render - AssertionError",
+            ["examples/win_panel.rs"],
+        ) is None
+
+    def test_no_reason_is_not_config_drift(self) -> None:
+        assert queue_diagnose.classify_config_drift(None, ["examples/win_panel.rs"]) is None
+
+
+class TestCargoTargetCommandParsing:
+    """`coord.smoke`'s command-TEXT side of #4035 — the pre-smoke check's
+    own building blocks."""
+
+    def test_cargo_target_source_path_maps_kind_to_directory(self) -> None:
+        assert smoke.cargo_target_source_path("example", "win_panel") == (
+            "examples/win_panel.rs"
+        )
+        assert smoke.cargo_target_source_path("bin", "old_tool") == "src/bin/old_tool.rs"
+        assert smoke.cargo_target_source_path("unknown_kind", "x") is None
+
+    def test_cargo_target_touches_path_matches_exact_and_suffix(self) -> None:
+        assert smoke.cargo_target_touches_path(
+            "example", "win_panel", ["examples/win_panel.rs"]
+        )
+        assert smoke.cargo_target_touches_path(
+            "example", "win_panel", ["crates/quadraui/examples/win_panel.rs"]
+        )
+        assert not smoke.cargo_target_touches_path(
+            "example", "win_panel", ["examples/other.rs"]
+        )
+
+    def test_cargo_target_flags_in_command_finds_every_occurrence(self) -> None:
+        command = "cargo clippy --example win_panel -- -D warnings && cargo test --bin old_tool"
+
+        assert smoke.cargo_target_flags_in_command(command) == [
+            ("example", "win_panel", "--example win_panel"),
+            ("bin", "old_tool", "--bin old_tool"),
+        ]
+
+    def test_config_drift_target_in_command_flags_a_deleted_example(self) -> None:
+        # Acceptance #2: the pre-smoke check flags a diff that deletes an
+        # example named in the smoke command.
+        command = "cargo clippy --workspace --example win_panel -- -D warnings"
+
+        assert smoke.config_drift_target_in_command(
+            command, ["examples/win_panel.rs"]
+        ) == ("example", "win_panel", "--example win_panel")
+
+    def test_config_drift_target_in_command_is_none_when_nothing_deleted(self) -> None:
+        command = "cargo clippy --workspace --example win_panel -- -D warnings"
+
+        assert smoke.config_drift_target_in_command(command, ["src/lib.rs"]) is None
+
+    def test_config_drift_target_in_command_is_none_for_a_plain_command(self) -> None:
+        assert smoke.config_drift_target_in_command(
+            "cargo test --workspace", ["examples/win_panel.rs"],
+        ) is None
+
+
+class TestRemoveDanglingTargetToken:
+    """`coord.smoke.remove_dangling_target_token` — acceptance #3: the fix
+    path edits only the matched token."""
+
+    def test_a_token_appearing_once_is_removed(self) -> None:
+        command = "cargo clippy --workspace --example win_panel -- -D warnings"
+
+        result = smoke.remove_dangling_target_token(command, "--example win_panel")
+
+        assert result == "cargo clippy --workspace -- -D warnings"
+        assert "win_panel" not in result
+
+    def test_a_token_absent_from_the_command_is_a_no_op(self) -> None:
+        command = "cargo clippy --workspace -- -D warnings"
+
+        assert smoke.remove_dangling_target_token(command, "--example win_panel") is None
+
+    def test_a_token_appearing_more_than_once_is_a_no_op(self) -> None:
+        # Ambiguous: which occurrence actually dangles is not knowable from
+        # the token text alone, so this refuses rather than guessing.
+        command = (
+            "cargo clippy --example win_panel && cargo build --example win_panel"
+        )
+
+        assert smoke.remove_dangling_target_token(command, "--example win_panel") is None
+
+    def test_whitespace_elsewhere_in_the_command_is_left_untouched(self) -> None:
+        # Only the gap the removed token leaves behind may be closed — a
+        # pre-existing double space somewhere else in the command is not
+        # part of the matched token and must survive unedited.
+        command = "cargo clippy  --workspace --example win_panel -- -D warnings"
+
+        result = smoke.remove_dangling_target_token(command, "--example win_panel")
+
+        assert result == "cargo clippy  --workspace -- -D warnings"
+
+
+class TestGateConfigDriftTargetDeleted:
+    """`coord.smoke._gate_config_drift_target_deleted` — the Prevent-step
+    gate wired into `_dispatch_smoke_legs` itself."""
+
+    @staticmethod
+    def _assignment() -> Assignment:
+        return Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2695,
+            issue_title="issue-2695-remove-panel",
+            assignment_id="aid-2695",
+            status="done",
+            branch="issue-2695-remove-panel",
+            type="work",
+        )
+
+    @staticmethod
+    def _config(ci_command: str) -> Config:
+        return Config(
+            repos=[Repo(name="widgets", github="acme/widgets", ci_command=ci_command)],
+            machines=[],
+        )
+
+    def test_a_confirmed_deleted_target_blocks_dispatch(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "coord.smoke._fetch_deleted_files",
+            lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+        recorded: dict[str, object] = {}
+        monkeypatch.setattr(
+            "coord.state.record_test_verdict",
+            lambda **kwargs: recorded.update(kwargs),
+        )
+
+        completed = self._assignment()
+        config = self._config("cargo clippy --workspace --example win_panel")
+        repo = config.repo("widgets")
+
+        blocked = smoke._gate_config_drift_target_deleted(
+            completed, config, repo=repo, touched=["examples/win_panel.rs"],
+        )
+
+        assert blocked is True
+        assert completed.test_state == TEST_STATE_BLOCKED
+        assert "win_panel" in (completed.test_reason or "")
+        assert recorded["test_state"] == TEST_STATE_BLOCKED
+
+    def test_no_deleted_files_never_blocks(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "coord.smoke._fetch_deleted_files", lambda repo_github, branch: [],
+        )
+        completed = self._assignment()
+        config = self._config("cargo clippy --workspace --example win_panel")
+        repo = config.repo("widgets")
+
+        blocked = smoke._gate_config_drift_target_deleted(
+            completed, config, repo=repo, touched=[],
+        )
+
+        assert blocked is False
+        assert completed.test_state is None
+
+    def test_a_command_naming_no_cargo_target_never_blocks(self, monkeypatch) -> None:
+        # Also the #4035 review's cost fix: a command naming no cargo
+        # target at all must rule itself out WITHOUT ever calling the
+        # `gh`-backed `_fetch_deleted_files`.
+        def _unexpected(repo_github: str, branch: str) -> list[str]:
+            raise AssertionError("_fetch_deleted_files must not be called")
+
+        monkeypatch.setattr("coord.smoke._fetch_deleted_files", _unexpected)
+        completed = self._assignment()
+        config = self._config("npm test")
+        repo = config.repo("widgets")
+
+        blocked = smoke._gate_config_drift_target_deleted(
+            completed, config, repo=repo, touched=[],
+        )
+
+        assert blocked is False
+        assert completed.test_state is None
+
+
+class TestConfigDriftRows:
+    """`coord.board_doctor.config_drift_rows` — the Detect-step sweep
+    source feeding this cause into the board doctor."""
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(repos=[Repo(name="widgets", github="acme/widgets")], machines=[])
+
+    @staticmethod
+    def _config_with_ci_command(ci_command: str) -> Config:
+        return Config(
+            repos=[Repo(name="widgets", github="acme/widgets", ci_command=ci_command)],
+            machines=[],
+        )
+
+    def test_a_confirmed_dangling_target_produces_a_config_drift_row(self) -> None:
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2695,
+            issue_title="issue-2695-remove-panel",
+            assignment_id="aid-2695",
+            status="done",
+            branch="issue-2695-remove-panel",
+            type="work",
+            test_state="failed",
+            test_reason=(
+                "error: no example target named `win_panel` in `quadraui` package"
+            ),
+        )
+        board = Board(completed=[assignment])
+
+        rows = config_drift_rows(
+            board,
+            self._config_with_ci_command(
+                "cargo clippy --workspace --example win_panel"
+            ),
+            diff_lookup=lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+
+        [row] = rows
+        assert row.queue == "config-drift"
+        assert row.key == "widgets#2695"
+        assert row.cause == queue_diagnose.CAUSE_CONFIG_DRIFT
+        assert "win_panel" in row.evidence[0]
+
+    def test_no_resolvable_command_produces_no_row(self) -> None:
+        # The repo has no ci_command/default_command/test_command at all —
+        # the cause can't be confirmed against anything TODAY, so this
+        # must not mint a row off the stored `test_reason` snapshot alone.
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2695,
+            issue_title="issue-2695-remove-panel",
+            assignment_id="aid-2695",
+            status="done",
+            branch="issue-2695-remove-panel",
+            type="work",
+            test_state="failed",
+            test_reason=(
+                "error: no example target named `win_panel` in `quadraui` package"
+            ),
+        )
+        board = Board(completed=[assignment])
+
+        rows = config_drift_rows(
+            board, self._config(),
+            diff_lookup=lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+
+        assert rows == []
+
+    def test_a_command_that_no_longer_names_the_token_produces_no_row(self) -> None:
+        # The stored `test_reason` is a stale snapshot: coordinator.yml has
+        # already moved past `--example win_panel` since that round. The
+        # cause must be disconfirmed by TODAY's resolved command, not kept
+        # alive by the stale text (#4035 review — "a snapshot too stale to
+        # contradict anything").
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2695,
+            issue_title="issue-2695-remove-panel",
+            assignment_id="aid-2695",
+            status="done",
+            branch="issue-2695-remove-panel",
+            type="work",
+            test_state="failed",
+            test_reason=(
+                "error: no example target named `win_panel` in `quadraui` package"
+            ),
+        )
+        board = Board(completed=[assignment])
+
+        rows = config_drift_rows(
+            board,
+            self._config_with_ci_command("cargo clippy --workspace"),
+            diff_lookup=lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+
+        assert rows == []
+
+    def test_a_configured_command_surfaces_the_exact_one_line_patch(self) -> None:
+        # When the repo's TODAY-configured command still names the same
+        # target, the evidence is `plan_config_drift_fix`'s own alert
+        # message — the exact one-line coordinator.yml patch — not just a
+        # generic "confirmed deleted" note.
+        config = Config(
+            repos=[
+                Repo(
+                    name="widgets", github="acme/widgets",
+                    ci_command="cargo clippy --workspace --example win_panel",
+                ),
+            ],
+            machines=[],
+        )
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2695,
+            issue_title="issue-2695-remove-panel",
+            assignment_id="aid-2695",
+            status="done",
+            branch="issue-2695-remove-panel",
+            type="work",
+            test_state="failed",
+            test_reason=(
+                "error: no example target named `win_panel` in `quadraui` package"
+            ),
+        )
+        board = Board(completed=[assignment])
+
+        [row] = config_drift_rows(
+            board, config,
+            diff_lookup=lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+
+        assert "--example win_panel" in row.evidence[0]
+        assert "repos[widgets].ci_command" in row.evidence[0]
+
+    def test_an_ordinary_failure_produces_no_row(self) -> None:
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2696,
+            issue_title="issue-2696-x",
+            assignment_id="aid-2696",
+            status="done",
+            branch="issue-2696-x",
+            type="work",
+            test_state="failed",
+            test_reason="FAILED tests/test_panel.py::test_render - AssertionError",
+        )
+        board = Board(completed=[assignment])
+
+        rows = config_drift_rows(
+            board, self._config(),
+            diff_lookup=lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+
+        assert rows == []
+
+    def test_an_ordinary_failure_never_calls_the_diff_lookup(self) -> None:
+        # The cheap local parse of `test_reason` must rule this out BEFORE
+        # a `gh`-backed `diff_lookup` is ever called (#4035 review: don't
+        # spend fleet-wide `gh` traffic before the cheap filter).
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2696,
+            issue_title="issue-2696-x",
+            assignment_id="aid-2696",
+            status="done",
+            branch="issue-2696-x",
+            type="work",
+            test_state="failed",
+            test_reason="FAILED tests/test_panel.py::test_render - AssertionError",
+        )
+        board = Board(completed=[assignment])
+
+        def _lookup(repo_github: str, branch: str) -> list[str]:
+            raise AssertionError("diff_lookup must not be called")
+
+        rows = config_drift_rows(board, self._config(), diff_lookup=_lookup)
+
+        assert rows == []
+
+    def test_a_dangling_target_the_diff_does_not_delete_produces_no_row(self) -> None:
+        # The deleted-files lookup confirms SOMETHING was deleted, but not
+        # the target the error names — a real regression, not drift.
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2697,
+            issue_title="issue-2697-x",
+            assignment_id="aid-2697",
+            status="done",
+            branch="issue-2697-x",
+            type="work",
+            test_state="failed",
+            test_reason=(
+                "error: no example target named `win_panel` in `quadraui` package"
+            ),
+        )
+        board = Board(completed=[assignment])
+
+        rows = config_drift_rows(
+            board, self._config(),
+            diff_lookup=lambda repo_github, branch: ["examples/unrelated.rs"],
+        )
+
+        assert rows == []
+
+    def test_a_passing_row_produces_no_row(self) -> None:
+        assignment = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2698,
+            issue_title="issue-2698-x",
+            assignment_id="aid-2698",
+            status="done",
+            branch="issue-2698-x",
+            type="work",
+            test_state="passed",
+        )
+        board = Board(completed=[assignment])
+
+        rows = config_drift_rows(
+            board, self._config(),
+            diff_lookup=lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+
+        assert rows == []
+
+    def test_rounds_consumed_counts_only_the_matching_drift_signature(
+        self,
+    ) -> None:
+        # quadraui#2695's own board shape: every failing round names the
+        # SAME dangling target. `rounds_consumed` must come out of
+        # `config_drift_candidates` itself — never a value a caller
+        # supplies — and must NOT fold in a leg that failed on some
+        # OTHER target for the same issue.
+        config = self._config_with_ci_command(
+            "cargo clippy --workspace --example win_panel"
+        )
+        matching = [
+            Assignment(
+                machine_name="m1",
+                repo_name="widgets",
+                issue_number=2695,
+                issue_title="issue-2695-remove-panel",
+                assignment_id=f"aid-2695-{i}",
+                status="done",
+                branch="issue-2695-remove-panel",
+                type="work",
+                test_state="failed",
+                test_reason=(
+                    "error: no example target named `win_panel` in "
+                    "`quadraui` package"
+                ),
+            )
+            for i in range(3)
+        ]
+        other_signature = Assignment(
+            machine_name="m1",
+            repo_name="widgets",
+            issue_number=2695,
+            issue_title="issue-2695-remove-panel",
+            assignment_id="aid-2695-other",
+            status="done",
+            branch="issue-2695-remove-panel",
+            type="work",
+            test_state="failed",
+            test_reason=(
+                "error: no example target named `other_panel` in "
+                "`quadraui` package"
+            ),
+        )
+        board = Board(completed=[*matching, other_signature])
+
+        [candidate] = config_drift_candidates(
+            board, config,
+            diff_lookup=lambda repo_github, branch: ["examples/win_panel.rs"],
+        )
+
+        assert candidate.kind == "example"
+        assert candidate.name == "win_panel"
+        assert candidate.rounds_consumed == 3
+
+
+class TestPlanConfigDriftFix:
+    """`coord.board_doctor_policy.plan_config_drift_fix` — acceptance #3:
+    the fix path edits only the matched token, and the opt-in gate decides
+    whether it is actually applied or only alerted."""
+
+    @staticmethod
+    def _config(*, autofix: bool) -> Config:
+        return Config(
+            repos=[
+                Repo(
+                    name="widgets", github="acme/widgets",
+                    board_doctor=BoardDoctorRepoConfig(config_drift_autofix=autofix),
+                ),
+            ],
+            machines=[],
+        )
+
+    def test_opted_in_with_a_single_match_computes_the_patch(self) -> None:
+        plan = board_doctor_policy_mod.plan_config_drift_fix(
+            "widgets",
+            command="cargo clippy --workspace --example win_panel -- -D warnings",
+            source="repos[widgets].ci_command",
+            token="--example win_panel",
+            config=self._config(autofix=True),
+        )
+
+        assert plan.enabled is True
+        assert plan.patched_command == "cargo clippy --workspace -- -D warnings"
+        # Nothing applies this patch today — the wording must stay
+        # prospective ("apply this patch"), never claim the edit already
+        # happened (#4035 review).
+        assert "removed" not in plan.alert_message
+        assert "apply" in plan.alert_message
+        assert "cargo clippy --workspace -- -D warnings" in plan.alert_message
+
+    def test_opted_out_never_applies_but_still_alerts_with_the_one_line_patch(
+        self,
+    ) -> None:
+        plan = board_doctor_policy_mod.plan_config_drift_fix(
+            "widgets",
+            command="cargo clippy --workspace --example win_panel -- -D warnings",
+            source="repos[widgets].ci_command",
+            token="--example win_panel",
+            config=self._config(autofix=False),
+        )
+
+        assert plan.enabled is False
+        assert plan.patched_command is None
+        assert "--example win_panel" in plan.alert_message
+        assert "repos[widgets].ci_command" in plan.alert_message
+
+    def test_opted_in_but_the_token_is_absent_is_a_no_op_plus_alert(self) -> None:
+        plan = board_doctor_policy_mod.plan_config_drift_fix(
+            "widgets",
+            command="cargo clippy --workspace -- -D warnings",
+            source="repos[widgets].ci_command",
+            token="--example win_panel",
+            config=self._config(autofix=True),
+        )
+
+        assert plan.enabled is True
+        assert plan.patched_command is None
+        assert "--example win_panel" in plan.alert_message
+
+    def test_opted_in_but_the_token_is_ambiguous_is_a_no_op_plus_alert(self) -> None:
+        command = (
+            "cargo clippy --example win_panel && cargo build --example win_panel"
+        )
+        plan = board_doctor_policy_mod.plan_config_drift_fix(
+            "widgets",
+            command=command,
+            source="repos[widgets].ci_command",
+            token="--example win_panel",
+            config=self._config(autofix=True),
+        )
+
+        assert plan.enabled is True
+        assert plan.patched_command is None
+
+
+# -- #4048: config-drift Apply step — commit the one-token removal in the
+# coord-settings checkout, then Refund + requeue -------------------------
+
+
+class TestApplyConfigDriftFixToCoordSettings:
+    """`coord.board_doctor.apply_config_drift_fix_to_coord_settings` —
+    acceptance #1: a temporary ``coord-settings`` git repo with a
+    symlinked config. Commits a one-token removal and nothing else, and
+    refuses when the token isn't present or matches more than once."""
+
+    _COMMAND = "cargo clippy --workspace --example win_panel -- -D warnings"
+    _TOKEN = "--example win_panel"
+    _PATCHED = "cargo clippy --workspace -- -D warnings"
+
+    @staticmethod
+    def _git(repo_dir, *args: str) -> str:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "-C", str(repo_dir), *args],
+            capture_output=True, text=True, check=True,
+        )
+        return result.stdout
+
+    def _make_coord_settings_repo(self, tmp_path, *, body: str):
+        settings_dir = tmp_path / "coord-settings"
+        settings_dir.mkdir()
+        self._git(settings_dir, "init", "-q")
+        self._git(settings_dir, "config", "user.email", "doctor@example.com")
+        self._git(settings_dir, "config", "user.name", "Board Doctor")
+        real_config = settings_dir / "coordinator.yml"
+        real_config.write_text(body)
+        self._git(settings_dir, "add", "coordinator.yml")
+        self._git(settings_dir, "commit", "-q", "-m", "initial")
+
+        symlink_path = tmp_path / "coordinator.yml"
+        symlink_path.symlink_to(real_config)
+        return settings_dir, real_config, symlink_path
+
+    def test_commits_a_one_token_removal_and_nothing_else(self, tmp_path) -> None:
+        from coord.board_doctor import apply_config_drift_fix_to_coord_settings
+
+        settings_dir, real_config, symlink_path = self._make_coord_settings_repo(
+            tmp_path,
+            body=(
+                "repos:\n"
+                "  - name: widgets\n"
+                f"    ci_command: {self._COMMAND}\n"
+            ),
+        )
+        before_log = self._git(settings_dir, "log", "--oneline")
+
+        result = apply_config_drift_fix_to_coord_settings(
+            config_path=symlink_path,
+            command=self._COMMAND,
+            token=self._TOKEN,
+            patched_command=self._PATCHED,
+            repo_name="widgets",
+            issue_number=2695,
+        )
+
+        assert result.applied is True
+        new_text = real_config.read_text()
+        assert self._TOKEN not in new_text
+        assert self._PATCHED in new_text
+        # Nothing but the command line changed.
+        assert new_text == (
+            "repos:\n  - name: widgets\n    ci_command: " + self._PATCHED + "\n"
+        )
+        # Exactly one new commit, touching exactly one file.
+        after_log = self._git(settings_dir, "log", "--oneline")
+        assert after_log.count("\n") == before_log.count("\n") + 1
+        changed = self._git(
+            settings_dir, "show", "--name-only", "--format=", "HEAD",
+        )
+        assert changed.strip() == "coordinator.yml"
+        # The working tree is clean — the removal was committed, nothing
+        # left dangling.
+        status = self._git(settings_dir, "status", "--porcelain")
+        assert status == ""
+
+    def test_refuses_when_the_token_is_absent(self, tmp_path) -> None:
+        from coord.board_doctor import apply_config_drift_fix_to_coord_settings
+
+        settings_dir, real_config, symlink_path = self._make_coord_settings_repo(
+            tmp_path,
+            body="repos:\n  - name: widgets\n    ci_command: cargo clippy --workspace -- -D warnings\n",
+        )
+        before_log = self._git(settings_dir, "log", "--oneline")
+        before_text = real_config.read_text()
+
+        result = apply_config_drift_fix_to_coord_settings(
+            config_path=symlink_path,
+            command=self._COMMAND,
+            token=self._TOKEN,
+            patched_command=self._PATCHED,
+            repo_name="widgets",
+            issue_number=2695,
+        )
+
+        assert result.applied is False
+        assert "0 time(s)" in result.detail
+        assert real_config.read_text() == before_text
+        after_log = self._git(settings_dir, "log", "--oneline")
+        assert after_log == before_log
+
+    def test_refuses_when_the_token_matches_more_than_once(self, tmp_path) -> None:
+        from coord.board_doctor import apply_config_drift_fix_to_coord_settings
+
+        body = (
+            "repos:\n"
+            "  - name: widgets\n"
+            f"    ci_command: {self._COMMAND}\n"
+            "  - name: other\n"
+            f"    ci_command: {self._COMMAND}\n"
+        )
+        settings_dir, real_config, symlink_path = self._make_coord_settings_repo(
+            tmp_path, body=body,
+        )
+        before_log = self._git(settings_dir, "log", "--oneline")
+
+        result = apply_config_drift_fix_to_coord_settings(
+            config_path=symlink_path,
+            command=self._COMMAND,
+            token=self._TOKEN,
+            patched_command=self._PATCHED,
+            repo_name="widgets",
+            issue_number=2695,
+        )
+
+        assert result.applied is False
+        assert "2 time(s)" in result.detail
+        assert real_config.read_text() == body
+        after_log = self._git(settings_dir, "log", "--oneline")
+        assert after_log == before_log
+
+    def test_refuses_onto_an_already_dirty_checkout(self, tmp_path) -> None:
+        # An operator mid-edit of the live symlink already has an
+        # uncommitted change sitting in exactly this file (#4048 review).
+        # The doctor must refuse rather than overwrite it.
+        from coord.board_doctor import apply_config_drift_fix_to_coord_settings
+
+        settings_dir, real_config, symlink_path = self._make_coord_settings_repo(
+            tmp_path,
+            body=(
+                "repos:\n"
+                "  - name: widgets\n"
+                f"    ci_command: {self._COMMAND}\n"
+            ),
+        )
+        in_progress_edit = (
+            "repos:\n"
+            "  - name: widgets\n"
+            f"    ci_command: {self._COMMAND}\n"
+            "  - name: new-repo-a-human-is-adding\n"
+        )
+        real_config.write_text(in_progress_edit)
+        before_log = self._git(settings_dir, "log", "--oneline")
+
+        result = apply_config_drift_fix_to_coord_settings(
+            config_path=symlink_path,
+            command=self._COMMAND,
+            token=self._TOKEN,
+            patched_command=self._PATCHED,
+            repo_name="widgets",
+            issue_number=2695,
+        )
+
+        assert result.applied is False
+        assert "dirty" in result.detail or "uncommitted" in result.detail
+        # The human's in-progress edit is untouched, not clobbered or
+        # committed.
+        assert real_config.read_text() == in_progress_edit
+        after_log = self._git(settings_dir, "log", "--oneline")
+        assert after_log == before_log
+        status = self._git(settings_dir, "status", "--porcelain")
+        assert status.strip() != ""
+
+    def test_refuses_onto_a_checkout_behind_its_upstream(self, tmp_path) -> None:
+        # Nothing may commit onto a stale base: the later `git push`
+        # would fail non-fast-forward while this function still reported
+        # `applied=True`, refunding a fix round while the fleet's
+        # canonical config has already diverged (#4048 review).
+        from coord.board_doctor import apply_config_drift_fix_to_coord_settings
+
+        origin_dir = tmp_path / "origin.git"
+        self._git(tmp_path, "init", "-q", "--bare", str(origin_dir))
+
+        settings_dir = tmp_path / "coord-settings"
+        self._git(tmp_path, "clone", "-q", str(origin_dir), str(settings_dir))
+        self._git(settings_dir, "config", "user.email", "doctor@example.com")
+        self._git(settings_dir, "config", "user.name", "Board Doctor")
+        real_config = settings_dir / "coordinator.yml"
+        real_config.write_text(
+            "repos:\n  - name: widgets\n    ci_command: " + self._COMMAND + "\n"
+        )
+        self._git(settings_dir, "add", "coordinator.yml")
+        self._git(settings_dir, "commit", "-q", "-m", "initial")
+        self._git(settings_dir, "push", "-q", "-u", "origin", "HEAD")
+
+        # Someone else pushes a config change this checkout never pulled.
+        other_clone = tmp_path / "other-clone"
+        self._git(tmp_path, "clone", "-q", str(origin_dir), str(other_clone))
+        self._git(other_clone, "config", "user.email", "other@example.com")
+        self._git(other_clone, "config", "user.name", "Other")
+        (other_clone / "unrelated.txt").write_text("x\n")
+        self._git(other_clone, "add", "unrelated.txt")
+        self._git(other_clone, "commit", "-q", "-m", "unrelated upstream change")
+        self._git(other_clone, "push", "-q")
+
+        symlink_path = tmp_path / "coordinator.yml"
+        symlink_path.symlink_to(real_config)
+        before_log = self._git(settings_dir, "log", "--oneline")
+
+        result = apply_config_drift_fix_to_coord_settings(
+            config_path=symlink_path,
+            command=self._COMMAND,
+            token=self._TOKEN,
+            patched_command=self._PATCHED,
+            repo_name="widgets",
+            issue_number=2695,
+        )
+
+        assert result.applied is False
+        assert "behind" in result.detail
+        assert real_config.read_text() == (
+            "repos:\n  - name: widgets\n    ci_command: " + self._COMMAND + "\n"
+        )
+        after_log = self._git(settings_dir, "log", "--oneline")
+        assert after_log == before_log
+
+
+class TestRunConfigDriftFixSweep:
+    """`coord.board_doctor.run_config_drift_fix_sweep` — the Apply then
+    Refund+requeue orchestration, with the Apply step injected so this
+    never touches a real git checkout."""
+
+    @staticmethod
+    def _candidate(*, enabled: bool, patched_command: str | None):
+        import coord.board_doctor as board_doctor_mod
+
+        plan = board_doctor_policy_mod.ConfigDriftFix(
+            enabled=enabled, patched_command=patched_command,
+            alert_message="apply this patch",
+        )
+        return board_doctor_mod.ConfigDriftCandidate(
+            repo_name="widgets", issue_number=2695, kind="example", name="win_panel",
+            token="--example win_panel",
+            command="cargo clippy --workspace --example win_panel -- -D warnings",
+            source="repos[widgets].ci_command",
+            plan=plan,
+            rounds_consumed=2,
+        )
+
+    def test_opted_out_candidate_is_skipped_entirely(self) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        candidate = self._candidate(enabled=False, patched_command=None)
+        apply_calls = []
+
+        results = board_doctor_mod.run_config_drift_fix_sweep(
+            [candidate], config=Config(repos=[], machines=[]),
+            apply_fn=lambda **kw: apply_calls.append(kw),
+        )
+
+        assert results == []
+        assert apply_calls == []
+
+    def test_applied_and_confirmed_refunds_and_requeues(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+        import coord.board_doctor_permissions as permissions_mod
+        import coord.state as state_mod
+
+        candidate = self._candidate(enabled=True, patched_command="cargo clippy --workspace -- -D warnings")
+
+        reset_calls = []
+        monkeypatch.setattr(
+            state_mod, "reset_work_test_state",
+            lambda *a, **k: reset_calls.append((a, k)) or 1,
+        )
+        monkeypatch.setattr(
+            state_mod, "test_reset_candidates",
+            lambda *a, **k: [("aid-1", "work", None)],
+        )
+        budget_calls = []
+
+        def _fake_raise(repo_name, issue_number, config, *, increment):
+            budget_calls.append((repo_name, issue_number, increment))
+            return {"raised": True, "entry_id": 1, "new_max_fix_rounds": 4, "detail": "raised"}
+
+        monkeypatch.setattr(permissions_mod, "sweep_raise_fixit_budget", _fake_raise)
+
+        def fake_apply(**kwargs):
+            return board_doctor_mod.ConfigDriftApplyResult(applied=True, detail="committed")
+
+        results = board_doctor_mod.run_config_drift_fix_sweep(
+            [candidate], config=Config(repos=[], machines=[]), apply_fn=fake_apply,
+        )
+
+        [outcome] = results
+        assert outcome["applied"] is True
+        assert outcome["requeued"] is True
+        assert outcome["refunded"] is True
+        assert len(reset_calls) == 1
+        assert budget_calls == [("widgets", 2695, candidate.rounds_consumed)]
+
+    def test_unconfirmed_reset_blocks_the_refund(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+        import coord.board_doctor_permissions as permissions_mod
+        import coord.state as state_mod
+
+        candidate = self._candidate(enabled=True, patched_command="cargo clippy --workspace -- -D warnings")
+
+        monkeypatch.setattr(state_mod, "reset_work_test_state", lambda *a, **k: 1)
+        monkeypatch.setattr(
+            state_mod, "test_reset_candidates",
+            lambda *a, **k: [("aid-1", "work", "failed")],
+        )
+        budget_calls = []
+        monkeypatch.setattr(
+            permissions_mod, "sweep_raise_fixit_budget",
+            lambda *a, **k: budget_calls.append((a, k)) or {"raised": True},
+        )
+
+        def fake_apply(**kwargs):
+            return board_doctor_mod.ConfigDriftApplyResult(applied=True, detail="committed")
+
+        results = board_doctor_mod.run_config_drift_fix_sweep(
+            [candidate], config=Config(repos=[], machines=[]), apply_fn=fake_apply,
+        )
+
+        [outcome] = results
+        assert outcome["applied"] is True
+        assert outcome["requeued"] is False
+        assert outcome["refunded"] is False
+        assert budget_calls == []
+
+    def test_apply_failure_never_touches_the_test_stage_or_budget(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+        import coord.board_doctor_permissions as permissions_mod
+        import coord.state as state_mod
+
+        candidate = self._candidate(enabled=True, patched_command="cargo clippy --workspace -- -D warnings")
+
+        reset_calls = []
+        monkeypatch.setattr(
+            state_mod, "reset_work_test_state",
+            lambda *a, **k: reset_calls.append(1) or 1,
+        )
+        budget_calls = []
+        monkeypatch.setattr(
+            permissions_mod, "sweep_raise_fixit_budget",
+            lambda *a, **k: budget_calls.append(1) or {"raised": True},
+        )
+
+        def fake_apply(**kwargs):
+            return board_doctor_mod.ConfigDriftApplyResult(
+                applied=False, detail="ambiguous token",
+            )
+
+        results = board_doctor_mod.run_config_drift_fix_sweep(
+            [candidate], config=Config(repos=[], machines=[]), apply_fn=fake_apply,
+        )
+
+        [outcome] = results
+        assert outcome["applied"] is False
+        assert outcome["requeued"] is False
+        assert outcome["refunded"] is False
+        assert reset_calls == []
+        assert budget_calls == []
+
+
+class TestRunSweepConfigDriftFix:
+    """`coord.board_doctor.run_sweep`'s own #4048 wiring: quadraui#2695's
+    board shape (every failing round the same drift signature) is
+    refunded, its Test-stage verdict reset, and the row put back to
+    ``waiting`` — ONLY once the Apply step actually commits; opted out,
+    nothing is written and the alert carries the exact one-line patch."""
+
+    @staticmethod
+    def _config(*, autofix: bool) -> Config:
+        return Config(
+            repos=[
+                Repo(
+                    name="widgets", github="acme/widgets",
+                    board_doctor=BoardDoctorRepoConfig(config_drift_autofix=autofix),
+                ),
+            ],
+            machines=[],
+        )
+
+    @staticmethod
+    def _candidate(config: Config):
+        import coord.board_doctor as board_doctor_mod
+
+        plan = board_doctor_policy_mod.plan_config_drift_fix(
+            "widgets",
+            command="cargo clippy --workspace --example win_panel -- -D warnings",
+            source="repos[widgets].ci_command",
+            token="--example win_panel",
+            config=config,
+        )
+        return board_doctor_mod.ConfigDriftCandidate(
+            repo_name="widgets", issue_number=2695, kind="example", name="win_panel",
+            token="--example win_panel",
+            command="cargo clippy --workspace --example win_panel -- -D warnings",
+            source="repos[widgets].ci_command",
+            plan=plan,
+            rounds_consumed=2,
+        )
+
+    @staticmethod
+    def _row(candidate) -> StuckRow:
+        return StuckRow(
+            queue="config-drift", key="widgets#2695", state="blocked",
+            cause=queue_diagnose.CAUSE_CONFIG_DRIFT, confidence="high",
+            evidence=(candidate.plan.alert_message,), fresh=True,
+        )
+
+    def test_opted_in_and_confirmed_refunds_resets_and_requeues(
+        self, monkeypatch, coord_db,
+    ) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        config = self._config(autofix=True)
+        candidate = self._candidate(config)
+        row = self._row(candidate)
+
+        # quadraui#2695's shape: a ceiling-blocked drive-queue row whose
+        # every observed round failed on the SAME drift signature.
+        state.enqueue_drive_queue("widgets", 2695, max_fix_rounds=2)
+        state.update_drive_queue_entry(
+            "widgets", 2695, state=STATE_BLOCKED, last_reason="(#2972) ceiling",
+        )
+        for i in range(3):
+            aid = f"aid-2695-{i}"
+            coord_db.execute(
+                "INSERT INTO assignments (assignment_id, machine_name, repo_name, "
+                "issue_number, issue_title, branch, type, status) "
+                "VALUES (?, 'm1', 'widgets', 2695, 't', 'issue-2695-remove-panel', "
+                "'work', 'done')",
+                (aid,),
+            )
+            coord_db.commit()
+            state.record_test_verdict(
+                assignment_id=aid, test_state="failed",
+                test_reason=(
+                    "error: no example target named `win_panel` in `quadraui` "
+                    "package"
+                ),
+            )
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([row], Board()),
+        )
+        monkeypatch.setattr(
+            board_doctor_mod, "config_drift_candidates", lambda *a, **k: [candidate],
+        )
+        applied_calls = []
+
+        def fake_apply(**kwargs):
+            applied_calls.append(kwargs)
+            return board_doctor_mod.ConfigDriftApplyResult(applied=True, detail="committed")
+
+        def _fix_sweep(candidates, *, config):
+            return board_doctor_mod.run_config_drift_fix_sweep(
+                candidates, config=config, apply_fn=fake_apply,
+            )
+
+        alerted = []
+        report = board_doctor_mod.run_sweep(
+            config=config,
+            tier_of=lambda cause: TIER_ALERT,
+            alert_dispatcher=lambda r: alerted.append(r) or True,
+            config_drift_fix_sweep=_fix_sweep,
+        )
+
+        assert len(applied_calls) == 1
+        [outcome] = report.config_drift_fix
+        assert outcome["applied"] is True
+        assert outcome["requeued"] is True
+        assert outcome["refunded"] is True
+        # The row never reached the ordinary alert path — resolved, not
+        # merely attempted.
+        assert alerted == []
+        assert report.decisions == []
+        # Every leg's Test-stage verdict actually cleared.
+        for i in range(3):
+            assert state.load_assignment_test_state(f"aid-2695-{i}") is None
+        # The fix-round ceiling is refunded and the row is back to
+        # `waiting`, at its position with its declaration intact.
+        entry = state.get_drive_queue_entry("widgets", 2695)
+        assert entry is not None
+        assert entry["state"] == STATE_WAITING
+        assert entry["max_fix_rounds"] == 2 + candidate.rounds_consumed
+
+    def test_opted_out_writes_nothing_and_alerts_with_the_patch(
+        self, monkeypatch,
+    ) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        config = self._config(autofix=False)
+        candidate = self._candidate(config)
+        row = self._row(candidate)
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([row], Board()),
+        )
+        monkeypatch.setattr(
+            board_doctor_mod, "config_drift_candidates", lambda *a, **k: [candidate],
+        )
+        apply_calls = []
+
+        def must_not_apply(**kwargs):
+            apply_calls.append(kwargs)
+            return board_doctor_mod.ConfigDriftApplyResult(applied=True, detail="committed")
+
+        def _fix_sweep(candidates, *, config):
+            return board_doctor_mod.run_config_drift_fix_sweep(
+                candidates, config=config, apply_fn=must_not_apply,
+            )
+
+        alerted = []
+        report = board_doctor_mod.run_sweep(
+            config=config,
+            tier_of=lambda cause: TIER_ALERT,
+            alert_dispatcher=lambda r: alerted.append(r) or True,
+            config_drift_fix_sweep=_fix_sweep,
+        )
+
+        # Not opted in, so the Apply step is never even attempted.
+        assert apply_calls == []
+        assert report.config_drift_fix == []
+        # The row stayed on the ordinary alert path and alerted with the
+        # exact one-line patch.
+        assert [r.key for r in alerted] == ["widgets#2695"]
+        assert alerted[0].evidence == (candidate.plan.alert_message,)
+        assert "--example win_panel" in candidate.plan.alert_message
+
+
+# -- #4036: conflict-fix on a ceiling-blocked row, verified, finished to a
+# requeue ----------------------------------------------------------------
+
+
+class TestConflictFixDoesNotSpendTheFixRoundBudget:
+    """#4036 Budget: a type="conflict-fix" leg is not WORK_LIKE --
+    dispatching one for a ceiling-blocked row must neither consume nor be
+    refused by the #2972 fix-round ceiling, because a conflict is caused
+    by the base branch moving, not by the worker."""
+
+    @staticmethod
+    def _entry(**overrides):
+        from coord import merge_queue as mq
+
+        base = dict(
+            assignment_id="abc123", repo_name="acme/widgets", repo_github="acme/widgets",
+            branch="issue-301-fix", target_branch="main", issue_number=301,
+            issue_title="Fix the thing", state=mq.CONFLICT, pr_number=42,
+            pr_url="https://github.com/acme/widgets/pull/42",
+            error="Merge conflict in foo.py",
+        )
+        base.update(overrides)
+        return mq.QueuedMerge(**base)
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(
+            repos=[Repo(
+                name="acme/widgets", github="acme/widgets",
+                default_branch="main", test_command="pytest",
+            )],
+            machines=[Machine(
+                name="laptop", host="laptop.tail", repos=["acme/widgets"],
+                repo_paths={"acme/widgets": "/work/widgets"},
+            )],
+        )
+
+    def test_dispatching_a_conflict_fix_on_a_ceiling_blocked_row_does_not_increment_fix_rounds(
+        self,
+    ) -> None:
+        from coord.conflict_fix import dispatch_conflict_fix
+
+        _seed_ceiling_blocked_entry("acme/widgets", 301)
+        entry = QueueEntry.from_row(state.get_drive_queue_entry("acme/widgets", 301))
+        # One unconditional work leg plus every fix round the default
+        # budget (`DEFAULT_TICK_MAX_FIX_ROUNDS`) allows, all already spent
+        # -- the row genuinely has nothing left, matching its own stored
+        # `state="blocked"`/`last_reason` (#2972).
+        from coord.drive_queue import DEFAULT_TICK_MAX_FIX_ROUNDS
+
+        facts = IssueFacts(
+            work_leg_count=entry.legs_at_enqueue + 1 + DEFAULT_TICK_MAX_FIX_ROUNDS,
+        )
+
+        before = remaining_fix_rounds(entry, facts, config_default=None)
+        assert before == 0  # already ceiling-blocked -- this row's whole point
+
+        class _FakeHTTPClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, dict]] = []
+
+            def post(self, url, *, json, timeout):
+                self.calls.append((url, json))
+                return SimpleNamespace(
+                    raise_for_status=lambda: None,
+                    json=lambda: {"id": "fix-1"},
+                )
+
+        board = Board()
+        fix = dispatch_conflict_fix(
+            self._entry(), board, self._config(),
+            http_client=_FakeHTTPClient(), prefer_machine="laptop",
+        )
+
+        # The dispatch is NOT refused merely because the row's own
+        # drive-queue entry already gave up on the #2972 ceiling --
+        # dispatch_conflict_fix's retry-cap check never consults it.
+        assert fix is not None
+        assert fix.type == "conflict-fix"
+
+        # And the fresh conflict-fix Assignment is not WORK_LIKE, so it
+        # never changes what remaining_fix_rounds reads for this issue --
+        # the ceiling this row already hit stays exactly where it was.
+        after = remaining_fix_rounds(entry, facts, config_default=None)
+        assert after == before == 0
+
+
+class TestConflictFixPushCiVerdict:
+    """#4036 Requeue: classify a just-pushed conflict-fix branch's live
+    checks into red/pending/green -- the one distinction #2377/#3539's
+    `coord drive-queue add` refusal ("its checks are not all green")
+    conflates, which is what stranded the #4036 incident's manual
+    recovery."""
+
+    def test_no_checks_reported_yet_reads_pending(self) -> None:
+        assert conflict_fix_push_ci_verdict(()) == CONFLICT_FIX_PUSH_CI_PENDING
+
+    def test_a_still_running_check_reads_pending_even_if_others_passed(self) -> None:
+        assert (
+            conflict_fix_push_ci_verdict(("success", "pending"))
+            == CONFLICT_FIX_PUSH_CI_PENDING
+        )
+
+    def test_an_unknown_reading_is_never_upgraded_to_green(self) -> None:
+        assert (
+            conflict_fix_push_ci_verdict(("success", "unknown"))
+            == CONFLICT_FIX_PUSH_CI_PENDING
+        )
+
+    def test_a_failed_check_reads_red_even_alongside_a_pending_one(self) -> None:
+        assert (
+            conflict_fix_push_ci_verdict(("pending", "failure"))
+            == CONFLICT_FIX_PUSH_CI_RED
+        )
+
+    def test_every_check_passed_reads_green(self) -> None:
+        assert (
+            conflict_fix_push_ci_verdict(("success", "success"))
+            == CONFLICT_FIX_PUSH_CI_GREEN
+        )
+
+
+class TestRequeueAfterConflictFix:
+    """#4036 Requeue: coord.drive_queue.requeue_after_conflict_fix --
+    pending checks defer with NO mutation (retried later, not dropped);
+    red checks refuse with no mutation; green checks remove-then-re-add
+    the row at its original position/edges and reset the stale smoke/
+    review stage."""
+
+    def test_pending_checks_defer_without_touching_the_queue(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 401)
+        before = state.get_drive_queue_entry("acme/widgets", 401)
+
+        result = requeue_after_conflict_fix(
+            "acme/widgets", 401, ci_verdict=CONFLICT_FIX_PUSH_CI_PENDING,
+        )
+
+        assert result["requeued"] is False
+        assert "retried on a later sweep" in result["detail"]
+        after = state.get_drive_queue_entry("acme/widgets", 401)
+        assert after == before  # untouched -- nothing removed, nothing re-added
+
+    def test_red_checks_refuse_without_touching_the_queue(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 402)
+        before = state.get_drive_queue_entry("acme/widgets", 402)
+
+        result = requeue_after_conflict_fix(
+            "acme/widgets", 402, ci_verdict=CONFLICT_FIX_PUSH_CI_RED,
+        )
+
+        assert result["requeued"] is False
+        assert "alert tier" in result["detail"]
+        after = state.get_drive_queue_entry("acme/widgets", 402)
+        assert after == before
+
+    def test_not_in_the_queue_at_all_is_a_confirmed_no_op(self) -> None:
+        result = requeue_after_conflict_fix(
+            "acme/widgets", 499, ci_verdict=CONFLICT_FIX_PUSH_CI_GREEN,
+        )
+
+        assert result["requeued"] is False
+        assert "nothing to requeue" in result["detail"]
+
+    def test_green_checks_requeue_at_the_original_position_with_edges_preserved(
+        self,
+    ) -> None:
+        state.enqueue_drive_queue(
+            "acme/widgets", 403, after=["acme/widgets#1"],
+            machine="laptop", max_fix_rounds=5,
+        )
+        state.enqueue_drive_queue("acme/widgets", 404, after=["acme/widgets#403"])
+        state.update_drive_queue_entry(
+            "acme/widgets", 403,
+            state="blocked",
+            last_reason="giving up after 2 fix rounds (#2972)",
+        )
+        rows_by_issue = {r["issue_number"]: r for r in state.list_drive_queue("acme/widgets")}
+        original_position = rows_by_issue[403]["position"]
+
+        # Stale verdicts from the PRE-fix head -- must be reset, not
+        # carried forward onto the new head the conflict-fix just pushed.
+        state.record_dispatched_assignment(
+            assignment=Assignment(
+                machine_name="laptop", repo_name="acme/widgets", issue_number=403,
+                issue_title="x", assignment_id="work-403", status="done", type="work",
+                review_state="approve", review_verdict="approve",
+                test_state="passed", test_reason="ok",
+            ),
+            repo_github="acme/widgets",
+        )
+
+        result = requeue_after_conflict_fix(
+            "acme/widgets", 403, ci_verdict=CONFLICT_FIX_PUSH_CI_GREEN,
+        )
+
+        assert result["requeued"] is True
+
+        rows_by_issue = {r["issue_number"]: r for r in state.list_drive_queue("acme/widgets")}
+        row = rows_by_issue[403]
+        assert row["state"] == STATE_WAITING  # no longer `blocked`
+        assert row["position"] == original_position
+        assert row["after_json"] == ["acme/widgets#1"]
+        assert row["machine"] == "laptop"
+        assert row["max_fix_rounds"] == 5
+        # The dependent's own `after=` still points at #403 -- the row was
+        # put back under the SAME key, never a new issue number.
+        assert rows_by_issue[404]["after_json"] == ["acme/widgets#403"]
+
+        board = state.build_board()
+        [work] = [
+            a for a in board.active + board.completed if a.assignment_id == "work-403"
+        ]
+        assert work.review_state != "approve"
+        assert work.test_state is None
+
+    def test_green_checks_on_a_mid_flight_deploy_gate_is_refused_without_mutation(
+        self,
+    ) -> None:
+        """#4036 review (blocking finding #2): a green CI verdict must not
+        bypass the #1757 deploy-gate guard that
+        `coord.board_doctor_permissions.sweep_drive_queue_requeue` already
+        enforces -- a row sitting at `hold_state="fired"` or "released"
+        would come back `armed`/`hold_probes=0` from any re-write, which is
+        a run-state change the sweep has no permission to make in either
+        direction."""
+        _seed_ceiling_blocked_entry("acme/widgets", 407)
+        state.update_drive_queue_entry(
+            "acme/widgets", 407, hold_state="fired", hold_probes=3,
+        )
+        before = state.get_drive_queue_entry("acme/widgets", 407)
+
+        result = requeue_after_conflict_fix(
+            "acme/widgets", 407, ci_verdict=CONFLICT_FIX_PUSH_CI_GREEN,
+        )
+
+        assert result["requeued"] is False
+        assert "deploy gate" in result["detail"]
+        after = state.get_drive_queue_entry("acme/widgets", 407)
+        assert after == before  # untouched -- nothing removed, nothing re-added
+
+
+class TestCeilingBlockedCiPendingCandidates:
+    """#4036: coord.board_doctor._ceiling_blocked_ci_pending_candidates --
+    the narrow filter that picks out exactly the rows
+    run_conflict_fix_ceiling_pending_sweep should act on."""
+
+    def test_ceiling_blocked_fresh_ci_pending_row_is_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 501)
+        row = _row("acme/widgets#501", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+
+        assert _ceiling_blocked_ci_pending_candidates([row]) == [("acme/widgets", 501)]
+
+    def test_stale_row_is_not_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 502)
+        row = _row("acme/widgets#502", queue_diagnose.CAUSE_CI_PENDING, fresh=False)
+
+        assert _ceiling_blocked_ci_pending_candidates([row]) == []
+
+    def test_not_ceiling_blocked_row_is_not_a_candidate(self) -> None:
+        row = _row("acme/widgets#503", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+
+        assert _ceiling_blocked_ci_pending_candidates([row]) == []
+
+    def test_unrelated_cause_on_a_ceiling_blocked_row_is_not_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 504)
+        row = _row("acme/widgets#504", queue_diagnose.CAUSE_MERGE_CONFLICT, fresh=True)
+
+        assert _ceiling_blocked_ci_pending_candidates([row]) == []
+
+    def test_merge_queue_row_is_not_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 505)
+        row = _row(
+            "acme/widgets#505", queue_diagnose.CAUSE_CI_PENDING,
+            queue="merge-queue", fresh=True,
+        )
+
+        assert _ceiling_blocked_ci_pending_candidates([row]) == []
+
+    def test_duplicate_rows_for_the_same_issue_dedupe_to_one_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 506)
+        row = _row("acme/widgets#506", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+
+        assert _ceiling_blocked_ci_pending_candidates([row, row]) == [
+            ("acme/widgets", 506),
+        ]
+
+    def test_low_confidence_row_is_not_a_candidate(self) -> None:
+        """A `CAUSE_CI_PENDING` verdict the live probe itself only half-
+        trusted (`probe_errors` downgraded it to CONFIDENCE_LOW) has not
+        actually established this row is CI-pending at all -- same guard
+        `_reclassify_ceiling_blocked` applies to its own reclassification."""
+        _seed_ceiling_blocked_entry("acme/widgets", 507)
+        row = replace(
+            _row("acme/widgets#507", queue_diagnose.CAUSE_CI_PENDING, fresh=True),
+            confidence=queue_diagnose.CONFIDENCE_LOW,
+        )
+
+        assert _ceiling_blocked_ci_pending_candidates([row]) == []
+
+
+class TestRunConflictFixCeilingPendingSweep:
+    """#4036: coord.board_doctor.run_conflict_fix_ceiling_pending_sweep --
+    wires each candidate's live checks to coord.drive_queue.
+    requeue_after_conflict_fix via injected check_fetcher/requeuer
+    doubles, so this needs no live `gh` call."""
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(repos=[], machines=[])
+
+    def test_reports_one_result_per_candidate_using_the_injected_doubles(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 601)
+        row = _row("acme/widgets#601", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+
+        fetched: list[tuple[str, int]] = []
+        requeued: list[tuple[str, int, str]] = []
+
+        def _fetcher(repo_name, issue_number):
+            fetched.append((repo_name, issue_number))
+            return ("success", "pending"), True
+
+        def _requeuer(repo_name, issue_number, *, ci_verdict):
+            requeued.append((repo_name, issue_number, ci_verdict))
+            return {"requeued": False, "detail": "waiting"}
+
+        results = run_conflict_fix_ceiling_pending_sweep(
+            [row], config=self._config(),
+            evidence_fetcher=_fetcher, requeuer=_requeuer,
+        )
+
+        assert fetched == [("acme/widgets", 601)]
+        assert requeued == [("acme/widgets", 601, CONFLICT_FIX_PUSH_CI_PENDING)]
+        assert results == [
+            {"repo": "acme/widgets", "issue": 601, "requeued": False, "detail": "waiting"},
+        ]
+
+    def test_no_candidates_calls_neither_double(self) -> None:
+        row = _row("acme/widgets#602", queue_diagnose.CAUSE_GATE_BLOCKED, fresh=True)
+        called = []
+
+        results = run_conflict_fix_ceiling_pending_sweep(
+            [row], config=self._config(),
+            evidence_fetcher=lambda *a: called.append(a) or (None, False),
+            requeuer=lambda *a, **k: called.append((a, k)) or {"requeued": False, "detail": ""},
+        )
+
+        assert results == []
+        assert called == []
+
+    def test_a_candidate_with_no_branch_moved_evidence_is_deferred_without_calling_the_requeuer(
+        self,
+    ) -> None:
+        """#4036 review (blocking finding #5): a ceiling-blocked row whose
+        checks happen to be pending for some unrelated reason -- nothing
+        has actually been pushed since its recorded verdict -- must never
+        reach the requeuer: that would reset a verdict that still covers
+        the current head and hand the row a fresh #2972 fix-round budget
+        it was never owed."""
+        _seed_ceiling_blocked_entry("acme/widgets", 603)
+        row = _row("acme/widgets#603", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+        requeuer_calls = []
+
+        results = run_conflict_fix_ceiling_pending_sweep(
+            [row], config=self._config(),
+            evidence_fetcher=lambda *a: (("pending",), False),
+            requeuer=lambda *a, **k: requeuer_calls.append((a, k)) or {
+                "requeued": True, "detail": "should never be reached",
+            },
+        )
+
+        assert requeuer_calls == []
+        assert results == [{
+            "repo": "acme/widgets", "issue": 603, "requeued": False,
+            "detail": (
+                "acme/widgets#603: no live evidence yet that a "
+                "conflict-fix push moved this branch past its recorded "
+                "review/test verdict — waiting for that confirmation "
+                "before resetting the stage or spending a fresh "
+                "fix-round budget"
+            ),
+        }]
+
+
+class TestRunSweepConflictFixCeilingPending:
+    """#4036: coord.board_doctor.run_sweep pulls a ceiling-blocked
+    CAUSE_CI_PENDING row out of the generic tier/auto_dispatchers path
+    entirely -- the acceptance's own test: a requeue attempted while CI is
+    pending is retried LATER (next sweep), never dropped."""
+
+    def test_pending_row_skips_the_generic_dispatcher_and_is_retried_later(
+        self, monkeypatch,
+    ) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 701)
+        pending_row = _row("acme/widgets#701", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+        other_row = _row("acme/widgets#702", queue_diagnose.CAUSE_GATE_BLOCKED, fresh=True)
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([pending_row, other_row], Board()),
+        )
+
+        captured_other_rows: list = []
+
+        def _fake_sweep(rows, **kwargs):
+            captured_other_rows.extend(rows)
+            return board_doctor_mod.SweepReport(sweep_id="s1")
+
+        monkeypatch.setattr(board_doctor_mod, "sweep", _fake_sweep)
+
+        def _fake_ceiling_sweep(rows, *, config):
+            assert pending_row in rows
+            return [{
+                "repo": "acme/widgets", "issue": 701, "requeued": False,
+                "detail": "still pending -- retried on a later sweep",
+            }]
+
+        report = board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            conflict_fix_ceiling_sweep=_fake_ceiling_sweep,
+        )
+
+        # Never handed to the generic dispatcher -- a registered
+        # `CAUSE_CI_PENDING` investigate-tier dispatcher exists, but this
+        # row is already known not to need one (a conflict-fix leg already
+        # pushed a resolution), so nothing here must burn that fix-it-leg
+        # budget trying to act on a row that isn't actually broken.
+        assert pending_row not in captured_other_rows
+        assert other_row in captured_other_rows
+
+        # Not dropped: reported with a confirmed outcome that says it will
+        # be retried, and the row itself was never touched (still queued,
+        # still `blocked`) for the NEXT sweep to pick back up.
+        assert report.conflict_fix_ceiling_pending == [{
+            "repo": "acme/widgets", "issue": 701, "requeued": False,
+            "detail": "still pending -- retried on a later sweep",
+        }]
+        row = state.get_drive_queue_entry("acme/widgets", 701)
+        assert row["state"] == "blocked"
+
+    def test_a_prior_escalations_convergence_counter_is_preserved_while_ceiling_pending(
+        self, monkeypatch,
+    ) -> None:
+        """#4036 review (blocking finding #4): excluding a ceiling-pending
+        row from the generic tier/dispatch path must mark it
+        ``suppressed=True`` (present) rather than drop it outright --
+        dropping it would make `sweep`'s own `clear_absent_rows` (on by
+        default for a plain, non-mechanical call) read the vanish as
+        "resolved" and both wipe its convergence counter and tell
+        *escalation_resolver* to dismiss a live escalation the row may have
+        earned under a DIFFERENT, earlier cause, even though nothing about
+        this row has actually been confirmed fixed yet."""
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 706)
+        key = "acme/widgets#706"
+
+        # Build up a real escalation under the ordinary alert tier first,
+        # as if this row alerted on some earlier cause before a
+        # conflict-fix leg ever pushed anything.
+        sweep([_row(key, "merge-conflict")], tier_of=_always(TIER_ALERT), alert_dispatcher=lambda row: True)
+        assert state.board_doctor_row_state("drive-queue", key)["escalated"] is True
+
+        pending_row = _row("acme/widgets#706", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([pending_row], Board()),
+        )
+
+        resolved: list[tuple[str, str]] = []
+        board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            escalation_resolver=lambda queue, k: resolved.append((queue, k)),
+            conflict_fix_ceiling_sweep=lambda rows, **kw: [{
+                "repo": "acme/widgets", "issue": 706, "requeued": False,
+                "detail": "still pending",
+            }],
+        )
+
+        assert resolved == []
+        row_state = state.board_doctor_row_state("drive-queue", key)
+        assert row_state["escalated"] is True
+        assert row_state["count"] >= 1
+
+    def test_dry_run_never_invokes_the_ceiling_sweep(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 703)
+        pending_row = _row("acme/widgets#703", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([pending_row], Board()),
+        )
+        monkeypatch.setattr(
+            board_doctor_mod, "sweep",
+            lambda rows, **kwargs: board_doctor_mod.SweepReport(sweep_id="s1"),
+        )
+
+        called = []
+        report = board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            dry_run=True,
+            conflict_fix_ceiling_sweep=lambda rows, **kw: called.append(rows) or [],
+        )
+
+        assert called == []
+        assert report.conflict_fix_ceiling_pending == []
+
+    def test_opt_out_flag_leaves_the_row_on_the_generic_path(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 704)
+        pending_row = _row("acme/widgets#704", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([pending_row], Board()),
+        )
+
+        captured_other_rows: list = []
+
+        def _fake_sweep(rows, **kwargs):
+            captured_other_rows.extend(rows)
+            return board_doctor_mod.SweepReport(sweep_id="s1")
+
+        monkeypatch.setattr(board_doctor_mod, "sweep", _fake_sweep)
+
+        called = []
+        board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            conflict_fix_ceiling_requeue=False,
+            conflict_fix_ceiling_sweep=lambda rows, **kw: called.append(rows) or [],
+        )
+
+        assert called == []
+        assert pending_row in captured_other_rows
+
+
+class TestCeilingBlockedIntegrationRedCandidates:
+    """#4050: coord.board_doctor._ceiling_blocked_integration_red_candidates
+    -- the narrow filter that picks out exactly the rows
+    run_base_sync_fix_ceiling_sweep should act on. Mirrors
+    TestCeilingBlockedCiPendingCandidates (#4036) exactly, swapping the
+    cause this carve-out exists for."""
+
+    def test_ceiling_blocked_fresh_integration_red_row_is_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 2726)
+        row = _row("acme/widgets#2726", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True)
+
+        assert _ceiling_blocked_integration_red_candidates([row]) == [
+            ("acme/widgets", 2726),
+        ]
+
+    def test_stale_row_is_not_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 802)
+        row = _row("acme/widgets#802", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=False)
+
+        assert _ceiling_blocked_integration_red_candidates([row]) == []
+
+    def test_not_ceiling_blocked_row_is_not_a_candidate(self) -> None:
+        row = _row("acme/widgets#803", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True)
+
+        assert _ceiling_blocked_integration_red_candidates([row]) == []
+
+    def test_unrelated_cause_on_a_ceiling_blocked_row_is_not_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 804)
+        row = _row("acme/widgets#804", queue_diagnose.CAUSE_CI_PENDING, fresh=True)
+
+        assert _ceiling_blocked_integration_red_candidates([row]) == []
+
+    def test_merge_queue_row_is_not_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 805)
+        row = _row(
+            "acme/widgets#805", queue_diagnose.CAUSE_INTEGRATION_RED,
+            queue="merge-queue", fresh=True,
+        )
+
+        assert _ceiling_blocked_integration_red_candidates([row]) == []
+
+    def test_duplicate_rows_for_the_same_issue_dedupe_to_one_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 806)
+        row = _row("acme/widgets#806", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True)
+
+        assert _ceiling_blocked_integration_red_candidates([row, row]) == [
+            ("acme/widgets", 806),
+        ]
+
+    def test_low_confidence_row_is_not_a_candidate(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 807)
+        row = replace(
+            _row("acme/widgets#807", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True),
+            confidence=queue_diagnose.CONFIDENCE_LOW,
+        )
+
+        assert _ceiling_blocked_integration_red_candidates([row]) == []
+
+
+class TestLiveBaseSyncFixEvidence:
+    """#4050: coord.board_doctor._live_base_sync_fix_evidence -- the fresh
+    re-probe that must confirm the premise (cause still integration-red,
+    AND coord gates itself confirms a BASE MOVED divergence) before a
+    budget-free dispatch is ever authorized."""
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(repos=[], machines=[])
+
+    def test_no_drive_queue_row_is_not_confirmed(self) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        confirmed, detail = board_doctor_mod._live_base_sync_fix_evidence(
+            "acme/widgets", 2900, config=self._config(),
+        )
+
+        assert confirmed is False
+        assert "no drive-queue row" in detail
+
+    def test_a_probe_failure_is_not_confirmed(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2901)
+        monkeypatch.setattr(
+            queue_diagnose, "GhLiveProbe",
+            lambda **kw: SimpleNamespace(probe=lambda entry: (_ for _ in ()).throw(
+                RuntimeError("gh timed out"),
+            )),
+        )
+
+        confirmed, detail = board_doctor_mod._live_base_sync_fix_evidence(
+            "acme/widgets", 2901, config=self._config(),
+        )
+
+        assert confirmed is False
+        assert "re-probe failed" in detail
+
+    def test_a_live_reading_that_no_longer_confirms_the_cause_is_not_confirmed(
+        self, monkeypatch,
+    ) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2902)
+        live = LiveState(mergeable=True, gate_ready=True, checks=())
+        monkeypatch.setattr(
+            queue_diagnose, "GhLiveProbe",
+            lambda **kw: SimpleNamespace(probe=lambda entry: live),
+        )
+
+        confirmed, detail = board_doctor_mod._live_base_sync_fix_evidence(
+            "acme/widgets", 2902, config=self._config(),
+        )
+
+        assert confirmed is False
+        assert "no longer confirms integration-red" in detail
+
+    def test_a_confirmed_cause_with_no_base_moved_note_is_not_confirmed(
+        self, monkeypatch,
+    ) -> None:
+        """#4050's own premise: `integration-red` alone (red checks, a
+        green branch Test verdict) is not enough to spend the budget-free
+        lane -- `coord gates` must positively confirm the BASE MOVED
+        divergence too."""
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2903)
+        live = LiveState(
+            checks=(CheckReading(name="ci", conclusion="failure"),),
+            branch_test_state="passed",
+            base_moved_note=None,
+        )
+        monkeypatch.setattr(
+            queue_diagnose, "GhLiveProbe",
+            lambda **kw: SimpleNamespace(probe=lambda entry: live),
+        )
+
+        confirmed, detail = board_doctor_mod._live_base_sync_fix_evidence(
+            "acme/widgets", 2903, config=self._config(),
+        )
+
+        assert confirmed is False
+        assert "does not confirm a BASE MOVED divergence" in detail
+
+    def test_a_confirmed_integration_red_cause_with_a_base_moved_note_is_confirmed(
+        self, monkeypatch,
+    ) -> None:
+        """The quadraui#2726 shape: no textual conflict, the branch's own
+        Test verdict already reads green, CI is red on the merge ref, and
+        `coord gates` positively confirms the base moved."""
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2726)
+        live = LiveState(
+            checks=(CheckReading(name="ci", conclusion="failure"),),
+            branch_test_state="passed",
+            base_moved_note="base moved: 3 commits ahead of the branch point",
+        )
+        monkeypatch.setattr(
+            queue_diagnose, "GhLiveProbe",
+            lambda **kw: SimpleNamespace(probe=lambda entry: live),
+        )
+
+        confirmed, detail = board_doctor_mod._live_base_sync_fix_evidence(
+            "acme/widgets", 2726, config=self._config(),
+        )
+
+        assert confirmed is True
+        assert "base moved: 3 commits" in detail
+
+
+class TestDispatchBaseSyncFix:
+    """#4050: coord.board_doctor._dispatch_base_sync_fix -- finds the live
+    merge-queue entry and dispatches the budget-free base-sync-fix
+    conflict-fix leg via coord.conflict_fix.dispatch_conflict_fix(...,
+    base_sync_fix=True), persisting the board only on a confirmed
+    dispatch."""
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(repos=[Repo(name="acme/widgets", github="acme/widgets")], machines=[])
+
+    @staticmethod
+    def _seed_merge_entry(issue_number: int) -> None:
+        from coord import merge_queue as mq
+
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id=f"w{issue_number}", repo_name="acme/widgets",
+                repo_github="acme/widgets", branch=f"issue-{issue_number}-fix",
+                target_branch="main", issue_number=issue_number,
+                issue_title="t", state=mq.PENDING,
+            ),
+        ])
+
+    def test_no_merge_queue_entry_is_not_dispatched(self) -> None:
+        result = _dispatch_base_sync_fix("acme/widgets", 2904, config=self._config())
+
+        assert result == {
+            "dispatched": False,
+            "detail": "acme/widgets#2904 has no merge-queue entry",
+        }
+
+    def test_dispatch_conflict_fix_declining_is_not_dispatched(self, monkeypatch) -> None:
+        self._seed_merge_entry(2905)
+        monkeypatch.setattr("coord.conflict_fix.dispatch_conflict_fix", lambda *a, **k: None)
+
+        result = _dispatch_base_sync_fix("acme/widgets", 2905, config=self._config())
+
+        assert result["dispatched"] is False
+        assert "could not be dispatched" in result["detail"]
+
+    def test_a_confirmed_dispatch_passes_base_sync_fix_and_writes_the_board(
+        self, monkeypatch,
+    ) -> None:
+        self._seed_merge_entry(2726)
+        captured_kwargs: dict = {}
+
+        def _fake_dispatch(entry, board, config, **kwargs):
+            captured_kwargs.update(kwargs)
+            fix = Assignment(
+                machine_name="laptop", repo_name=entry.repo_name,
+                issue_number=entry.issue_number, issue_title="[base-sync-fix] t",
+                assignment_id="fix-2726", status="running", branch=entry.branch,
+                type="conflict-fix",
+            )
+            board.active.append(fix)
+            return fix
+
+        written: list[Board] = []
+        monkeypatch.setattr("coord.conflict_fix.dispatch_conflict_fix", _fake_dispatch)
+        monkeypatch.setattr(
+            "coord.board_service.write_board", lambda board: written.append(board),
+        )
+
+        result = _dispatch_base_sync_fix("acme/widgets", 2726, config=self._config())
+
+        assert result == {
+            "dispatched": True,
+            "detail": "acme/widgets#2726: dispatched base-sync-fix fix-2726 on laptop",
+        }
+        assert captured_kwargs["base_sync_fix"] is True
+        assert len(written) == 1
+        assert any(a.assignment_id == "fix-2726" for a in written[0].active)
+
+
+class TestRunBaseSyncFixCeilingSweep:
+    """#4050: coord.board_doctor.run_base_sync_fix_ceiling_sweep -- wires
+    each candidate's fresh evidence confirmation to a dispatch via
+    injected evidence_fetcher/dispatcher doubles, mirroring
+    TestRunConflictFixCeilingPendingSweep (#4036) exactly."""
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(repos=[], machines=[])
+
+    def test_reports_one_result_per_candidate_using_the_injected_doubles(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 2726)
+        row = _row("acme/widgets#2726", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True)
+
+        fetched: list[tuple[str, int]] = []
+        dispatched: list[tuple[str, int]] = []
+
+        def _fetcher(repo_name, issue_number):
+            fetched.append((repo_name, issue_number))
+            return True, "confirmed"
+
+        def _dispatcher(repo_name, issue_number):
+            dispatched.append((repo_name, issue_number))
+            return {"dispatched": True, "detail": "dispatched fix-2726 on laptop"}
+
+        results = run_base_sync_fix_ceiling_sweep(
+            [row], config=self._config(),
+            evidence_fetcher=_fetcher, dispatcher=_dispatcher,
+        )
+
+        assert fetched == [("acme/widgets", 2726)]
+        assert dispatched == [("acme/widgets", 2726)]
+        assert results == [{
+            "repo": "acme/widgets", "issue": 2726, "dispatched": True,
+            "detail": "dispatched fix-2726 on laptop",
+        }]
+
+    def test_no_candidates_calls_neither_double(self) -> None:
+        row = _row("acme/widgets#808", queue_diagnose.CAUSE_GATE_BLOCKED, fresh=True)
+        called = []
+
+        results = run_base_sync_fix_ceiling_sweep(
+            [row], config=self._config(),
+            evidence_fetcher=lambda *a: called.append(a) or (False, ""),
+            dispatcher=lambda *a: called.append(a) or {"dispatched": False, "detail": ""},
+        )
+
+        assert results == []
+        assert called == []
+
+    def test_a_candidate_with_no_confirmation_is_deferred_without_dispatching(
+        self,
+    ) -> None:
+        """#4036 review's own "never assume the premise" rule, applied to
+        this cause: an unconfirmed evidence read must never reach the
+        dispatcher -- that would spend the budget-free lane on a row
+        whose live gates do not actually confirm the BASE MOVED
+        divergence."""
+        _seed_ceiling_blocked_entry("acme/widgets", 2906)
+        row = _row("acme/widgets#2906", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True)
+        dispatcher_calls = []
+
+        results = run_base_sync_fix_ceiling_sweep(
+            [row], config=self._config(),
+            evidence_fetcher=lambda *a: (False, "not confirmed yet"),
+            dispatcher=lambda *a: dispatcher_calls.append(a) or {
+                "dispatched": True, "detail": "should never be reached",
+            },
+        )
+
+        assert dispatcher_calls == []
+        assert results == [{
+            "repo": "acme/widgets", "issue": 2906, "dispatched": False,
+            "detail": "not confirmed yet",
+        }]
+
+
+class TestRunSweepBaseSyncFixCeiling:
+    """#4050: coord.board_doctor.run_sweep pulls a ceiling-blocked
+    CAUSE_INTEGRATION_RED row out of the generic tier/auto_dispatchers path
+    entirely -- the quadraui#2726 acceptance shape: a row ceiling-blocked
+    (4 work legs against a budget of 3) with `next_action: dispatch_ci_fix`
+    gets the budget-free base-sync-fix lane instead of the #3454 stop."""
+
+    def test_ceiling_blocked_row_skips_the_generic_dispatcher_and_is_dispatched(
+        self, monkeypatch,
+    ) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2726)
+        integration_red_row = _row(
+            "acme/widgets#2726", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True,
+        )
+        other_row = _row("acme/widgets#2727", queue_diagnose.CAUSE_GATE_BLOCKED, fresh=True)
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([integration_red_row, other_row], Board()),
+        )
+
+        captured_other_rows: list = []
+
+        def _fake_sweep(rows, **kwargs):
+            captured_other_rows.extend(rows)
+            return board_doctor_mod.SweepReport(sweep_id="s1")
+
+        monkeypatch.setattr(board_doctor_mod, "sweep", _fake_sweep)
+
+        def _fake_ceiling_sweep(rows, *, config):
+            assert integration_red_row in rows
+            return [{
+                "repo": "acme/widgets", "issue": 2726, "dispatched": True,
+                "detail": "dispatched base-sync-fix fix-2726 on laptop",
+            }]
+
+        report = board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            base_sync_fix_ceiling_sweep=_fake_ceiling_sweep,
+        )
+
+        # Never handed to the generic dispatcher: #3454 already refuses a
+        # fresh fix-it leg against a row this ceiling-blocked, so this row
+        # must never reach that path at all -- it is already known to
+        # have a budget-free remedy instead.
+        assert integration_red_row not in captured_other_rows
+        assert other_row in captured_other_rows
+
+        assert report.base_sync_fix_ceiling_dispatch == [{
+            "repo": "acme/widgets", "issue": 2726, "dispatched": True,
+            "detail": "dispatched base-sync-fix fix-2726 on laptop",
+        }]
+
+    def test_a_confirmed_dispatch_suppresses_and_preserves_a_prior_escalation(
+        self, monkeypatch,
+    ) -> None:
+        """A row only ever reaches ``suppressed=True`` here on a THIS-round
+        `dispatched=True` confirmation (#4050 review) -- when it does, the
+        suppression must still behave exactly like the #4036 sibling's own
+        equivalent test: excluding the row from the generic tier/dispatch
+        path marks it `suppressed=True` (present) rather than dropping it
+        outright, so a live escalation already earned under the SAME cause
+        is preserved rather than reset to a fresh convergence cycle."""
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2728)
+        key = "acme/widgets#2728"
+
+        sweep(
+            [_row(key, queue_diagnose.CAUSE_INTEGRATION_RED)],
+            tier_of=_always(TIER_ALERT), alert_dispatcher=lambda row: True,
+        )
+        assert state.board_doctor_row_state("drive-queue", key)["escalated"] is True
+
+        integration_red_row = _row(
+            "acme/widgets#2728", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True,
+        )
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([integration_red_row], Board()),
+        )
+
+        resolved: list[tuple[str, str]] = []
+        board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            escalation_resolver=lambda queue, k: resolved.append((queue, k)),
+            base_sync_fix_ceiling_sweep=lambda rows, **kw: [{
+                "repo": "acme/widgets", "issue": 2728, "dispatched": True,
+                "detail": "dispatched base-sync-fix fix-2728 on laptop",
+            }],
+        )
+
+        assert resolved == []
+        row_state = state.board_doctor_row_state("drive-queue", key)
+        assert row_state["escalated"] is True
+        # Suppressed, so the counter from the earlier escalation is READ
+        # back (not re-incremented) -- it stays at the count that earlier
+        # `sweep()` call left it at.
+        assert row_state["count"] == 1
+
+    def test_an_unconfirmed_candidate_is_never_suppressed_and_still_reaches_a_human(
+        self, monkeypatch,
+    ) -> None:
+        """#4050 review (blocking): `CAUSE_INTEGRATION_RED` does not
+        self-clear the way `CAUSE_CI_PENDING` does, so a candidate whose
+        premise never reconfirms -- or whose dispatch finds the retry cap
+        already spent -- must stay on the ordinary tier/alert path, not
+        vanish into a permanently-frozen `suppressed=True` with no
+        counter movement and no escalation ever. A NEVER-before-escalated
+        candidate must still converge and reach a human once
+        `convergence_limit` is hit, exactly like a row with no budget-free
+        remedy at all."""
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2904)
+        key = "acme/widgets#2904"
+        integration_red_row = _row(key, queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True)
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([integration_red_row], Board()),
+        )
+
+        alerted: list[str] = []
+        report = board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            convergence_limit=1,
+            alert_dispatcher=lambda row: alerted.append(row.key) or True,
+            base_sync_fix_ceiling_sweep=lambda rows, **kw: [{
+                "repo": "acme/widgets", "issue": 2904, "dispatched": False,
+                "detail": "not confirmed yet",
+            }],
+        )
+
+        assert alerted == [key]
+        row_state = state.board_doctor_row_state("drive-queue", key)
+        assert row_state["escalated"] is True
+        assert report.base_sync_fix_ceiling_dispatch == [{
+            "repo": "acme/widgets", "issue": 2904, "dispatched": False,
+            "detail": "not confirmed yet",
+        }]
+        assert row_state["count"] >= 1
+
+    def test_dry_run_never_invokes_the_ceiling_sweep(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2729)
+        integration_red_row = _row(
+            "acme/widgets#2729", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True,
+        )
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([integration_red_row], Board()),
+        )
+        monkeypatch.setattr(
+            board_doctor_mod, "sweep",
+            lambda rows, **kwargs: board_doctor_mod.SweepReport(sweep_id="s1"),
+        )
+
+        called = []
+        report = board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            dry_run=True,
+            base_sync_fix_ceiling_sweep=lambda rows, **kw: called.append(rows) or [],
+        )
+
+        assert called == []
+        assert report.base_sync_fix_ceiling_dispatch == []
+
+    def test_opt_out_flag_leaves_the_row_on_the_generic_path(self, monkeypatch) -> None:
+        import coord.board_doctor as board_doctor_mod
+
+        _seed_ceiling_blocked_entry("acme/widgets", 2730)
+        integration_red_row = _row(
+            "acme/widgets#2730", queue_diagnose.CAUSE_INTEGRATION_RED, fresh=True,
+        )
+
+        monkeypatch.setattr(
+            board_doctor_mod, "_collect_rows_with_board",
+            lambda *, config, **_: ([integration_red_row], Board()),
+        )
+
+        captured_other_rows: list = []
+
+        def _fake_sweep(rows, **kwargs):
+            captured_other_rows.extend(rows)
+            return board_doctor_mod.SweepReport(sweep_id="s1")
+
+        monkeypatch.setattr(board_doctor_mod, "sweep", _fake_sweep)
+
+        called = []
+        board_doctor_mod.run_sweep(
+            config=Config(repos=[], machines=[]),
+            base_sync_fix_ceiling_dispatch=False,
+            base_sync_fix_ceiling_sweep=lambda rows, **kw: called.append(rows) or [],
+        )
+
+        assert called == []
+        assert integration_red_row in captured_other_rows

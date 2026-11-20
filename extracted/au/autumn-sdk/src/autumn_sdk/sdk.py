@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from autumn_sdk.accounts import Accounts
     from autumn_sdk.analytics import Analytics
     from autumn_sdk.approval_rules import ApprovalRules
+    from autumn_sdk.auth import Auth
     from autumn_sdk.balances import Balances
     from autumn_sdk.billing import Billing
     from autumn_sdk.customers import Customers
@@ -65,6 +66,7 @@ class Autumn(BaseSDK):
     rewards: "RewardsSDK"
     platform: "Platform"
     keys: "Keys"
+    auth: "Auth"
     sandboxes: "Sandboxes"
     webhooks: "Webhooks"
     approval_rules: "ApprovalRules"
@@ -85,6 +87,7 @@ class Autumn(BaseSDK):
         "rewards": ("autumn_sdk.rewards_sdk", "RewardsSDK"),
         "platform": ("autumn_sdk.platform", "Platform"),
         "keys": ("autumn_sdk.keys", "Keys"),
+        "auth": ("autumn_sdk.auth", "Auth"),
         "sandboxes": ("autumn_sdk.sandboxes", "Sandboxes"),
         "webhooks": ("autumn_sdk.webhooks", "Webhooks"),
         "approval_rules": ("autumn_sdk.approval_rules", "ApprovalRules"),
@@ -92,7 +95,7 @@ class Autumn(BaseSDK):
 
     def __init__(
         self,
-        secret_key: Union[str, Callable[[], str]],
+        secret_key: Optional[Union[Optional[str], Callable[[], Optional[str]]]] = None,
         x_api_version: Optional[str] = None,
         fail_open: Optional[bool] = None,
         server_idx: Optional[int] = None,

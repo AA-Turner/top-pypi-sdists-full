@@ -50,9 +50,8 @@ from .metric_frames import FrameRecorder
 from .metrics import (
     BUILT_IN_METRICS,
     ego_progress,
-    reset_ego_motion,
-    set_importance_sampling_weight,
-    track_ego_motion,
+    reset_ego_progress,
+    track_ego_progress,
 )
 from .odd import OddCase, OddDefinition, reset_probes, resolve_odd
 from .coordinate.transform import to_opendrive
@@ -487,6 +486,9 @@ def _judge_metrics(
             it, one of them fails (exits, answers out of protocol, or does not
             answer in time), or the metric fails in every frame evaluated: a
             metric that read nothing does not pass the run.
+        ~autoware_carla_scenario.metric_batch.MetricEvaluationError: Any
+            other metric judged raised in every frame evaluated, for the same
+            reason.
     """
     if recorder is None:
         return result
@@ -1339,6 +1341,13 @@ class ScenarioRunner:
             RuntimeError: If the derived environment variable is not set.
             FileNotFoundError: If *xodr_path* does not exist.
         """
+        self._overwrite_xodr_and_load(xodr_path, map_name, True)
+
+    def _overwrite_xodr_and_load(
+        self, xodr_path: Path, map_name: str, capture_baseline: bool
+    ) -> None:
+        """:meth:`load_map_by_overwriting_xodr`, capturing the soft reset's
+        baseline only when *capture_baseline* (see :meth:`_load_map`)."""
         env_var = map_asset_env_var(map_name)
         dest = map_asset_path(map_name)
         if dest is None:
@@ -1350,8 +1359,8 @@ class ScenarioRunner:
             )
         shutil.copy2(xodr_path, dest)
         self._xodr_path = xodr_path
-        self.load_map_by_name(map_name)
-        # After load_map_by_name(), which forgets any OpenDRIVE: the map is to
+        self._load_map(map_name, capture_baseline)
+        # After _load_map(), which forgets any OpenDRIVE: the map is to
         # be loaded again the way it was here, installed file and all.
         self._batch_xodr = xodr_path
 
@@ -1369,6 +1378,13 @@ class ScenarioRunner:
             ValueError: If *map_name* is not found in the server's available
                 maps, with the full list of valid names included in the message.
         """
+        self._load_map(map_name, True)
+
+    def _load_map(self, map_name: str, capture_baseline: bool) -> None:
+        """:meth:`load_map_by_name`, capturing the soft reset's baseline only
+        when *capture_baseline*: :meth:`_reload_world` captures it itself,
+        after ticking the loaded world, and would throw this one away
+        (#2200)."""
         available: list[str] = self._client.get_available_maps()
 
         # Accept either a full asset path or the short name (last path segment).
@@ -1389,16 +1405,18 @@ class ScenarioRunner:
         self._batch_map = short_map_name(map_name)
         self._batch_xodr = None
         self._batch_episode = episode_of(loaded)
-        self._baseline = self._capture_baseline(loaded, map_name)
+        if capture_baseline:
+            self._baseline = self._capture_baseline(loaded, map_name)
 
-    def _load_batch_map(self) -> None:
-        """Load the runs' map again, the way it was loaded first."""
+    def _load_batch_map(self, capture_baseline: bool = True) -> None:
+        """Load the runs' map again, the way it was loaded first, capturing
+        the soft reset's baseline only when *capture_baseline*."""
         if self._batch_xodr is not None:
             # Annotated, so Codon unwraps the Optional (docs/typecheck.md).
             xodr: Path = self._batch_xodr
-            self.load_map_by_overwriting_xodr(xodr, self._batch_map)
+            self._overwrite_xodr_and_load(xodr, self._batch_map, capture_baseline)
         else:
-            self.load_map_by_name(self._batch_map)
+            self._load_map(self._batch_map, capture_baseline)
 
     def _world_for_next_run(self, scenario_name: str) -> "carla.World":
         """Return the world the next run sets up on, loading the runs' map if
@@ -1598,7 +1616,9 @@ class ScenarioRunner:
                 # The runs' map, not the current one, and its OpenDRIVE
                 # installed again: another client may have loaded a world (or
                 # installed an OpenDRIVE) of its own on this server meanwhile.
-                self._load_batch_map()
+                # No baseline yet: it is captured below, once the world has
+                # ticked (#2200).
+                self._load_batch_map(capture_baseline=False)
             else:
                 reload_current_map(self._client)
             # After reload, get the fresh world and tick it once so that
@@ -2141,8 +2161,7 @@ class ScenarioRunner:
                     pass
                 else:
                     set_measured_scenario(scenario)
-                set_importance_sampling_weight(scenario.importance_sampling_weight)
-                reset_ego_motion()
+                reset_ego_progress()
                 metric_recorder = _metric_recorder(scenario)
                 # Walkers measured outside a run (or by a run that never reached
                 # its cleanup) are not this run's.
@@ -2254,13 +2273,12 @@ class ScenarioRunner:
                                 "fallen walker", entity, actor_id, "fallen"
                             )
 
-                    # The weight the actions above leave the run with, for the
-                    # metric that reads it.
-                    set_importance_sampling_weight(scenario.importance_sampling_weight)
-                    # The ego's motion, which the weaving metrics read.
-                    track_ego_motion(world, elapsed)
+                    # How far the ego has got, which tells a run out of time
+                    # apart (ego_progress).
+                    track_ego_progress(world, elapsed)
                     # The frames the MetricConditions are judged on once the run
-                    # is over.
+                    # is over, with the weight the actions above leave the run
+                    # with: the weaving metrics and the weight are read off them.
                     if metric_recorder is not None:
                         metric_recorder.record(
                             world, elapsed, scenario.importance_sampling_weight
@@ -2402,8 +2420,7 @@ class ScenarioRunner:
         finally:
             set_run_seed(previous_seed)
             set_measured_scenario(None)
-            set_importance_sampling_weight(None)
-            reset_ego_motion()
+            reset_ego_progress()
             # The walkers the trajectory runs and the vehicles led out of their
             # junctions measured were this run's.
             forget_walkers()

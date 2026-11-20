@@ -34,7 +34,7 @@ __all__ = (
     "uriunsplit",
 )
 
-__version__ = "7.0.0"
+__version__ = "7.0.1"
 
 
 # RFC 3986 2.2.  Reserved Characters
@@ -152,6 +152,10 @@ class SplitResult(
     _AT: str | bytes
     _DOT: str | bytes
     _DOTDOT: str | bytes
+    _SLASHDOT: str | bytes
+    _PERCENT: str | bytes
+    _DOT_UPPER: str | bytes
+    _DOT_LOWER: str | bytes
     _EMPTY: str | bytes
     _EQ: str | bytes
     _DIGITS: str | bytes
@@ -268,18 +272,21 @@ class SplitResult(
             return self.__parse_ip_literal(host[1:-1])
         elif host.startswith(self._LBRACKET) or host.endswith(self._RBRACKET):
             raise ValueError("Invalid host %r: mismatched brackets" % host)
-        # TODO: faster check for IPv4 address?
-        try:
-            if isinstance(host, bytes):
-                return ipaddress.IPv4Address(host.decode("ascii"))
-            else:
-                return ipaddress.IPv4Address(host)
-        except ValueError:
-            # RFC 3986 3.2.2. Host: Non-ASCII characters must first be
-            # encoded according to UTF-8 [STD63], and then each octet
-            # of the corresponding UTF-8 sequence must be
-            # percent-encoded to be represented as URI characters.
-            return uridecode(host, "utf-8", errors).lower()
+        # RFC 3986 3.2.2: an IPv4address starts with a digit, so other
+        # registered names skip the (failing) parse
+        if host and host[0] in self._DIGITS:
+            try:
+                if isinstance(host, bytes):
+                    return ipaddress.IPv4Address(host.decode("ascii"))
+                else:
+                    return ipaddress.IPv4Address(host)
+            except ValueError:
+                pass
+        # RFC 3986 3.2.2. Host: Non-ASCII characters must first be
+        # encoded according to UTF-8 [STD63], and then each octet
+        # of the corresponding UTF-8 sequence must be
+        # percent-encoded to be represented as URI characters.
+        return uridecode(host, "utf-8", errors).lower()
 
     def getport(self, default=None):
         """Return the port subcomponent of the URI authority as an
@@ -295,8 +302,26 @@ class SplitResult(
 
     def getpath(self, encoding="utf-8", errors="strict"):
         """Return the normalized decoded URI path."""
-        path = self.__remove_dot_segments(self.path)
-        return uridecode(path, encoding, errors)
+        path = self.path
+        encoded = self._PERCENT in path
+        if encoded:
+            # RFC 3986 2.3: "%2E" is equivalent to "."
+            path = path.replace(self._DOT_UPPER, self._DOT)
+            path = path.replace(self._DOT_LOWER, self._DOT)
+        # RFC 3986 3.3: a dot-segment is a complete segment "." or "..", so
+        # it follows a "/" or starts the path; other paths skip the removal
+        if self._SLASHDOT in path or path.startswith(self._DOT):
+            path = self.__remove_dot_segments(path)
+        path = uridecode(path, encoding, errors)
+        if not encoded:
+            return path
+        # a decoded "%2F" may complete further dot-segments
+        if isinstance(path, bytes):
+            if b"/." in path or path.startswith(b"."):
+                path = SplitResultBytes.__remove_dot_segments(path)
+        elif "/." in path or path.startswith("."):
+            path = SplitResultString.__remove_dot_segments(path)
+        return path
 
     def getquery(self, default=None, encoding="utf-8", errors="strict"):
         """Return the decoded query string, or `default` if the original URI
@@ -510,7 +535,9 @@ class SplitResultBytes(SplitResult):
     )
 
     # RFC 3986 3.3 dot-segments
-    _DOT, _DOTDOT = b".", b".."
+    _DOT, _DOTDOT, _SLASHDOT = b".", b"..", b"/."
+
+    _PERCENT, _DOT_UPPER, _DOT_LOWER = b"%", b"%2E", b"%2e"
 
     _EMPTY, _EQ = b"", b"="
 
@@ -545,7 +572,9 @@ class SplitResultString(SplitResult):
     )
 
     # RFC 3986 3.3 dot-segments
-    _DOT, _DOTDOT = ".", ".."
+    _DOT, _DOTDOT, _SLASHDOT = ".", "..", "/."
+
+    _PERCENT, _DOT_UPPER, _DOT_LOWER = "%", "%2E", "%2e"
 
     _EMPTY, _EQ = "", "="
 
@@ -708,11 +737,14 @@ def _host(host):
     # using uppercase letters for percent-encodings.
     if host.startswith(b"[") and host.endswith(b"]"):
         return _ip_literal(host[1:-1].decode())
-    # check for IPv6 addresses as returned by SplitResult.gethost()
-    try:
-        return _ip_literal(host.decode("utf-8"))
-    except ValueError:
-        return uriencode(host.lower(), _SAFE_HOST, "utf-8")
+    # check for IPv6 addresses as returned by SplitResult.gethost(); any
+    # IPv6 text form contains a ":", so other hosts skip the (failing) parse
+    if b":" in host:
+        try:
+            return _ip_literal(host.decode("utf-8"))
+        except ValueError:
+            pass
+    return uriencode(host.lower(), _SAFE_HOST, "utf-8")
 
 
 def _port(port):

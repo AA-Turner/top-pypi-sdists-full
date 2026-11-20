@@ -18,6 +18,17 @@ use std::time::Duration;
 /// headroom in `tenant` so the soak never fails on that cap instead.
 const MAX_ROUNDS: usize = 1000;
 
+/// Allocation budget large enough that `max_duration` is what stops a runaway
+/// loop. ZapCode charges one allocation per VM stack push and never decrements
+/// the counter (`zapcode_vendor/sandbox.rs`, `track_allocation`), so
+/// `max_allocations` is really a per-run budget of pushes: a `while (true) {}`
+/// spends about one per iteration and a release build burns the 1,000,000
+/// default in a few milliseconds, while a debug build reaches a 300 ms
+/// `max_duration` first. That made the release-mode nightly soak fail on a
+/// tenant whose debug-mode PR run was green. This is ~100x the pushes a 300 ms
+/// loop can make, so the clock binds in either profile.
+const SPIN_ALLOCATIONS: usize = 1_000_000_000;
+
 fn rounds() -> usize {
     std::env::var("BASHKIT_STRESS_ROUNDS")
         .ok()
@@ -50,6 +61,17 @@ async fn exec_ts(bash: &mut Bash, script: &str) -> bashkit::ExecResult {
     ))
     .await
     .unwrap()
+}
+
+fn spin_tenant(max_ms: u64) -> Bash {
+    Bash::builder()
+        .typescript_with_limits(
+            TypeScriptLimits::default()
+                .max_memory(16 * 1024 * 1024)
+                .max_duration(Duration::from_millis(max_ms))
+                .max_allocations(SPIN_ALLOCATIONS),
+        )
+        .build()
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -89,8 +111,9 @@ fn script(load: Load) -> &'static str {
 }
 
 async fn run(load: Load) {
-    // Only the runaway loop should end on time; the rest must end on their
-    // own limit (memory, stack) or finish, even in a slow debug build.
+    // The runaway loop ends on one of its own resource limits; the rest must
+    // end on their own limit (memory, stack) or finish, even in a slow debug
+    // build.
     let max_ms = if matches!(load, Load::Spin) {
         300
     } else {
@@ -112,7 +135,19 @@ async fn run(load: Load) {
             );
         }
         Load::Spin => {
-            assert_eq!(r.exit_code, 124, "{load:?} stderr: {}", r.stderr);
+            // `tenant` keeps the default `max_allocations`, so this loop
+            // races the push budget against its 300 ms `max_duration` and
+            // which one binds depends on how fast the build is: release
+            // burns the 1,000,000 default in milliseconds, debug reaches the
+            // clock first. Both are correct bounded termination, so neither
+            // is asserted here; the two tests at the end of this file pin
+            // each limit on its own, with a budget chosen so it cannot race.
+            assert_ne!(r.exit_code, 0, "{load:?} stdout: {}", r.stdout);
+            assert!(
+                r.stderr.contains("timed out") || r.stderr.contains("allocation limit exceeded"),
+                "{load:?} stderr: {}",
+                r.stderr
+            );
         }
         Load::Recurse => {
             assert_ne!(r.exit_code, 0, "{load:?}");
@@ -253,5 +288,91 @@ async fn ts_host_call_loops_stop_at_the_wall_clock_limit() {
     assert!(
         elapsed < Duration::from_secs(2),
         "ran {elapsed:?} past a 500 ms limit"
+    );
+}
+
+/// A synchronous VM join must not hold the only Tokio worker for the whole
+/// attacker deadline (EVE-1351).
+#[tokio::test(flavor = "current_thread")]
+async fn ts_cpu_loop_does_not_starve_current_thread_timer() {
+    let started = std::time::Instant::now();
+    let attacker = tokio::spawn(async {
+        let mut bash = spin_tenant(300);
+        exec_ts(&mut bash, script(Load::Spin)).await
+    });
+
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    let timer_elapsed = started.elapsed();
+    assert!(
+        timer_elapsed < Duration::from_millis(200),
+        "20 ms timer was starved for {timer_elapsed:?}"
+    );
+
+    let result = attacker.await.unwrap();
+    assert_eq!(result.exit_code, 124, "stderr: {}", result.stderr);
+}
+
+/// Filling every Tokio worker with hostile VMs must not stop an unrelated
+/// tenant's timer (EVE-1351).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ts_cpu_loops_do_not_starve_all_multi_thread_workers() {
+    let started = std::time::Instant::now();
+    let attackers: Vec<_> = (0..2)
+        .map(|_| {
+            tokio::spawn(async {
+                let mut bash = spin_tenant(300);
+                exec_ts(&mut bash, script(Load::Spin)).await
+            })
+        })
+        .collect();
+
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    let timer_elapsed = started.elapsed();
+    assert!(
+        timer_elapsed < Duration::from_millis(200),
+        "20 ms timer was starved for {timer_elapsed:?}"
+    );
+
+    for attacker in attackers {
+        let result = attacker.await.unwrap();
+        assert_eq!(result.exit_code, 124, "stderr: {}", result.stderr);
+    }
+}
+
+/// A pure runaway loop, with no host calls to carry the deadline check, stops
+/// on `max_duration` once its allocation budget is not what binds (TM-TS-027).
+#[tokio::test]
+async fn ts_runaway_loop_stops_on_the_wall_clock() {
+    let mut bash = Bash::builder()
+        .typescript_with_limits(
+            TypeScriptLimits::default()
+                .max_memory(16 * 1024 * 1024)
+                .max_duration(Duration::from_millis(300))
+                .max_allocations(SPIN_ALLOCATIONS),
+        )
+        .build();
+    let r = exec_ts(&mut bash, script(Load::Spin)).await;
+    assert_eq!(r.exit_code, 124, "stderr: {}", r.stderr);
+    assert!(r.stderr.contains("timed out"), "stderr: {}", r.stderr);
+}
+
+/// The allocation budget bounds the same loop on its own, well before a
+/// generous `max_duration`, because the push counter never decreases.
+#[tokio::test]
+async fn ts_runaway_loop_stops_on_the_allocation_budget() {
+    let mut bash = Bash::builder()
+        .typescript_with_limits(
+            TypeScriptLimits::default()
+                .max_memory(16 * 1024 * 1024)
+                .max_duration(Duration::from_secs(60))
+                .max_allocations(50_000),
+        )
+        .build();
+    let r = exec_ts(&mut bash, script(Load::Spin)).await;
+    assert_eq!(r.exit_code, 1, "stderr: {}", r.stderr);
+    assert!(
+        r.stderr.contains("allocation limit exceeded"),
+        "stderr: {}",
+        r.stderr
     );
 }

@@ -87,6 +87,10 @@ __all__ = (
     "ChangePasswordRequestServiceResourceChangePasswordTypeDef",
     "ChangePasswordRequestTypeDef",
     "ContextEntryTypeDef",
+    "ContextProviderKeyDefinitionTypeDef",
+    "ContextProviderOutputTypeDef",
+    "ContextProviderTypeDef",
+    "ContextProviderUnionTypeDef",
     "CreateAccessKeyRequestTypeDef",
     "CreateAccessKeyResponseTypeDef",
     "CreateAccountAliasRequestServiceResourceCreateAccountAliasTypeDef",
@@ -406,6 +410,7 @@ __all__ = (
     "RoleTemplateVersionTypeDef",
     "RoleTypeDef",
     "RoleUsageTypeTypeDef",
+    "SAMLKeyHashEntryTypeDef",
     "SAMLPrivateKeyTypeDef",
     "SAMLProviderListEntryTypeDef",
     "SSHPublicKeyMetadataTypeDef",
@@ -460,6 +465,7 @@ __all__ = (
     "UpdateGroupRequestTypeDef",
     "UpdateLoginProfileRequestLoginProfileUpdateTypeDef",
     "UpdateLoginProfileRequestTypeDef",
+    "UpdateOpenIDConnectProviderRequestTypeDef",
     "UpdateOpenIDConnectProviderThumbprintRequestTypeDef",
     "UpdateRoleDescriptionRequestTypeDef",
     "UpdateRoleDescriptionResponseTypeDef",
@@ -637,6 +643,11 @@ class ContextEntryTypeDef(TypedDict):
     ContextKeyName: NotRequired[str]
     ContextKeyValues: NotRequired[Sequence[str]]
     ContextKeyType: NotRequired[ContextKeyTypeEnumType]
+
+
+class ContextProviderKeyDefinitionTypeDef(TypedDict):
+    SourceKey: str
+    TargetKey: NotRequired[str]
 
 
 class CreateAccessKeyRequestTypeDef(TypedDict):
@@ -1077,6 +1088,11 @@ class GetSAMLProviderRequestTypeDef(TypedDict):
     SAMLProviderArn: str
 
 
+class SAMLKeyHashEntryTypeDef(TypedDict):
+    IssuerURL: NotRequired[str]
+    KeyHashes: NotRequired[list[str]]
+
+
 class SAMLPrivateKeyTypeDef(TypedDict):
     KeyId: NotRequired[str]
     Timestamp: NotRequired[datetime]
@@ -1257,6 +1273,7 @@ class ListOpenIDConnectProviderTagsRequestTypeDef(TypedDict):
 
 class OpenIDConnectProviderListEntryTypeDef(TypedDict):
     Arn: NotRequired[str]
+    IsTrustedIdentityPropagationEnabled: NotRequired[bool]
 
 
 class PolicyGrantingServiceAccessTypeDef(TypedDict):
@@ -1322,6 +1339,7 @@ class SAMLProviderListEntryTypeDef(TypedDict):
     Arn: NotRequired[str]
     ValidUntil: NotRequired[datetime]
     CreateDate: NotRequired[datetime]
+    IsTrustedIdentityPropagationEnabled: NotRequired[bool]
 
 
 class ListSSHPublicKeysRequestTypeDef(TypedDict):
@@ -1747,21 +1765,6 @@ class UpdateRoleRequestTypeDef(TypedDict):
     ResetMaxSigninSessionDuration: NotRequired[bool]
 
 
-class UpdateSAMLProviderRequestSamlProviderUpdateTypeDef(TypedDict):
-    SAMLMetadataDocument: NotRequired[str]
-    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
-    AddPrivateKey: NotRequired[str]
-    RemovePrivateKey: NotRequired[str]
-
-
-class UpdateSAMLProviderRequestTypeDef(TypedDict):
-    SAMLProviderArn: str
-    SAMLMetadataDocument: NotRequired[str]
-    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
-    AddPrivateKey: NotRequired[str]
-    RemovePrivateKey: NotRequired[str]
-
-
 class UpdateSSHPublicKeyRequestTypeDef(TypedDict):
     UserName: str
     SSHPublicKeyId: str
@@ -2012,6 +2015,20 @@ class ListAttachedUserPoliciesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ContextProviderOutputTypeDef(TypedDict):
+    SubjectSourceKey: str
+    KeyDefinitionList: NotRequired[list[ContextProviderKeyDefinitionTypeDef]]
+    SubjectTypeValue: NotRequired[str]
+    SubjectTypeSourceKey: NotRequired[str]
+
+
+class ContextProviderTypeDef(TypedDict):
+    SubjectSourceKey: str
+    KeyDefinitionList: NotRequired[Sequence[ContextProviderKeyDefinitionTypeDef]]
+    SubjectTypeValue: NotRequired[str]
+    SubjectTypeSourceKey: NotRequired[str]
+
+
 class CreateGroupResponseTypeDef(TypedDict):
     Group: GroupTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2040,13 +2057,6 @@ class CreateInstanceProfileRequestServiceResourceCreateInstanceProfileTypeDef(Ty
 class CreateInstanceProfileRequestTypeDef(TypedDict):
     InstanceProfileName: str
     Path: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class CreateOpenIDConnectProviderRequestTypeDef(TypedDict):
-    Url: str
-    ClientIDList: NotRequired[Sequence[str]]
-    ThumbprintList: NotRequired[Sequence[str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -2094,22 +2104,6 @@ class CreateRoleRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
-class CreateSAMLProviderRequestServiceResourceCreateSamlProviderTypeDef(TypedDict):
-    SAMLMetadataDocument: str
-    Name: str
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
-    AddPrivateKey: NotRequired[str]
-
-
-class CreateSAMLProviderRequestTypeDef(TypedDict):
-    SAMLMetadataDocument: str
-    Name: str
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
-    AddPrivateKey: NotRequired[str]
-
-
 class CreateSAMLProviderResponseTypeDef(TypedDict):
     SAMLProviderArn: str
     Tags: list[TagTypeDef]
@@ -2146,15 +2140,6 @@ class CreateVirtualMFADeviceRequestTypeDef(TypedDict):
     VirtualMFADeviceName: str
     Path: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class GetOpenIDConnectProviderResponseTypeDef(TypedDict):
-    Url: str
-    ClientIDList: list[str]
-    ThumbprintList: list[str]
-    CreateDate: datetime
-    Tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListInstanceProfileTagsResponseTypeDef(TypedDict):
@@ -2543,17 +2528,6 @@ class GetUserRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
-class GetSAMLProviderResponseTypeDef(TypedDict):
-    SAMLProviderUUID: str
-    SAMLMetadataDocument: str
-    CreateDate: datetime
-    ValidUntil: datetime
-    Tags: list[TagTypeDef]
-    AssertionEncryptionMode: AssertionEncryptionModeTypeType
-    PrivateKeyList: list[SAMLPrivateKeyTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetSSHPublicKeyResponseTypeDef(TypedDict):
     SSHPublicKey: SSHPublicKeyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2700,6 +2674,36 @@ ServiceLastAccessedTypeDef = TypedDict(
         "TrackedActionsLastAccessed": NotRequired[list[TrackedActionLastAccessedTypeDef]],
     },
 )
+
+
+class GetOpenIDConnectProviderResponseTypeDef(TypedDict):
+    Url: str
+    ClientIDList: list[str]
+    ThumbprintList: list[str]
+    CreateDate: datetime
+    Tags: list[TagTypeDef]
+    ContextProvider: ContextProviderOutputTypeDef
+    IdentityCenterInstanceArn: str
+    IdentityStoreArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetSAMLProviderResponseTypeDef(TypedDict):
+    SAMLProviderUUID: str
+    SAMLMetadataDocument: str
+    ContextProvider: ContextProviderOutputTypeDef
+    SAMLKeyHashes: list[SAMLKeyHashEntryTypeDef]
+    CreateDate: datetime
+    ValidUntil: datetime
+    Tags: list[TagTypeDef]
+    AssertionEncryptionMode: AssertionEncryptionModeTypeType
+    PrivateKeyList: list[SAMLPrivateKeyTypeDef]
+    IdentityCenterInstanceArn: str
+    IdentityStoreArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ContextProviderUnionTypeDef = Union[ContextProviderTypeDef, ContextProviderOutputTypeDef]
 
 
 class CreatePolicyResponseTypeDef(TypedDict):
@@ -2863,6 +2867,66 @@ class GetServiceLastAccessedDetailsResponseTypeDef(TypedDict):
     Marker: str
     Error: ErrorDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateOpenIDConnectProviderRequestTypeDef(TypedDict):
+    Url: str
+    ClientIDList: NotRequired[Sequence[str]]
+    ThumbprintList: NotRequired[Sequence[str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ContextProvider: NotRequired[ContextProviderUnionTypeDef]
+    IdentityCenterInstanceArn: NotRequired[str]
+
+
+class CreateSAMLProviderRequestServiceResourceCreateSamlProviderTypeDef(TypedDict):
+    SAMLMetadataDocument: str
+    Name: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
+    AddPrivateKey: NotRequired[str]
+    ContextProvider: NotRequired[ContextProviderUnionTypeDef]
+    IdentityCenterInstanceArn: NotRequired[str]
+
+
+class CreateSAMLProviderRequestTypeDef(TypedDict):
+    SAMLMetadataDocument: str
+    Name: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
+    AddPrivateKey: NotRequired[str]
+    ContextProvider: NotRequired[ContextProviderUnionTypeDef]
+    IdentityCenterInstanceArn: NotRequired[str]
+
+
+class UpdateOpenIDConnectProviderRequestTypeDef(TypedDict):
+    OpenIDConnectProviderArn: str
+    ContextProvider: NotRequired[ContextProviderUnionTypeDef]
+    IdentityCenterInstanceArn: NotRequired[str]
+    RemoveContextProvider: NotRequired[bool]
+    RemoveIdentityCenterInstance: NotRequired[bool]
+
+
+class UpdateSAMLProviderRequestSamlProviderUpdateTypeDef(TypedDict):
+    SAMLMetadataDocument: NotRequired[str]
+    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
+    AddPrivateKey: NotRequired[str]
+    RemovePrivateKey: NotRequired[str]
+    ContextProvider: NotRequired[ContextProviderUnionTypeDef]
+    IdentityCenterInstanceArn: NotRequired[str]
+    RemoveContextProvider: NotRequired[bool]
+    RemoveIdentityCenterInstance: NotRequired[bool]
+
+
+class UpdateSAMLProviderRequestTypeDef(TypedDict):
+    SAMLProviderArn: str
+    SAMLMetadataDocument: NotRequired[str]
+    AssertionEncryptionMode: NotRequired[AssertionEncryptionModeTypeType]
+    AddPrivateKey: NotRequired[str]
+    RemovePrivateKey: NotRequired[str]
+    ContextProvider: NotRequired[ContextProviderUnionTypeDef]
+    IdentityCenterInstanceArn: NotRequired[str]
+    RemoveContextProvider: NotRequired[bool]
+    RemoveIdentityCenterInstance: NotRequired[bool]
 
 
 class CreateVirtualMFADeviceResponseTypeDef(TypedDict):

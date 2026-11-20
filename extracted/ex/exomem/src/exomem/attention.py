@@ -82,6 +82,10 @@ DEFAULT_ATTENTION_CATEGORIES: tuple[str, ...] = (
     # are what every note citing it rests on, so the owner sees it unasked; a vault
     # whose originals all verify never sees it.
     "original_fixity",
+    # A captured document whose own metadata or opening shows a DOI other than the one its Source
+    # claims, and that nobody corrected. Everything citing it rests on that identity, so the owner
+    # sees it unasked; a vault whose captures agree with their documents never sees it.
+    "source_identity_conflict",
     # Last: a backlog, not an obligation, so every queue above it ranks first. It is in the
     # default union because the rotation bounds its intake (`rotation_daily` a day), so no
     # vault meets its whole population at once, and a client that lists review items without
@@ -532,18 +536,21 @@ def _decided_findings(vault_root: Path, findings: list[AuditFinding]) -> list[Au
     totals and the summary are computed over what it receives, exactly as if
     the withheld pages were absent. The contradiction queue's trailing
     summary counts pairs capped before any decision, so it is not folded in
-    for such a caller.
+    for such a caller. A bound store filters the owner's walk too, so it is
+    the caller that decides whether the summary is dropped, not the filter.
     """
     from .governance import egress
 
     visible = egress.visible_page_filter(Path(vault_root))
     if visible is None:
         return findings
+    restricted = egress.caller_restricted(Path(vault_root))
     return [
         finding
         for finding in findings
         if not (
-            finding.category == "corpus_contradictions"
+            restricted
+            and finding.category == "corpus_contradictions"
             and finding.meta
             and "truncated" in finding.meta
         )

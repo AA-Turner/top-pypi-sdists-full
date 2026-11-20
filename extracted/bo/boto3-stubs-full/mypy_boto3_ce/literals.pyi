@@ -198,10 +198,15 @@ MatchOptionType = Literal[
 ]
 MetricType = Literal[
     "AMORTIZED_COST",
+    "BILLED_COST",
     "BLENDED_COST",
+    "CONTRACTED_COST",
+    "LIST_COST",
     "NET_AMORTIZED_COST",
     "NET_UNBLENDED_COST",
     "NORMALIZED_USAGE_AMOUNT",
+    "PUBLIC_EQUIVALENT_BILLED_COST",
+    "PUBLIC_ON_DEMAND_COST",
     "UNBLENDED_COST",
     "USAGE_QUANTITY",
 ]
@@ -540,6 +545,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

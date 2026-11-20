@@ -36,6 +36,7 @@ class TestUnregisteredAgentFilter(unittest.TestCase):
         if include_optional:
             return UnregisteredAgentFilter(
                 name_filter = '',
+                search = '',
                 agent_ids = [
                     ''
                     ],

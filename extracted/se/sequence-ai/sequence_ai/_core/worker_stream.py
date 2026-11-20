@@ -160,16 +160,17 @@ def open_stream(base_url: str, context: ssl.SSLContext, headers: dict, *, timeou
                 options: Optional[list] = None, quiet_s: Optional[float] = None,
                 on_quiet: Optional[Callable[[], None]] = None, path: str = PATH,
                 on_push: Optional[Callable[[dict], None]] = None,
-                on_end: Optional[Callable[[str], None]] = None, trace: Any = None) -> "WorkerStream":
+                on_end: Optional[Callable[[str], None]] = None, trace: Any = None,
+                bind: Optional[str] = None) -> "WorkerStream":
     """Open the stream to the worker at `base_url`: its TCP connect with `options` (the worker transport's keepalive and
     BBR) and TCP_NOTSENT_LOWAT, its TLS handshake checked by `context`, then the upgrade - GET `path` (/stream; a teleop
     console's /teleop) with `headers` (the robot's secret, its session). StreamRefused when something answers it with
     anything but 101, StreamClosed when no answer came or it does not accept the key, and what the connect or handshake
     raised. `quiet_s`/`on_quiet`: its watch for a line gone silent; `on_push`/`on_end`: what the worker pushes and the
     stream's end (WorkerStream). `trace`: told as its TCP connect and TLS handshake begin and end, by httpcore's names
-    (worker_transport._ConnectionTrace)."""
+    (worker_transport._ConnectionTrace). `bind`: the network interface its connection leaves by (open_websocket)."""
     sock, answered, rest = open_websocket(base_url, context, headers, timeout_s=timeout_s, path=path, options=options,
-                                          trace=trace)
+                                          trace=trace, bind=bind)
     try:
         return WorkerStream(sock, answered, rest, quiet_s=quiet_s, on_quiet=on_quiet, on_push=on_push, on_end=on_end)
     except BaseException:
@@ -177,20 +178,25 @@ def open_stream(base_url: str, context: ssl.SSLContext, headers: dict, *, timeou
         raise
 
 
-def open_websocket(base_url: str, context: ssl.SSLContext, headers: dict, *, timeout_s: float, path: str,
-                   options: Optional[list] = None, trace: Any = None) -> tuple[ssl.SSLSocket, dict, bytes]:
+def open_websocket(base_url: str, context: Optional[ssl.SSLContext], headers: dict, *, timeout_s: float, path: str,
+                   options: Optional[list] = None, trace: Any = None,
+                   bind: Optional[str] = None) -> tuple[socket.socket, dict, bytes]:
     """One TLS connection to the machine at `base_url`, upgraded to a WebSocket at GET `path` (with its query) - a robot's
     stream (open_stream), a terminal (seq/terminal.py): its socket, the upgrade's answer's headers lowercased, and what
-    came after them. Raised as open_stream says, within `timeout_s` in all."""
+    came after them. Raised as open_stream says, within `timeout_s` in all. `context` None: a plain TCP connection (port
+    80 unless the URL names one) - a policy server of the robot's own at an http:// address. `bind`: the network
+    interface its connection leaves by, whatever this machine's default route (network.bind) - one of a robot's uplinks
+    (lines_stream)."""
     def told(event: str) -> None:
         if trace is not None:
             trace(event, {})
 
     parts = urlsplit(base_url)
-    host, port = parts.hostname or "", parts.port or 443
+    host, port = parts.hostname or "", parts.port or (443 if context is not None else 80)
     deadline = time.monotonic() + timeout_s
     told("connection.connect_tcp.started")
-    raw = socket.create_connection((host, port), timeout=timeout_s)
+    raw = socket.create_connection((host, port), timeout=timeout_s) if bind is None else \
+        _connect_by(bind, host, port, timeout_s)
     told("connection.connect_tcp.complete")
     try:
         raw.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -204,9 +210,12 @@ def open_websocket(base_url: str, context: ssl.SSLContext, headers: dict, *, tim
                 raw.setsockopt(socket.IPPROTO_TCP, _NOTSENT_LOWAT, _LOWAT_BYTES)
             except OSError:
                 pass
-        told("connection.start_tls.started")
-        sock = context.wrap_socket(raw, server_hostname=host)
-        told("connection.start_tls.complete")
+        if context is not None:
+            told("connection.start_tls.started")
+            sock = context.wrap_socket(raw, server_hostname=host)
+            told("connection.start_tls.complete")
+        else:
+            sock = raw
     except BaseException:
         raw.close()
         raise
@@ -240,6 +249,30 @@ def open_websocket(base_url: str, context: ssl.SSLContext, headers: dict, *, tim
     except BaseException:
         sock.close()
         raise
+
+
+def _connect_by(interface: str, host: str, port: int, timeout_s: float) -> socket.socket:
+    """A TCP connection to `host`:`port` that leaves by `interface`: each socket bound to it before it connects, since a
+    connection's route is chosen as it connects. OSError naming the interface when no address of `host` answered by
+    it."""
+    from ..network import bind as _bind
+
+    failed: list = []
+    for family, kind, proto, _, address in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM):
+        sock = socket.socket(family, kind, proto)
+        try:
+            for option in _bind.options(interface, family):
+                sock.setsockopt(*option)
+            sock.settimeout(timeout_s)
+            sock.connect(address)
+            return sock
+        except OSError as error:
+            sock.close()
+            failed.append(error)
+    last = failed[-1] if failed else OSError(f"no address for {host}")
+    if isinstance(last, socket.timeout):
+        raise last
+    raise OSError(f"{last} (connecting to {host}:{port} by {interface})") from last
 
 
 def read_frames(buf: bytearray) -> Iterator[tuple[int, int, bytes]]:

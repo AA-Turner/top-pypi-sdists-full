@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: exceptiongroup
-Version: 1.3.1
+Version: 1.3.2
 Summary: Backport of PEP 654 (exception groups)
 Author-email: Alex Grönholm <alex.gronholm@nextday.fi>
 Requires-Python: >=3.7
@@ -25,6 +25,9 @@ Provides-Extra: test
 .. image:: https://coveralls.io/repos/github/agronholm/exceptiongroup/badge.svg?branch=main
   :target: https://coveralls.io/github/agronholm/exceptiongroup?branch=main
   :alt: Code Coverage
+.. image:: https://tidelift.com/badges/package/pypi/exceptiongroup
+  :target: https://tidelift.com/subscription/pkg/pypi-exceptiongroup
+  :alt: Tidelift
 
 This is a backport of the ``BaseExceptionGroup`` and ``ExceptionGroup`` classes from
 Python 3.11.
@@ -57,6 +60,13 @@ and the exception hook won't be installed.
 See the `standard library documentation`_ for more information on exception groups.
 
 .. _standard library documentation: https://docs.python.org/3/library/exceptions.html
+
+License
+=======
+
+This project includes code under the MIT License and code copied from the
+Python standard library under the Python Software Foundation License Version 2.
+The full notices and terms for both licenses are in the ``LICENSE`` file.
 
 Catching exceptions
 ===================

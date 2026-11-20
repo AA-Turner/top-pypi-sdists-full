@@ -28,7 +28,7 @@ import pytest
 
 from pymongo import MongoClient, monitoring
 from pymongo.auth_shared import _build_credentials_tuple
-from pymongo.errors import OperationFailure
+from pymongo.errors import ConfigurationError, OperationFailure
 from pymongo.hello import HelloCompat
 from pymongo.read_preferences import ReadPreference
 from pymongo.saslprep import HAVE_STRINGPREP
@@ -239,9 +239,7 @@ class TestGSSAPI(PyMongoTestCase):
             except OperationFailure:
                 raise SkipTest("User must be able to write.")
 
-        threads = []
-        for _ in range(4):
-            threads.append(AutoAuthenticateThread(collection))
+        threads = [AutoAuthenticateThread(collection) for _ in range(4)]
         for thread in threads:
             thread.start()
         for thread in threads:
@@ -396,6 +394,19 @@ class TestSASLPlain(PyMongoTestCase):
             bad_user.admin.command("ping")
         with self.assertRaises(OperationFailure):
             bad_pwd.admin.command("ping")
+
+    def test_sasl_plain_nul_in_credentials(self):
+        for username, password in (
+            ("user\x00name", "password"),
+            ("username", "pass\x00word"),
+        ):
+            with (
+                self.subTest(username=username, password=password),
+                self.assertRaisesRegex(ConfigurationError, "cannot contain NUL characters"),
+            ):
+                self.simple_client(
+                    authMechanism="PLAIN", connect=False, username=username, password=password
+                )
 
 
 class TestSCRAMSHA1(IntegrationTest):
@@ -657,9 +668,7 @@ class TestSCRAM(IntegrationTest):
         # The first thread to call find() will authenticate
         client = self.rs_or_single_client()
         coll = client.db.coll
-        threads = []
-        for _ in range(4):
-            threads.append(AutoAuthenticateThread(coll))
+        threads = [AutoAuthenticateThread(coll) for _ in range(4)]
         for thread in threads:
             thread.start()
         for thread in threads:

@@ -1,0 +1,1 @@
+import{r as a,j as r,m as o}from"./index-X8JaL0Z6.js";const i=a.forwardRef(function({className:t,type:e="button",...s},n){return r.jsx("button",{...s,ref:n,type:e,"data-dashed-button":"true",className:o("inline-flex h-9 items-center justify-center gap-1.5",t)})});export{i as D};

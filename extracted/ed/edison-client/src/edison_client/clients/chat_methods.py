@@ -5,13 +5,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, NoReturn
 from uuid import UUID
 
-from httpx import AsyncClient, Client, HTTPStatusError, codes
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from httpx import AsyncClient, Client, HTTPStatusError, Response, codes
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 
 from edison_client.models.chat import (
     ChatConversationList,
@@ -79,11 +74,9 @@ class _ConversationFetch:
         return params
 
     def _prepend_conversation_continuation(
-        self,
-        continuation: ConversationDetail,
+        self, continuation: ConversationDetail
     ) -> None:
-        """
-        When a single message is too large, we receive the message content in chunks.
+        """When a single message is too large, we receive the message content in chunks.
 
         This function prepends the older content to the current message content.
         """
@@ -135,9 +128,7 @@ class _ConversationFetch:
 
 
 def _chat_message_info(
-    *,
-    channel: str,
-    data_storage_ids: list[str | UUID] | None,
+    *, channel: str, data_storage_ids: list[str | UUID] | None
 ) -> dict[str, Any]:
     info: dict[str, Any] = {"channel": channel}
     if data_storage_ids:
@@ -170,11 +161,8 @@ class ChatMethods:
             "async_client property must be implemented by subclass"
         )
 
-    def _handle_chat_http_errors(  # noqa: PLR6301
-        self,
-        e: HTTPStatusError,
-        operation: str,
-        exc_class: type[ChatError] = ChatError,
+    def _handle_chat_http_errors(  # ruff: ignore[no-self-use]
+        self, e: HTTPStatusError, operation: str, exc_class: type[ChatError] = ChatError
     ) -> NoReturn:
         """Handle common HTTP errors for chat operations."""
         if e.response.status_code in RETRYABLE_HTTP_STATUS_CODES:
@@ -241,8 +229,7 @@ class ChatMethods:
                 job_name=job_name,
             )
             response = self.client.post(
-                "/v0.1/chat",
-                json=payload.model_dump(mode="json", exclude_none=True),
+                "/v0.1/chat", json=payload.model_dump(mode="json", exclude_none=True)
             )
             response.raise_for_status()
             return ChatMessageResponse.model_validate(response.json())
@@ -350,8 +337,7 @@ class ChatMethods:
                 job_name=job_name,
             )
             response = await self.async_client.post(
-                "/v0.1/chat",
-                json=payload.model_dump(mode="json", exclude_none=True),
+                "/v0.1/chat", json=payload.model_dump(mode="json", exclude_none=True)
             )
             response.raise_for_status()
             return ChatMessageResponse.model_validate(response.json())
@@ -419,11 +405,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def recover_chat_session(
-        self,
-        session_id: UUID,
-        project_id: UUID,
-        *,
-        job_name: str | None = None,
+        self, session_id: UUID, project_id: UUID, *, job_name: str | None = None
     ) -> ChatRecoverResponse:
         """Recover a chat session.
 
@@ -439,10 +421,7 @@ class ChatMethods:
             ChatError: If there's an error recovering the session.
         """
         try:
-            payload = ChatRecoverPayload(
-                project_id=project_id,
-                job_name=job_name,
-            )
+            payload = ChatRecoverPayload(project_id=project_id, job_name=job_name)
             response = self.client.post(
                 f"/v0.1/chat/{session_id}/recover",
                 json=payload.model_dump(mode="json", exclude_none=True),
@@ -466,11 +445,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def arecover_chat_session(
-        self,
-        session_id: UUID,
-        project_id: UUID,
-        *,
-        job_name: str | None = None,
+        self, session_id: UUID, project_id: UUID, *, job_name: str | None = None
     ) -> ChatRecoverResponse:
         """Recover a chat session (async).
 
@@ -486,10 +461,7 @@ class ChatMethods:
             ChatError: If there's an error recovering the session.
         """
         try:
-            payload = ChatRecoverPayload(
-                project_id=project_id,
-                job_name=job_name,
-            )
+            payload = ChatRecoverPayload(project_id=project_id, job_name=job_name)
             response = await self.async_client.post(
                 f"/v0.1/chat/{session_id}/recover",
                 json=payload.model_dump(mode="json", exclude_none=True),
@@ -513,11 +485,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def get_conversations(
-        self,
-        *,
-        session_id: UUID | None = None,
-        limit: int = 25,
-        offset: int = 0,
+        self, *, session_id: UUID | None = None, limit: int = 25, offset: int = 0
     ) -> ChatConversationList:
         """List conversations.
 
@@ -556,11 +524,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def aget_conversations(
-        self,
-        *,
-        session_id: UUID | None = None,
-        limit: int = 25,
-        offset: int = 0,
+        self, *, session_id: UUID | None = None, limit: int = 25, offset: int = 0
     ) -> ChatConversationList:
         """List conversations (async).
 
@@ -599,11 +563,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def get_conversation(
-        self,
-        session_id: UUID,
-        *,
-        limit: int | None = 50,
-        offset: int = 0,
+        self, session_id: UUID, *, limit: int | None = 50, offset: int = 0
     ) -> ConversationDetail:
         """Get a conversation by session ID.
 
@@ -626,8 +586,7 @@ class ChatMethods:
         try:
             while fetch.load_more:
                 response = self.client.get(
-                    f"/v0.1/conversations/{session_id}",
-                    params=fetch.params,
+                    f"/v0.1/conversations/{session_id}", params=fetch.params
                 )
                 response.raise_for_status()
                 fetch.add_page(ConversationDetail.model_validate(response.json()))
@@ -651,11 +610,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def aget_conversation(
-        self,
-        session_id: UUID,
-        *,
-        limit: int | None = 50,
-        offset: int = 0,
+        self, session_id: UUID, *, limit: int | None = 50, offset: int = 0
     ) -> ConversationDetail:
         """Get a conversation by session ID (async).
 
@@ -678,8 +633,7 @@ class ChatMethods:
         try:
             while fetch.load_more:
                 response = await self.async_client.get(
-                    f"/v0.1/conversations/{session_id}",
-                    params=fetch.params,
+                    f"/v0.1/conversations/{session_id}", params=fetch.params
                 )
                 response.raise_for_status()
                 fetch.add_page(ConversationDetail.model_validate(response.json()))
@@ -705,11 +659,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def store_conversation_message(
-        self,
-        session_id: UUID,
-        message: dict,
-        *,
-        metadata: dict | None = None,
+        self, session_id: UUID, message: dict, *, metadata: dict | None = None
     ) -> None:
         """Store a conversation message.
 
@@ -722,10 +672,7 @@ class ChatMethods:
             ChatError: If there's an error storing the message.
         """
         try:
-            payload = StoreMessagePayload(
-                message=message,
-                metadata=metadata,
-            )
+            payload = StoreMessagePayload(message=message, metadata=metadata)
             response = self.client.post(
                 f"/v0.1/conversations/{session_id}/messages",
                 json=payload.model_dump(mode="json", exclude_none=True),
@@ -748,11 +695,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def astore_conversation_message(
-        self,
-        session_id: UUID,
-        message: dict,
-        *,
-        metadata: dict | None = None,
+        self, session_id: UUID, message: dict, *, metadata: dict | None = None
     ) -> None:
         """Store a conversation message (async).
 
@@ -765,10 +708,7 @@ class ChatMethods:
             ChatError: If there's an error storing the message.
         """
         try:
-            payload = StoreMessagePayload(
-                message=message,
-                metadata=metadata,
-            )
+            payload = StoreMessagePayload(message=message, metadata=metadata)
             response = await self.async_client.post(
                 f"/v0.1/conversations/{session_id}/messages",
                 json=payload.model_dump(mode="json", exclude_none=True),
@@ -793,10 +733,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def queue_chat_message(
-        self,
-        session_id: UUID,
-        project_id: UUID,
-        message: str,
+        self, session_id: UUID, project_id: UUID, message: str
     ) -> QueueMessageResponse:
         """Queue a message for injection into a running chat session.
 
@@ -816,13 +753,10 @@ class ChatMethods:
         """
         try:
             payload = QueueMessagePayload(
-                target_id=session_id,
-                project_id=project_id,
-                message=message,
+                target_id=session_id, project_id=project_id, message=message
             )
             response = self.client.post(
-                "/v0.1/conversations/queue",
-                json=payload.model_dump(mode="json"),
+                "/v0.1/conversations/queue", json=payload.model_dump(mode="json")
             )
             response.raise_for_status()
             return QueueMessageResponse.model_validate(response.json())
@@ -843,10 +777,7 @@ class ChatMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def aqueue_chat_message(
-        self,
-        session_id: UUID,
-        project_id: UUID,
-        message: str,
+        self, session_id: UUID, project_id: UUID, message: str
     ) -> QueueMessageResponse:
         """Queue a message for injection into a running chat session (async).
 
@@ -866,13 +797,10 @@ class ChatMethods:
         """
         try:
             payload = QueueMessagePayload(
-                target_id=session_id,
-                project_id=project_id,
-                message=message,
+                target_id=session_id, project_id=project_id, message=message
             )
             response = await self.async_client.post(
-                "/v0.1/conversations/queue",
-                json=payload.model_dump(mode="json"),
+                "/v0.1/conversations/queue", json=payload.model_dump(mode="json")
             )
             response.raise_for_status()
             return QueueMessageResponse.model_validate(response.json())
@@ -936,7 +864,7 @@ class ChatMethods:
             raise ChatFetchError(f"An unexpected error occurred: {e!r}") from e
 
     @staticmethod
-    def _parse_chat_sandbox_claim(response: Any) -> ChatSandboxClaimResponse:
+    def _parse_chat_sandbox_claim(response: Response) -> ChatSandboxClaimResponse:
         response.raise_for_status()
         return ChatSandboxClaimResponse.model_validate(response.json())
 

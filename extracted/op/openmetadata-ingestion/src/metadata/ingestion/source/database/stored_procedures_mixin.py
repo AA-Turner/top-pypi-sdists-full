@@ -16,10 +16,11 @@ import json
 import traceback
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Iterator, Union  # noqa: UP035
+from collections.abc import Iterator
 
 from sqlalchemy import text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import SQLAlchemyError
 
 from metadata.generated.schema.api.data.createQuery import CreateQueryRequest
 from metadata.generated.schema.api.lineage.addLineage import AddLineageRequest
@@ -94,6 +95,13 @@ class StoredProcedureLineageMixin(ABC):
         """
         yield self.get_stored_procedure_sql_statement()
 
+    def yield_supplementary_stored_procedure_queries(self, conn: Connection) -> Iterator[QueryByProcedure]:
+        """
+        Procedure queries the query history cannot hold, read over the same connection.
+        Sources whose history misses some statements override this; none by default.
+        """
+        yield from ()
+
     def narrow_stored_procedure_statement(self, statement: str, exc: Exception) -> Iterator[str]:
         """
         Statements to try instead of one that failed, for sources that can read the same
@@ -107,10 +115,30 @@ class StoredProcedureLineageMixin(ABC):
         Yield query and stored procedure object for lineage processing.
         """
         for engine in self.get_stored_procedure_engines():
-            for query in self.get_stored_procedure_sql_statements():
-                yield from self._yield_queries_for_statement(engine, query)
+            # Connecting is guarded per engine rather than per statement, so an engine we
+            # cannot reach is skipped once. It is skipped rather than reported because on an
+            # ingest-all-databases run a single database that denies VIEW SERVER STATE must
+            # not drag the whole run's success percentage down - unlike a statement that
+            # fails after connecting, which is reported below. Narrowed because SQLAlchemy
+            # wraps driver failures but mssql+pytds leaks raw OSError subclasses on connect
+            # (socket.gaierror, TimeoutError); a KeyError/AttributeError here is a code bug
+            # and must keep propagating.
+            try:
+                connection = engine.connect()
+            except (SQLAlchemyError, OSError) as exc:
+                logger.debug(traceback.format_exc())
+                logger.warning("Failed to fetch stored procedure query history from a connection, skipping it: %s", exc)
+                continue
 
-    def _yield_queries_for_statement(self, engine: Engine, query: str) -> Iterator[QueryByProcedure]:
+            # Statements are built inside the connection but outside the guard above: a
+            # failure here is a bug in the source's statement builder, not an unreachable
+            # engine, and must not be reported as a skipped connection.
+            with connection as conn:
+                for query in self.get_stored_procedure_sql_statements():
+                    yield from self._yield_queries_for_statement(conn, query)
+                yield from self.yield_supplementary_stored_procedure_queries(conn)
+
+    def _yield_queries_for_statement(self, conn: Connection, query: str) -> Iterator[QueryByProcedure]:
         """
         Read one history statement. A statement that fails is retried over whatever narrower
         statements the source offers, and otherwise recorded and skipped rather than raised:
@@ -119,8 +147,7 @@ class StoredProcedureLineageMixin(ABC):
         lineage as well.
         """
         try:
-            with engine.connect() as conn:
-                results = conn.execute(text(query)).all()
+            results = conn.execute(text(query)).all()
         except Exception as exc:
             narrowed = list(self.narrow_stored_procedure_statement(query, exc))
             if not narrowed:
@@ -133,24 +160,28 @@ class StoredProcedureLineageMixin(ABC):
                 )
                 return
             for narrower_query in narrowed:
-                yield from self._yield_queries_for_statement(engine, narrower_query)
+                yield from self._yield_queries_for_statement(conn, narrower_query)
             return
 
         for row in results:
+            # Bound outside the try so the handler can still name the procedure, and
+            # assigned inside it so an unreadable row cannot escape and silently drop
+            # every row after it.
+            row_data = {}
             try:
-                query_by_procedure = QueryByProcedure.model_validate(row._asdict())
-                # procedure_name is typed str but the model accepts None and the parser may
-                # return None. Assigning str | None is tolerated at runtime by pydantic.
-                query_by_procedure.procedure_name = (  # pyright: ignore[reportAttributeAccessIssue]
-                    query_by_procedure.procedure_name
-                    or get_procedure_name_from_call(query_text=query_by_procedure.procedure_text)
-                )
+                row_data = row._asdict()
+                query_by_procedure = QueryByProcedure.model_validate(row_data)
+                if not query_by_procedure.procedure_name and query_by_procedure.procedure_text:
+                    query_by_procedure.procedure_name = get_procedure_name_from_call(
+                        query_text=query_by_procedure.procedure_text
+                    )
                 yield query_by_procedure
             except Exception as exc:
                 self.status.failed(
                     StackTraceError(
                         name="Stored Procedure",
-                        error=f"Error trying to get procedure name due to [{exc}]",
+                        error=f"Error trying to get procedure name for "
+                        f"[{row_data.get('PROCEDURE_NAME') or 'unknown procedure'}] due to [{exc}]",
                         stackTrace=traceback.format_exc(),
                     )
                 )
@@ -262,7 +293,7 @@ class StoredProcedureLineageMixin(ABC):
 
     def yield_procedure_lineage(
         self,
-    ) -> Iterator[Either[Union[AddLineageRequest, CreateQueryRequest]]]:  # noqa: UP007
+    ) -> Iterator[Either[AddLineageRequest | CreateQueryRequest]]:
         """Get all the queries and procedures list and yield them"""
         logger.info("Processing Lineage for Stored Procedures")
         producer_fn = self.procedure_lineage_producer

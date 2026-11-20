@@ -30,6 +30,7 @@ import numpy as np
 from scipy.io import loadmat as scipy_loadmat
 from scipy.stats import linregress
 from numba import njit, prange
+from scipy.fft import next_fast_len
 
 # Optional cupy import for GPU acceleration
 try:
@@ -48,47 +49,53 @@ def _get_xp(xp=None):
 
 def _get_dynamic_chunk_size(field_shape, ortho_axis, xp, multiplier=10.0):
     """
-    Calculates the optimal chunk size based on available GPU VRAM.
-    If the GPU has enough memory, it returns the full dimension (processes all at once).
+    Compute the optimal chunk size along ortho_axis based on available VRAM.
+    Flushes the cuFFT plan cache and CuPy memory pool prior to querying device memory so the budget reflects truly available VRAM. If the full array fits within 80% of free memory (accounting for FFT temporary buffers via multiplier), returns the full axis length for single-pass processing.
 
     Args:
-        field_shape (tuple): Shape of the input field.
-        ortho_axis (int): The axis along which the field will be chunked.
+        field_shape (tuple[int, ...]): Shape of the input array.
+        ortho_axis (int): Axis along which the array will be chunked.
         xp (module): Array namespace (cupy or numpy).
-        multiplier (float): Safety factor for peak memory usage during FFT operations.
+        multiplier (float, optional): Peak-memory safety factor relative to a float32 chunk to accommodate complex FFT intermediates and cuFFT work areas. Defaults to 10.0.
 
     Returns:
-        int: The optimal chunk size.
+        int: Number of slices along ortho_axis to process per chunk,
+        clamped to [1, field_shape[ortho_axis]].
     """
     N_ortho = field_shape[ortho_axis]
-    
-    # If using CPU (numpy), RAM is usually large enough, process everything at once
+
+    # On CPU (NumPy), system RAM is typically large enough for a single pass
     if xp.__name__ != 'cupy':
         return N_ortho
 
-    # Clear cached memory to get an accurate reading of available VRAM
-    mempool = xp.get_default_memory_pool()
-    mempool.free_all_blocks()
+    # Flush both cuFFT plan cache and CuPy pool for an accurate free VRAM reading
+    _clear_gpu_memory(xp)
+    free_mem, _ = xp.cuda.Device().mem_info
 
-    # Get free and total memory in bytes
-    free_mem, total_mem = xp.cuda.Device().mem_info
-    
-    # Calculate how many bytes a single slice along the ortho_axis requires (float32 = 4 bytes)
-    elements_per_slice = np.prod(field_shape) / N_ortho
-    bytes_per_slice = elements_per_slice * 4 
+    # Memory footprint of a single slice along ortho_axis (float32 = 4 bytes)
+    elements_per_slice = int(np.prod(field_shape)) // N_ortho
+    bytes_per_slice = elements_per_slice * 4
 
-    # We use 80% of free memory to leave a safe margin for OS and other background tasks
+    # Reserve 20% headroom for OS, driver overhead, and cuFFT internal buffers
     safe_mem = free_mem * 0.8
-    
-    # If the entire array fits safely, do it in one single pass
+
     if bytes_per_slice * N_ortho * multiplier < safe_mem:
         return N_ortho
 
-    # Otherwise, calculate how many slices can fit in the safe VRAM budget
     optimal_chunk = int(safe_mem / (bytes_per_slice * multiplier))
-    
-    # Ensure chunk is at least 1, and at most the full size
     return max(1, min(optimal_chunk, N_ortho))
+
+def _clear_gpu_memory(xp):
+    """
+    Release cached cuFFT plans and free unused blocks in the CuPy memory pool.
+    cuFFT plan work areas are allocated through CuPy's memory pool and remain pinned until the plan cache is cleared. Clearing the cache before calling free_all_blocks() ensures those blocks are actually returned to the device. No-op when xp is NumPy.
+
+    Args:
+        xp (module): Array namespace (cupy or numpy).
+    """
+    if xp.__name__ == 'cupy':
+        xp.fft.config.get_plan_cache().clear()
+        xp.get_default_memory_pool().free_all_blocks()
 
 # ---------------------------------------------------------------------------
 # MAT / IO helpers
@@ -419,144 +426,249 @@ def to_pipeline_layout(field, xp=None):
     xp = _get_xp(xp)
     return xp.ascontiguousarray(field.transpose(2, 1, 0))
 
-def hilbert_analytic(field, xp=None):
+def hilbert_analytic(field, xp=None, show_log=False):
+    """
+    Compute the analytic signal along the last axis (time) via Hilbert transform. Uses a real-to-complex forward FFT (rfft) padded to a 5-smooth length (next_fast_len(Nt, real=False)) followed by a complex inverse FFT (ifft).
+    Mathematical definition:
+        For a real signal :x[n], the analytic signal is defined in the frequency domain by keeping DC and Nyquist (if N_fft is even) unchanged, doubling strictly positive frequencies, and strictly zeroing all negative frequencies:
 
+    Memory & performance notes:
+        - Padding to next_fast_len(Nt, real=False) guarantees prime factors in {2, 3, 5}, preventing cuFFT from falling back to Bluestein's algorithm (which allocates large internal workspaces for prime factors > 7).
+        - The returned slice analytic[..., :Nt] is a view into the padded buffer to avoid an extra copy; callers should consume and drop it promptly.
+        - The input field is never modified or freed here.
+
+    Args:
+        field (ndarray): Real-valued array of shape (..., Nt) with time on the last axis.
+        xp (module, optional): Array namespace (cupy or numpy). Defaults to CuPy if available, else NumPy.
+        show_log (bool, optional): If True, log input/buffer shapes, FFT length, and memory footprint. Defaults to False.
+
+    Returns:
+        ndarray: Complex analytic signal of shape (..., Nt) (complex64 for float32 input on GPU; note that NumPy may promote to complex128 on CPU).
+    """
     xp = _get_xp(xp)
     Nt = field.shape[-1]
-    
-    h = xp.zeros((1, 1, Nt), dtype=xp.float32)
-    h[..., 0] = 1.0
-    if Nt % 2 == 0:
-        h[..., Nt // 2] = 1.0
-        h[..., 1:Nt // 2] = 2.0
-    else:
-        h[..., 1:(Nt + 1) // 2] = 2.0
-        
-    f_fft = xp.fft.fft(field, axis=-1)
-    f_fft *= h
-    del h
-    
-    analytic = xp.fft.ifft(f_fft, axis=-1)
-    del f_fft
-    return analytic
 
-def calculate_envelope_squared(field, xp=None, chunk_size=None):
+    # real=False restricts prime factors to {2, 3, 5}, which are natively
+    # accelerated by cuFFT without triggering Bluestein's workspace allocation
+    N_fft = next_fast_len(Nt, real=False)
+
+    if show_log:
+        print(f"[Hilbert] input {field.shape} ({field.nbytes / 1e9:.3f} GB) | Nt={Nt} -> N_fft={N_fft}")
+
+    # 1. Forward real FFT: computes only non-negative frequency bins (half memory)
+    X_pos = xp.fft.rfft(field, n=N_fft, axis=-1)
+    if show_log:
+        print(f"[Hilbert] rfft done ({X_pos.nbytes / 1e9:.3f} GB, dtype={X_pos.dtype})")
+
+    # Double strictly positive frequencies; leave DC (0) and Nyquist (-1 if even) at 1x
+    if N_fft % 2 == 0:
+        X_pos[..., 1:-1] *= 2.0
+    else:
+        X_pos[..., 1:] *= 2.0
+
+    # 2. Build full analytic spectrum with negative frequencies strictly zeroed
+    X_full = xp.zeros(field.shape[:-1] + (N_fft,), dtype=X_pos.dtype)
+    X_full[..., :X_pos.shape[-1]] = X_pos
+    del X_pos
+
+    # 3. Inverse complex FFT and truncate back to original length Nt (view, no copy)
+    analytic = xp.fft.ifft(X_full, axis=-1)
+    if show_log:
+        print(f"[Hilbert] ifft done ({analytic.nbytes / 1e9:.3f} GB)")
+    del X_full
+
+    if show_log and xp.__name__ != 'cupy' and field.dtype == np.float32:
+        print("[Hilbert] WARNING (CPU): NumPy may promote float32 -> complex128, using 2x memory compared to the CuPy complex64 path.")
+
+    return analytic[..., :Nt]
+
+def calculate_envelope_squared(field, xp=None, chunk_size=None, in_place=True, show_log=False):
     """
-    Computes the squared envelope. Dynamically adapts to VRAM.
+    Compute the squared envelope :math: |x_a(t)|^2 via Hilbert transform, chunked along axis 0 (Nx).
+
+    Memory management:
+        - When in_place=True and field is float32, the squared envelope overwrites field chunk by chunk, avoiding a second full-size GPU allocation.
+        - chunk_size is computed *after* any output allocation so VRAM estimation accounts for the output buffer.
+        - CuPy pool blocks are freed after every chunk. If the final tail chunk has a different size from chunk_size, the cuFFT plan cache is flushed *before* that chunk so two differently sized plans never coexist in VRAM.
+        - The cuFFT plan cache and memory pool are fully flushed upon return.
+
+    Args:
+        field (ndarray): Real-valued acoustic field of shape (Nx, Nz, Nt) with time on the last axis (typically float32).
+        xp (module, optional): Array namespace (cupy or numpy). Defaults to CuPy if available, else NumPy.
+        chunk_size (int, optional): Number of Nx slices per chunk. If None, determined dynamically from available VRAM.
+        in_place (bool, optional): If True and field.dtype == float32, overwrite field in place to halve peak output VRAM. Defaults to True.
+        show_log (bool, optional): If True, print chunk progress and GPU memory diagnostics. Defaults to False.
+
+    Returns:
+        ndarray: Squared envelope of shape (Nx, Nz, Nt), float32.
+        Identical to field when in_place=True and input is float32.
     """
     xp = _get_xp(xp)
-    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
-    
-    Nx = field.shape[0]
-    
-    # Dynamically determine the best chunk size based on available VRAM
+    is_gpu = (xp.__name__ == 'cupy')
+    mempool = xp.get_default_memory_pool() if is_gpu else None
+
+    Nx, _, _ = field.shape
+    bytes_full = field.nbytes
+
+    # Flush stale plans/blocks before output allocation and VRAM estimation
+    _clear_gpu_memory(xp)
+
+    # Allocate output before computing chunk_size so free VRAM reflects reality
+    if in_place and field.dtype == xp.float32:
+        out_env_sq = field
+    else:
+        out_env_sq = xp.empty_like(field, dtype=xp.float32)
+
     if chunk_size is None:
-        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis=0, xp=xp, multiplier=10.0)
-    
-    out_env_sq = xp.empty_like(field, dtype=xp.float32)
-    
+        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis=0, xp=xp, multiplier=8.0)
+    chunk_size = max(1, min(chunk_size, Nx))
+
+    if show_log:
+        n_chunks = (Nx + chunk_size - 1) // chunk_size
+        mode = "in-place" if out_env_sq is field else "out-of-place"
+        print(f"[Envelope^2] field {field.shape} ({bytes_full / 1e9:.2f} GB, {mode}) | {n_chunks} chunk(s) of {chunk_size} x-slices")
+
     for i in range(0, Nx, chunk_size):
         end = min(i + chunk_size, Nx)
-        field_chunk = field[i:end, ...]
-        
-        analytic_chunk = hilbert_analytic(field_chunk, xp)
-        out_env_sq[i:end, ...] = (analytic_chunk.real ** 2 + analytic_chunk.imag ** 2).astype(xp.float32)
-        
-        del field_chunk, analytic_chunk
-        if mempool:
+
+        # Flush cached cuFFT plans before a smaller tail chunk so the main-chunk
+        # plan and tail-chunk plan never coexist in VRAM
+        if (end - i) != chunk_size:
+            _clear_gpu_memory(xp)
+
+        # Safe even when in_place=True: rfft reads field[i:end] into a new buffer
+        # before out_env_sq[i:end] is written below
+        analytic_chunk = hilbert_analytic(field[i:end, ...], xp, show_log=show_log)
+
+        # Compute |x_a|^2 = Re(x_a)^2 + Im(x_a)^2 using a single float32 temporary
+        env_sq = analytic_chunk.real ** 2
+        env_sq += analytic_chunk.imag ** 2
+        out_env_sq[i:end, ...] = env_sq
+        del env_sq, analytic_chunk
+
+        if mempool is not None:
             mempool.free_all_blocks()
-            
-    del field
-    if mempool:
-        mempool.free_all_blocks()
-            
+
+        if show_log:
+            msg = f"[Envelope^2] chunk x[{i}:{end}/{Nx}] done"
+            if mempool is not None:
+                device_free = xp.cuda.Device().mem_info[0]
+                msg += (f" | pool used {mempool.used_bytes() / 1e9:.2f} GB / total {mempool.total_bytes() / 1e9:.2f} GB | device free {device_free / 1e9:.2f} GB")
+            print(msg)
+
+    # Final cleanup: drop all cuFFT plans first, then release pooled VRAM
+    _clear_gpu_memory(xp)
     return out_env_sq
 
-def calculate_envelope(field, xp=None, chunk_size=None):
+
+def calculate_envelope(
+    field, xp=None, chunk_size=None, in_place=True, show_log=False
+):
+    """
+    Compute the envelope :math:`|x_a(t)|` via Hilbert transform, chunked along axis 0 (Nx).
+    Delegates to :func:`calculate_envelope_squared` and applies an in-place square root to avoid allocating an extra full-size buffer.
+
+    Args:
+        field (ndarray): Real-valued acoustic field of shape (Nx, Nz, Nt), float32.
+        xp (module, optional): Array namespace (cupy or numpy). Defaults to CuPy if available, else NumPy.
+        chunk_size (int, optional): Number of Nx slices per chunk. If None, determined dynamically from available VRAM.
+        in_place (bool, optional): If True and field.dtype == float32, overwrite field in place. Defaults to True.
+        show_log (bool, optional): If True, print progress and VRAM usage. Defaults to False.
+
+    Returns:
+        ndarray: Envelope of shape (Nx, Nz, Nt), float32.
+    """
     xp = _get_xp(xp)
-    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
-    
-    env_sq = calculate_envelope_squared(field, xp, chunk_size=chunk_size)
-    env = xp.sqrt(env_sq)
-    
-    del env_sq
-    if mempool:
-        mempool.free_all_blocks()
-        
-    return env
+    env_sq = calculate_envelope_squared(field, xp=xp, chunk_size=chunk_size, in_place=in_place, show_log=show_log)
+    xp.sqrt(env_sq, out=env_sq)
+    _clear_gpu_memory(xp)
+    return env_sq
+
 
 def resample_bandlimited(field, axis, M, xp=None, chunk_size=None):
     """
-    Band-limited resampling. Dynamically adapts to VRAM to process in one pass 
-    if memory allows, or falls back to chunks if tight on memory.
+    Perform anti-aliased spectral resampling along a single axis using rFFT.
+    Truncates or zero-pads the one-sided spectrum to target size M with a raised-cosine taper over [0.70 * kc, kc] (where kc = min(N, M) / 2) to suppress Gibbs ringing. Processing is dynamically chunked along an orthogonal axis to fit within available GPU VRAM, and all cuFFT plans are cleared upon completion.
+
+    Args:
+        field (ndarray): Real-valued array to resample (typically float32).
+        axis (int): Axis along which to resample.
+        M (int): Target length along axis. If M == field.shape[axis], field is returned unchanged.
+        xp (module, optional): Array namespace (cupy or numpy). Defaults to CuPy if available, else NumPy.
+        chunk_size (int, optional): Number of slices along the orthogonal chunking axis per iteration. If None, determined dynamically from available VRAM.
+
+    Returns:
+        ndarray: Resampled float32 array with shape[axis] == M.
     """
     xp = _get_xp(xp)
-    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
-    
+    is_gpu = (xp.__name__ == 'cupy')
+    mempool = xp.get_default_memory_pool() if is_gpu else None
+
     N = field.shape[axis]
     if M == N:
         return field
-        
+
+    _clear_gpu_memory(xp)
+
+    # Allocate output buffer before querying free VRAM for chunk sizing
     shape_out = list(field.shape)
     shape_out[axis] = M
     out = xp.empty(tuple(shape_out), dtype=xp.float32)
-    
+
     ortho_axis = 1 if axis == 0 else 0
     N_ortho = field.shape[ortho_axis]
-    
-    # Calculate optimal chunk size (Needs a slightly higher multiplier for resample)
+
+    # Higher multiplier than Hilbert because both N-point rfft and M-point irfft
+    # plans coexist (and may require Bluestein workspaces if N or M is not smooth)
     if chunk_size is None:
-        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis, xp=xp, multiplier=12.0)
-    
-    Mk = M // 2 + 1                   
-    cut = min(N // 2 + 1, Mk)                  
-    kc = min(N, M) / 2.0              
+        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis, xp=xp, multiplier=16.0)
+    chunk_size = max(1, min(chunk_size, N_ortho))
+
+    # Build anti-aliasing raised-cosine taper along the frequency axis
+    Mk = M // 2 + 1
+    cut = min(N // 2 + 1, Mk)
+    kc = min(N, M) / 2.0
 
     kb = xp.arange(cut, dtype=xp.float32)
-    w = xp.where(kb <= 0.70 * kc, 1.0,
-                 xp.where(kb <= kc,
-                          0.5 * (1 + xp.cos(xp.pi * (kb - 0.70 * kc) / (0.30 * kc))),
-                          0.0))
-    w_shape = [cut if ax == axis else 1 for ax in range(field.ndim)]
-    w = w.reshape(w_shape)
+    w = xp.where(kb <= 0.70 * kc, 1.0, xp.where(kb <= kc, 0.5 * (1.0 + xp.cos(xp.pi * (kb - 0.70 * kc) / (0.30 * kc))), 0.0))
+    w = w.reshape([cut if ax == axis else 1 for ax in range(field.ndim)])
     del kb
+
+    scale = xp.float32(M / N)
 
     for i in range(0, N_ortho, chunk_size):
         end = min(i + chunk_size, N_ortho)
-        
+
+        # Avoid keeping main-chunk and tail-chunk cuFFT plans alive simultaneously
+        if (end - i) != chunk_size:
+            _clear_gpu_memory(xp)
+
         sl_in = [slice(None)] * field.ndim
         sl_in[ortho_axis] = slice(i, end)
-        
-        chunk = field[tuple(sl_in)]
-        
-        E_chunk = xp.fft.rfft(chunk, axis=axis)
-        del chunk
-        
+
+        E_chunk = xp.fft.rfft(field[tuple(sl_in)], axis=axis)
+
         E2_shape = list(E_chunk.shape)
         E2_shape[axis] = Mk
         E2_chunk = xp.zeros(tuple(E2_shape), dtype=E_chunk.dtype)
-        
+
         sl_cut = [slice(None)] * E_chunk.ndim
         sl_cut[axis] = slice(0, cut)
         E2_chunk[tuple(sl_cut)] = E_chunk[tuple(sl_cut)] * w
         del E_chunk
-        
+
         out_chunk = xp.fft.irfft(E2_chunk, n=M, axis=axis)
         del E2_chunk
-        
-        out_chunk *= xp.float32(M / N)
-        
+
+        out_chunk *= scale
         out[tuple(sl_in)] = out_chunk
         del out_chunk
-        
-        if mempool:
+
+        if mempool is not None:
             mempool.free_all_blocks()
 
     del w
-    del field
-    if mempool:
-        mempool.free_all_blocks()
-        
+    _clear_gpu_memory(xp)
     return out
 
 def resample_field(field, target_sizes, xp=None):
@@ -578,3 +690,28 @@ def compute_target_sizes(Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz
     dz_p = (Nz * dz) / Nz_t
     dx_p = (Nx * dx) / Nx_t
     return (Nt_t, Nz_t, Nx_t), (dt_p, dz_p, dx_p)
+
+def tukey_window(N, alpha=0.5):
+    """
+    Generate a Tukey window.
+    Parameters:
+        N (int): Number of points in the window.
+        alpha (float): Shape parameter of the Tukey window. 0 <= alpha <= 1.
+    Returns:
+        numpy.ndarray: The Tukey window.
+    """
+    if N <= 1:
+        return np.ones(N)
+    if alpha <= 0:
+        return np.ones(N)
+    if alpha >= 1:
+        return np.hanning(N)
+    e = alpha * (N - 1) / 2.0
+    n = np.arange(N)
+    w = np.ones(N)
+    left = n < e
+    right = n > (N - 1 - e)
+    if e > 0:
+        w[left] = 0.5 * (1 + np.cos(np.pi * (e - n[left]) / e))
+        w[right] = 0.5 * (1 + np.cos(np.pi * (n[right] - (N - 1 - e)) / e))
+    return w

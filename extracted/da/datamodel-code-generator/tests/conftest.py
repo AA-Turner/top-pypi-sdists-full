@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import difflib
-import hashlib
 import importlib
 import inspect
 import json
@@ -30,6 +29,7 @@ from urllib.parse import urlparse
 
 import pytest
 import time_machine
+from coverage.config import CoverageConfig
 from inline_snapshot._core._global_state import state as inline_snapshot_state
 from typing_extensions import Required
 
@@ -50,7 +50,10 @@ from tests.units import (
     RefsIndex,
     UnsafeWriteError,
     apply_payload,
-    derived_name,
+    common_contents,
+    derived_directory,
+    derived_file_name,
+    derived_siblings,
     encode_payload,
     facts_fit,
     format_refs,
@@ -90,6 +93,7 @@ CHECK_RENDER_PLANS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_RENDER_PLANS"
 CHECK_RENDER_MEMOS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_RENDER_MEMOS"
 CHECK_FACT_FINALITY_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_FACT_FINALITY"
 CHECK_NAMING_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_NAMING"
+CHECK_TEMPLATE_ASSIGNMENTS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_TEMPLATE_ASSIGNMENTS"
 CHECK_AREA_ENVS = (
     CHECK_SCHEMA_LOCATIONS_ENV,
     CHECK_MODEL_GRAPH_ENV,
@@ -99,6 +103,7 @@ CHECK_AREA_ENVS = (
     CHECK_RENDER_MEMOS_ENV,
     CHECK_FACT_FINALITY_ENV,
     CHECK_NAMING_ENV,
+    CHECK_TEMPLATE_ASSIGNMENTS_ENV,
 )
 """The variable of every debug check area (`Area` in `tests/checks/areas.py`) set to `1`."""
 CHECK_FACT_FINALITY_SWEEP_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_FACT_FINALITY_SWEEP"
@@ -114,8 +119,10 @@ CHILD_COVERAGE_ENV = {"COVERAGE_CORE": "ctrace"} if find_spec("coverage.tracer")
 From Python 3.14 the default core, ``sysmon``, works out the branches of each code object the first time it runs, which
 costs a fresh process seconds before its first generation; ``ctrace`` measures the same lines and branches without that.
 A coverage without its C extension, such as the pure Python wheel a Python without a compiled one installs, keeps its
-default.
+default. Every other Python a test starts gets the same core through `CHILD_COVERAGE_CONFIG_ENV`.
 """
+CHILD_COVERAGE_CONFIG_ENV = "COVERAGE_PROCESS_CONFIG"
+"""The configuration that coverage's ``run.patch = ["subprocess"]`` hands every Python started by a measured process."""
 BUILTIN_FORMATTER_VALUE = "builtin"
 _VERSION_PATTERN = re.compile(r"^\d+\.\d+$")
 _MOCK_PUBLIC_IP = "93.184.216.34"
@@ -305,10 +312,66 @@ def pytest_configure(config: pytest.Config) -> None:
         "Either golden_output, version_outputs, model_outputs, or expected_stdout is required. "
         "aliases: list of alternative option names (e.g., ['--capitalise-enum-members']).",
     )
-    config._cli_doc_items: list[dict[str, Any]] = []
+    config.stash[CLI_DOC_ITEMS] = []
     ledger = config.stash[_LEDGER] = _Ledger(config)
     config.pluginmanager.register(_LedgerPlugin(ledger), "expected-ledger")
     config.pluginmanager.register(SlowTestOrdering(), "slow-test-ordering")
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_sessionstart(session: pytest.Session) -> Generator[None, None, None]:
+    """Measure in a started Python what this process measures, and leave the xdist workers to pytest-cov.
+
+    ``run.patch = ["subprocess"]`` puts the configuration of each process that starts coverage into
+    `CHILD_COVERAGE_CONFIG_ENV`. The xdist controller sets it before it starts the workers, which pytest-cov measures
+    itself: a worker that inherited it would start a second coverage at startup. A worker's own coverage sets it again.
+    """
+    if session.config.pluginmanager.has_plugin("dsession"):
+        os.environ.pop(CHILD_COVERAGE_CONFIG_ENV, None)
+    yield
+    if (serialized := os.environ.get(CHILD_COVERAGE_CONFIG_ENV)) is not None:
+        os.environ[CHILD_COVERAGE_CONFIG_ENV] = _child_coverage_config(serialized)
+
+
+def _child_coverage_config(serialized: str) -> str:
+    """Resolve the coverage configuration `serialized` the way this process reads it, for a Python a test starts.
+
+    A started Python reads the configuration in its own working directory and on its own ``sys.path``: a relative omit
+    pattern or source directory would no longer match, and a module source such as ``scripts._source_model`` would
+    measure whatever module of that name the Python imports, such as the copies of the repository that tests run. So
+    each source becomes the directories it names in this process (`_source_directories`), a relative pattern is
+    anchored at this process's working directory as coverage anchors it here, and the core is the one of
+    `CHILD_COVERAGE_ENV`.
+
+    A test that puts the checkout's ``src`` on ``PYTHONPATH`` makes the Python import the package from there, not from
+    the installed copy the source names (the tox environments install one). ``paths.source`` declares both the same
+    files, so the directory of the same name under its first entry is measured too and combined into the same report.
+    """
+    config = CoverageConfig.deserialize(serialized)
+    sources = [directory for source in config.source or [] for directory in _source_directories(source)]
+    checkout = Path.cwd() / config.paths.get("source", ["src"])[0]
+    config.source = list(
+        dict.fromkeys([*sources, *(str(copy) for source in sources if (copy := checkout / Path(source).name).is_dir())])
+    )
+    config.run_omit = [
+        pattern if pattern.startswith(("*", "?")) else str(Path.cwd() / pattern) for pattern in config.run_omit
+    ]
+    config.core = CHILD_COVERAGE_ENV.get("COVERAGE_CORE", config.core)
+    return config.serialize()
+
+
+def _source_directories(source: str) -> list[str]:
+    """Return the directories a coverage ``--source`` entry names in this process.
+
+    Coverage reads an entry that is a directory relative to the working directory as that directory, and any other
+    entry as a module name: the CI shards pass ``--cov datamodel_code_generator --cov tests``, the tox commands absolute
+    directories. A package resolves to the directories it is imported from here; a single module, which a started Python
+    could import from a copy of the repository, names none.
+    """
+    if (directory := Path.cwd() / source).is_dir():
+        return [str(directory)]
+    spec = find_spec(source)
+    return [] if spec is None else list(spec.submodule_search_locations or [])
 
 
 def _validate_cli_doc_marker(node_id: str, kwargs: CliDocKwargs) -> list[str]:  # noqa: ARG001, PLR0912, PLR0914  # pragma: no cover
@@ -634,7 +697,7 @@ def pytest_collection_modifyitems(
         # Get option_description from marker kwargs (required field)
         option_description = marker.kwargs.get("option_description", "")
 
-        config._cli_doc_items.append({
+        config.stash[CLI_DOC_ITEMS].append({
             "node_id": item.nodeid,
             "marker_kwargs": _stored_cli_doc_paths(config, item, marker.kwargs) if collect_cli_docs else marker.kwargs,
             "option_description": option_description,
@@ -661,7 +724,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # n
     if not config.getoption("--collect-cli-docs"):
         return
 
-    items = getattr(config, "_cli_doc_items", [])
+    items = config.stash.get(CLI_DOC_ITEMS, [])
 
     output = {
         "schema_version": CLI_DOC_SCHEMA_VERSION,
@@ -705,7 +768,7 @@ _validation_stats = CodeValidationStats()
 def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pytest.Config) -> None:  # noqa: ARG001  # pragma: no cover
     """Print code validation and CLI doc collection summary at the end of test run."""
     if config.getoption("--collect-cli-docs", default=False):
-        items = getattr(config, "_cli_doc_items", [])
+        items = config.stash.get(CLI_DOC_ITEMS, [])
         terminalreporter.write_sep("=", "CLI Documentation Collection")
         terminalreporter.write_line(f"Collected {len(items)} CLI doc items -> {CLI_DOC_COLLECTION_OUTPUT}")
 
@@ -828,6 +891,7 @@ SIBLING_RERUN_SECONDS = 5.0
 _REFS_ITEM = "expected_refs"
 _CURRENT_ITEMS: list[pytest.Item] = []
 _LEDGER = pytest.StashKey["_Ledger"]()
+CLI_DOC_ITEMS = pytest.StashKey[list[dict[str, Any]]]()
 _UPDATE_CATEGORIES = frozenset({"create", "fix", "fix-assert", "trim", "update"})
 _PLATFORMS = ("linux", "darwin", "win32")
 
@@ -993,6 +1057,8 @@ class _Ledger:
         self.rerun: list[str] = []
         self.report: list[str] = []
         self.refused = False
+        self.held: dict[tuple[str, str], tuple[str, int]] = {}
+        self.as_base: set[tuple[str, str, str]] = set()
         self.check_apply()
 
     @property
@@ -1054,6 +1120,59 @@ class _Ledger:
         if problems:
             msg = "--expected-apply rejected its input; nothing was written:\n" + "\n".join(problems)
             raise pytest.UsageError(msg)
+        self.hold_common_changes()
+
+    def hold_common_changes(self) -> None:
+        """Set aside the payloads of labels whose content lanes of different overrides sent alike, unless told how.
+
+        Such content is a change common to those lanes: ``common`` ``as-base`` stores it as the label's base line,
+        ``per-environment`` as one override per lane, and without it nothing is written for the label (nor for the
+        stale payloads of its test, which would change its lines) and the session fails, saying how to go on. Payloads
+        of this environment are refused or skipped before, so they neither count as a lane nor hide that refusal.
+        """
+        payloads = self.apply_data.get("payloads", [])
+        match self.apply_data.get("common"):
+            case "per-environment":
+                return
+            case "as-base":
+                self.as_base = {(*key, digest) for key, (digest, _) in common_contents(payloads, self.facts).items()}
+                return
+        if not (held := common_contents(payloads, self.facts)):
+            return
+        self.held = held
+        items = {item for item, _ in held}
+        self.apply_data["payloads"] = [
+            payload
+            for payload in payloads
+            if (payload["item"], payload.get("label")) not in held
+            and not (payload.get("stale") and payload["item"] in items)
+        ]
+
+    def common_change_message(self) -> list[str]:
+        """Say which labels lanes sent the same content for, what each way of storing it does, and what to check."""
+        items = sorted({item for item, _ in self.held})
+        selection = " ".join(_quote(item) for item in items)
+        listed = [f"  {item} {label} ({count} lanes)" for (item, label), (_, count) in sorted(self.held.items())]
+        return [
+            (
+                "expected: not applied: lanes of different overrides sent the same content for these labels, a change "
+                "common to them that belongs in the base file rather than in one override per lane:"
+            ),
+            *listed,
+            (
+                "Nothing was written for these labels or the stale payloads of their tests. Store the content as the "
+                "base file: regenerate it here, if this environment produces it too, with"
+            ),
+            f"  pytest {selection} --inline-snapshot=fix && {self.stage}",
+            (
+                "or rerun this command with --as-base, which writes the common content as the base file and removes "
+                "the overrides equal to it. Every environment without an override of its own then compares that "
+                "content: this one, and the lanes that sent no payload because they passed or did not run. Check this "
+                f"environment with: pytest {selection}; check those lanes with a dispatch run of the Test workflow on "
+                "your branch (gh workflow run test.yaml --ref <branch>), which also runs the lanes pull requests skip. "
+                "Keep one override per lane instead: rerun this command with --per-environment."
+            ),
+        ]
 
     def own_payload(self, payload: Mapping[str, Any]) -> str | None:
         """Refuse a payload no override predicate tells apart from this environment: only a local run changes it."""
@@ -1310,9 +1429,10 @@ class _Ledger:
             verb = "which no longer exists" if len(nodeids) == 1 else "which no longer exist"
             return f"{refs} has lines for {names}, {verb}.\nFix: {command}"
         encoded = [self.encode({"item": nodeid, "stale": True}) for nodeid in nodeids]
+        printable = [payload for payload in encoded if payload is not None]
         fix = (
             [f"Fix: {self.apply_command(encoded)}", "It keeps them for the environments that have them, or drops them."]
-            if None not in encoded and sum(map(len, encoded)) <= EXPECTED_PAYLOAD_LIMIT
+            if len(printable) == len(encoded) and sum(map(len, printable)) <= EXPECTED_PAYLOAD_LIMIT
             else [f"Fix, if they were renamed or deleted: {command}"]
         )
         return "\n".join([
@@ -1328,25 +1448,11 @@ class _Ledger:
         module, so the name never depends on which tests ran first.
         """
         module_path = item.path
-        stem = module_path.stem.removeprefix("test_")
         function, param = self.key(item)
-        owner, _, name = function.rpartition("::")
-        short = name.removeprefix("test_")
-        if short.startswith(f"{stem}_"):
-            stripped = short[len(stem) + 1 :]
-            siblings = {
-                test.rpartition("::")[2].removeprefix("test_")
-                for test in self.module_tests.get(module_path, set())
-                if test.rpartition("::")[0] == owner
-            }
-            short = short if stripped in siblings else stripped
-        base = f"{owner.replace('::', '.')}.{short}" if owner else short
-        identifier = param
-        if len(f"{base}[{identifier}]{role}{suffix}") > 120:
-            identifier = f"{param[:80]}~{hashlib.sha1(param.encode()).hexdigest()[:8]}"
-        file_name = derived_name(f"{base}[{identifier}]" if param else base) + role + suffix
-        directory = self.expected_root / module_path.parent.relative_to(self.tests_root) / stem
-        return directory / file_name
+        siblings = derived_siblings(function, self.module_tests.get(module_path, set()))
+        file_name = derived_file_name(module_path.stem.removeprefix("test_"), function, param, siblings, role, suffix)
+        module = PurePosixPath(module_path.relative_to(self.tests_root).as_posix())
+        return self.expected_root / derived_directory(module) / file_name
 
     def unnamed_output(self, item: pytest.Item) -> None:
         count = self.unnamed[item.nodeid] = self.unnamed.get(item.nodeid, 0) + 1
@@ -1684,7 +1790,9 @@ class _Ledger:
 
     def finish(self, session: pytest.Session) -> None:
         self.write_updates(session)
-        if self.refused:
+        if self.held:
+            self.report += self.common_change_message()
+        if self.refused or self.held:
             session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
     def write_updates(self, session: pytest.Session) -> None:
@@ -1792,7 +1900,8 @@ class _Ledger:
         """Merge observations from other environments or CI payloads into the lines of the items they name.
 
         With ``drop_uncollected``, the lines of recorded items that no observed environment collects, although one of
-        them collected their whole module, go too; ``merge`` false applies only that.
+        them collected their whole module, go too; ``merge`` false applies only that. The payloads ``as_base`` names
+        by item, label and digest also become their label's base line.
         """
         rootpath = self.config.rootpath
         local = {nodeid_key(rootpath, item.nodeid) for item in session.items}
@@ -1820,7 +1929,12 @@ class _Ledger:
                 else [Desired(line.label, line.conditional, line.predicate) for line in lines]
             )
             updates.setdefault(sidecar, {})[function, param] = apply_payload(
-                base, lines, payload, self.facts, exists=(sidecar, function, param) in local
+                base,
+                lines,
+                payload,
+                self.facts,
+                exists=(sidecar, function, param) in local,
+                as_base=(payload["item"], payload.get("label"), payload.get("digest")) in self.as_base,
             )
         return updates
 
@@ -1860,7 +1974,7 @@ def _load_observations(directory: Path) -> Observations:
     return cast("Observations", {"facts": facts, "collected": sorted(collected), "items": list(items.values())})
 
 
-def _unit_diff(stored: object | None, value: object, path: str) -> str:  # pragma: no cover
+def _unit_diff(stored: object | None, value: object, path: str) -> str:
     """Show how a value differs from a stored unit: file diffs, or a tree's missing, extra, and changed files."""
     if not isinstance(value, dict) or not isinstance(stored, (dict, type(None))):
         old = stored if isinstance(stored, str) else json.dumps(stored, indent=2, ensure_ascii=False)
@@ -2279,7 +2393,7 @@ def assert_inputs_not_mutated(inputs: Mapping[str, object] | None) -> Generator[
     snapshots = {label: deepcopy(value) for label, value in inputs.items() if _tracks_mutation(value)}
     yield
     for label, before in snapshots.items():
-        if (current := inputs[label]) != before:  # pragma: no cover - exercised by helper tests
+        if (current := inputs[label]) != before:
             pytest.fail(f"{label} was mutated: before={before!r}, after={current!r}")
 
 
@@ -2401,7 +2515,7 @@ def assert_runtime_result_model(output_dir: Path) -> None:
     sys.path.insert(0, str(output_dir.parent))
     importlib.invalidate_caches()
     try:
-        from model._internal import Result
+        from model._internal import Result  # ty: ignore[import-not-found]
 
         result = Result.model_validate({"event": {"id": "abc"}})
         assert result.event is not None
@@ -2554,7 +2668,7 @@ def mock_httpx_get(mocker: Any) -> HttpxGetMockFactory:
             return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (_MOCK_PUBLIC_IP, 0))]
 
         def _response_for_url(url: str, *_args: Any, **_kwargs: Any) -> Any:
-            if url not in queued_responses or not queued_responses[url]:  # pragma: no cover
+            if url not in queued_responses or not queued_responses[url]:
                 pytest.fail(
                     f"Unexpected HTTP client URL: {url!r}. Registered URLs: {sorted(queued_responses)}",
                     pytrace=False,

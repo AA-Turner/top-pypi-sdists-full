@@ -3,19 +3,20 @@ import gzip
 import json
 import logging
 import warnings
-from typing import Any, ClassVar, Literal
+from typing import ClassVar, Literal
 from uuid import UUID, uuid4
 
 import httpx
 import httpx_aiohttp
 from aviary.env import Frame
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 from tenacity import (
     before_sleep_log,
     retry,
     retry_if_exception,
     stop_after_attempt,
     wait_exponential,
+    wait_random,
 )
 
 from edison_client.clients.state_blobs import means_v0d2_routes_absent
@@ -32,24 +33,36 @@ from edison_client.models.rest import (
     StoreEnvironmentFrameRequest,
     TrajectoryPatchRequest,
 )
+from edison_client.utils.general import NON_IDEMPOTENT_RETRYABLE_HTTP_STATUS_CODES
 from edison_client.utils.monitoring import log_timing
 
 logger = logging.getLogger(__name__)
 
 
 def _is_transient_error(exc: BaseException) -> bool:
-    """Retry timeouts, network drops, and 5xx; client errors (4xx) are final."""
-    if isinstance(exc, (httpx.TimeoutException, httpx.NetworkError)):
+    """Retry timeouts, network/proxy errors, 429, and 5xx; other 4xx are final."""
+    if isinstance(exc, (httpx.TimeoutException, httpx.NetworkError, httpx.ProxyError)):
         return True
-    return isinstance(exc, httpx.HTTPStatusError) and exc.response.is_server_error
+    return isinstance(exc, httpx.HTTPStatusError) and (
+        exc.response.is_server_error
+        or exc.response.status_code in NON_IDEMPOTENT_RETRYABLE_HTTP_STATUS_CODES
+    )
 
 
 class JobClient:
     REQUEST_TIMEOUT: ClassVar[float] = 30.0  # sec
     LARGE_PAYLOAD_TIMEOUT: ClassVar[float] = 120.0  # sec, for streaming uploads
-    MAX_RETRY_ATTEMPTS: ClassVar[int] = 3
+    # ~90s of backoff (1, 2, 4, 8, 16, 30, 30s, plus jitter) to outlast brief
+    # crow-service overloads, where Cloud Run rejects requests with 429.
+    MAX_RETRY_ATTEMPTS: ClassVar[int] = 8
     RETRY_MULTIPLIER: ClassVar[int] = 1
-    MAX_RETRY_WAIT: ClassVar[int] = 10
+    MAX_RETRY_WAIT: ClassVar[int] = 30
+    # Up to this many extra seconds per wait, so rollouts hit by the same
+    # overload don't all retry at the same moment.
+    RETRY_JITTER: ClassVar[int] = 5
+    # Inline v0.1 POSTs carry no idempotency key, so a retry after a lost
+    # response can duplicate a row; keep their original, smaller budget.
+    INLINE_MAX_RETRY_ATTEMPTS: ClassVar[int] = 3
 
     def __init__(
         self,
@@ -58,7 +71,7 @@ class JobClient:
         auth_token: str,
         base_uri: str = Stage.LOCAL.value,
         trajectory_id: str | UUID | None = None,
-    ):
+    ) -> None:
         self.base_uri = base_uri
         self.agent = agent
         self.environment = environment
@@ -74,7 +87,7 @@ class JobClient:
         try:
             self.trajectory_id = self._cast_trajectory_id(trajectory_id)
             logger.info(
-                f"Initialized JobClient for agent {agent} with trajectory_id {self.trajectory_id}",
+                f"Initialized JobClient for agent {agent} with trajectory_id {self.trajectory_id}"
             )
         except ValueError:
             logger.exception("Failed to initialize JobClient")
@@ -103,22 +116,20 @@ class JobClient:
                 }
 
                 response = await client.patch(
-                    url=url,
-                    json=data.model_dump(mode="json"),
-                    headers=headers,
+                    url=url, json=data.model_dump(mode="json"), headers=headers
                 )
 
                 response.raise_for_status()
                 logger.debug(f"Environment updated with status {status}")
-        except httpx.HTTPStatusError:
+        except httpx.HTTPStatusError as exc:
             logger.exception(
                 f"HTTP error while finalizing environment. "
-                f"Status code: {response.status_code}, "
-                f"Response: {response.text}",
+                f"Status code: {exc.response.status_code}, "
+                f"Response: {exc.response.text}"
             )
         except httpx.TimeoutException:
             logger.exception(
-                f"Timeout while finalizing environment after {self.REQUEST_TIMEOUT}s",
+                f"Timeout while finalizing environment after {self.REQUEST_TIMEOUT}s"
             )
             raise
         except httpx.NetworkError:
@@ -157,11 +168,11 @@ class JobClient:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _serialize_and_compress(payload: Any) -> tuple[bytes, int]:
+    def _serialize_and_compress(payload: JsonValue) -> tuple[bytes, int]:
         with log_timing("serialize_json"):
             json_bytes = json.dumps(payload).encode("utf-8")
         with log_timing("gzip", raw_bytes=len(json_bytes)):
-            compressed = gzip.compress(json_bytes)
+            compressed = gzip.compress(json_bytes, compresslevel=6)
         return compressed, len(json_bytes)
 
     async def store_agent_state(self, step: str, state: BaseModel | dict) -> None:
@@ -199,7 +210,7 @@ class JobClient:
             timing.update(raw_bytes=raw_size, compressed_bytes=len(compressed))
         logger.debug(
             f"Compressed agent state payload: {raw_size} -> {len(compressed)} bytes "
-            f"({len(compressed) / raw_size:.1%})",
+            f"({len(compressed) / raw_size:.1%})"
         )
 
         init_request = AgentStateInitRequest(
@@ -237,11 +248,12 @@ class JobClient:
 
     async def store_environment_frame(self, state: Frame) -> None:
         """Store environment frame via the v0.2 object-storage flow."""
-        state_identifier = None
-        if self.current_step is not None:
-            state_identifier = (
-                f"{self.agent}-{self.current_step}-{self.current_timestep}"
+        step = self.current_step
+        if step is None:
+            raise ValueError(
+                "An agent step is required before storing an environment frame"
             )
+        state_identifier = f"{self.agent}-{step}-{self.current_timestep}"
 
         logger.debug(f"Storing environment frame for state {state_identifier}")
 
@@ -274,7 +286,7 @@ class JobClient:
         init_request = EnvironmentFrameInitRequest(
             id=uuid4(),
             agent_state_point_in_time=state_identifier,
-            current_agent_step=self.current_step,
+            current_agent_step=step,
             trajectory_timestep=self.current_timestep,
             content_encoding="gzip",
             size_bytes=raw_size,
@@ -297,7 +309,7 @@ class JobClient:
 
         if stored:
             logger.debug(
-                f"Successfully stored environment frame for state {state_identifier}",
+                f"Successfully stored environment frame for state {state_identifier}"
             )
             return
 
@@ -330,17 +342,14 @@ class JobClient:
         """
         base_path = f"/v0.2/trajectories/{self.trajectory_id}/{resource}"
         # LARGE_PAYLOAD_TIMEOUT accommodates the blob PUT; the two small
-        # POST legs just finish well within it.
+        # POST legs override it with REQUEST_TIMEOUT so a slow crow-service
+        # leaves room for retries.
         async with httpx_aiohttp.HttpxAiohttpClient(
             timeout=self.LARGE_PAYLOAD_TIMEOUT
         ) as client:
             try:
                 with log_timing(f"{operation_prefix}.init", **trace_params):
-                    init = await self._post_state_init(
-                        client,
-                        base_path,
-                        init_payload,
-                    )
+                    init = await self._post_state_init(client, base_path, init_payload)
             except httpx.HTTPStatusError as e:
                 if means_v0d2_routes_absent(e.response):
                     return False
@@ -351,11 +360,7 @@ class JobClient:
                 raw_bytes=raw_size,
                 compressed_bytes=len(blob),
             ):
-                await self._put_state_blob(
-                    client,
-                    init.upload_url,
-                    blob,
-                )
+                await self._put_state_blob(client, init.upload_url, blob)
             with log_timing(f"{operation_prefix}.finalize", **trace_params):
                 await self._post_state_finalize(
                     client,
@@ -367,14 +372,12 @@ class JobClient:
     @retry(
         retry=retry_if_exception(_is_transient_error),
         stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
-        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT)
+        + wait_random(0, RETRY_JITTER),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def _post_state_init(
-        self,
-        client: httpx.AsyncClient,
-        path: str,
-        payload: dict,
+        self, client: httpx.AsyncClient, path: str, payload: dict
     ) -> StateUploadInitResponse:
         url = f"{self.base_uri}{path}"
         headers = {
@@ -383,9 +386,7 @@ class JobClient:
             "x-trajectory-id": self.trajectory_id,
         }
         response = await client.post(
-            url=url,
-            json=payload,
-            headers=headers,
+            url=url, json=payload, headers=headers, timeout=self.REQUEST_TIMEOUT
         )
         response.raise_for_status()
         return StateUploadInitResponse.model_validate(response.json())
@@ -394,39 +395,29 @@ class JobClient:
     @retry(
         retry=retry_if_exception(_is_transient_error),
         stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
-        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT)
+        + wait_random(0, RETRY_JITTER),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def _put_state_blob(
-        client: httpx.AsyncClient,
-        upload_url: str,
-        body: bytes,
+        client: httpx.AsyncClient, upload_url: str, body: bytes
     ) -> None:
         # Direct PUT to the signed URL — bypasses the API gateway entirely.
         # ``Authorization`` must NOT be sent: the signed URL carries its own
         # credentials, and a Bearer token here would be rejected by GCS / S3.
-        headers = {
-            "Content-Type": "application/json",
-            "Content-Encoding": "gzip",
-        }
-        response = await client.put(
-            url=upload_url,
-            content=body,
-            headers=headers,
-        )
+        headers = {"Content-Type": "application/json", "Content-Encoding": "gzip"}
+        response = await client.put(url=upload_url, content=body, headers=headers)
         response.raise_for_status()
 
     @retry(
         retry=retry_if_exception(_is_transient_error),
         stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
-        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT)
+        + wait_random(0, RETRY_JITTER),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def _post_state_finalize(
-        self,
-        client: httpx.AsyncClient,
-        path: str,
-        payload: dict,
+        self, client: httpx.AsyncClient, path: str, payload: dict
     ) -> None:
         url = f"{self.base_uri}{path}"
         headers = {
@@ -435,9 +426,7 @@ class JobClient:
             "x-trajectory-id": self.trajectory_id,
         }
         response = await client.post(
-            url=url,
-            json=payload,
-            headers=headers,
+            url=url, json=payload, headers=headers, timeout=self.REQUEST_TIMEOUT
         )
         response.raise_for_status()
 
@@ -449,12 +438,15 @@ class JobClient:
 
     @retry(
         retry=retry_if_exception(_is_transient_error),
-        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
-        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT),
+        stop=stop_after_attempt(INLINE_MAX_RETRY_ATTEMPTS),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT)
+        + wait_random(0, RETRY_JITTER),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def _store_agent_state_inline(self, state_data: Any) -> None:
+    async def _store_agent_state_inline(self, state_data: JsonValue) -> None:
         """POST the full agent state body to the inline v0.1 endpoint."""
+        if self.current_step is None:
+            raise ValueError("An agent step is required before storing agent state")
         data = StoreAgentStatePostRequest(
             agent_id=self.agent,
             step=self.current_step,
@@ -479,9 +471,7 @@ class JobClient:
                 }
 
                 response = await client.post(
-                    url=url,
-                    content=compressed,
-                    headers=headers,
+                    url=url, content=compressed, headers=headers
                 )
                 response.raise_for_status()
                 logger.info(
@@ -495,14 +485,19 @@ class JobClient:
 
     @retry(
         retry=retry_if_exception(_is_transient_error),
-        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
-        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT),
+        stop=stop_after_attempt(INLINE_MAX_RETRY_ATTEMPTS),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT)
+        + wait_random(0, RETRY_JITTER),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def _store_environment_frame_inline(
-        self, frame_data: Any, state_identifier: str | None
+        self, frame_data: JsonValue, state_identifier: str | None
     ) -> None:
         """POST the full environment frame body to the inline v0.1 endpoint."""
+        if self.current_step is None or state_identifier is None:
+            raise ValueError(
+                "An agent step is required before storing an environment frame"
+            )
         data = StoreEnvironmentFrameRequest(
             agent_state_point_in_time=state_identifier,
             current_agent_step=self.current_step,
@@ -520,17 +515,15 @@ class JobClient:
                     "x-trajectory-id": self.trajectory_id,
                 }
                 response = await client.post(
-                    url=url,
-                    json=data.model_dump(mode="json"),
-                    headers=headers,
+                    url=url, json=data.model_dump(mode="json"), headers=headers
                 )
                 response.raise_for_status()
                 logger.debug(
-                    f"Successfully stored environment frame for state {state_identifier}",
+                    f"Successfully stored environment frame for state {state_identifier}"
                 )
         except Exception:
             logger.exception(
-                f"Failed to store environment frame inline for state {state_identifier}",
+                f"Failed to store environment frame inline for state {state_identifier}"
             )
             raise
 
@@ -579,7 +572,7 @@ class JobClient:
             state.model_dump(mode="json"), state_identifier
         )
 
-    async def patch_trajectory(  # noqa: PLR0917
+    async def patch_trajectory(  # ruff: ignore[too-many-positional-arguments]
         self,
         share_status: ShareStatus | str | None = None,
         permitted_accessors: PermittedAccessors | None = None,
@@ -620,11 +613,11 @@ class JobClient:
             logger.exception(
                 "HTTP error while patching trajectory. "
                 f"Status code: {e.response.status_code}, "
-                f"Response: {e.response.text}",
+                f"Response: {e.response.text}"
             )
         except httpx.TimeoutException:
             logger.exception(
-                f"Timeout while patching trajectory after {self.REQUEST_TIMEOUT}s",
+                f"Timeout while patching trajectory after {self.REQUEST_TIMEOUT}s"
             )
             raise
         except httpx.NetworkError:

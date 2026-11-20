@@ -16,6 +16,11 @@ from seq._partial import refusals_kept
 from seq.errors import SeqAuthoringError
 
 
+
+_ADAPTER_ATTR = "__seq_adapter__"
+_BENCH_ATTR = "__seq_benchmark__"
+
+
 def load_deployable(ref: str) -> tuple[str, type]:
     """The decorated class `ref` names, and what it is: "policy", "benchmark" or "adapter".
 
@@ -23,8 +28,6 @@ def load_deployable(ref: str) -> tuple[str, type]:
     Without a class name the module must define exactly one decorated class. A file is imported under its own module
     name with its directory on `sys.path` — the name `handler_ref` records — so a file that loads here also loads on
     the worker."""
-    from seq.adapter import _ADAPTER_ATTR
-    from seq.benchmark_registry import _BENCH_ATTR
     from seq.registry import _REG_ATTR
 
     def kind_of(obj: Any) -> str | None:
@@ -96,23 +99,30 @@ def _missing_dependency(exc: ModuleNotFoundError, own: str) -> str | None:
             f"{missing} (or move a heavy import into the method that uses it)")
 
 
-def load_folder(folder: str | os.PathLike, name: str | None = None) -> tuple[str, type]:
-    """The class `seq deploy [folder]` deploys, and what it is: found by reading the folder's files (seq.discover) and
-    imported by its path in the folder - the folder first on sys.path and the class's own folder second, as running
-    that file would put it - so what imports here imports on the worker, where the folder is the code's top.
+def load_folder(folder: str | os.PathLike, name: str | None = None, *, verb: str = "deploy") -> tuple[str, type]:
+    """The class `seq deploy [folder]` deploys, or `seq serve` serves (`verb`), and what it is: found by reading the
+    folder's files (seq.discover) and imported by its path in the folder - the folder first on sys.path and the class's
+    own folder second, as running that file would put it - so what imports here imports on the worker, where the folder
+    is the code's top.
     """
     from seq import discover
 
     path = Path(folder)
     if path.suffix == ".py" or path.is_file():
         place = path.parent if str(path.parent) not in ("", ".") else Path(".")
-        raise SeqAuthoringError(f"seq deploy takes a folder: deploy the folder {path.name} is in - seq deploy {place} "
-                                "(add --name <name> when it holds several)")
-    if not path.is_dir():
-        raise SeqAuthoringError(f"{folder}: no such folder")
-    root = path.resolve()
-    found, read = discover.find(discover.files_of(root))
-    chosen = discover.choose(found, name, str(folder), read)
+        if verb != "serve" or not path.is_file():
+
+            raise SeqAuthoringError(f"seq {verb} takes a folder, all of whose files are its code: seq {verb} {place} - "
+                                    f"the folder {path.name} is in (add --name <name> when it holds several)")
+
+        root, files = path.parent.resolve(), [(path.resolve(), path.name)]
+    else:
+        if not path.is_dir():
+            raise SeqAuthoringError(f"{folder}: no such folder")
+        root = path.resolve()
+        files = discover.files_of(root)
+    found, read = discover.find(files)
+    chosen = discover.choose(found, name, str(folder), read, verb=verb)
     top = chosen.module.split(".", 1)[0]
     held = sys.modules.get(top)
     held_at = getattr(held, "__file__", None) or next(iter(getattr(held, "__path__", []) or []), None)

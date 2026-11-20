@@ -46,7 +46,6 @@ class TestFetchDiscoveredAgentsJobSpec(unittest.TestCase):
             return FetchDiscoveredAgentsJobSpec(
                 workspace_id = '',
                 data_plane_id = '',
-                discovery_source_id = '',
         )
         """
 

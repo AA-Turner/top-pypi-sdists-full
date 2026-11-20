@@ -39,6 +39,7 @@ __all__ = (
     "CertificateStatusType",
     "CertificateTransparencyLoggingPreferenceType",
     "CertificateTypeType",
+    "CertificateUsageType",
     "CertificateValidatedWaiterName",
     "ComparisonOperatorType",
     "DomainScopeOptionType",
@@ -62,6 +63,7 @@ __all__ = (
     "RenewalStatusType",
     "ResourceServiceName",
     "RevocationReasonType",
+    "RootHierarchyTypeType",
     "SearchCertificatesPaginatorName",
     "SearchCertificatesSortByType",
     "SearchCertificatesSortOrderType",
@@ -109,6 +111,7 @@ CertificateStatusType = Literal[
 ]
 CertificateTransparencyLoggingPreferenceType = Literal["DISABLED", "ENABLED"]
 CertificateTypeType = Literal["AMAZON_ISSUED", "IMPORTED", "PRIVATE"]
+CertificateUsageType = Literal["CLIENT_AND_SERVER_AUTH", "CLIENT_AUTH_ONLY"]
 CertificateValidatedWaiterName = Literal["certificate_validated"]
 ComparisonOperatorType = Literal["CONTAINS", "EQUALS"]
 DomainScopeOptionType = Literal["DISABLED", "ENABLED"]
@@ -186,6 +189,7 @@ RevocationReasonType = Literal[
     "SUPERSEDED",
     "UNSPECIFIED",
 ]
+RootHierarchyTypeType = Literal["N2_AMAZON_MANAGED", "N2_SFG2_AMAZON_MANAGED"]
 SearchCertificatesPaginatorName = Literal["search_certificates"]
 SearchCertificatesSortByType = Literal[
     "ACME_ACCOUNT_ID",
@@ -219,6 +223,7 @@ UpdateTypeType = Literal["DOMAIN_VALIDATION_METHOD"]
 ValidationMethodType = Literal["DNS", "EMAIL", "HTTP"]
 ACMServiceName = Literal["acm"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -327,6 +332,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -511,6 +517,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -518,6 +525,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -578,6 +586,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

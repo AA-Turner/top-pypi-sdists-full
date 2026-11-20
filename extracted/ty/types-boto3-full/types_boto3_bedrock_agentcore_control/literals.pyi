@@ -136,6 +136,7 @@ __all__ = (
     "MemoryViewType",
     "MetadataValueTypeType",
     "MonitoringType",
+    "NestedVirtualizationType",
     "NetworkModeType",
     "OAuthGrantTypeType",
     "OnBehalfOfClientAuthenticationMethodType",
@@ -389,6 +390,7 @@ MemoryStrategyTypeType = Literal[
 MemoryViewType = Literal["full", "without_decryption"]
 MetadataValueTypeType = Literal["NUMBER", "STRING", "STRINGLIST"]
 MonitoringType = Literal["BASIC", "DETAILED"]
+NestedVirtualizationType = Literal["DISABLED", "ENABLED"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
 OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "TOKEN_EXCHANGE"]
 OnBehalfOfClientAuthenticationMethodType = Literal["NO_CLIENT"]
@@ -421,7 +423,7 @@ PaymentConnectorStatusType = Literal[
     "UPDATE_FAILED",
     "UPDATING",
 ]
-PaymentConnectorTypeType = Literal["CoinbaseCDP", "StripePrivy"]
+PaymentConnectorTypeType = Literal["AwsBilling", "CoinbaseCDP", "StripePrivy"]
 PaymentCredentialProviderVendorTypeType = Literal["CoinbaseCDP", "StripePrivy"]
 PaymentManagerStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
@@ -806,6 +808,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

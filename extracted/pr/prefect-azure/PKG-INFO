@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-azure
-Version: 0.4.13
+Version: 0.5.0
 Summary: Prefect integrations with Microsoft Azure services
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -11,12 +11,12 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
@@ -25,17 +25,18 @@ Requires-Dist: azure_mgmt_containerinstance>=10.0
 Requires-Dist: azure-mgmt-resource<25,>=21.2
 Requires-Dist: prefect>=3.8.4
 Requires-Dist: prefect-docker>=0.6.2
-Requires-Dist: setuptools<81
 Provides-Extra: blob-storage
 Requires-Dist: azure-storage-blob; extra == "blob-storage"
 Provides-Extra: cosmos-db
 Requires-Dist: azure-cosmos; extra == "cosmos-db"
 Provides-Extra: ml-datastore
 Requires-Dist: azureml-core; extra == "ml-datastore"
+Requires-Dist: setuptools<81; extra == "ml-datastore"
 Provides-Extra: all-extras
 Requires-Dist: azure-cosmos; extra == "all-extras"
 Requires-Dist: azure-storage-blob; extra == "all-extras"
 Requires-Dist: azureml-core; extra == "all-extras"
+Requires-Dist: setuptools<81; extra == "all-extras"
 Dynamic: license-file
 
 # prefect-azure

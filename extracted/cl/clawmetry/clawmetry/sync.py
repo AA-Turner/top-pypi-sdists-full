@@ -264,8 +264,28 @@ def _lock_holder_verdict(rec, pid_path: Path = None) -> tuple:
 
         ok, why = _verify_pid(int(pid), recorded_start)
         if not ok:
-            # Alive, but not the process that took the lock: recycled number.
-            return "stale", f"pid_recycled({why})"
+            if why == "start_unverifiable":
+                # ps / platform temporarily unavailable — we cannot read the
+                # live start time, but that is not evidence of pid recycling.
+                # Fall through to the cmdline defence-in-depth and heartbeat
+                # checks below rather than immediately declaring the lock stale:
+                # unlinking a live daemon's lock file here starts a reclaim
+                # loop that ends with daemon_lock_refused (field-failure #6548,
+                # Darwin py3.13, where ps -o lstart= can fail under resource
+                # pressure).
+                pass
+            else:
+                # Alive, but not the process that took the lock: recycled number.
+                return "stale", f"pid_recycled({why})"
+        # Defence-in-depth against PID reuse within the tolerance window
+        # (field-failure #6553, daemon_lock_refused on Linux py3.12). A
+        # recycled PID can share the daemon's start epoch by chance (the
+        # tolerance is 3s to cover lstart's 1s resolution). A positively-
+        # foreign cmdline is proof of recycling even after the token matched.
+        # "unknown" (psutil absent, CIM timeout) is left unchanged so a
+        # healthy daemon is never shot when the cmdline cannot be read.
+        if _holder_cmdline_verdict(int(pid)) == "foreign":
+            return "stale", f"pid_recycled(cmdline_mismatch_despite_start:{why})"
     elif pid_path is not None and _started_after_the_lock(int(pid), pid_path):
         # It cannot have written a file that predates it.
         return "stale", "pid_recycled(started_after_lock)"
@@ -280,9 +300,39 @@ def _lock_holder_verdict(rec, pid_path: Path = None) -> tuple:
     try:
         hb = _lock_heartbeat_file()
         if hb.exists():
-            age = time.time() - hb.stat().st_mtime
-            if age > _lock_stale_secs():
-                return "wedged", f"no_heartbeat_for_{int(age)}s"
+            hb_age = time.time() - hb.stat().st_mtime
+            if hb_age > _lock_stale_secs():
+                return "wedged", f"no_heartbeat_for_{int(hb_age)}s"
+            # Heartbeat is fresh: the daemon is alive and scheduling.
+            # But if its ingest loop has been stuck for the full stall
+            # window, treat it as wedged so the supervisor can recover.
+            # Three guards prevent false positives:
+            # 1. hb_age < 60 — within two heartbeat ticks; a machine
+            #    waking from long sleep would have a stale heartbeat too,
+            #    so "fresh heartbeat + stale sync" means the daemon is
+            #    genuinely running but stuck, not just waking up.
+            # 2. pid_path mtime > _STALLED_INGEST_SECS old — the daemon
+            #    wrote the lock file long enough ago for a stall to be
+            #    real; a daemon that just started hasn't had time yet.
+            # 3. last_sync is not None — None means no cycle has ever
+            #    completed (first-run backfill in progress), not a stall.
+            if hb_age < 60 and pid_path is not None:
+                try:
+                    lock_age = time.time() - pid_path.stat().st_mtime
+                    if lock_age > _STALLED_INGEST_SECS:
+                        raw = json.loads(STATE_FILE.read_text()).get("last_sync")
+                        if raw:
+                            ts = datetime.fromisoformat(
+                                str(raw).strip().replace("Z", "+00:00"))
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            sync_age = (datetime.now(timezone.utc).timestamp()
+                                        - ts.timestamp())
+                            if sync_age >= 0 and sync_age > _STALLED_INGEST_SECS:
+                                return ("wedged",
+                                        f"ingest_stalled_for_{int(sync_age)}s")
+                except Exception:
+                    pass
     except OSError:
         pass
     return "held", "daemon_running"
@@ -22410,6 +22460,22 @@ def _agent_inventory_incidents(recent: list, session_id: str, runtime: str,
         return []
 
 
+def _detector_fact_key(row):
+    """Readable exact keys in memory; native session aliases remain compatible."""
+    sid = str(row.get("session_id") or "")
+    node = str(row.get("node_id") or "")
+    runtime = str(row.get("runtime") or _detector_runtime(sid, row.get("agent_type") or "") or "")
+    return (node, runtime, sid) if node and runtime else sid
+
+
+def _detector_first_seen_key(row):
+    key = _detector_fact_key(row)
+    # Daemon state is JSON. Keep explicit readable identities, not tuple
+    # object keys or an opaque substitute for the native session ID.
+    return json.dumps(["scope", *key] if isinstance(key, tuple) else ["legacy", key],
+                      separators=(",", ":"))
+
+
 def _detector_session_facts(sessions: list, state: dict, now: float,
                             store=None) -> dict:
     """``session_id -> {cost_usd, bad_for_seconds, session_seconds, cwd,
@@ -22431,6 +22497,7 @@ def _detector_session_facts(sessions: list, state: dict, now: float,
         sid = str(s.get("session_id") or "")
         if not sid:
             continue
+        runtime = str(s.get("runtime") or _detector_runtime(sid, s.get("agent_type") or "") or "")
         cwd = _session_row_cwd(s)
         try:
             cost = float(s.get("cost_usd") or 0)
@@ -22445,7 +22512,7 @@ def _detector_session_facts(sessions: list, state: dict, now: float,
                 session_seconds = max(0.0, float(_seconds_since(s.get("started_at"))))
         except Exception:
             session_seconds = 0.0
-        started = first_seen.get(sid)
+        started = first_seen.get(_detector_first_seen_key(s))
         # How long since the session last did anything, for blocked_on_user:
         # a question asked two minutes ago is a conversation, one asked an
         # hour ago is a silent stop.
@@ -22456,16 +22523,19 @@ def _detector_session_facts(sessions: list, state: dict, now: float,
                 idle_seconds = max(0.0, float(_seconds_since(la)))
         except Exception:
             idle_seconds = 0.0
-        facts[sid] = {
+        row_facts = {
             "cost_usd": cost,
             "bad_for_seconds": max(0.0, now - started) if started else 0.0,
             "session_seconds": session_seconds,
             "idle_seconds": idle_seconds,
             "pending_approvals": int(pending_by_sid.get(sid, 0)),
-            "runtime": _detector_runtime(sid, s.get("agent_type") or ""),
+            "runtime": runtime,
+            "node_id": str(s.get("node_id") or ""),
             "cwd": cwd,
             "agent_id": str(s.get("agent_id") or ""),
         }
+        facts[_detector_fact_key(s)] = row_facts
+        facts[sid] = row_facts  # same object: legacy single-row consumers
     return facts
 
 
@@ -22859,13 +22929,51 @@ def _epoch_of(ts: Any) -> int:
     return int(dt.timestamp())
 
 
+_GUARD_POLICY_LOCK = threading.RLock()
+
+
 def _apply_guard_policies(store, state: dict, incidents: list,
-                          facts: dict) -> int:
+                          facts: dict, *, deliver_alert=None, strict=False) -> int:
+    # Both the periodic pass and committed-event service share the same
+    # durable policy latch. Serialize claim and dispatch, not only the write.
+    pending_alerts = []
+    def collect_alert(incident, policy_id, decision):
+        pending_alerts.append((incident, policy_id, decision))
+        return {"delivered": False, "reason": "Notification delivery pending"}
+    with _GUARD_POLICY_LOCK:
+        result = _apply_guard_policies_locked(
+            store, state, incidents, facts,
+            deliver_alert=deliver_alert or collect_alert, strict=strict)
+    # A slow notification must not hold the policy claim/dispatch lock.
+    # The incremental service supplies a durable-outbox callback instead.
+    if deliver_alert is None:
+        from clawmetry import incident_alerts
+        for incident, policy_id, decision in pending_alerts:
+            delivery = incident_alerts.deliver_incident(store, incident, source="policy",
+                                                        force=True, policy_id=policy_id)
+            try:
+                _record_policy_step(
+                    store, session_id=decision.get("session_id") or "", policy_id=policy_id,
+                    node_id=decision.get("node_id"), strict=strict,
+                    runtime=decision.get("runtime") or "", action="alert",
+                    kind=decision.get("kind") or "", reason=decision.get("reason") or "",
+                    evidence=decision.get("evidence"), enforced=False,
+                    result_ok=bool(delivery.get("delivered")),
+                    result_detail=str(delivery.get("reason") or "No notification delivered"),
+                    step_index=decision.get("step_index") or 0)
+            except Exception:
+                log.exception("Policy notification result could not be recorded")
+    return result
+
+
+def _apply_guard_policies_locked(store, state: dict, incidents: list,
+                                 facts: dict, *, deliver_alert=None, strict=False) -> int:
     """Evaluate Guard policies against this tick's incidents and act.
 
     Returns the number of decisions reached (including dry-run ones, which
     are recorded but never signal a process). Never raises into the daemon
-    loop: a policy failure must not stop telemetry ingest.
+    loop by default. The incremental worker requests strict failures so its
+    durable cursor cannot pass an unavailable policy response.
     """
     if os.environ.get(_GUARD_POLICIES_ON, "1") == "0":
         return 0
@@ -22875,30 +22983,87 @@ def _apply_guard_policies(store, state: dict, incidents: list,
         from clawmetry import policy_engine as _pe
     except Exception as e:  # noqa: BLE001
         log.warning("guard: policy_engine import failed: %s", e)
+        if strict:
+            raise
         return 0
     try:
-        policies = store.query_session_policies(enabled_only=True) or []
+        policies = store.query_session_policies(enabled_only=True, **({"strict": True} if strict else {})) or []
     except Exception as e:  # noqa: BLE001
         log.warning("guard: policy read failed: %s", e)
+        if strict:
+            raise
         return 0
     if not policies:
         return 0
 
-    # How far each escalation ladder has already climbed. An unreadable
-    # ladder table degrades to {} — every ladder treated as being at rung 0,
-    # which is still protected by the per-rung latch below.
-    try:
-        ladder_state = store.query_policy_ladder_state() or {}
-    except Exception as e:  # noqa: BLE001
-        log.debug("guard: ladder state read failed (%s); assuming rung 0", e)
-        ladder_state = {}
+    # The pure engine keys its facts/ladder by native session ID. Evaluate
+    # each node/runtime independently so a colliding native ID cannot merge
+    # decisions or borrow another scope's ladder or session facts.
+    decisions = []
+    groups = {}
+    normalized_incidents = []
+    for incident in incidents:
+        if not isinstance(incident, dict):
+            continue
+        sid = str(incident.get("session_id") or "")
+        fact = facts.get(sid) or {}
+        node = str(incident.get("node_id") or fact.get("node_id") or "")
+        runtime = str(incident.get("runtime") or fact.get("runtime") or "")
+        if node and runtime:
+            exact_fact = facts.get((node, runtime, sid))
+            if exact_fact is not None:
+                fact = exact_fact
+            elif (str(fact.get("node_id") or ""), str(fact.get("runtime") or "")) != (node, runtime):
+                fact = {}
+        if strict and (not node or not runtime):
+            raise ValueError("Strict policy evaluation requires exact node_id and runtime")
+        scope = (node, runtime) if node and runtime else None
+        if scope:
+            fact_matches = (str(fact.get("node_id") or "") == node
+                            and str(fact.get("runtime") or "") == runtime)
+            if not fact_matches:
+                if strict:
+                    raise ValueError("Policy incident and session facts have different scopes")
+                log.warning("guard: exact incident has no matching scoped session facts; response skipped")
+                continue
+            scoped_fact = fact
+            incident = {**incident, "node_id": node, "runtime": runtime}
+        else:
+            scoped_fact = fact
+        group = groups.setdefault(scope, {"incidents": [], "facts": {}})
+        group["incidents"].append(incident)
+        normalized_incidents.append(incident)
+        group["facts"][sid] = scoped_fact
 
-    try:
-        decisions = _pe.evaluate(incidents, policies, facts,
-                                 ladder_state=ladder_state) or []
-    except Exception as e:  # noqa: BLE001
-        log.warning("guard: evaluate errored: %s", e)
-        return 0
+    incidents = normalized_incidents
+    for scope, group in groups.items():
+        query_kw = {"strict": True} if strict else {}
+        if scope:
+            query_kw.update(node_id=scope[0], runtime=scope[1])
+        try:
+            ladder_state = store.query_policy_ladder_state(**query_kw) or {}
+        except Exception as exc:  # noqa: BLE001
+            if strict:
+                raise
+            if scope:
+                # A version-skewed store cannot establish exact scope. Do
+                # not drop scope and poison future exact latches.
+                log.warning("guard: exact policy ladder unavailable (%s)", exc)
+                continue
+            log.debug("guard: legacy ladder read failed (%s); assuming rung 0", exc)
+            ladder_state = {}
+        try:
+            selected = _pe.evaluate(group["incidents"], policies, group["facts"],
+                                    ladder_state=ladder_state) or []
+        except Exception as exc:  # noqa: BLE001
+            log.warning("guard: evaluate errored: %s", exc)
+            if strict:
+                raise
+            continue
+        for decision in selected:
+            if scope:
+                decision.update(node_id=scope[0], runtime=scope[1])
+            decisions.append(decision)
     if not decisions:
         return 0
 
@@ -22916,7 +23081,9 @@ def _apply_guard_policies(store, state: dict, incidents: list,
             step = max(0, int(d.get("step_index") or 0))
         except (TypeError, ValueError):
             step = 0
-        if _policy_step_already_fired(store, sid, pid, step):
+        if _policy_step_already_fired(
+                store, sid, pid, step, strict=strict, node_id=d.get("node_id"),
+                runtime=d.get("runtime") if d.get("node_id") else None):
             continue
 
         actuating = _pe.is_actuating(action)
@@ -22930,10 +23097,15 @@ def _apply_guard_policies(store, state: dict, incidents: list,
             # entitled webhook) and say exactly where it went, or why not.
             inc = _incident_for_decision(incidents, d)
             try:
-                from clawmetry import incident_alerts as _ia
-                res = _ia.deliver_incident(store, inc, source="policy",
-                                           force=True, policy_id=pid)
+                if deliver_alert is not None:
+                    res = deliver_alert(inc, pid, d)
+                else:
+                    from clawmetry import incident_alerts as _ia
+                    res = _ia.deliver_incident(store, inc, source="policy",
+                                               force=True, policy_id=pid)
             except Exception as _ae:  # noqa: BLE001
+                if strict:
+                    raise
                 res = {"delivered": False, "delivered_via": [],
                        "reason": f"alert failed: {type(_ae).__name__}"}
             detail = str(res.get("reason") or "alert: nothing delivered")[:400]
@@ -22950,12 +23122,15 @@ def _apply_guard_policies(store, state: dict, incidents: list,
         try:
             _record_policy_step(
                 store, session_id=sid, policy_id=pid,
+                node_id=d.get("node_id"), strict=strict,
                 runtime=d.get("runtime") or "", action=action,
                 kind=d.get("kind") or "", reason=d.get("reason") or "",
                 evidence=d.get("evidence"), enforced=will_enforce,
                 result_ok=False, result_detail=detail, step_index=step)
         except Exception as e:  # noqa: BLE001
             log.warning("guard: could not record decision for %s: %s", sid, e)
+            if strict:
+                raise
             continue
         acted += 1
 
@@ -22972,6 +23147,7 @@ def _apply_guard_policies(store, state: dict, incidents: list,
         try:
             _record_policy_step(
                 store, session_id=sid, policy_id=pid,
+                node_id=d.get("node_id"), strict=strict,
                 runtime=d.get("runtime") or "", action=action,
                 kind=d.get("kind") or "", reason=d.get("reason") or "",
                 evidence=d.get("evidence"), enforced=True,
@@ -22994,12 +23170,15 @@ def _incident_for_decision(incidents: list, decision: dict) -> dict:
     for inc in incidents or []:
         if not isinstance(inc, dict):
             continue
+        if decision.get("node_id") and (inc.get("node_id") != decision["node_id"]
+                or inc.get("runtime") != decision.get("runtime")):
+            continue
         if str(inc.get("session_id") or "") == sid and (
                 not kind or str(inc.get("kind") or "") == kind):
             return inc
     return {
         "kind": kind or "policy", "session_id": sid,
-        "runtime": decision.get("runtime") or "",
+        "runtime": decision.get("runtime") or "", "node_id": decision.get("node_id") or "",
         "severity": "warning",
         "title": str(decision.get("reason") or "Guard policy matched"),
         "detail": str(decision.get("reason") or ""),
@@ -23007,7 +23186,7 @@ def _incident_for_decision(incidents: list, decision: dict) -> dict:
     }
 
 
-def _record_policy_step(store, **kw) -> None:
+def _record_policy_step(store, *, strict=False, **kw) -> None:
     """Write one policy-decision row, tolerating a pre-ladder store.
 
     Same version-skew hazard as ``_policy_step_already_fired``: the daemon
@@ -23019,6 +23198,14 @@ def _record_policy_step(store, **kw) -> None:
     Raises on a genuine store failure so the caller's fail-closed handler
     still refuses to act on an unlatched decision.
     """
+    if kw.get("node_id"):
+        # Exact scope must survive transport and persistence unchanged.
+        store.record_policy_action(**kw)
+        return
+    kw.pop("node_id", None)
+    if strict:
+        store.record_policy_action(**kw)
+        return
     try:
         store.record_policy_action(**kw)
         return
@@ -23029,7 +23216,7 @@ def _record_policy_step(store, **kw) -> None:
 
 
 def _policy_step_already_fired(store, session_id: str, policy_id: str,
-                               step: int) -> bool:
+                               step: int, *, strict=False, node_id=None, runtime=None) -> bool:
     """Per-rung latch check that tolerates an older store.
 
     ``policy_already_fired`` grew a ``step_index`` argument when escalation
@@ -23044,11 +23231,24 @@ def _policy_step_already_fired(store, session_id: str, policy_id: str,
     Fails CLOSED (returns True = do not act) for any *other* error, which is
     the right direction when the alternative is acting twice.
     """
+    if node_id is not None or runtime is not None:
+        try:
+            return bool(store.policy_already_fired(
+                session_id, policy_id, step, node_id=node_id, runtime=runtime,
+                **({"strict": True} if strict else {})))
+        except Exception:
+            if strict:
+                raise
+            return True  # A scoped read must never downgrade to a broad latch.
+    if strict:
+        return bool(store.policy_already_fired(session_id, policy_id, step, strict=True))
     try:
         return bool(store.policy_already_fired(session_id, policy_id, step))
     except TypeError:
         pass  # older signature — fall through
     except Exception:
+        if strict:
+            raise
         return True
     try:
         # Pre-ladder store: it can only latch per (session, policy). Rungs
@@ -23062,6 +23262,8 @@ def _policy_step_already_fired(store, session_id: str, policy_id: str,
             return True
         return bool(store.policy_already_fired(session_id, policy_id))
     except Exception:
+        if strict:
+            raise
         return True
 
 
@@ -23162,7 +23364,7 @@ def _emit_detector_incidents(store, state: dict) -> int:
         log.debug("capability gaps: exporter unavailable: %s", _ce)
     for s in candidates:
         sid = s.get("session_id") or ""
-        facts = facts_by_session.get(sid) or {}
+        facts = facts_by_session.get(_detector_fact_key(s)) or {}
         # Derived from the session id, not from agent_type: see
         # _detector_runtime. Getting this wrong silently merges every runtime
         # into one cohort.
@@ -23242,6 +23444,10 @@ def _emit_detector_incidents(store, state: dict) -> int:
                 from clawmetry.incident_evidence import reconcile_session
                 nodes = {e.get("node_id") for e in events if isinstance(e, dict) and e.get("node_id")}
                 node_id = s.get("node_id") or (next(iter(nodes)) if len(nodes) == 1 else "")
+                if node_id:
+                    for _inc in incidents:
+                        if not _inc.get("node_id"):
+                            _inc["node_id"] = node_id
                 if len(nodes) > 1 or (nodes and node_id not in nodes):
                     log.warning("Incident evidence spans multiple nodes; reconciliation withheld")
                 else:
@@ -23251,6 +23457,26 @@ def _emit_detector_incidents(store, state: dict) -> int:
                         observed_at=int(now * 1000))
         except Exception as exc:
             log.warning("Incident reconciliation unavailable for %s: %s", sid, exc, exc_info=True)
+        from clawmetry.incident_store import DURABLE_KINDS, SECURITY_EPISODE_KINDS as _SEC_KINDS
+        if hasattr(store, "record_incident_observation"):
+            # Both producers share one durable graph. The filter depends on
+            # whether the scan completed. A complete scan that returned no
+            # episode for a DURABLE_KIND means the write failed — that kind
+            # must be suppressed so a notification cannot precede durable
+            # evidence (AC-GOV-SBG-002.2). An incomplete scan cannot speak
+            # for the durable path, so the legacy live-signal path is kept
+            # for all kinds not yet written to the episode table.
+            if inspection_complete:
+                incidents = [inc for inc in incidents
+                             if inc.get("kind") not in DURABLE_KINDS
+                             or inc.get("kind") == "inspection_incomplete"
+                             or (inc.get("kind") in episodes
+                                 and episodes[inc["kind"]].get("state") == "active")]
+            else:
+                incidents = [inc for inc in incidents
+                             if inc.get("kind") not in DURABLE_KINDS
+                             or inc.get("kind") not in episodes
+                             or episodes[inc["kind"]].get("state") == "active"]
         if incidents:
             all_incidents.extend(incidents)
             # Remember when this session FIRST looked wrong, so the next tick
@@ -23259,8 +23485,9 @@ def _emit_detector_incidents(store, state: dict) -> int:
             # FOLDER, not a stretch of the session going off track, and letting
             # it start the clock would inflate the spend at risk of a real
             # trajectory incident found later.
-            bad_sessions.add(sid)
-            first_seen_memo.setdefault(sid, now)
+            seen_key = _detector_first_seen_key(s)
+            bad_sessions.add(seen_key)
+            first_seen_memo.setdefault(seen_key, now)
 
         # The workspace surface: what the tool stream cannot see (a poisoned
         # .git/config, an autorun task, a tampered agent hook). Same incident
@@ -23293,7 +23520,7 @@ def _emit_detector_incidents(store, state: dict) -> int:
         # Fold the LOUDEST incident into the heartbeat slice. run_all orders by
         # spend at risk first and severity second, so on a session with a known
         # cost this is the most expensive finding, not merely the most severe.
-        top = incidents[0]
+        top = _det.sort_incidents(incidents)[0]
         # An edited CLAUDE.md is worth a row in Guard, not a line on the desk
         # device: an info-level inventory finding never rides the heartbeat.
         if (top in supply and str(top.get("severity") or "") == "info"):
@@ -23322,6 +23549,13 @@ def _emit_detector_incidents(store, state: dict) -> int:
             # its own signature (agent_inventory.CONFIG_CHANGE_SIGNATURE) so
             # the two do not overwrite each other every tick.
             signature = str(inc.get("signal_signature") or f"daemon_detect_{kind}")
+            if kind in _SEC_KINDS and episodes and kind in episodes:
+                from hashlib import sha256 as _sha256
+                _ep = episodes[kind]
+                _sig_scope = json.dumps(
+                    [_ep.get("node_id", ""), str(inc.get("runtime") or "openclaw"), sid],
+                    separators=(",", ":"))
+                signature = f"daemon_detect_{kind}:" + _sha256(_sig_scope.encode()).hexdigest()[:24]
             memo_key = f"{sid}::{signature}"
             last = memo.get(memo_key)
             if isinstance(last, (int, float)) and (now - last) < reemit:
@@ -23339,17 +23573,19 @@ def _emit_detector_incidents(store, state: dict) -> int:
             except Exception as _ie:  # noqa: BLE001
                 log.debug("detectors: alert delivery skipped: %s", _ie)
             try:
-                # A persisted episode owns its compatibility projection. The
-                # legacy write below is only for unmigrated/older producers.
-                if kind in episodes:
-                    if delivered_via:
-                        inc["delivered_via"] = delivered_via
-                        store.record_incident_observation(
-                            incident=inc, node_id=episodes[kind]["node_id"],
-                            observed_at=int(now * 1000))
-                    memo[memo_key] = now
-                    emitted += 1
-                    continue
+                # When a durable episode exists and delivery went somewhere,
+                # stamp the channel onto the episode so the audit row is
+                # complete. This does NOT own the loop_signals projection —
+                # _project_incident_locked handles that inside
+                # record_incident_observation, but loop_signals is also the
+                # real-time index for the guard/sessions tab, and it needs an
+                # explicit write here so the tab sees the row on this tick
+                # regardless of whether a durable episode exists yet.
+                if kind in episodes and delivered_via:
+                    inc["delivered_via"] = delivered_via
+                    store.record_incident_observation(
+                        incident=inc, node_id=episodes[kind]["node_id"],
+                        observed_at=int(now * 1000))
                 store.ingest_loop_signal(
                     session_id=sid,
                     # Stable per-kind signature so a re-emit UPSERTs the same row
@@ -23381,6 +23617,12 @@ def _emit_detector_incidents(store, state: dict) -> int:
                         "observation": inc.get("observation"),
                         # Framework references, as stamped when it was found.
                         "frameworks": inc.get("frameworks"),
+                        # Durable episode identity, when this kind was
+                        # successfully persisted. Guard/sessions reads
+                        # loop_signals and joins on incident_id when present.
+                        "incident_id": inc.get("incident_id"),
+                        "state": inc.get("incident_state"),
+                        "node_id": inc.get("node_id"),
                     },
                 )
                 memo[memo_key] = now
@@ -26426,6 +26668,15 @@ def run_daemon() -> None:
     except Exception as _e:
         log.warning(f"approval delivery layer not started: {_e}")
 
+    # Security evidence must also reach inspection when a session ends
+    # between trajectory ticks. The worker uses this daemon's writer handle.
+    try:
+        from clawmetry import security_ingest as _security_ingest
+        from clawmetry import local_store as _security_store
+        _security_ingest.start(_security_store.get_store())
+    except Exception as _security_error:
+        log.warning("Security ingest service unavailable: %s", _security_error)
+
     # ── Decision-sampling cron (issue #1615) ──────────────────────────
     # Daily-at-midnight thread that picks N random sessions from yesterday
     # per agent_id and inserts them into the review_queue. Idempotent —
@@ -26969,6 +27220,14 @@ def run_daemon() -> None:
                 log.debug("talk-lifecycle tick error (non-fatal): %s", _e_tk)
 
             state["last_sync"] = datetime.now(timezone.utc).isoformat()
+            # field-failure daemon_ingest_stalled (#6513 and siblings): mirror
+            # the cycle completion directly into the in-process watchdog so
+            # that a persistent save_state() failure (disk full, permission
+            # error) cannot make _report_if_ingest_stalled() believe the
+            # daemon has gone quiet. Dict-item assignment is GIL-atomic, so no
+            # extra lock is needed for the cross-thread write.
+            _STALL_WATCH["last_sync"] = state["last_sync"]
+            _STALL_WATCH["since_mono"] = time.monotonic()
             # Audit fix (2026-05-17): force a synchronous local-store flush
             # BEFORE persisting the cursor state. Belt-and-suspenders to
             # ``_flush_session_batch``'s own per-batch flush — covers any

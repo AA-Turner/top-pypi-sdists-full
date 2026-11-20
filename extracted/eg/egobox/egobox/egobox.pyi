@@ -23,6 +23,8 @@ __all__ = [
     "Gpx",
     "InfillOptimizer",
     "InfillStrategy",
+    "InterruptFlag",
+    "Interrupted",
     "MooConfig",
     "MooStrategy",
     "OptimResult",
@@ -108,6 +110,10 @@ class Belfegor:
         Random generator seed used by `minimize()` and `suggest()` when they are not given one.
     verbose : Verbose or int, optional
         Logging verbosity level used by `minimize()` and `suggest()` when `minimize()` is not given one.
+    feasibility_first : bool
+        With `cstr_infill`, while no feasible point is known, only the probability of feasibility
+        drives the infill (feasibility-first). Default False: the infill criterion weighted by the
+        probability of feasibility is used from the first iteration. No effect without `cstr_infill`.
     
     Returns
     -------
@@ -124,8 +130,8 @@ class Belfegor:
         r"""
         Multi-objective configuration
         """
-    def __new__(cls, xspecs: typing.Sequence[XSpec] | typing.Sequence[typing.Sequence[builtins.float]] | numpy.typing.NDArray[numpy.float64], n_obj: builtins.int = 2, moo_config: MooConfig | builtins.dict[builtins.str, typing.Any] | None = None, gp_config: GpConfig | builtins.dict[builtins.str, typing.Any] | None = None, n_cstr: builtins.int = 0, cstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, infill_n_start: builtins.int = 20, n_doe: builtins.int = 0, x_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, y_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, infill_strategy: InfillStrategy = InfillStrategy.LOG_EI, feasible_infill_strategy: FeasibleInfillStrategy = FeasibleInfillStrategy.NONE, cstr_infill: builtins.bool = False, cstr_strategy: ConstraintStrategy = ConstraintStrategy.MC, infill_optimizer: InfillOptimizer = InfillOptimizer.COBYLA, failsafe_strategy: FailsafeStrategy = FailsafeStrategy.REJECTION, seed: typing.Optional[builtins.int] = None, verbose: Verbose | builtins.int | None = None) -> Belfegor: ...
-    def minimize(self, fun: typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]], fcstrs: typing.Sequence[typing.Callable[[numpy.typing.NDArray[numpy.float64], builtins.bool], builtins.float | numpy.typing.NDArray[numpy.float64]] | tuple[typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float], typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]]] | builtins.dict[builtins.str, typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float | numpy.typing.NDArray[numpy.float64]]]] | None = None, fcstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, max_iters: builtins.int = 20, run_info: RunInfo | builtins.dict[builtins.str, typing.Any] | None = None, outdir: typing.Optional[builtins.str] = None, warm_start: builtins.bool = False, hot_start: builtins.bool | builtins.int | None = None, seed: typing.Optional[builtins.int] = None, timeout: typing.Optional[builtins.float] = None, verbose: Verbose | builtins.int | None = None, stop_on_error: builtins.bool = False) -> BelfegorOptim:
+    def __new__(cls, xspecs: typing.Sequence[XSpec] | typing.Sequence[typing.Sequence[builtins.float]] | numpy.typing.NDArray[numpy.float64], n_obj: builtins.int = 2, moo_config: MooConfig | builtins.dict[builtins.str, typing.Any] | None = None, gp_config: GpConfig | builtins.dict[builtins.str, typing.Any] | None = None, n_cstr: builtins.int = 0, cstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, infill_n_start: builtins.int = 20, n_doe: builtins.int = 0, x_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, y_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, infill_strategy: InfillStrategy = InfillStrategy.LOG_EI, feasible_infill_strategy: FeasibleInfillStrategy = FeasibleInfillStrategy.NONE, cstr_infill: builtins.bool = False, cstr_strategy: ConstraintStrategy = ConstraintStrategy.MC, infill_optimizer: InfillOptimizer = InfillOptimizer.COBYLA, failsafe_strategy: FailsafeStrategy = FailsafeStrategy.REJECTION, seed: typing.Optional[builtins.int] = None, verbose: Verbose | builtins.int | None = None, feasibility_first: builtins.bool = False) -> Belfegor: ...
+    def minimize(self, fun: typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]], fcstrs: typing.Sequence[typing.Callable[[numpy.typing.NDArray[numpy.float64], builtins.bool], builtins.float | numpy.typing.NDArray[numpy.float64]] | tuple[typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float], typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]]] | builtins.dict[builtins.str, typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float | numpy.typing.NDArray[numpy.float64]]]] | None = None, fcstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, max_iters: builtins.int = 20, run_info: RunInfo | builtins.dict[builtins.str, typing.Any] | None = None, outdir: typing.Optional[builtins.str] = None, warm_start: builtins.bool = False, hot_start: builtins.bool | builtins.int | None = None, seed: typing.Optional[builtins.int] = None, timeout: typing.Optional[builtins.float] = None, verbose: Verbose | builtins.int | None = None, stop_on_error: builtins.bool = False, interrupt: typing.Optional[InterruptFlag] = None) -> BelfegorOptim:
         r"""
         This function approximates the Pareto front of the objectives of a given function "fun"
         
@@ -165,6 +171,10 @@ class Belfegor:
         stop_on_error : bool
             If true, terminate optimization when the objective function raises an error.
             Otherwise, the error is handled according to failsafe_strategy.
+        interrupt : InterruptFlag, optional
+            the optimization is interrupted once this flag is set, from another thread or
+            from within `fun`: the result obtained so far is returned with
+            status.exit == ExitStatus.INTERRUPT (see Notes).
         
         Returns
         -------
@@ -183,11 +193,24 @@ class Belfegor:
         
         Notes
         -----
-        Ctrl-C (KeyboardInterrupt) stops the optimization after the current iteration and the
-        result obtained so far is returned with status.exit == ExitStatus.INTERRUPT.
-        An objective evaluation interrupted by Ctrl-C counts as a failed evaluation.
+        Ctrl-C (KeyboardInterrupt) stops the optimization and the result obtained so far is
+        returned with status.exit == ExitStatus.INTERRUPT, also when Ctrl-C is pressed again
+        meanwhile. Ctrl-C is acted on at once, also while surrogates are trained or the infill
+        criterion is optimized: an iteration interrupted before its point is evaluated is
+        dropped, and when interrupted while surrogates are updated with the evaluated point,
+        the update is done at the next iteration, so that a hot start goes on as if the
+        optimization had not been interrupted. When Ctrl-C interrupts `fun`, the current
+        iteration is dropped as well (not counted as a failed evaluation), and KeyboardInterrupt
+        is raised when there is no result yet (initial DOE evaluation). Called from another
+        thread than the main one, or with a custom SIGINT handler, Ctrl-C is acted on after the
+        current computation.
+        Setting the `interrupt` flag interrupts the optimization the same way, except that an
+        evaluation of `fun` in progress is not interrupted (`fun` may check the flag).
+        Other exceptions raised by signal handlers (e.g. SystemExit from sys.exit()) stop the
+        optimization the same way, then are raised. Within `fun` or `fcstrs`, this applies to
+        exceptions which are not Exception subclasses, others being evaluation errors.
         """
-    def suggest(self, x_doe: numpy.typing.NDArray[numpy.float64], y_doe: numpy.typing.NDArray[numpy.float64], seed: typing.Optional[builtins.int] = None) -> numpy.typing.NDArray[numpy.float64]:
+    def suggest(self, x_doe: numpy.typing.NDArray[numpy.float64], y_doe: numpy.typing.NDArray[numpy.float64], seed: typing.Optional[builtins.int] = None, interrupt: typing.Optional[InterruptFlag] = None) -> numpy.typing.NDArray[numpy.float64]:
         r"""
         This function gives the next best locations where to evaluate the function
         under optimization wrt to previous evaluations.
@@ -202,12 +225,21 @@ class Belfegor:
         seed : int >= 0, optional
             Random generator seed to allow computation reproducibility.
             When None, the seed given to the constructor (if any) is used.
+        interrupt : InterruptFlag, optional
+            the suggestion is interrupted (Interrupted raised) once this flag is set,
+            e.g. from another thread
         
         Returns
         -------
         array[batch, nx]
             suggested locations where to evaluate objectives and constraints
             where batch is the batch size (moo_config.batch, 1 by default)
+        
+        Notes
+        -----
+        Ctrl-C (KeyboardInterrupt) stops the surrogate training and the infill optimization at
+        once, unless called from another thread than the main one or with a custom SIGINT
+        handler.
         """
     def pareto_indices(self, y_doe: numpy.typing.NDArray[numpy.float64]) -> builtins.list[builtins.int]:
         r"""
@@ -477,14 +509,18 @@ class Egor:
     verbose : Verbose or int, optional
         Logging verbosity level used by `minimize()` and `suggest()` when `minimize()` is not given one.
         See `minimize()` for the possible values.
+    feasibility_first : bool
+        With `cstr_infill`, while no feasible point is known, only the probability of feasibility
+        drives the infill (feasibility-first). Default False: the infill criterion weighted by the
+        probability of feasibility is used from the first iteration. No effect without `cstr_infill`.
     
     Returns
     -------
     Egor
         An optimizer which can be used to optimize a function using the minimize method.
     """
-    def __new__(cls, xspecs: typing.Sequence[XSpec] | typing.Sequence[typing.Sequence[builtins.float]] | numpy.typing.NDArray[numpy.float64], gp_config: GpConfig | builtins.dict[builtins.str, typing.Any] | None = None, n_cstr: builtins.int = 0, cstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, infill_n_start: builtins.int = 20, n_doe: builtins.int = 0, x_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, y_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, infill_strategy: InfillStrategy = InfillStrategy.LOG_EI, feasible_infill_strategy: FeasibleInfillStrategy = FeasibleInfillStrategy.NONE, cstr_infill: builtins.bool = False, cstr_strategy: ConstraintStrategy = ConstraintStrategy.MC, qei_config: QEiConfig | builtins.dict[builtins.str, typing.Any] | None = None, infill_optimizer: InfillOptimizer = InfillOptimizer.COBYLA, trego: TregoConfig | builtins.bool | builtins.dict[builtins.str, typing.Any] | None = None, coego_n_coop: builtins.int = 0, target: typing.Optional[builtins.float] = None, failsafe_strategy: FailsafeStrategy = FailsafeStrategy.REJECTION, seed: typing.Optional[builtins.int] = None, verbose: Verbose | builtins.int | None = None) -> Egor: ...
-    def minimize(self, fun: typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]], fcstrs: typing.Sequence[typing.Callable[[numpy.typing.NDArray[numpy.float64], builtins.bool], builtins.float | numpy.typing.NDArray[numpy.float64]] | tuple[typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float], typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]]] | builtins.dict[builtins.str, typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float | numpy.typing.NDArray[numpy.float64]]]] | None = None, fcstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, max_iters: builtins.int = 20, run_info: RunInfo | builtins.dict[builtins.str, typing.Any] | None = None, outdir: typing.Optional[builtins.str] = None, warm_start: builtins.bool = False, hot_start: builtins.bool | builtins.int | None = None, seed: typing.Optional[builtins.int] = None, timeout: typing.Optional[builtins.float] = None, verbose: Verbose | builtins.int | None = None, stop_on_error: builtins.bool = False) -> EgorOptim:
+    def __new__(cls, xspecs: typing.Sequence[XSpec] | typing.Sequence[typing.Sequence[builtins.float]] | numpy.typing.NDArray[numpy.float64], gp_config: GpConfig | builtins.dict[builtins.str, typing.Any] | None = None, n_cstr: builtins.int = 0, cstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, infill_n_start: builtins.int = 20, n_doe: builtins.int = 0, x_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, y_doe: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, infill_strategy: InfillStrategy = InfillStrategy.LOG_EI, feasible_infill_strategy: FeasibleInfillStrategy = FeasibleInfillStrategy.NONE, cstr_infill: builtins.bool = False, cstr_strategy: ConstraintStrategy = ConstraintStrategy.MC, qei_config: QEiConfig | builtins.dict[builtins.str, typing.Any] | None = None, infill_optimizer: InfillOptimizer = InfillOptimizer.COBYLA, trego: TregoConfig | builtins.bool | builtins.dict[builtins.str, typing.Any] | None = None, coego_n_coop: builtins.int = 0, target: typing.Optional[builtins.float] = None, failsafe_strategy: FailsafeStrategy = FailsafeStrategy.REJECTION, seed: typing.Optional[builtins.int] = None, verbose: Verbose | builtins.int | None = None, feasibility_first: builtins.bool = False) -> Egor: ...
+    def minimize(self, fun: typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]], fcstrs: typing.Sequence[typing.Callable[[numpy.typing.NDArray[numpy.float64], builtins.bool], builtins.float | numpy.typing.NDArray[numpy.float64]] | tuple[typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float], typing.Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.NDArray[numpy.float64]]] | builtins.dict[builtins.str, typing.Callable[[numpy.typing.NDArray[numpy.float64]], builtins.float | numpy.typing.NDArray[numpy.float64]]]] | None = None, fcstr_specs: typing.Sequence[CstrSpec | builtins.dict[builtins.str, typing.Any]] | None = None, max_iters: builtins.int = 20, run_info: RunInfo | builtins.dict[builtins.str, typing.Any] | None = None, outdir: typing.Optional[builtins.str] = None, warm_start: builtins.bool = False, hot_start: builtins.bool | builtins.int | None = None, seed: typing.Optional[builtins.int] = None, timeout: typing.Optional[builtins.float] = None, verbose: Verbose | builtins.int | None = None, stop_on_error: builtins.bool = False, interrupt: typing.Optional[InterruptFlag] = None) -> EgorOptim:
         r"""
         This function finds the minimum of a given function "fun"
         
@@ -556,6 +592,10 @@ class Egor:
         stop_on_error : bool
             If true, terminate optimization when the objective function raises an error.
             Otherwise, the error is handled according to failsafe_strategy.
+        interrupt : InterruptFlag, optional
+            the optimization is interrupted once this flag is set, from another thread or
+            from within `fun`: the result obtained so far is returned with
+            status.exit == ExitStatus.INTERRUPT (see Notes).
         
         Returns
         -------
@@ -572,11 +612,24 @@ class Egor:
         
         Notes
         -----
-        Ctrl-C (KeyboardInterrupt) stops the optimization after the current iteration and the
-        result obtained so far is returned with status.exit == ExitStatus.INTERRUPT.
-        An objective evaluation interrupted by Ctrl-C counts as a failed evaluation.
+        Ctrl-C (KeyboardInterrupt) stops the optimization and the result obtained so far is
+        returned with status.exit == ExitStatus.INTERRUPT, also when Ctrl-C is pressed again
+        meanwhile. Ctrl-C is acted on at once, also while surrogates are trained or the infill
+        criterion is optimized: an iteration interrupted before its point is evaluated is
+        dropped, and when interrupted while surrogates are updated with the evaluated point,
+        the update is done at the next iteration, so that a hot start goes on as if the
+        optimization had not been interrupted. When Ctrl-C interrupts `fun`, the current
+        iteration is dropped as well (not counted as a failed evaluation), and KeyboardInterrupt
+        is raised when there is no result yet (initial DOE evaluation). Called from another
+        thread than the main one, or with a custom SIGINT handler, Ctrl-C is acted on after the
+        current computation.
+        Setting the `interrupt` flag interrupts the optimization the same way, except that an
+        evaluation of `fun` in progress is not interrupted (`fun` may check the flag).
+        Other exceptions raised by signal handlers (e.g. SystemExit from sys.exit()) stop the
+        optimization the same way, then are raised. Within `fun` or `fcstrs`, this applies to
+        exceptions which are not Exception subclasses, others being evaluation errors.
         """
-    def suggest(self, x_doe: numpy.typing.NDArray[numpy.float64], y_doe: numpy.typing.NDArray[numpy.float64], seed: typing.Optional[builtins.int] = None) -> numpy.typing.NDArray[numpy.float64]:
+    def suggest(self, x_doe: numpy.typing.NDArray[numpy.float64], y_doe: numpy.typing.NDArray[numpy.float64], seed: typing.Optional[builtins.int] = None, interrupt: typing.Optional[InterruptFlag] = None) -> numpy.typing.NDArray[numpy.float64]:
         r"""
         This function gives the next best location where to evaluate the function
         under optimization wrt to previous evaluations.
@@ -591,12 +644,21 @@ class Egor:
         seed : int >= 0, optional
             Random generator seed to allow computation reproducibility.
             When None, the seed given to the constructor (if any) is used.
+        interrupt : InterruptFlag, optional
+            the suggestion is interrupted (Interrupted raised) once this flag is set,
+            e.g. from another thread
         
         Returns
         -------
         array[batch, nx]
             suggested locations where to evaluate objective and constraints
             where batch is the qEI batch size (qei_config.batch, 1 by default)
+        
+        Notes
+        -----
+        Ctrl-C (KeyboardInterrupt) stops the surrogate training and the infill optimization at
+        once, unless called from another thread than the main one or with a custom SIGINT
+        handler.
         """
     def best_index(self, y_doe: numpy.typing.NDArray[numpy.float64]) -> builtins.int:
         r"""
@@ -950,21 +1012,31 @@ class GpMix:
         A builder which can be fitted to data to get a Gpx object (a trained Gaussian processes mixture)
     """
     def __new__(cls, xspecs: typing.Sequence[XSpec] | typing.Sequence[typing.Sequence[builtins.float]] | numpy.typing.NDArray[numpy.float64] | None = None, regr_spec: builtins.int = 1, corr_spec: builtins.int = 1, kpls_dim: typing.Optional[builtins.int] = None, n_clusters: builtins.int = 1, recombination: Recombination = Recombination.HARD, theta_init: typing.Optional[typing.Sequence[builtins.float]] = None, theta_bounds: typing.Optional[typing.Sequence[typing.Sequence[builtins.float]]] = None, theta_n_start: builtins.int = 10, theta_max_eval: builtins.int = 50, seed: typing.Optional[builtins.int] = None, verbose: Verbose | builtins.int | None = None) -> GpMix: ...
-    def fit(self, xt: numpy.typing.NDArray[numpy.float64], yt: numpy.typing.NDArray[numpy.float64]) -> Gpx:
+    def fit(self, xt: numpy.typing.NDArray[numpy.float64], yt: numpy.typing.NDArray[numpy.float64], interrupt: typing.Optional[InterruptFlag] = None) -> Gpx:
         r"""
         Fit the parameters of the model using the training dataset to build a trained model
         
         Parameters
         ----------
         xt : array[nsamples, nx] or array[nsamples] when nx == 1
-            input samples
+            input samples, one column per variable: an ENUM variable is given
+            by its category index, as returned by `egx.lhs(xspecs, n)`
         yt : array[nsamples] or array[nsamples, 1]
             output samples
+        interrupt : InterruptFlag, optional
+            the training is interrupted (Interrupted raised) once this flag is set,
+            e.g. from another thread
         
         Returns
         -------
         Gpx
             the fitted Gaussian process mixture
+        
+        Notes
+        -----
+        Ctrl-C (KeyboardInterrupt) stops the training at once, unless called from another
+        thread than the main one or with a custom SIGINT handler. The training is also
+        interrupted when the `interrupt` flag is set, raising Interrupted.
         """
 
 @typing.final
@@ -1102,6 +1174,7 @@ class Gpx:
         array[nsamples, nx]
             the output derivatives wrt inputs at the nsamples x points.
             The ith column is the partial derivative wrt the ith component of x.
+            It is NaN for an ENUM variable, which has no derivative.
         """
     def predict_var_gradients(self, x: numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float64]:
         r"""
@@ -1117,6 +1190,7 @@ class Gpx:
         array[nsamples, nx]
             the variance derivatives wrt inputs at the nsamples x points.
             The ith column is the partial derivative wrt the ith component of x.
+            It is NaN for an ENUM variable, which has no derivative.
         """
     def sample(self, x: numpy.typing.NDArray[numpy.float64], n_traj: builtins.int) -> numpy.typing.NDArray[numpy.float64]:
         r"""
@@ -1178,6 +1252,52 @@ class Gpx:
         tuple[array[nt, nx], array[nt]]
             the couple (xt, yt)
         """
+
+@typing.final
+class InterruptFlag:
+    r"""
+    A request to interrupt `minimize`, `fit` or `suggest`, set from another thread (e.g. a GUI
+    or a supervising thread) or from within the objective function.
+    
+    It is given as `interrupt` argument, then set to interrupt the call, like Ctrl-C:
+    
+    * `minimize` stops and returns the result obtained so far with
+      status.exit == ExitStatus.INTERRUPT,
+    * `fit` and `suggest` raise `Interrupted`.
+    
+    Surrogate training and infill optimization are stopped at once, while an objective
+    function evaluation in progress is not (it may check `is_set()`). The flag is not cleared
+    afterwards: call `clear()` before reusing it, as for a `threading.Event`.
+    
+    Examples
+    --------
+    >>> flag = egx.InterruptFlag()
+    >>> threading.Timer(60.0, flag.set).start()  # interrupt after one minute
+    >>> res = egx.Egor(xspecs).minimize(fun, max_iters=100, interrupt=flag)
+    """
+    def __new__(cls) -> InterruptFlag:
+        r"""
+        An interrupt flag, not set
+        """
+    def set(self) -> None:
+        r"""
+        Set the flag: the call given this flag is interrupted
+        """
+    def clear(self) -> None:
+        r"""
+        Clear the flag, to reuse it for another call
+        """
+    def is_set(self) -> builtins.bool:
+        r"""
+        Whether the flag is set
+        """
+    def __repr__(self) -> builtins.str: ...
+
+class Interrupted(builtins.Exception):
+    r"""
+    Raised by `fit` or `suggest` interrupted with an `InterruptFlag`
+    """
+    ...
 
 @typing.final
 class MooConfig:
@@ -1589,7 +1709,7 @@ class SparseGpMix:
         A builder which can be fitted to data to get a SparseGpx object (a trained sparse Gaussian process)
     """
     def __new__(cls, corr_spec: builtins.int = 1, theta_init: typing.Optional[typing.Sequence[builtins.float]] = None, theta_bounds: typing.Optional[typing.Sequence[typing.Sequence[builtins.float]]] = None, kpls_dim: typing.Optional[builtins.int] = None, theta_n_start: builtins.int = 10, n_inducing: typing.Optional[builtins.int] = None, inducing: typing.Optional[numpy.typing.NDArray[numpy.float64]] = None, method: SparseMethod = SparseMethod.FITC, seed: typing.Optional[builtins.int] = None, verbose: Verbose | builtins.int | None = None) -> SparseGpMix: ...
-    def fit(self, xt: numpy.typing.NDArray[numpy.float64], yt: numpy.typing.NDArray[numpy.float64]) -> SparseGpx:
+    def fit(self, xt: numpy.typing.NDArray[numpy.float64], yt: numpy.typing.NDArray[numpy.float64], interrupt: typing.Optional[InterruptFlag] = None) -> SparseGpx:
         r"""
         Fit the parameters of the model using the training dataset to build a trained model
         
@@ -1599,11 +1719,20 @@ class SparseGpMix:
             input samples
         yt : array[nsamples] or array[nsamples, 1]
             output samples
+        interrupt : InterruptFlag, optional
+            the training is interrupted (Interrupted raised) once this flag is set,
+            e.g. from another thread
         
         Returns
         -------
         SparseGpx
             the fitted sparse Gaussian process
+        
+        Notes
+        -----
+        Ctrl-C (KeyboardInterrupt) stops the training at once, unless called from another
+        thread than the main one or with a custom SIGINT handler. The training is also
+        interrupted when the `interrupt` flag is set, raising Interrupted.
         """
 
 @typing.final
@@ -1973,7 +2102,7 @@ class ExitStatus(enum.Enum):
     """
     INTERRUPT = ...
     r"""
-    Algorithm manually interrupted with SIGINT (Ctrl+C), SIGTERM or SIGHUP
+    Algorithm interrupted with Ctrl-C (KeyboardInterrupt)
     """
     SOLVER_CONVERGED = ...
     r"""

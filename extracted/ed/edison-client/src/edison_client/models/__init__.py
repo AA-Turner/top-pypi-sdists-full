@@ -1,7 +1,6 @@
 from .app import (
     AuthType,
     DockerContainerConfiguration,
-    FramePath,
     JobDeploymentConfig,
     PQATaskResponse,
     RuntimeConfig,
@@ -13,10 +12,7 @@ from .app import (
     TaskResponse,
     TaskResponseVerbose,
 )
-from .directive import (
-    DirectiveResolveResponse,
-    ResolvedDirective,
-)
+from .directive import DirectiveResolveResponse, ResolvedDirective
 from .job_event import (
     CostComponent,
     ExecutionType,
@@ -35,6 +31,7 @@ from .rest import (
     TrajectoryPatchRequest,
     WorldModel,
     WorldModelResponse,
+    WorldModelSearchResult,
 )
 from .session import Session, SessionType
 
@@ -45,7 +42,6 @@ __all__ = [
     "DockerContainerConfiguration",
     "ExecutionType",
     "ExecutionUsage",
-    "FramePath",
     "JobDeploymentConfig",
     "JobEventBatchCreateRequest",
     "JobEventBatchCreateResponse",
@@ -71,4 +67,5 @@ __all__ = [
     "TrajectoryPatchRequest",
     "WorldModel",
     "WorldModelResponse",
+    "WorldModelSearchResult",
 ]

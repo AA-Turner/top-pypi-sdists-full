@@ -5,6 +5,7 @@
 #include "duckdb_python/pyresult.hpp"
 #include "duckdb_python/pyconnection/pyconnection.hpp"
 #include "duckdb/common/types.hpp"
+#include "duckdb/common/type_visitor.hpp"
 #include "duckdb/common/vector/flat_vector.hpp"
 #include "duckdb/common/vector/list_vector.hpp"
 #include "duckdb/common/vector/array_vector.hpp"
@@ -71,6 +72,90 @@ void ThrowUnencodableStr(nb::handle str) {
 	throw UnencodableStrError(PyUnicode_ReadChar(str.ptr(), start), NumericCast<idx_t>(start));
 }
 
+// Importing the module here instead would run the import on whichever thread of the query converts the value, and a
+// None entry in sys.modules is how a program blocks the import
+static bool ModuleIsImported(PythonImportCacheItem &module, PyObject *name) {
+	if (module.LoadSucceeded()) {
+		return true;
+	}
+	if (!name) {
+		PyErr_Clear();
+		return false;
+	}
+	auto entry = PyDict_GetItemWithError(PyImport_GetModuleDict(), name);
+	if (!entry && PyErr_Occurred()) {
+		PyErr_Clear();
+	}
+	return entry && entry != Py_None;
+}
+
+bool PandasIsImported(PythonImportCache &import_cache) {
+	// Interned once: building the key on every call, or asking the import cache about a module it has not loaded,
+	// costs an allocation for every converted value
+	static PyObject *const name = PyUnicode_InternFromString("pandas");
+	return ModuleIsImported(import_cache.pandas, name);
+}
+
+//! A numpy scalar cannot exist before numpy is imported
+static bool NumpyIsImported(PythonImportCache &import_cache) {
+	static PyObject *const name = PyUnicode_InternFromString("numpy");
+	return ModuleIsImported(import_cache.numpy, name);
+}
+
+//! Decided from the object's type, which runs no code of the object's; numpy is optional and loaded by nothing here,
+//! so an ordinary value costs no import and no retried import of a missing numpy
+static bool IsNumpyScalar(nb::handle cell) {
+	auto &import_cache = *DuckDBPyConnection::ImportCache();
+	if (!NumpyIsImported(import_cache)) {
+		return false;
+	}
+	auto generic = import_cache.numpy.generic();
+	auto type = Py_TYPE(cell.ptr());
+	if (generic.ptr() != nullptr && PyType_IsSubtype(type, reinterpret_cast<PyTypeObject *>(generic.ptr()))) {
+		return true;
+	}
+	// A subclass is not taken: numpy.ma.masked and a masked array of no dimensions carry a payload under their mask
+	auto ndarray = import_cache.numpy.ndarray();
+	return ndarray.ptr() != nullptr && reinterpret_cast<PyObject *>(type) == ndarray.ptr() &&
+	       nb::cast<idx_t>(cell.attr("ndim")) == 0;
+}
+
+//! A datetime or a timedelta holds no unit finer than a microsecond, so item() gives an integer at these
+static bool IsFinerThanAMicrosecond(nb::handle dtype) {
+	auto code = nb::cast<string>(dtype.attr("str"));
+	return StringUtil::EndsWith(code, "ns]") || StringUtil::EndsWith(code, "ps]") ||
+	       StringUtil::EndsWith(code, "fs]") || StringUtil::EndsWith(code, "as]");
+}
+
+nb::object PythonValueOfNumpyScalar(nb::handle cell, timestamp_ns_t &timestamp) {
+	auto object = cell.ptr();
+	// numpy's float, str and bytes scalars are a float, str and bytes the conversion reads as they are, where item()
+	// would drop the trailing NUL characters of a str or bytes; an int or None is never a numpy scalar
+	if (object == Py_None || PyLong_Check(object) || PyFloat_Check(object) || PyUnicode_Check(object) ||
+	    PyBytes_Check(object) || !IsNumpyScalar(cell)) {
+		return nb::borrow(cell);
+	}
+	auto dtype = cell.attr("dtype");
+	auto kind = nb::cast<string>(dtype.attr("kind"));
+	if (kind == "M" && IsFinerThanAMicrosecond(dtype)) {
+		// No Python value holds the nanoseconds; the engine's cast into the column then treats them as it treats a
+		// datetime64[ns] column of a frame
+		auto nanoseconds = cell.attr("astype")("datetime64[ns]").attr("item")();
+		if (nanoseconds.is_none()) {
+			return nanoseconds;
+		}
+		timestamp = timestamp_ns_t(nb::cast<int64_t>(nanoseconds));
+		return nb::object();
+	}
+	nb::object value;
+	if (kind == "m" && IsFinerThanAMicrosecond(dtype)) {
+		value = cell.attr("astype")("timedelta64[us]").attr("item")();
+	} else {
+		value = cell.attr("item")();
+	}
+	return IsNumpyScalar(value) ? nb::borrow(cell) : value;
+}
+
 string TransformPythonString(nb::handle str) {
 	Py_ssize_t size;
 	const char *data = PyUnicode_AsUTF8AndSize(str.ptr(), &size);
@@ -91,23 +176,31 @@ static vector<Identifier> TransformStructKeys(nb::handle keys, idx_t size) {
 	for (idx_t i = 0; i < size; i++) {
 		// str() accepts non-string keys, such as the integer keys of a MAP that DuckDB returns as a plain {1: 10}
 		// dict, which nanobind's nb::cast<std::string> rejects.
-		res.emplace_back(Identifier(nb::cast<std::string>(nb::str(keys.attr("__getitem__")(i)))));
+		res.emplace_back(Identifier(TransformPythonString(nb::str(keys.attr("__getitem__")(i)))));
 	}
 	return res;
 }
 
-static bool IsValidMapComponent(const nb::handle &component) {
-	// The component is either NULL
-	if (nb::none().is(component)) {
+//! Whether an object is a list the conversion reads as a LIST: a list, a tuple or a numpy array of at least one
+//! dimension, since an array of none holds a single value
+static bool IsListLike(nb::handle ele) {
+	if (PyList_Check(ele.ptr()) || PyTuple_Check(ele.ptr())) {
 		return true;
 	}
-	if (!nb::hasattr(component, "__getitem__")) {
+	return duckdb::PyUtil::IsInstance(ele, DuckDBPyConnection::ImportCache()->numpy.ndarray()) &&
+	       nb::cast<idx_t>(ele.attr("ndim")) > 0;
+}
+
+bool MixesAListAndAValue(const PyDictionary &dict) {
+	if (dict.len != 2) {
 		return false;
 	}
-	if (!nb::hasattr(component, "__len__")) {
+	auto keys = dict[nb::str("key")];
+	auto values = dict[nb::str("value")];
+	if (!keys || !values || nb::none().is(keys) || nb::none().is(values)) {
 		return false;
 	}
-	return true;
+	return IsListLike(keys) != IsListLike(values);
 }
 
 bool DictionaryHasMapFormat(const PyDictionary &dict) {
@@ -124,24 +217,58 @@ bool DictionaryHasMapFormat(const PyDictionary &dict) {
 		return false;
 	}
 
-	if (!IsValidMapComponent(keys)) {
-		return false;
+	// Two lists of one length are a MAP's keys and values, and None on both sides, or beside a list, a NULL MAP; any
+	// other dict is a plain one, so a NULL entry or a list beside a plain value stays an entry or a field
+	auto key_none = nb::none().is(keys);
+	auto value_none = nb::none().is(values);
+	if (key_none || value_none) {
+		return (key_none || IsListLike(keys)) && (value_none || IsListLike(values));
 	}
-	if (!IsValidMapComponent(values)) {
-		return false;
-	}
+	return IsListLike(keys) && IsListLike(values) && nb::len(keys) == nb::len(values);
+}
 
-	// If either of the components is NULL, return early
-	if (nb::none().is(keys) || nb::none().is(values)) {
-		return true;
-	}
+namespace {
+//! The field index of each shaped STRUCT a declared scan meets, kept per thread until the scan of the vector ends,
+//! since each takes a pass over the fields to build and every dict of the vector asks the same one; an entry holds
+//! its type, so the type information it is found by cannot be freed and given to another type while it is kept, and
+//! an index stays where it is while others are added
+struct FieldIndex {
+	LogicalType type;
+	identifier_map_t<idx_t> fields;
+};
 
-	// Verify that both the keys and values are of the same length
-	auto size = nb::len(keys);
-	if (size != nb::len(values)) {
-		return false;
+unordered_map<const LogicalTypeInfo *, FieldIndex> &FieldIndexes() {
+	thread_local unordered_map<const LogicalTypeInfo *, FieldIndex> indexes;
+	return indexes;
+}
+
+const identifier_map_t<idx_t> &FieldIndexOf(const LogicalType &struct_type) {
+	auto &indexes = FieldIndexes();
+	auto entry = indexes.find(&struct_type.GetTypeInfo());
+	if (entry != indexes.end()) {
+		return entry->second.fields;
 	}
-	return true;
+	auto &index = indexes[&struct_type.GetTypeInfo()];
+	index.type = struct_type;
+	for (idx_t child = 0; child < StructType::GetChildCount(struct_type); child++) {
+		index.fields.emplace(StructType::GetChildName(struct_type, child), child);
+	}
+	return index.fields;
+}
+} // namespace
+
+// Python a conversion runs, as a tzinfo's utcoffset, can start another declared scan on this thread while an outer
+// conversion holds an index, so only the outermost scope drops them
+static thread_local idx_t struct_field_index_scopes = 0;
+
+StructFieldIndexScope::StructFieldIndexScope() {
+	struct_field_index_scopes++;
+}
+
+StructFieldIndexScope::~StructFieldIndexScope() {
+	if (--struct_field_index_scopes == 0) {
+		FieldIndexes().clear();
+	}
 }
 
 Value TransformDictionaryToStruct(optional_ptr<ClientContext> context, const PyDictionary &dict,
@@ -151,12 +278,15 @@ Value TransformDictionaryToStruct(optional_ptr<ClientContext> context, const PyD
 		                             dict.ToString(), target_type.ToString());
 	};
 	bool struct_target = StructType::IsStruct(target_type);
-	if (struct_target && dict.len != StructType::GetChildCount(target_type)) {
+	// A shape gives only the containers of the values below it: the dict's own keys name the fields, as without a
+	// target, and each value converts with the shape of the field of its name
+	bool shape_only = struct_target && IsShape(target_type);
+	if (struct_target && !shape_only && dict.len != StructType::GetChildCount(target_type)) {
 		throw conversion_error();
 	}
 
 	child_list_t<Value> struct_values;
-	if (StructType::IsUnnamed(target_type)) {
+	if (!shape_only && StructType::IsUnnamed(target_type)) {
 		// A TUPLE has no member names, so its members take the dict's values in dict order.
 		for (idx_t i = 0; i < dict.len; i++) {
 			auto val = TransformPythonValue(context, dict.values.attr("__getitem__")(i),
@@ -167,10 +297,31 @@ Value TransformDictionaryToStruct(optional_ptr<ClientContext> context, const PyD
 	}
 
 	auto struct_keys = TransformStructKeys(dict.keys, dict.len);
-	if (!struct_target) {
+	if (!struct_target || shape_only) {
+		const LogicalType unknown(LogicalTypeId::UNKNOWN);
+		auto field_count = shape_only ? StructType::GetChildCount(target_type) : 0;
+		// The field at a key's own position is tried first, as df() hands a STRUCT over in field order; a key found
+		// elsewhere is looked up in an index of the field names, so a wide STRUCT costs no search for every key
+		optional_ptr<const identifier_map_t<idx_t>> fields;
 		for (idx_t i = 0; i < dict.len; i++) {
-			auto val =
-			    TransformPythonValue(context, dict.values.attr("__getitem__")(i), LogicalType::UNKNOWN, nan_as_null);
+			optional_idx field;
+			if (i < field_count && StructType::GetChildName(target_type, i) == struct_keys[i]) {
+				field = i;
+			} else if (field_count > 0) {
+				if (!fields) {
+					fields = &FieldIndexOf(target_type);
+				}
+				auto entry = fields->find(struct_keys[i]);
+				if (entry != fields->end()) {
+					field = entry->second;
+				}
+			}
+			auto &child_type = field.IsValid() ? StructType::GetChildType(target_type, field.GetIndex()) : unknown;
+			auto value = nb::steal(PySequence_GetItem(dict.values.ptr(), NumericCast<Py_ssize_t>(i)));
+			if (!value.is_valid()) {
+				throw nb::python_error();
+			}
+			auto val = TransformPythonValue(context, value, child_type, nan_as_null);
 			struct_values.emplace_back(make_pair(std::move(struct_keys[i]), std::move(val)));
 		}
 		return Value::STRUCT(std::move(struct_values));
@@ -203,6 +354,144 @@ Value TransformDictionaryToStruct(optional_ptr<ClientContext> context, const PyD
 	return Value::STRUCT(std::move(struct_values));
 }
 
+// Short enough to stay in a string's own buffer, since every shaped conversion compares it
+static constexpr const char *SHAPE_ALIAS = "duckdb_py_shape";
+
+LogicalType AsShape(const LogicalType &type) {
+	return type.WithAlias(SHAPE_ALIAS);
+}
+
+bool IsShape(const LogicalType &type) {
+	return type.HasAlias() && type.GetAlias() == SHAPE_ALIAS;
+}
+
+int64_t NanosecondOf(nb::handle cell) {
+	// Interned once, since every cell of a timestamp column asks
+	static PyObject *const name = PyUnicode_InternFromString("nanosecond");
+	if (!name) {
+		PyErr_Clear();
+		return -1;
+	}
+	auto nanosecond = nb::steal(PyObject_GetAttr(cell.ptr(), name));
+	if (!nanosecond.is_valid()) {
+		PyErr_Clear();
+		return -1;
+	}
+	// NaT's nanosecond is NaN
+	return PyLong_Check(nanosecond.ptr()) ? PyLong_AsLongLong(nanosecond.ptr()) : -1;
+}
+
+bool HoldsNanoseconds(nb::handle cell, timestamp_ns_t &nanoseconds, bool zoned) {
+	auto datetime_type = DuckDBPyConnection::ImportCache()->datetime.datetime();
+	if (Py_TYPE(cell.ptr()) == reinterpret_cast<PyTypeObject *>(datetime_type.ptr()) ||
+	    !duckdb::PyUtil::IsInstance(cell, datetime_type)) {
+		return false;
+	}
+	// A Timestamp without nanoseconds reads as the datetime it is: its value in nanoseconds overflows outside the
+	// years 1677 to 2262, and a coarser column would judge that value by a cast where the datetime fits outright
+	if (NanosecondOf(cell) <= 0 || nb::getattr(cell, "tzinfo").is_none() == zoned) {
+		return false;
+	}
+	// A zone aware Timestamp's value counts the nanoseconds since the epoch in UTC, as a TIMESTAMPTZ_NS does
+	nanoseconds = timestamp_ns_t(nb::cast<int64_t>(cell.attr("value")));
+	return true;
+}
+
+Value TransformTimestamp(optional_ptr<ClientContext> context, nb::handle ele, const LogicalType &target_type,
+                         bool nan_as_null) {
+	timestamp_ns_t nanoseconds;
+	if (target_type.id() == LogicalTypeId::TIMESTAMP_NS && HoldsNanoseconds(ele, nanoseconds, false)) {
+		return Value::TIMESTAMPNS(nanoseconds);
+	}
+	if (target_type.id() == LogicalTypeId::TIMESTAMP_TZ_NS && HoldsNanoseconds(ele, nanoseconds, true)) {
+		return Value::TIMESTAMPTZNS(timestamp_tz_ns_t(nanoseconds.value));
+	}
+	auto plain = PythonValueOfNumpyScalar(ele, nanoseconds);
+	if (!plain.is_valid()) {
+		return Value::TIMESTAMPNS(nanoseconds);
+	}
+	return TransformPythonValue(context, plain, LogicalType::UNKNOWN, nan_as_null);
+}
+
+//! Whether an object is what a shape is for: a dict for a MAP or a STRUCT, a list for a LIST or an ARRAY; any other
+//! object converts without a target and meets the engine's cast or the kind check, so a tuple reads as a LIST at
+//! every depth, as the appender reads a value of a row
+static bool ShapeTakes(nb::handle ele, const LogicalType &shape) {
+	switch (shape.id()) {
+	case LogicalTypeId::MAP:
+	case LogicalTypeId::STRUCT:
+		return PyDict_Check(ele.ptr());
+	case LogicalTypeId::LIST:
+	case LogicalTypeId::ARRAY:
+		return IsListLike(ele);
+	default:
+		return false;
+	}
+}
+
+Value TransformMapEntry(optional_ptr<ClientContext> context, nb::handle entry, const LogicalType &target_type,
+                        bool nan_as_null) {
+	if (IsShape(target_type) || target_type.IsNested() || target_type.id() == LogicalTypeId::UNKNOWN ||
+	    target_type.id() == LogicalTypeId::UNION) {
+		return TransformPythonValue(context, entry, target_type, nan_as_null);
+	}
+	auto value = TransformTimestamp(context, entry, target_type, nan_as_null);
+	if (!context) {
+		return value.DefaultCastAs(target_type);
+	}
+	string error;
+	auto cast = value.TryCastAs(*context, target_type, &error);
+	if (!cast) {
+		throw ConversionException(error);
+	}
+	return std::move(*cast);
+}
+
+//! A MAP of the entries of a sequence of keys and one of values, both of the given size; under a shape each key and
+//! value converts as TransformMapEntry reads it
+static Value MapFromEntries(optional_ptr<ClientContext> context, nb::handle keys, nb::handle values, idx_t size,
+                            const LogicalType &target_type, bool nan_as_null) {
+	auto key_target = MapType::KeyType(target_type);
+	auto value_target = MapType::ValueType(target_type);
+	auto shape = IsShape(target_type);
+
+	LogicalType key_type = LogicalType::SQLNULL;
+	LogicalType value_type = LogicalType::SQLNULL;
+
+	vector<Value> map_keys;
+	vector<Value> map_values;
+	map_keys.reserve(size);
+	map_values.reserve(size);
+	for (idx_t i = 0; i < size; i++) {
+		auto key = nb::steal(PySequence_GetItem(keys.ptr(), NumericCast<Py_ssize_t>(i)));
+		auto value = nb::steal(PySequence_GetItem(values.ptr(), NumericCast<Py_ssize_t>(i)));
+		if (!key.is_valid() || !value.is_valid()) {
+			throw nb::python_error();
+		}
+		Value new_key = shape ? TransformMapEntry(context, key, key_target, nan_as_null)
+		                      : TransformPythonValue(context, key, key_target, nan_as_null);
+		Value new_value = shape ? TransformMapEntry(context, value, value_target, nan_as_null)
+		                        : TransformPythonValue(context, value, value_target, nan_as_null);
+
+		key_type = ProxiedForceMaxLogicalType(context, key_type, new_key.type());
+		value_type = ProxiedForceMaxLogicalType(context, value_type, new_value.type());
+		map_keys.push_back(std::move(new_key));
+		map_values.push_back(std::move(new_value));
+	}
+	// A target holding UNKNOWN asks for no type there, and a MAP of such a type is no value the engine can hold
+	if (key_type.id() == LogicalTypeId::SQLNULL && !TypeVisitor::Contains(key_target, LogicalTypeId::UNKNOWN) &&
+	    !IsShape(key_target)) {
+		key_type = key_target;
+	}
+	if (value_type.id() == LogicalTypeId::SQLNULL && !TypeVisitor::Contains(value_target, LogicalTypeId::UNKNOWN) &&
+	    !IsShape(value_target)) {
+		value_type = value_target;
+	}
+
+	// Built from the keys and values themselves, as the STRUCT of each entry would only be taken apart again
+	return Value::MAP(key_type, value_type, std::move(map_keys), std::move(map_values));
+}
+
 Value TransformStructFormatDictionaryToMap(optional_ptr<ClientContext> context, const PyDictionary &dict,
                                            const LogicalType &target_type, bool nan_as_null) {
 	if (dict.len == 0) {
@@ -219,43 +508,19 @@ Value TransformStructFormatDictionaryToMap(optional_ptr<ClientContext> context, 
 
 	auto size = nb::len(dict.keys);
 	D_ASSERT(size == nb::len(dict.values));
-
-	auto key_target = MapType::KeyType(target_type);
-	auto value_target = MapType::ValueType(target_type);
-
-	LogicalType key_type = LogicalType::SQLNULL;
-	LogicalType value_type = LogicalType::SQLNULL;
-
-	vector<Value> elements;
-	for (idx_t i = 0; i < size; i++) {
-
-		Value new_key = TransformPythonValue(context, dict.keys.attr("__getitem__")(i), key_target, nan_as_null);
-		Value new_value = TransformPythonValue(context, dict.values.attr("__getitem__")(i), value_target, nan_as_null);
-
-		key_type = ProxiedForceMaxLogicalType(context, key_type, new_key.type());
-		value_type = ProxiedForceMaxLogicalType(context, value_type, new_value.type());
-
-		child_list_t<Value> struct_values;
-		struct_values.emplace_back(make_pair("key", std::move(new_key)));
-		struct_values.emplace_back(make_pair("value", std::move(new_value)));
-
-		elements.push_back(Value::STRUCT(std::move(struct_values)));
-	}
-	if (key_type.id() == LogicalTypeId::SQLNULL) {
-		key_type = key_target;
-	}
-	if (value_type.id() == LogicalTypeId::SQLNULL) {
-		value_type = value_target;
-	}
-
-	LogicalType map_type = LogicalType::MAP(key_type, value_type);
-
-	return Value::MAP(ListType::GetChildType(map_type), std::move(elements));
+	return MapFromEntries(context, dict.keys, dict.values, size, target_type, nan_as_null);
 }
 
 Value TransformDictionaryToMap(optional_ptr<ClientContext> context, const PyDictionary &dict,
                                const LogicalType &target_type, bool nan_as_null) {
 	if (target_type.id() != LogicalTypeId::UNKNOWN && !DictionaryHasMapFormat(dict)) {
+		if (MixesAListAndAValue(dict)) {
+			auto keys = TransformPythonValue(context, dict[nb::str("key")], LogicalType::UNKNOWN, nan_as_null);
+			auto values = TransformPythonValue(context, dict[nb::str("value")], LogicalType::UNKNOWN, nan_as_null);
+			throw InvalidInputException("A dict of 'key' and 'value' for a MAP takes a list of keys and a list of "
+			                            "values, not %s and %s",
+			                            keys.type().ToString(), values.type().ToString());
+		}
 		// dict == { 'k1': v1, 'k2': v2, ..., 'kn': vn }
 		return TransformStructFormatDictionaryToMap(context, dict, target_type, nan_as_null);
 	}
@@ -269,7 +534,6 @@ Value TransformDictionaryToMap(optional_ptr<ClientContext> context, const PyDict
 	}
 
 	auto key_size = nb::len(keys);
-	D_ASSERT(key_size == nb::len(values));
 	if (key_size == 0) {
 		// dict == { 'key': [], 'value': [] }
 		return EmptyMapValue();
@@ -279,19 +543,32 @@ Value TransformDictionaryToMap(optional_ptr<ClientContext> context, const PyDict
 	LogicalType key_target = LogicalTypeId::UNKNOWN;
 	LogicalType value_target = LogicalTypeId::UNKNOWN;
 
-	if (target_type.id() != LogicalTypeId::UNKNOWN) {
+	if (IsShape(target_type)) {
+		// A shape reads the two lists entry by entry, as it reads a dict's own entries
+		auto items = [](nb::handle list) {
+			return PyList_Check(list.ptr()) || PyTuple_Check(list.ptr()) ? nb::borrow<nb::object>(list)
+			                                                             : list.attr("tolist")();
+		};
+		return MapFromEntries(context, items(keys), items(values), key_size, target_type, nan_as_null);
+	} else if (target_type.id() != LogicalTypeId::UNKNOWN) {
 		key_target = LogicalType::LIST(MapType::KeyType(target_type));
 		value_target = LogicalType::LIST(MapType::ValueType(target_type));
 	}
 
 	auto key_list = TransformPythonValue(context, keys, key_target, nan_as_null);
 	auto value_list = TransformPythonValue(context, values, value_target, nan_as_null);
+	if (key_list.type().id() != LogicalTypeId::LIST || value_list.type().id() != LogicalTypeId::LIST ||
+	    ListValue::GetChildren(key_list).size() != ListValue::GetChildren(value_list).size()) {
+		throw InvalidInputException("A dict of 'key' and 'value' for a MAP takes a list of keys and a list of values, "
+		                            "not %s and %s",
+		                            key_list.type().ToString(), value_list.type().ToString());
+	}
 
 	LogicalType key_type = LogicalType::SQLNULL;
 	LogicalType value_type = LogicalType::SQLNULL;
 
 	vector<Value> elements;
-	for (idx_t i = 0; i < key_size; i++) {
+	for (idx_t i = 0; i < ListValue::GetChildren(key_list).size(); i++) {
 
 		Value new_key = ListValue::GetChildren(key_list)[i];
 		Value new_value = ListValue::GetChildren(value_list)[i];
@@ -507,26 +784,6 @@ struct ContiguousBuffer {
 
 	Py_buffer view;
 };
-
-// Importing pandas here instead would run the import on whichever thread of the query converts the value, and a None
-// entry in sys.modules is how a program blocks the import
-bool PandasIsImported(PythonImportCache &import_cache) {
-	if (import_cache.pandas.LoadSucceeded()) {
-		return true;
-	}
-	// Interned once: building the key on every call, or asking the import cache about a module it has not loaded,
-	// costs an allocation for every converted value
-	static PyObject *const name = PyUnicode_InternFromString("pandas");
-	if (!name) {
-		PyErr_Clear();
-		return false;
-	}
-	auto module = PyDict_GetItemWithError(PyImport_GetModuleDict(), name);
-	if (!module && PyErr_Occurred()) {
-		PyErr_Clear();
-	}
-	return module && module != Py_None;
-}
 
 bool NumpyMaIsImported() {
 	nb::str name("numpy.ma");
@@ -762,7 +1019,9 @@ struct PythonVectorConversion {
 		if (result.GetType().id() != LogicalTypeId::BOOLEAN) {
 			throw TypeMismatchException(
 			    LogicalType::BOOLEAN, result.GetType(),
-			    "Python Conversion Failure: Expected a value of type %s, but got a value of type boolean");
+			    StringUtil::Format(
+			        "Python Conversion Failure: Expected a value of type %s, but got a value of type boolean",
+			        result.GetType().ToString()));
 		}
 		FlatVector::GetDataMutable<bool>(result)[result_offset] = val;
 	}
@@ -1207,10 +1466,32 @@ void TransformPythonObject(optional_ptr<ClientContext> context, nb::handle ele, 
 	TransformPythonObjectInternal<PythonVectorConversion>(context, ele, vector, result_offset, nan_as_null);
 }
 
+//! A shape of no children marks a timestamp, read as TransformTimestamp reads it; a container shape takes only the
+//! objects it is for, so a scalar inside a container meets the engine's cast as at the top, never a type holding
+//! UNKNOWN
+static Value TransformShapedValue(optional_ptr<ClientContext> context, nb::handle ele, const LogicalType &shape,
+                                  bool nan_as_null) {
+	if (!shape.IsNested()) {
+		return TransformTimestamp(context, ele, shape, nan_as_null);
+	}
+	if (!ShapeTakes(ele, shape)) {
+		return TransformPythonValue(context, ele, LogicalType::UNKNOWN, nan_as_null);
+	}
+	Value result;
+	TransformPythonObjectInternal<PythonValueConversion>(context, ele, result, shape, nan_as_null);
+	return result;
+}
+
 Value TransformPythonValue(optional_ptr<ClientContext> context, nb::handle ele, const LogicalType &target_type,
                            bool nan_as_null) {
+	// One named result on every path, so it is built in place rather than moved out for every value converted; a
+	// conversion without a target, the most common, asks for no alias
 	Value result;
-	TransformPythonObjectInternal<PythonValueConversion>(context, ele, result, target_type, nan_as_null);
+	if (target_type.id() != LogicalTypeId::UNKNOWN && IsShape(target_type)) {
+		result = TransformShapedValue(context, ele, target_type, nan_as_null);
+	} else {
+		TransformPythonObjectInternal<PythonValueConversion>(context, ele, result, target_type, nan_as_null);
+	}
 	return result;
 }
 

@@ -1,1 +1,0 @@
-import{j as o,m as l}from"./index-DRiZw0ku.js";function i({message:r="Prompt 模板不兼容或缺少变量，请检查",className:n}){return o.jsx("span",{role:"img","aria-label":r,title:r,className:l("inline-block h-2 w-2 shrink-0 rounded-full bg-yellow-500",n)})}export{i as P};

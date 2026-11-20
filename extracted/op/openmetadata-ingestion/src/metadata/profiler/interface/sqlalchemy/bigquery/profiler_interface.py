@@ -16,7 +16,7 @@ supporting sqlalchemy abstraction layer
 
 from collections.abc import Iterable
 from copy import deepcopy
-from typing import Any, Type, cast  # noqa: UP035
+from typing import Any, cast
 
 from sqlalchemy import Column, inspect
 from sqlalchemy.sql.type_api import TypeEngine
@@ -51,7 +51,7 @@ class BigQueryProfilerInterface(SQAProfilerInterface):
 
     def _compute_system_metrics(
         self,
-        metrics: Type[System],  # noqa: UP006
+        metrics: type[System],
         runner: QueryRunner,
         *args,
         **kwargs,
@@ -79,7 +79,7 @@ class BigQueryProfilerInterface(SQAProfilerInterface):
     ):
         """"""
         # pylint: disable=import-outside-toplevel
-        from sqlalchemy_bigquery import STRUCT  # noqa: PLC0415
+        from sqlalchemy_bigquery import STRUCT
 
         columns_list = []
         for key, value in columns:
@@ -101,7 +101,7 @@ class BigQueryProfilerInterface(SQAProfilerInterface):
     def get_columns(self) -> Column:
         """Get columns from table"""
         # pylint: disable=import-outside-toplevel
-        from sqlalchemy_bigquery import STRUCT  # noqa: PLC0415
+        from sqlalchemy_bigquery import STRUCT
 
         columns = []
         for column in inspect(self.table).c:

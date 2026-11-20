@@ -13,13 +13,7 @@ from uuid import UUID
 from aviary.functional import EnvironmentBuilder
 from ldp.agent import Agent, AgentConfig
 from ldp.alg.callbacks import Callback
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_CROW_JOB_RUN_TIMEOUT = 60 * 60 * 24  # 24 hours in sec
 MIN_CROW_JOB_RUN_TIMEOUT = 0  # sec
@@ -100,7 +94,7 @@ class JobNames(StrEnum):
     @classmethod
     def from_stage(cls, job_name: str, stage: "Stage | None" = None) -> str:
         if stage is None:
-            import logging  # noqa: PLC0415
+            import logging  # ruff: ignore[import-outside-top-level]
 
             logger = logging.getLogger(__name__)
             logger.warning(
@@ -305,7 +299,7 @@ class TaskQueuesConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def add_priority_queues(self):
+    def add_priority_queues(self) -> Self:
         if self.queues is None:
             self.queues = [
                 TaskQueue.from_priority_queue_type_and_max_running_jobs(
@@ -348,7 +342,7 @@ class Stage(StrEnum):
             return cls[stage.upper()]
         except KeyError as e:
             raise ValueError(
-                f"Invalid stage: {stage}. Must be one of: {', '.join(cls.__members__)}",
+                f"Invalid stage: {stage}. Must be one of: {', '.join(cls.__members__)}"
             ) from e
 
 
@@ -370,31 +364,6 @@ class Step(StrEnum):
     AFTER_ENV_RESET = Callback.after_env_reset.__name__
     AFTER_ENV_STEP = Callback.after_env_step.__name__
     AFTER_TRANSITION = Callback.after_transition.__name__
-
-
-class FramePathContentType(StrEnum):
-    TEXT = auto()
-    IMAGE = auto()
-    MARKDOWN = auto()
-    JSON = auto()
-    PDF_LINK = auto()
-    PDB = auto()
-    NOTEBOOK = auto()
-    PQA = auto()
-
-
-class FramePath(BaseModel):
-    path: str = Field(
-        description="List of JSON path strings (e.g. 'input.data.frame') indicating where to find important frame data. None implies all data is important and the UI will render the full environment frame as is.",
-    )
-    type: FramePathContentType = Field(
-        default=FramePathContentType.JSON,
-        description="Content type of the data at this path",
-    )
-    is_iterable: bool = Field(
-        default=False,
-        description="Content of the JSON path will be iterable, this key tell us if the rendering component should create multiple components for a single key",
-    )
 
 
 class NamedEntity(BaseModel):
@@ -426,7 +395,7 @@ class DockerContainerConfiguration(BaseModel):
     )
     gpu_count: int | None = Field(
         default=None,
-        description="Number of NVIDIA GPUs to allocate. Requires CELERY backend.",
+        description="Number of NVIDIA GPUs to allocate. Requires a GPU-enabled sandbox tier.",
     )
 
     MINIMUM_MEMORY: ClassVar[int] = 1
@@ -441,7 +410,7 @@ class DockerContainerConfiguration(BaseModel):
         value = int(match.group(1))
         if value < 1:
             raise ValueError("Disk space must be at least 1Gi")
-        if value > 100:  # noqa: PLR2004
+        if value > 100:  # ruff: ignore[magic-value-comparison]
             raise ValueError("Disk space must not exceed 100Gi")
         return v
 
@@ -454,7 +423,7 @@ class DockerContainerConfiguration(BaseModel):
         value = int(match.group(1))
         if value < 1:
             raise ValueError("tmp_size must be at least 1Gi")
-        if value > 50:  # noqa: PLR2004
+        if value > 50:  # ruff: ignore[magic-value-comparison]
             raise ValueError("tmp_size must not exceed 50Gi")
         return v
 
@@ -525,9 +494,7 @@ class JobDeploymentConfig(BaseModel):
         "This is a list of directories relative to the path parameter.",
     )
 
-    name: str = Field(
-        description="The name of the crow job.",
-    )
+    name: str = Field(description="The name of the crow job.")
 
     environment: str = Field(
         description="Your environment path, should be a module reference if we pass an environment. "
@@ -556,8 +523,7 @@ class JobDeploymentConfig(BaseModel):
     )
 
     container_config: DockerContainerConfiguration | None = Field(
-        default=None,
-        description="The configuration for the cloud run container.",
+        default=None, description="The configuration for the cloud run container."
     )
 
     python_version: str = Field(
@@ -604,7 +570,7 @@ class JobDeploymentConfig(BaseModel):
 
     @field_validator("storage_location")
     @classmethod
-    def warn_storage_dir_deprecated(cls, v):
+    def warn_storage_dir_deprecated(cls, v: str) -> str:
         warnings.warn(
             "The 'storage_location' has been deprecated and this feature is no longer supported. "
             "If your job requires storage, please use the data-storage api to store artifacts.",
@@ -612,18 +578,6 @@ class JobDeploymentConfig(BaseModel):
             stacklevel=2,
         )
         return v
-
-    frame_paths: list[FramePath] | None = Field(
-        default=None,
-        description="List of FramePath which indicates where to find important frame data, and how to render it.",
-    )
-
-    markdown_template_path: str | os.PathLike | None = Field(
-        default=None,
-        description="The path to the markdown template file. This file will be dynamically built within the environment frame section of the UI. "
-        "The keys used in the markdown file follow the same requirement as FramePath.path. None implies no markdown template is present and the UI "
-        "will render the environment frame as is.",
-    )
 
     task_queues_config: TaskQueuesConfig | None = Field(
         default=None,
@@ -649,15 +603,10 @@ class JobDeploymentConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_min_replicas_for_sandbox(self) -> Self:
-        env_vars = self.environment_variables
-        if not env_vars or env_vars.get("EXECUTION_BACKEND") != "agent_sandbox":
-            return self
-        rv = env_vars.get("MIN_REPLICAS")
+    def validate_min_replicas(self) -> Self:
+        rv = (self.environment_variables or {}).get("MIN_REPLICAS")
         if rv is None:
-            raise ValueError(
-                "MIN_REPLICAS is required when EXECUTION_BACKEND=agent_sandbox"
-            )
+            return self
         try:
             v = int(rv)
         except (ValueError, TypeError):
@@ -669,19 +618,6 @@ class JobDeploymentConfig(BaseModel):
                 f"MIN_REPLICAS must be between {MIN_REPLICAS_FLOOR} and {MIN_REPLICAS_CEILING}, got: {v}"
             )
         return self
-
-    @field_validator("markdown_template_path")
-    @classmethod
-    def validate_markdown_path(
-        cls, v: str | os.PathLike | None
-    ) -> str | os.PathLike | None:
-        if v is not None:
-            path = Path(v)
-            if path.suffix.lower() not in {".md", ".markdown"}:
-                raise ValueError(
-                    f"Markdown template must be a .md or .markdown extension: {path}"
-                )
-        return v
 
     task_description: str | None = Field(
         default=None,
@@ -702,8 +638,7 @@ class JobDeploymentConfig(BaseModel):
     )
 
     branch_name: str | None = Field(
-        default=None,
-        description="Git branch name at deployment time.",
+        default=None, description="Git branch name at deployment time."
     )
 
     git_status: str | None = Field(
@@ -712,8 +647,7 @@ class JobDeploymentConfig(BaseModel):
     )
 
     is_chat: bool = Field(
-        default=False,
-        description=("Whether this crow is a chat-session agent"),
+        default=False, description=("Whether this crow is a chat-session agent")
     )
 
     image_uri: str | None = Field(
@@ -816,7 +750,9 @@ class JobDeploymentConfig(BaseModel):
             # behavior between path=Path('.') and path=Path('.').absolute(). TODO: get rid of this path-dependency
             # on module_name, since module_name isn't a well-defined concept in the non-functional case.
             return ""
-        return cast(EnvironmentBuilder, self.functional_environment).__name__  # type: ignore[attr-defined]
+        builder = cast("EnvironmentBuilder", self.functional_environment)
+        # Aviary's update_wrapper sets __name__ but does not declare it.
+        return cast("str", builder.__name__)  # ty: ignore[missing-attribute]
 
     @property
     def job_name(self) -> str:
@@ -861,12 +797,10 @@ class RuntimeConfig(BaseModel):
         ),
     )
     continued_job_id: UUID | None = Field(
-        default=None,
-        description="Optional job identifier for a continued job",
+        default=None, description="Optional job identifier for a continued job"
     )
     world_model_id: UUID | str | None = Field(
-        default=None,
-        description="Optional world model identifier for the task",
+        default=None, description="Optional world model identifier for the task"
     )
 
     @field_validator("agent")
@@ -965,17 +899,13 @@ class TaskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     task_id: UUID | None = Field(
-        default=None,
-        description="Optional task identifier",
-        alias="id",
+        default=None, description="Optional task identifier", alias="id"
     )
     project_id: UUID | None = Field(
-        default=None,
-        description="Optional group identifier for the task",
+        default=None, description="Optional group identifier for the task"
     )
     persona_id: UUID | None = Field(
-        default=None,
-        description="Persona project ID that owns `project_id`",
+        default=None, description="Persona project ID that owns `project_id`"
     )
     name: str | JobNames = Field(
         description="Name of the crow to execute eg. paperqa-crow"
@@ -993,8 +923,7 @@ class TaskRequest(BaseModel):
         description="Project ID for the /conversations/queue completion notification",
     )
     tags: list[str] | None = Field(
-        default=None,
-        description="Grouping association tags for a task.",
+        default=None, description="Grouping association tags for a task."
     )
     workspace_id: str | None = Field(
         default=None,
@@ -1030,7 +959,7 @@ class LiteTaskResponse(BaseModel):
         if not isinstance(data, dict):
             return data
         data["query"] = data.get("task", data.get("query"))
-        data["task_id"] = cast(UUID, data.get("id", data.get("task_id")))
+        data["task_id"] = cast("UUID", data.get("id", data.get("task_id")))
         return data
 
 
@@ -1045,7 +974,7 @@ class TaskResponse(BaseModel):
     created_at: datetime
     job_name: str
     share_status: str
-    permitted_accessors: dict[str, list[str | int]] | None = None
+    permitted_accessors: dict[str, list[str | int] | None] | None = None
     build_owner: str | None = None
     environment_name: str | None = None
     agent_name: str | None = None
@@ -1066,7 +995,7 @@ class TaskResponse(BaseModel):
         # TODO: [PLA-1154] We probably want to remove these two once we define the final names.
         data["job_name"] = data.get("crow")
         data["query"] = data.get("task")
-        data["task_id"] = cast(UUID, data.get("id")) if data.get("id") else None
+        data["task_id"] = cast("UUID", data.get("id")) if data.get("id") else None
         if not (metadata := data.get("metadata", {})):
             return data
         data["environment_name"] = metadata.get("environment_name")
@@ -1075,8 +1004,7 @@ class TaskResponse(BaseModel):
 
 
 class PhoenixTaskResponse(TaskResponse):
-    """
-    Response scheme for tasks executed with Phoenix.
+    """Response scheme for tasks executed with Phoenix.
 
     Additional fields:
         answer: Final answer from Phoenix
@@ -1101,8 +1029,7 @@ class PhoenixTaskResponse(TaskResponse):
 
 
 class FinchTaskResponse(TaskResponse):
-    """
-    Response scheme for tasks executed with Finch.
+    """Response scheme for tasks executed with Finch.
 
     Additional fields:
         answer: Final answer from Finch
@@ -1130,8 +1057,7 @@ class FinchTaskResponse(TaskResponse):
 
 
 class PQATaskResponse(TaskResponse):
-    """
-    Response scheme for tasks executed with PQA.
+    """Response scheme for tasks executed with PQA.
 
     Additional fields:
         answer: Final answer from PQA
@@ -1167,15 +1093,15 @@ class PQATaskResponse(TaskResponse):
         data["formatted_answer"] = answer.get("formatted_answer")
         data["answer_reasoning"] = answer.get("answer_reasoning")
         data["has_successful_answer"] = answer.get("has_successful_answer")
-        data["total_cost"] = cast(float, usage.get("total_cost"))
-        data["total_queries"] = cast(int, usage.get("total_queries"))
+        data["total_cost"] = cast("float", usage.get("total_cost"))
+        data["total_queries"] = cast("int", usage.get("total_queries"))
 
         return data
 
     def clean_verbose(self) -> "TaskResponse":
         """Clean the verbose response from the server."""
-        self.request = None  # pylint: disable=attribute-defined-outside-init
-        self.response = None  # pylint: disable=attribute-defined-outside-init
+        self.request = None
+        self.response = None
         return self
 
 
@@ -1188,7 +1114,7 @@ class TaskResponseVerbose(TaskResponse):
     agent_state: list[dict[str, Any]] | None = None
     environment_frame: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
-    permitted_accessors: dict[str, list[str | int]] | None = None
+    permitted_accessors: dict[str, list[str | int] | None] | None = None
     deployment_config: GitDeploymentInfo | dict[str, Any] | None = None
     gcloud_operation_name: str | None = None
     started_at: datetime | None = None

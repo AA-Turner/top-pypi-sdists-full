@@ -266,6 +266,10 @@ _PYTHON_SNOWPARK_USE_LOGICAL_TYPE_FOR_CREATE_DATAFRAME_STRING = (
 _PYTHON_SNOWPARK_ENABLE_QUERY_COMPILATION_STAGE = (
     "PYTHON_SNOWPARK_COMPILATION_STAGE_ENABLED"
 )
+# parameter used to turn off the token columns of DataFrameReader.documents() reads. If
+# turned off, AI_COMPLETE is called without show_details and no token columns are
+# returned, as before the columns were added.
+_PYTHON_SNOWPARK_DOCUMENTS_TOKEN_USAGE = "PYTHON_SNOWPARK_DOCUMENTS_TOKEN_USAGE"
 _PYTHON_SNOWPARK_USE_CTE_OPTIMIZATION_VERSION = (
     "PYTHON_SNOWPARK_USE_CTE_OPTIMIZATION_VERSION"
 )
@@ -815,6 +819,11 @@ class Session:
         self._query_compilation_stage_enabled: bool = (
             self._conn._get_client_side_session_parameter(
                 _PYTHON_SNOWPARK_ENABLE_QUERY_COMPILATION_STAGE, False
+            )
+        )
+        self._documents_token_usage: bool = (
+            self._conn._get_client_side_session_parameter(
+                _PYTHON_SNOWPARK_DOCUMENTS_TOKEN_USAGE, True
             )
         )
         self._generate_multiline_queries: bool = (
@@ -3480,10 +3489,12 @@ class Session:
                     "name should be a string, or a sequence of name parts, not "
                     f"{type(name).__name__}."
                 )
-            name = ".".join(name)
-        validate_object_name(name)
+            qualified_name = ".".join(name)
+        else:
+            qualified_name = name
+        validate_object_name(qualified_name)
 
-        parts = [name]
+        parts = [qualified_name]
         for keyword, value in (
             ("DIMENSIONS", dimensions),
             ("METRICS", metrics),
@@ -3494,8 +3505,31 @@ class Session:
         if where is not None:
             parts.append(_render_semantic_view_where(where))
 
+        stmt = None
+        if _emit_ast:
+            stmt = self._ast_batch.bind()
+            ast = with_src_position(stmt.expr.semantic_view, stmt)
+            build_table_name(ast.name, name)
+            for field, value in (
+                ("dimensions", dimensions),
+                ("metrics", metrics),
+                ("facts", facts),
+                ("where", where),
+            ):
+                if value is None:
+                    continue
+                clause = getattr(ast, field)
+                if isinstance(value, str):
+                    clause.variadic = True
+                    build_expr_from_python_val(clause.args.add(), value)
+                else:
+                    for member in value:
+                        build_expr_from_python_val(clause.args.add(), member)
+
         df = self.sql(
-            f"SELECT * FROM SEMANTIC_VIEW({' '.join(parts)})", _emit_ast=_emit_ast
+            f"SELECT * FROM SEMANTIC_VIEW({' '.join(parts)})",
+            _ast_stmt=stmt,
+            _emit_ast=_emit_ast,
         )
         set_api_call_source(df, "Session.semantic_view")
         return df

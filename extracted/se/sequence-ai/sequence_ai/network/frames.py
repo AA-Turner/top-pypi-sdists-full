@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 A camera frame resized on the robot to the size its policy takes, before upload, and encoded as JPEG; and on the
-server, turned back into the array its policy reads.
+server, turned back into the array its policy reads - what openpi's own client and server carry (network.openpi:
+image_tools on the robot, its infer() on the server).
 
     from sequence_ai.network import frames
 
@@ -10,11 +11,6 @@ server, turned back into the array its policy reads.
     data = frames.encode(frame)        # a base64 JPEG, for an input that carries its frames as text
 
     image = frames.decode(data)        # on the server: the HxWx3 uint8 array
-
-    observation, n = frames.pack_pictures(observation)   # each HxWx3 uint8 array in it as JPEG, under any key
-    observation = frames.unpack_pictures(observation)    # on the server: each back as its array
-
-connect() packs an observation's pictures this way when its server says it reads JPEG; serve() unpacks them.
 
 No function here changes a frame implicitly: `encode` sends the frame it is given, at its own size; `resize_image`
 resizes a frame the way a policy was trained to see it, with the mode and the filter passed explicitly and no default;
@@ -24,7 +20,9 @@ header, without Pillow.
 WHY on the robot: a frame resized before upload is a smaller upload, and the robot's code knows how its policy was
 trained.
 
-"pad" is adapted from openpi's resize_with_pad (Apache-2.0): see THIRD_PARTY_NOTICES.md.
+Adapted from Physical-Intelligence/openpi packages/openpi-client/src/openpi_client/image_tools.py (Apache-2.0): "pad"
+is its _resize_with_pad_pil, so that a frame resized here is the frame openpi's own client sends
+(THIRD_PARTY_NOTICES.md).
 
 Pillow is imported where it is used, so importing this module costs nothing on a robot that sends no frames.
 """
@@ -35,8 +33,7 @@ import base64
 import binascii
 import io
 import struct
-import sys
-from typing import Any, Optional
+from typing import Any
 
 # Quality 95: the value was measured, not chosen by convention.
 #
@@ -132,131 +129,6 @@ def decode(picture: Any) -> Any:
         raise ValueError("not a JPEG or PNG image that Pillow can read") from e
     array.flags.writeable = False
     return array
-
-
-# ── pictures sent as JPEG, found by what they are ─────────────────────────────────────────────────────────────────────
-# What a robot's connection sends in place of each picture when its server says it reads JPEG (link.py: the server's
-# X-Seq-Reads names "jpeg"), and what the server restores: a map under the same reserved key as compressed.py's, so a
-# reader of either format leaves the other's maps as they are.
-#     {"__seq__": "jpeg", "v": 1, "data": <the picture as a JPEG, at its own size>}
-# A picture is a numpy array of shape HxWx3 and dtype uint8 with both sides at least PICTURE_MIN_SIDE - what a camera
-# gives and an image policy reads - or an RGB PIL image of that size, as resize_image returns it, under any key, at any
-# depth of the observation. Any other array (CxHxW, HxW, HxWx4, float, smaller) is sent as it is: JPEG changes a
-# picture's values a little (DEFAULT_JPEG_QUALITY has how much), which a policy that reads an image tolerates and another
-# array may not.
-PICTURE_KIND = "jpeg"
-PICTURE_VERSION = 1
-PICTURE_MIN_SIDE = 32
-_MARK = "__seq__"            # compressed.MARK
-_MAX_DEPTH = 64              # msgpack_io.MAX_DEPTH: nothing deeper is sent
-
-
-def is_picture(value: Any) -> bool:
-    """Whether `value` is a picture pack_pictures sends as JPEG: a numpy array of shape HxWx3 and dtype uint8, or an RGB
-    PIL image (resize_image's), both sides at least PICTURE_MIN_SIDE."""
-    if is_pil_image(value):
-        width, height = value.size
-        return value.mode == "RGB" and width >= PICTURE_MIN_SIDE and height >= PICTURE_MIN_SIDE
-    shape = getattr(value, "shape", None)
-    if getattr(getattr(value, "dtype", None), "name", None) != "uint8" or not hasattr(value, "__array_interface__"):
-        return False
-    return (isinstance(shape, tuple) and len(shape) == 3 and shape[2] == 3
-            and shape[0] >= PICTURE_MIN_SIDE and shape[1] >= PICTURE_MIN_SIDE)
-
-
-def is_pil_image(value: Any) -> bool:
-    """Whether `value` is a PIL image. Pillow is not imported for it: a process that made one has it loaded. A module
-    still being imported - warm() loads it on a thread of its own while the robot's first act packs - has no Image
-    class yet, and nothing made from one."""
-    cls = getattr(sys.modules.get("PIL.Image"), "Image", None)
-    return isinstance(cls, type) and isinstance(value, cls)
-
-
-def warm() -> None:
-    """Load what encoding a picture as JPEG loads on its first call - Pillow and its JPEG encoder, tens of milliseconds
-    - now, so the first picture sent does not wait for it. Nothing where Pillow is not installed."""
-    try:
-        from PIL import Image
-    except ImportError:
-        return
-    Image.new("RGB", (8, 8)).save(io.BytesIO(), format="JPEG")
-
-
-def is_packed_picture(value: Any) -> bool:
-    """Whether `value` is the map pack_pictures writes for one picture."""
-    return isinstance(value, dict) and value.get(_MARK) == PICTURE_KIND
-
-
-def pack_pictures(value: Any, *, quality: int = DEFAULT_JPEG_QUALITY) -> "tuple[Any, int]":
-    """
-    `value` - an observation - with each picture in it (is_picture), in any of its dicts, lists and tuples, replaced by
-    the map unpack_pictures restores: (the new value, how many pictures it holds as JPEG). The containers are new ones and
-    `value` is not changed. Every other value is kept as it is. Needs Pillow, which sequence-ai installs.
-
-        observation, pictures = frames.pack_pictures({"image": frame, "state": joints})
-    """
-    count = [0]
-
-    def walk(item: Any, depth: int) -> Any:
-        if depth > _MAX_DEPTH:
-            return item                         # left to msgpack_io, which refuses it
-        if is_picture(item):
-            count[0] += 1
-            return {_MARK: PICTURE_KIND, "v": PICTURE_VERSION, "data": _jpeg(item, quality)}
-        if isinstance(item, dict):
-            return {key: walk(inner, depth + 1) for key, inner in item.items()}
-        if type(item) in (list, tuple):
-            return type(item)(walk(inner, depth + 1) for inner in item)
-        return item
-
-    packed = walk(value, 0)
-    return packed, count[0]
-
-
-def unpack_pictures(value: Any, *, limit: Optional[int] = None) -> Any:
-    """
-    `value` - an observation as msgpack_io.unpack read it - with each map pack_pictures wrote turned back into its
-    picture: the HxWx3 uint8 array its JPEG decodes to (decode: read-only, its values close to the robot's, not equal),
-    in new containers. Every other value is returned as it is, a map of another kind under the reserved key among them
-    (compressed.expand restores compressed.py's). `limit`: the most bytes one picture may decode to, read from its
-    JPEG's header (width x height x 3) before anything is decoded, as compressed.expand's limit - a JPEG of a few
-    kilobytes can name a picture of hundreds of megabytes. Raises ValueError, naming where it is, for a map of this kind
-    of another version, whose data is not a JPEG, or whose picture is past `limit`.
-
-        observation = frames.unpack_pictures(compressed.expand(msgpack_io.unpack(body), limit=64 << 20)[0],
-                                             limit=64 << 20)
-    """
-
-    def walk(item: Any, path: str, depth: int) -> Any:
-        if depth > _MAX_DEPTH:
-            return item
-        if is_packed_picture(item):
-            where = path or "the observation"
-            if item.get("v") != PICTURE_VERSION or not isinstance(item.get("data"), (bytes, bytearray)):
-                raise ValueError(f"{where}: a picture of version {item.get('v')!r}, or without its JPEG bytes: this "
-                                 f"reads version {PICTURE_VERSION}")
-            raw = bytes(item["data"])
-            if limit is not None:
-                try:
-                    width, height = _header_size(raw)
-                except ValueError as e:
-                    raise ValueError(f"{where}: {e}") from e
-                if width * height * 3 > limit:
-                    raise ValueError(f"{where}: a picture of {width} x {height} decodes to {width * height * 3:,} "
-                                     f"bytes, past the limit of {limit:,}")
-            try:
-                return decode(raw)
-            except ValueError as e:
-                raise ValueError(f"{where}: {e}") from e
-        if isinstance(item, dict):
-            if _MARK in item:
-                return item                     # another format's map: never looked inside
-            return {key: walk(inner, f"{path}/{key}" if path else str(key), depth + 1) for key, inner in item.items()}
-        if type(item) in (list, tuple):
-            return type(item)(walk(inner, f"{path}[{i}]", depth + 1) for i, inner in enumerate(item))
-        return item
-
-    return walk(value, "", 0)
 
 
 # ── resizing a frame, and reading its size ────────────────────────────────────────────────────────────────────────────

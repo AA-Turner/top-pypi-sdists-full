@@ -14,6 +14,7 @@ from contrast.agent.settings import Settings
 from contrast.utils.decorators import fail_quietly
 
 
+@scope.contrast_scope()
 @fail_quietly("Error running SQLi assess rule")
 def assess_rule(context, adapter_name, method, result, args, kwargs):
     """

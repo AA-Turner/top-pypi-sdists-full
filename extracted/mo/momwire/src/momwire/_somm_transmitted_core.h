@@ -29,6 +29,7 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -103,6 +104,61 @@ const Grid &get_grid(cd eps_t, double k2, double r_max, double zp_min, double zp
 const Grid &get_grid_reading(cd eps_t, double k2, double r_max, double zp_min, double zp_max, double omega,
                              double mu, double r_min, const double *above, size_t A, const double *below,
                              size_t B, double ground_z, uintptr_t cancel_flag = 0);
+
+// What `anchored_grid` summed, for a test (never for control): the eight
+// anchors in stencil order, the blend on the family's lattice before its
+// resampling, and whether the resampling took the R axis first.
+struct AnchorParts {
+    std::vector<std::shared_ptr<const Grid>> anchors;
+    std::shared_ptr<const Grid> blend;
+    bool r_first = true;
+};
+
+// momwire#1847, the opt-in feature `transmitted_anchors` (reach 1, Python
+// the reference): `_transmitted_anchors.get_grid(eps_t, k2, r_max, zp_min,
+// zp_max, omega, mu, r_min=)` -- the grid blended in ln f from exact anchors
+// on a lattice fixed in metres, resampled onto the nodes the exact grid has
+// at this request (momwire#2022), carrying the REQUEST's eps_t, k2 and omega.
+// nullptr where Python returns None (the caller then takes the exact grid);
+// a geometry the exact grid refuses throws `Refused` as it does there. The
+// anchors are this process's only: their disk store is not ported. The grid
+// comes back SHARED: the blend and anchor stores are FIFOs, so a later
+// request (another thread's, or this one's own stencil) may evict an entry,
+// and the caller's (and `parts`') hold is what keeps it alive.
+//   anchored_grid          every node filled, as Python's; `parts` (a test's)
+//                          receives what it summed, and `why` the decline's
+//                          name;
+//   anchored_grid_reading  only the nodes the given pairs read, as
+//                          `get_grid_reading` (every value read is the whole
+//                          grid's bit for bit).
+std::shared_ptr<const Grid> anchored_grid(cd eps_t, double k2, double r_max, double zp_min, double zp_max,
+                                          double omega, double mu, bool has_r_min, double r_min,
+                                          uintptr_t cancel_flag = 0, AnchorParts *parts = nullptr,
+                                          std::string *why = nullptr);
+std::shared_ptr<const Grid> anchored_grid_reading(cd eps_t, double k2, double r_max, double zp_min, double zp_max,
+                                                  double omega, double mu, double r_min, const double *above, size_t A, const double *below,
+                                  size_t B, double ground_z, uintptr_t cancel_flag = 0);
+
+// TEST HOOK: `_on_exact_nodes`' resampling alone, from `lat` (every node
+// held; its ln R step `R_STEP_LOG`) onto the served axes lnr0 + i R_STEP_LOG
+// (n_r), th0 + j dth (n_th) and the ladder `zp_nodes`; `r_first` receives
+// which in-plane axis was contracted first.
+Grid resample_onto(const Grid &lat, double lnr0, int64_t n_r, double th0, double dth, int64_t n_th,
+                   const std::vector<double> &zp_nodes, bool *r_first = nullptr);
+
+// What the anchored route built, for tests (never for control), as
+// `_transmitted_anchors.STATS`: anchors and blends made, requests declined,
+// and anchor nodes filled.
+struct AnchorStats {
+    int64_t anchor_fills = 0, blends = 0, declined = 0, nodes_filled = 0;
+};
+AnchorStats anchor_stats();
+// Forget every anchor and blend (`_transmitted_anchors.reset()`), and put
+// the anchor store's capacity back to Python's `_ANCHORS_MAX` (96).
+void anchor_reset();
+// TEST HOOK: the anchor store's capacity, so a gate can saturate the FIFO
+// with a few anchors rather than 96 (never for control).
+void anchor_capacity(size_t max);
 
 // `tgrid_eval`'s nodes over every (above, below) pair: the (n_zp, n_r, n_th)
 // mask `get_grid_reading` fills.

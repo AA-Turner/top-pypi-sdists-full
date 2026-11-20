@@ -63,7 +63,7 @@ class _Episodes:
         already up - the one started beside the worker it leaves - and nothing is cut. The worker it leaves is told the episode ended while the move's connect goes, not before it;
         kept on that worker after all, its next episode starts once the worker has been told, as with no move.
         """
-        from .direct import _ready
+        from .notice_words import _ready
         with self._lock:
             worker = None if self._closed else self._worker
             wid = self._worker_episode if episode_id == self._caller_episode else episode_id
@@ -132,7 +132,7 @@ class _Episodes:
         episode starts on the worker it is on, as with no hold, and it moves at a later boundary. Said once a hold, on
         stderr, as the move's notice is.
 """
-        from .direct import _ready
+        from .notice_words import _ready
         print(f"[sequences] {self._model}: the worker it moves to is coming up; the next episode waits up to "
               f"{hold_s:.0f} s for it", file=sys.stderr, flush=True)
         end = time.monotonic() + hold_s

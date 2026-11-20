@@ -1,7 +1,9 @@
+"""Constants module helpers."""
+
 from datetime import datetime
 from enum import IntEnum, auto
-from importlib.resources import files
 from math import ceil
+from pathlib import Path
 
 import enum_tools.documentation
 
@@ -22,7 +24,7 @@ __all__ = [
 ]
 
 
-DEFAULT_DOCUMENT = files("numbers_parser") / "data" / "empty.numbers"
+DEFAULT_DOCUMENT = Path(__file__).resolve().parent / "data" / "empty.numbers"
 
 # New document defaults
 DEFAULT_COLUMN_COUNT = 8
@@ -32,6 +34,7 @@ DEFAULT_ROW_COUNT = 12
 DEFAULT_ROW_HEIGHT = 20.0
 DEFAULT_TABLE_OFFSET = 80.0
 DEFAULT_TILE_SIZE = 256
+DEFAULT_PASSWORD_HINT = "No hint"  # noqa: S105
 
 # Style defaults
 DEFAULT_ALIGNMENT = ("auto", "top")
@@ -49,7 +52,17 @@ DEFAULT_DATETIME_FORMAT = "dd MMM YYY HH:MM"
 CHECKBOX_FALSE_VALUE = "☐"
 CHECKBOX_TRUE_VALUE = "☑"
 STAR_RATING_VALUE = "★"
-OPERATOR_PRECEDENCE = {"%": 6, "^": 5, "×": 4, "*": 4, "/": 4, "÷": 4, "+": 3, "-": 3, "&": 2}
+OPERATOR_PRECEDENCE = {
+    "%": 6,
+    "^": 5,
+    "×": 4,  # noqa: RUF001
+    "*": 4,
+    "/": 4,
+    "÷": 4,
+    "+": 3,
+    "-": 3,
+    "&": 2,
+}
 
 
 # Numbers limits
@@ -70,6 +83,7 @@ SECONDS_IN_HOUR = 60 * 60
 SECONDS_IN_DAY = SECONDS_IN_HOUR * 24
 SECONDS_IN_WEEK = SECONDS_IN_DAY * 7
 DECIMAL128_BIAS = 0x1820
+NUMBER_NODE_DECIMAL_HIGH = 0x3040000000000000
 
 # File format enumerations
 DECIMAL_PLACES_AUTO = 253
@@ -78,6 +92,7 @@ CUSTOM_TEXT_PLACEHOLDER = "\ue421"
 
 # Supported versions
 SUPPORTED_NUMBERS_VERSIONS = [
+    "4.2",
     "10.0",
     "10.1",
     "10.2",
@@ -97,12 +112,15 @@ SUPPORTED_NUMBERS_VERSIONS = [
     "14.3",
     "14.4",
     "14.5",
+    "15.4",
     # Numbers Creator Studio
+    "16.0",
     "26.0",
     "26.1",
     "26.2",
     "26.3",
     "26.4",
+    "27.0",
 ]
 
 
@@ -176,6 +194,8 @@ COLON_TRACT_NODE = 67
 
 
 class CellType(IntEnum):
+    """Enumerate cell value and archive types."""
+
     EMPTY = 1
     NUMBER = 2
     TEXT = 3
@@ -189,17 +209,23 @@ class CellType(IntEnum):
 
 
 class CellPadding(IntEnum):
+    """Enumerate padding modes used by custom formats."""
+
     SPACE = 1
     ZERO = 2
 
 
 class DurationStyle(IntEnum):
+    """Enumerate duration display styles."""
+
     COMPACT = 0
     SHORT = 1
     LONG = 2
 
 
 class DurationUnits(IntEnum):
+    """Enumerate supported duration units."""
+
     NONE = 0
     WEEK = 1
     DAY = 2
@@ -210,6 +236,8 @@ class DurationUnits(IntEnum):
 
 
 class FormatType(IntEnum):
+    """Enumerate cell data-format categories."""
+
     BOOLEAN = 1
     DECIMAL = 256
     CURRENCY = 257
@@ -229,6 +257,8 @@ class FormatType(IntEnum):
 
 
 class FormattingType(IntEnum):
+    """Enumerate supported cell formatting types."""
+
     BASE = auto()
     CURRENCY = auto()
     DATETIME = auto()
@@ -246,6 +276,8 @@ class FormattingType(IntEnum):
 
 
 class ControlFormattingType(IntEnum):
+    """Enumerate data formats supported by slider and stepper controls."""
+
     BASE = auto()
     CURRENCY = auto()
     FRACTION = auto()
@@ -255,6 +287,8 @@ class ControlFormattingType(IntEnum):
 
 
 class OwnerKind(IntEnum):
+    """Enumerate archive owner types."""
+
     TABLE_MODEL = 1
     MERGE_OWNER = 5
     HAUNTED_OWNER = 35
@@ -280,6 +314,8 @@ FORMATTING_ACTION_CELLS = ["tickbox", "rating", "popup", "slider", "stepper"]
 
 
 class CustomFormattingType(IntEnum):
+    """Enumerate custom cell format types."""
+
     NUMBER = 101
     DATETIME = 102
     TEXT = 103
@@ -410,6 +446,8 @@ CUSTOM_FORMAT_TYPE_MAP = {
 
 
 class CellInteractionType(IntEnum):
+    """Enumerate cell interaction types."""
+
     VALUE_EDITING = 0
     FORMULA_EDITING = 1
     STOCK = 2
@@ -422,6 +460,8 @@ class CellInteractionType(IntEnum):
 
 
 class NumberFormatConditionType(IntEnum):
+    """Enumerate conditional number-format rules."""
+
     NONE = -1
     EQUAL = 0
     LESS_THAN = 1
@@ -431,6 +471,8 @@ class NumberFormatConditionType(IntEnum):
 
 
 class CellValueType(IntEnum):
+    """Enumerate cell value types."""
+
     NIL_TYPE = 1
     BOOLEAN_TYPE = 2
     DATE_TYPE = 3
@@ -458,11 +500,12 @@ class PaddingType(IntEnum):
 
 
 FONT_MAP = GENERATED_FONT_MAP
-FONT_TUPLE_MAP = {}
-FONT_FAMILY_DEFAULT = {}
+FONT_TUPLE_MAP: dict[tuple[str, str], dict[str, str]] = {}
+FONT_FAMILY_DEFAULT: dict[str, dict[str, str]] = {}
 
 
-def update_font_maps(font_map: dict) -> dict:
+def update_font_maps(font_map: dict) -> None:
+    """Update font maps."""
     seen = {}
     for v in font_map.values():
         family = v["family"]

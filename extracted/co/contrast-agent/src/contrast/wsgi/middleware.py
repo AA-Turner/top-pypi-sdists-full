@@ -72,12 +72,14 @@ class WSGIMiddleware(BaseMiddleware):
 
         self.wsgi_app = wsgi_app
 
+    @scope.contrast_scope()
     def __call__(self, environ, start_response):
         if request_state.get_request_id() is not None:
             # This can happen if a single app is wrapped by multiple instances of the
             # middleware (usually caused by automatic instrumentation)
             logger.debug("Detected preexisting request_id - passing through")
-            return self.wsgi_app(environ, start_response)
+            with scope.pop_contrast_scope():
+                return self.wsgi_app(environ, start_response)
 
         contrast_rewriter.stop_profiler("start_wsgi_middleware_call")
 
@@ -94,7 +96,6 @@ class WSGIMiddleware(BaseMiddleware):
 
             return self.call_without_agent(environ, start_response)
 
-    @scope.contrast_scope()
     def call_with_agent(
         self, context: ContrastContext, web_context, environ, start_response
     ):
@@ -120,7 +121,6 @@ class WSGIMiddleware(BaseMiddleware):
             if context.assess_enabled:
                 contrast.STRING_TRACKER.ageoff()
 
-    @scope.contrast_scope()
     def call_without_agent(self, environ, start_response):
         """
         Normal without middleware call

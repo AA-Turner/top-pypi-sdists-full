@@ -102,6 +102,7 @@ that server's own settings and health report.
 """
 from __future__ import annotations
 
+import contextlib
 import heapq
 import itertools
 import math
@@ -110,7 +111,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Sequence, TypedDict
+from typing import Any, Callable, Iterable, Iterator, Sequence, TypedDict
 
 # The margin kept between a batch's response and its robot's deadline: room for the downlink and one control step.
 MARGIN_MS = 50.0
@@ -149,7 +150,8 @@ CLOCK_CYCLES = 48
 CLOCK_WARM = 8
 CLOCK_STARTS = 128
 # The share of a fleet's responses that must be back before their robot's buffer runs out, over the starts it is run
-# from, for the fleet to be in time (in_time).
+# from, for the fleet to be in time where a share is asked for (in_time's `worst` False); by default none may be late
+# in any start.
 IN_TIME_MIN = 0.95
 # The clock's resolution: each batch time is rounded up to this many significant bits (by 3% at most, and at least to
 # a whole ms), and each RTT up to a multiple of CLOCK_RTT_MS. A server's batch times and its robots' reported RTTs
@@ -209,6 +211,9 @@ class Table:
         self._ms: dict[int, deque] = {}
         # each size's first run, not counted above (measure): its compile time where nothing had compiled that size
         self.first_ms: dict[int, float] = {}
+        # each size's peak GPU memory as it was timed, in MiB, where the server measured it (the card's, as its driver
+        # sampled it while the size ran)
+        self.vram_mb: dict[int, int] = {}
 
     def add(self, size: int, ms: float) -> None:
         """Record that a forward pass of `size` requests took `ms`."""
@@ -245,16 +250,17 @@ class Table:
         return quantile(self._ms[top], 0.95) * size / top
 
     def as_dict(self) -> dict[str, dict]:
-        """Each timed size's p50, p95 and number of runs, keyed by its size as text: what a server may report about
-        itself."""
-        return {str(s): {"p50": round(quantile(r, 0.5), 1), "p95": round(quantile(r, 0.95), 1), "n": len(r)}
+        """Each timed size's p50, p95 and number of runs, and its peak GPU memory where it was measured, keyed by its
+        size as text: what a server may report about itself."""
+        return {str(s): {"p50": round(quantile(r, 0.5), 1), "p95": round(quantile(r, 0.95), 1), "n": len(r),
+                         **({"vram_mb": self.vram_mb[s]} if s in self.vram_mb else {})}
                 for s, r in sorted(self._ms.items())}
 
     def take(self, other: "Table") -> None:
-        """Adopt `other`'s runs and first runs, each in one assignment: whoever holds this Table (a server and each of
-        its replicas' aligners) sees a timing made later, and a reader on another thread iterates the dict it already
-        had."""
-        self._ms, self.first_ms = dict(other._ms), dict(other.first_ms)
+        """Adopt `other`'s runs, first runs and GPU memory, each in one assignment: whoever holds this Table (a server
+        and each of its replicas' aligners) sees a timing made later, and a reader on another thread iterates the dict
+        it already had."""
+        self._ms, self.first_ms, self.vram_mb = dict(other._ms), dict(other.first_ms), dict(other.vram_mb)
 
     def drop(self, size: int) -> None:
         """Forget the runs of `size`: a size whose timing failed partway, which no batch is dispatched in (measure)."""
@@ -399,7 +405,7 @@ def _whole(value: Any) -> bool:
 
 def per_replica(table: Table, buffer_ms: float, *, sizes: list[int], served: Served | None = None,
                 outside_ms: float | None = None, cycle_ms: float | None = None, wait_ms: float | None = None,
-                step_ms: float | None = None) -> int:
+                step_ms: float | None = None, worst: bool = True) -> int:
     """The capacity of one replica, in robots, for robots that all have the same RTT and whose buffer is `buffer_ms`
     ((N - k) / hz: the playback time left when a robot requests the next response, playback's buffer_s).
 
@@ -408,8 +414,9 @@ def per_replica(table: Table, buffer_ms: float, *, sizes: list[int], served: Ser
     p95 alone without one) + the RTT (`outside_ms`: the largest RTT its robots report; ROUND_TRIP_MS when none reports
     one) + MARGIN_MS <= buffer_ms. Then, given `cycle_ms` (the time between one robot's requests, k / hz: play_s less
     buffer_s), the capacity on a clock: 2, 3 and more robots are run as a server serves them (in_time), and the first
-    number of whose responses fewer than IN_TIME_MIN are back in time over the starts they are run from, or whose
-    batches fill more than LOAD_MAX of a cycle in one of them (on_a_clock's load), ends the count. `step_ms`: one
+    number with a response late in any of the starts they are run from (`worst` False: fewer than IN_TIME_MIN of their
+    responses in time over the starts), or whose batches fill more than LOAD_MAX of a cycle in one of them
+    (on_a_clock's load), ends the count. `step_ms`: one
     control step (1000 / hz), which the clock's Aligner uses as a server's does; without it no batch waits a step for
     a nearer robot's request. The clock only lowers the count, never raises it above the capacity by latency. The
     first call for a table runs the clock (about 5 ms of one core for a capacity of 2, 35 ms for 4, 0.2 s for 8 and
@@ -446,7 +453,7 @@ def per_replica(table: Table, buffer_ms: float, *, sizes: list[int], served: Ser
         return capped
     play = _played(buffer_ms, cycle_ms, step_ms)
     for n in range(2, best + 1):
-        if not in_time(table, play, [trip] * n, sizes=timed, served=served):
+        if not in_time(table, play, [trip] * n, sizes=timed, served=served, worst=worst):
             break
         capped = n
     return capped
@@ -501,8 +508,10 @@ class Seating:
 
     def __init__(self, table: Table, buffer_ms: float, *, sizes: list[int], served: Served | None = None,
                  cycle_ms: float | None = None, most: int = MAX_ROBOTS_PER_REPLICA,
-                 wait_ms: float | None = None, step_ms: float | None = None) -> None:
+                 wait_ms: float | None = None, step_ms: float | None = None, worst: bool = True) -> None:
         self._table, self._buffer_ms, self._served, self._cycle_ms = table, buffer_ms, served, cycle_ms
+        # in time in every start (in_time's `worst`), or IN_TIME_MIN of the responses over the starts
+        self._worst = worst
         # one control step, 1000 / hz: what the clock's Aligner caps a far batch's wait for a nearer request at
         self._step_ms = step_ms
         # playback's wait_s, in ms: the limit for each response in place of the buffer; the load rule then uses each
@@ -578,7 +587,8 @@ class Seating:
             return True
         play = _played(self._buffer_ms, self._cycle_ms, self._step_ms)
         excused = [0] if late is not None else []          # nearest first: a robot late even alone is the first
-        return in_time(self._table, play, each, sizes=self._timed, served=self._served, excused=excused)
+        return in_time(self._table, play, each, sizes=self._timed, served=self._served, excused=excused,
+                       worst=self._worst)
 
     def _class(self, outside_ms: float | None) -> int:
         """The fit a robot is batched by here: its own, or 1 on a replica too slow for any robot (one at a time); 0 when
@@ -1175,37 +1185,64 @@ def _most_load(table: Table, robots: int, cycle_s: float, timed: list[int]) -> f
 _CLOCKED: dict = {}
 _CLOCKED_MOST = 1024
 _KEEPING = threading.Lock()
+# Whether this thread asks for kept verdicts only (kept_only)
+_ASKING = threading.local()
+
+
+class NotKept(Exception):
+    """in_time, asked for a kept verdict only (kept_only), has none kept for the question."""
+
+
+@contextlib.contextmanager
+def kept_only() -> Iterator[None]:
+    """On this thread, until it ends: in_time answers what it has kept and raises NotKept for what it has not, and runs
+    nothing. WHY: a server asks on the loop that answers its robots, where a run holds every request back for as long as
+    it takes; it asks this way first, and has a thread of its own run what is missing."""
+    was = getattr(_ASKING, "kept_only", False)
+    _ASKING.kept_only = True
+    try:
+        yield
+    finally:
+        _ASKING.kept_only = was
 
 
 def in_time(table: Table, play: Playback, outsides_ms: Sequence[float | None], *, sizes: list[int],
-            served: Served | None = None, excused: Sequence[int] = ()) -> bool:
+            served: Served | None = None, excused: Sequence[int] = (), worst: bool = True) -> bool:
     """Whether one replica answers robots with these RTTs in time: run on a clock from starts spread over every way
-    their requests can fall (on_a_clock, starts), at least IN_TIME_MIN of their responses are back before their robot's
-    buffer runs out, each start counting the same, and in no start is the load more than LOAD_MAX. `excused`: robots
-    whose own late responses are not counted (on_a_clock).
+    their requests can fall (on_a_clock, starts), no response is late in any start - with `worst` False, at least
+    IN_TIME_MIN of their responses are back before their robot's buffer runs out, each start counting the same - and in
+    no start is the load more than LOAD_MAX. `excused`: robots whose own late responses are not counted (on_a_clock).
 
-    WHY a share, not every response in every start: robots send on their own clocks and their phases drift, so the
-    share over the starts is the share of a long run, and a fleet is not refused for an arrangement it is seldom in.
-    Two π0.5 robots 100 ms away (batches of 1 and 2 in 195 and 312 ms; 15 Hz, a 467 ms buffer) are late only while
-    their requests fall 5 to 25 ms apart, 4% of their responses over the starts; on an L4 two such robots had no late
-    response in 225, and every response in every start gave them a capacity of 1.
+    WHY every start by default: a robot's phase is not its own to keep. Each episode a robot's loop starts its requests
+    from the moment it is called (network.loop.play asks at once), so a robot that runs many episodes a day draws its
+    phase again each time, and robots on clocks of their own drift apart over a long run: a fleet in time over the
+    starts on average can be in the start it is late in for a whole episode. Two robots on one machine 54 ms from a
+    server whose batches of 1 and 2 took 235 and 304 ms (15 Hz, a 467 ms buffer), 2.3% late over the starts on
+    average, had one of them late in 64%, 95% and 3% of its answers in three runs of 25 s started 60 ms apart; every
+    start in time seats one of them.
+    WHY a share, with `worst` False: a fleet is not refused for an arrangement it is seldom in. Two π0.5 robots 100 ms
+    away (batches of 1 and 2 in 195 and 312 ms; 15 Hz, a 467 ms buffer) are late only while their requests fall 5 to 25
+    ms apart, 4% of their responses over the starts; on an L4 two such robots had no late response in 225.
 
     The starts are run until the verdict cannot change, and it is the verdict of running them all: not in time as
-    soon as too many responses are late or a start's load is above LOAD_MAX; in time once every start left could be
-    all late without making too many, where no start can be above LOAD_MAX at all (_most_load), which leaves 3 starts
-    of 64 and 6 of 128 unrun.
+    soon as a response is late (with `worst` False: too many are) or a start's load is above LOAD_MAX; with `worst`
+    False, in time once every start left could be all late without making too many, where no start can be above
+    LOAD_MAX at all (_most_load), which leaves 3 starts of 64 and 6 of 128 unrun.
 
     The verdict is kept by what the clock runs: each listed size's times and each RTT at the clock's resolution
     (on_a_clock), so the same question is run once. WHY kept: a server asks as each robot connects and as its timings
     move, on the loop that answers its robots, and a verdict takes about 5 ms of one core for two robots, 40 ms for
-    eight and 90 ms for sixteen, more where the runs do not come to repeat (on_a_clock)."""
+    eight and 90 ms for sixteen, more where the runs do not come to repeat (on_a_clock). Within kept_only, a question
+    with no verdict kept raises NotKept and runs nothing."""
     timed = [b for b in sorted(sizes) if b in set(table.sizes())]
     took = _resolved(table, served, timed)
     trips = tuple(_far(ms) for ms in outsides_ms)
-    key = (tuple(took), play["play_s"], play["buffer_s"], play.get("step_s"), trips, tuple(excused))
+    key = (tuple(took), play["play_s"], play["buffer_s"], play.get("step_s"), trips, tuple(excused), bool(worst))
     kept = _CLOCKED.get(key)
     if kept is not None:
         return kept
+    if getattr(_ASKING, "kept_only", False):
+        raise NotKept
     rounded = _of_times(took)
     cycle_s = play["play_s"] - play["buffer_s"]
     begins = starts(len(trips), cycle_s)
@@ -1215,10 +1252,10 @@ def in_time(table: Table, play: Playback, outsides_ms: Sequence[float | None], *
     for left, begin in zip(range(len(begins) - 1, -1, -1), begins):
         late, total, load = on_a_clock(rounded, play, trips, begin, sizes=timed, early=True, excused=excused)
         late_share += late / total if total else 0.0
-        if late_share > most or load > LOAD_MAX + 1e-9:    # a load of exactly LOAD_MAX passes, however it was summed
+        if (late if worst else late_share > most) or load > LOAD_MAX + 1e-9:   # a load of exactly LOAD_MAX passes
             verdict = False
             break
-        if never_full and late_share + left <= most:
+        if not worst and never_full and late_share + left <= most:
             break                                  # in time whatever the starts left give: all late, still enough
     with _KEEPING:
         if len(_CLOCKED) >= _CLOCKED_MOST:

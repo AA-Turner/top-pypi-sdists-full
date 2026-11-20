@@ -1,7 +1,9 @@
 import asyncio
-import datetime
+import datetime as dt
 import json
 import time
+from pathlib import Path
+from typing import TypedDict
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 from uuid import UUID, uuid4
 
@@ -9,9 +11,7 @@ import pytest
 from pydantic import ValidationError
 from pytest_subtests import SubTests
 
-from edison_client.clients import (
-    JobNames,
-)
+from edison_client.clients import JobNames
 from edison_client.clients.rest_client import (
     JobEventBatchCreationError,
     JobEventCreationError,
@@ -38,10 +38,7 @@ from edison_client.models.job_event import (
     JobEventCreateRequest,
     JobEventUpdateRequest,
 )
-from edison_client.models.rest import (
-    ExecutionStatus,
-    WorldModel,
-)
+from edison_client.models.rest import ExecutionStatus, WorldModel
 
 TEST_MAX_POLLS = 100
 
@@ -60,35 +57,40 @@ CONTINUATION_TEST_TIMEOUT = 1500
 
 
 @pytest.fixture(name="task_req")
-def fixture_task_req():
+def fixture_task_req() -> TaskRequest:
     """Create a sample task request."""
     return TaskRequest(
-        name=JobNames.from_string("dummy"),
-        query="How many moons does earth have?",
+        name=JobNames.from_string("dummy"), query="How many moons does earth have?"
     )
 
 
 @pytest.fixture(name="pqa_task_req")
-def fixture_pqa_task_req():
+def fixture_pqa_task_req() -> TaskRequest:
     return TaskRequest(
-        name=JobNames.from_string("crow"),
-        query="How many moons does earth have?",
+        name=JobNames.from_string("crow"), query="How many moons does earth have?"
     )
 
 
 @pytest.fixture(name="phoenix_task_req")
-def fixture_phoenix_task_req():
+def fixture_phoenix_task_req() -> TaskRequest:
     return TaskRequest(
         name=JobNames.from_string("phoenix"),
         query="What is the molecular weight of ascorbic acids?",
     )
 
 
+class _JobRequestKwargs(TypedDict):
+    data: dict[str, object]
+    files: list[tuple[str, tuple[str, bytes, str]]]
+    headers: dict[str, str]
+    params: dict[str, bool]
+
+
 def _create_job_payload(
-    tmp_path,
+    tmp_path: Path,
     sandbox_infra_manager_image: str | None = None,
     metadata: dict | None = None,
-):
+) -> _JobRequestKwargs:
     module_dir = tmp_path / "agent"
     module_dir.mkdir()
     (module_dir / "env.py").write_text("class Env:\n    pass\n", encoding="utf-8")
@@ -131,10 +133,9 @@ def _create_job_payload(
     return multipart_client.post.call_args.kwargs
 
 
-def test_create_job_sends_sandbox_infra_manager_image(tmp_path):
+def test_create_job_sends_sandbox_infra_manager_image(tmp_path: Path) -> None:
     request = _create_job_payload(
-        tmp_path,
-        sandbox_infra_manager_image="sandbox-infra-manager:branch",
+        tmp_path, sandbox_infra_manager_image="sandbox-infra-manager:branch"
     )
 
     assert (
@@ -142,13 +143,13 @@ def test_create_job_sends_sandbox_infra_manager_image(tmp_path):
     )
 
 
-def test_create_job_omits_empty_sandbox_infra_manager_image(tmp_path):
+def test_create_job_omits_empty_sandbox_infra_manager_image(tmp_path: Path) -> None:
     data = _create_job_payload(tmp_path)["data"]
 
     assert "sandbox_infra_manager_image" not in data
 
 
-def test_create_job_keeps_controlled_tools_internal(tmp_path):
+def test_create_job_keeps_controlled_tools_internal(tmp_path: Path) -> None:
     data = _create_job_payload(tmp_path)["data"]
     for field, value in [
         ("controlled_tool_groups", ["literature"]),
@@ -164,7 +165,9 @@ def test_create_job_keeps_controlled_tools_internal(tmp_path):
 
 
 @pytest.mark.parametrize("groups", [[], ["literature"]])
-def test_create_job_uploads_generated_profile_metadata(tmp_path, groups):
+def test_create_job_uploads_generated_profile_metadata(
+    tmp_path: Path, groups: list[str]
+) -> None:
     metadata = {"controlled_tool_groups": groups}
     request = _create_job_payload(tmp_path, metadata=metadata)
     uploaded = {
@@ -188,7 +191,9 @@ def fixture_running_trajectory_id(
 @pytest.mark.live_agent
 @pytest.mark.timeout(300)
 @pytest.mark.flaky(reruns=3)
-def test_futurehouse_dummy_env_crow(admin_client: RestClient, task_req: TaskRequest):
+def test_futurehouse_dummy_env_crow(
+    admin_client: RestClient, task_req: TaskRequest
+) -> None:
     task_id = admin_client.create_task(task_req)
     print(f"\n\nTrajectory ID: {task_id}\n")
     while (task_status := admin_client.get_task(task_id).status) in {
@@ -201,7 +206,7 @@ def test_futurehouse_dummy_env_crow(admin_client: RestClient, task_req: TaskRequ
 
 def test_insufficient_permissions_request(
     pub_client: RestClient, task_req: TaskRequest
-):
+) -> None:
     # Create a new instance so that cached credentials aren't reused
     with pytest.raises(PermissionError) as exc_info:
         pub_client.create_task(task_req)
@@ -212,12 +217,12 @@ def test_insufficient_permissions_request(
 @pytest.mark.timeout(350)
 @pytest.mark.asyncio
 @pytest.mark.skip(reason="Skipping due to buggy pqa on dev")
-async def test_job_response(  # noqa: PLR0915
+async def test_job_response(  # ruff: ignore[too-many-statements]
     subtests: SubTests,
     admin_client: RestClient,
     pqa_task_req: TaskRequest,
     phoenix_task_req: TaskRequest,
-):
+) -> None:
     task_id = admin_client.create_task(pqa_task_req)
     atask_id = await admin_client.acreate_task(pqa_task_req)
     phoenix_task_id = admin_client.create_task(phoenix_task_req)
@@ -311,7 +316,7 @@ TRAJECTORY_WITH_DEPLOYMENT_CONFIG = "b1330ceb-6723-4af9-a8be-c7807ac4bd6c"
 
 
 @pytest.mark.timeout(60)
-def test_deployment_config_visible_to_fh_admin(admin_client: RestClient):
+def test_deployment_config_visible_to_fh_admin(admin_client: RestClient) -> None:
     """FutureHouse admin should see deployment_config with git metadata."""
     task = admin_client.get_task(TRAJECTORY_WITH_DEPLOYMENT_CONFIG, verbose=True)
     assert isinstance(task, TaskResponseVerbose)
@@ -321,7 +326,7 @@ def test_deployment_config_visible_to_fh_admin(admin_client: RestClient):
 
 
 @pytest.mark.timeout(60)
-def test_deployment_config_hidden_from_non_fh_admin(pub_client: RestClient):
+def test_deployment_config_hidden_from_non_fh_admin(pub_client: RestClient) -> None:
     """Non-FutureHouse-admin should NOT see deployment_config."""
     task = pub_client.get_task(TRAJECTORY_WITH_DEPLOYMENT_CONFIG, verbose=True)
     assert isinstance(task, TaskResponseVerbose)
@@ -335,7 +340,7 @@ def test_deployment_config_hidden_from_non_fh_admin(pub_client: RestClient):
 @pytest.mark.flaky(reruns=3)
 def test_run_until_done_futurehouse_dummy_env_crow(
     admin_client: RestClient, task_req: TaskRequest
-):
+) -> None:
     tasks_to_do = [task_req, task_req]
 
     results = admin_client.run_tasks_until_done(tasks_to_do, timeout=240)
@@ -349,7 +354,7 @@ def test_run_until_done_futurehouse_dummy_env_crow(
 @pytest.mark.flaky(reruns=3)
 def test_run_until_done_returns_task_response(
     admin_client: RestClient, task_req: TaskRequest
-):
+) -> None:
     """Test that run_tasks_until_done returns TaskResponse instead of LiteTaskResponse."""
     tasks_to_do = [task_req, task_req]
 
@@ -370,7 +375,7 @@ def test_run_until_done_returns_task_response(
 @pytest.mark.asyncio
 async def test_arun_until_done_futurehouse_dummy_env_crow(
     admin_client: RestClient, task_req: TaskRequest
-):
+) -> None:
     tasks_to_do = [task_req, task_req]
 
     results = await admin_client.arun_tasks_until_done(tasks_to_do)
@@ -385,7 +390,7 @@ async def test_arun_until_done_futurehouse_dummy_env_crow(
 @pytest.mark.asyncio
 async def test_arun_until_done_returns_task_response(
     admin_client: RestClient, task_req: TaskRequest
-):
+) -> None:
     """Test that arun_tasks_until_done returns TaskResponse instead of LiteTaskResponse."""
     tasks_to_do = [task_req, task_req]
 
@@ -402,7 +407,7 @@ async def test_arun_until_done_returns_task_response(
 
 @pytest.mark.live_agent
 @pytest.mark.timeout(CONTINUATION_TEST_TIMEOUT)
-def test_continuation_task(admin_client: RestClient):
+def test_continuation_task(admin_client: RestClient) -> None:
     """Test running a continuation task against data-analysis-crow-high."""
     initial_task = TaskRequest(
         name=JobNames.ANALYSIS,
@@ -455,7 +460,7 @@ def test_continuation_task(admin_client: RestClient):
 @pytest.mark.asyncio
 async def test_timeout_run_until_done_futurehouse_dummy_env_crow(
     admin_client: RestClient, task_req: TaskRequest
-):
+) -> None:
     tasks_to_do = [task_req, task_req]
 
     # Use a very short timeout to ensure tasks don't complete
@@ -497,13 +502,13 @@ async def test_timeout_run_until_done_futurehouse_dummy_env_crow(
 
 @pytest.mark.timeout(300)
 @pytest.mark.flaky(reruns=3)
-def test_cancel_task(admin_client: RestClient):
+def test_cancel_task(offline_client: RestClient) -> None:
     """Test successful task cancellation using MagicMock."""
     task_id = "1c28bb94-efbf-442f-954c-f0d8ddb0cff5"
 
     with (
-        patch.object(admin_client.client, "post") as mock_post,
-        patch.object(admin_client, "get_task") as mock_get_task,
+        patch.object(offline_client.client, "post") as mock_post,
+        patch.object(offline_client, "get_task") as mock_get_task,
     ):
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
@@ -520,7 +525,7 @@ def test_cancel_task(admin_client: RestClient):
             mock_task_response_cancelled,
         ]
 
-        result = admin_client.cancel_task(task_id)
+        result = offline_client.cancel_task(task_id)
 
         assert result is True
 
@@ -531,11 +536,9 @@ def test_cancel_task(admin_client: RestClient):
 
 
 @pytest.mark.asyncio
-async def test_world_model_acreate_and_aget(admin_client: RestClient):
+async def test_world_model_acreate_and_aget(admin_client: RestClient) -> None:
     model = WorldModel(
-        content="test content",
-        name="Test Model",
-        description="This is a test model.",
+        content="test content", name="Test Model", description="This is a test model."
     )
     model_id = await admin_client.acreate_world_model(model)
 
@@ -545,10 +548,7 @@ async def test_world_model_acreate_and_aget(admin_client: RestClient):
     assert str(model_by_id.id) == str(model_id)
     assert model_by_id.content == model.content
 
-    updated_model = WorldModel(
-        content="updated test content",
-        prior=model_id,
-    )
+    updated_model = WorldModel(content="updated test content", prior=model_id)
 
     updated_model_id = await admin_client.acreate_world_model(updated_model)
 
@@ -559,11 +559,9 @@ async def test_world_model_acreate_and_aget(admin_client: RestClient):
     assert updated_model_by_id.content != model.content
 
 
-def test_world_model_create_and_get(admin_client: RestClient):
+def test_world_model_create_and_get(admin_client: RestClient) -> None:
     model = WorldModel(
-        content="test content",
-        name="Test Model",
-        description="This is a test model.",
+        content="test content", name="Test Model", description="This is a test model."
     )
     model_id = admin_client.create_world_model(model)
 
@@ -573,10 +571,7 @@ def test_world_model_create_and_get(admin_client: RestClient):
     assert str(model_by_id.id) == str(model_id)
     assert model_by_id.content == model.content
 
-    updated_model = WorldModel(
-        content="updated test content",
-        prior=model_id,
-    )
+    updated_model = WorldModel(content="updated test content", prior=model_id)
 
     updated_model_id = admin_client.create_world_model(updated_model)
 
@@ -589,28 +584,30 @@ def test_world_model_create_and_get(admin_client: RestClient):
 
 class TestProjectOperations:
     @pytest.fixture
-    def test_project_name(self):
+    def test_project_name(self) -> str:
         return f"test-project-{uuid4()}"
 
     def test_create_project_success(
         self, admin_client: RestClient, test_project_name: str
-    ):
+    ) -> None:
         project_id = admin_client.create_project(test_project_name)
         assert isinstance(project_id, UUID)
 
     def test_get_project_by_name_success(
         self, admin_client: RestClient, test_project_name: str
-    ):
+    ) -> None:
         created_project_id = admin_client.create_project(test_project_name)
         retrieved_project_id = admin_client.get_project_by_name(test_project_name)
         assert retrieved_project_id == created_project_id
 
-    def test_get_project_by_name_not_found(self, admin_client: RestClient):
+    def test_get_project_by_name_not_found(self, admin_client: RestClient) -> None:
         with pytest.raises(ProjectError, match="No project found with name"):
             admin_client.get_project_by_name("non-existent-project-12345")
 
-    def test_get_project_by_name_multiple_found(self, admin_client: RestClient):
-        with patch.object(admin_client.client, "get") as mock_get:
+    def test_get_project_by_name_multiple_found(
+        self, offline_client: RestClient
+    ) -> None:
+        with patch.object(offline_client.client, "get") as mock_get:
             mock_response = MagicMock()
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = [
@@ -619,22 +616,22 @@ class TestProjectOperations:
             ]
             mock_get.return_value = mock_response
 
-            projects = admin_client.get_project_by_name("test")
+            projects = offline_client.get_project_by_name("test")
             assert isinstance(projects, list)
             assert len(projects) == 2
 
     def test_add_task_to_project_success(
         self, admin_client: RestClient, test_project_name: str, task_req: TaskRequest
-    ):
+    ) -> None:
         project_id = admin_client.create_project(test_project_name)
         trajectory_id = admin_client.create_task(task_req)
         admin_client.add_task_to_project(project_id, trajectory_id)
 
-    def test_add_task_to_project_not_found(self, admin_client: RestClient):
+    def test_add_task_to_project_not_found(self, offline_client: RestClient) -> None:
         fake_project_id = uuid4()
         fake_trajectory_id = str(uuid4())
 
-        with patch.object(admin_client.client, "post") as mock_post:
+        with patch.object(offline_client.client, "post") as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.side_effect = Exception("404 Not Found")
             mock_post.return_value = mock_response
@@ -642,10 +639,10 @@ class TestProjectOperations:
             with pytest.raises(
                 ProjectError, match="Error adding trajectory to project"
             ):
-                admin_client.add_task_to_project(fake_project_id, fake_trajectory_id)
+                offline_client.add_task_to_project(fake_project_id, fake_trajectory_id)
 
-    def test_create_project_with_http_error(self, admin_client: RestClient):
-        with patch.object(admin_client.client, "post") as mock_post:
+    def test_create_project_with_http_error(self, offline_client: RestClient) -> None:
+        with patch.object(offline_client.client, "post") as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.side_effect = Exception("400 Bad Request")
             mock_response.status_code = 400
@@ -653,18 +650,18 @@ class TestProjectOperations:
             mock_post.return_value = mock_response
 
             with pytest.raises(ProjectError, match="Error creating project"):
-                admin_client.create_project("invalid project name")
+                offline_client.create_project("invalid project name")
 
     def test_create_project_passes_description_through_metadata(
-        self, admin_client: RestClient
-    ):
-        with patch.object(admin_client.client, "post") as mock_post:
+        self, offline_client: RestClient
+    ) -> None:
+        with patch.object(offline_client.client, "post") as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = str(uuid4())
             mock_post.return_value = mock_response
 
-            admin_client.create_project(
+            offline_client.create_project(
                 name="brca1-study",
                 description="Review BRCA1 mutation landscape in breast cancer.",
             )
@@ -676,16 +673,16 @@ class TestProjectOperations:
             }
 
     def test_create_project_does_not_mutate_caller_metadata(
-        self, admin_client: RestClient
-    ):
+        self, offline_client: RestClient
+    ) -> None:
         caller_metadata = {"agent": "kosmos"}
-        with patch.object(admin_client.client, "post") as mock_post:
+        with patch.object(offline_client.client, "post") as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = str(uuid4())
             mock_post.return_value = mock_response
 
-            admin_client.create_project(
+            offline_client.create_project(
                 name="brca1-study",
                 metadata=caller_metadata,
                 description="Review BRCA1 mutation landscape in breast cancer.",
@@ -700,15 +697,15 @@ class TestProjectOperations:
             }
 
     def test_create_project_omits_description_when_not_provided(
-        self, admin_client: RestClient
-    ):
-        with patch.object(admin_client.client, "post") as mock_post:
+        self, offline_client: RestClient
+    ) -> None:
+        with patch.object(offline_client.client, "post") as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = str(uuid4())
             mock_post.return_value = mock_response
 
-            admin_client.create_project(name="brca1-study")
+            offline_client.create_project(name="brca1-study")
 
             _, kwargs = mock_post.call_args
             body = kwargs["json"]
@@ -717,20 +714,20 @@ class TestProjectOperations:
 
 class TestAsyncProjectOperations:
     @pytest.fixture
-    def test_project_name(self):
+    def test_project_name(self) -> str:
         return f"test-async-project-{uuid4()}"
 
     @pytest.mark.asyncio
     async def test_acreate_project_success(
         self, admin_client: RestClient, test_project_name: str
-    ):
+    ) -> None:
         project_id = await admin_client.acreate_project(test_project_name)
         assert isinstance(project_id, UUID)
 
     @pytest.mark.asyncio
     async def test_aget_project_by_name_success(
         self, admin_client: RestClient, test_project_name: str
-    ):
+    ) -> None:
         created_project_id = await admin_client.acreate_project(test_project_name)
         retrieved_project_id = await admin_client.aget_project_by_name(
             test_project_name
@@ -738,32 +735,34 @@ class TestAsyncProjectOperations:
         assert retrieved_project_id == created_project_id
 
     @pytest.mark.asyncio
-    async def test_aget_project_by_name_not_found(self, admin_client: RestClient):
+    async def test_aget_project_by_name_not_found(
+        self, admin_client: RestClient
+    ) -> None:
         with pytest.raises(ProjectError, match="No project found with name"):
             await admin_client.aget_project_by_name("non-existent-async-project-12345")
 
     @pytest.mark.asyncio
     async def test_aadd_task_to_project_success(
         self, admin_client: RestClient, test_project_name: str, task_req: TaskRequest
-    ):
+    ) -> None:
         project_id = await admin_client.acreate_project(test_project_name)
         trajectory_id = await admin_client.acreate_task(task_req)
         await admin_client.aadd_task_to_project(project_id, trajectory_id)
 
     @pytest.mark.asyncio
     async def test_acreate_project_passes_description_through_metadata(
-        self, admin_client: RestClient
-    ):
+        self, offline_client: RestClient
+    ) -> None:
         persona_id = uuid4()
         with patch.object(
-            admin_client.async_client, "post", new_callable=AsyncMock
+            offline_client.async_client, "post", new_callable=AsyncMock
         ) as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = {"id": str(uuid4())}
             mock_post.return_value = mock_response
 
-            await admin_client.acreate_project(
+            await offline_client.acreate_project(
                 name="brca1-study",
                 persona_id=persona_id,
                 description="Review BRCA1 mutation landscape in breast cancer.",
@@ -778,18 +777,18 @@ class TestAsyncProjectOperations:
 
     @pytest.mark.asyncio
     async def test_acreate_project_does_not_mutate_caller_metadata(
-        self, admin_client: RestClient
-    ):
+        self, offline_client: RestClient
+    ) -> None:
         caller_metadata = {"source": "subagent"}
         with patch.object(
-            admin_client.async_client, "post", new_callable=AsyncMock
+            offline_client.async_client, "post", new_callable=AsyncMock
         ) as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = str(uuid4())
             mock_post.return_value = mock_response
 
-            await admin_client.acreate_project(
+            await offline_client.acreate_project(
                 name="brca1-study",
                 metadata=caller_metadata,
                 description="Review BRCA1 mutation landscape in breast cancer.",
@@ -799,12 +798,12 @@ class TestAsyncProjectOperations:
 
     @pytest.mark.asyncio
     async def test_aadd_task_to_project_permission_denied(
-        self, admin_client: RestClient
-    ):
+        self, offline_client: RestClient
+    ) -> None:
         fake_project_id = uuid4()
         fake_trajectory_id = str(uuid4())
 
-        with patch.object(admin_client.async_client, "post") as mock_post:
+        with patch.object(offline_client.async_client, "post") as mock_post:
             mock_response = MagicMock()
             mock_response.raise_for_status.side_effect = Exception("403 Forbidden")
             mock_response.status_code = 403
@@ -813,7 +812,7 @@ class TestAsyncProjectOperations:
             with pytest.raises(
                 ProjectError, match="Error adding trajectory to project: 403 Forbidden"
             ):
-                await admin_client.aadd_task_to_project(
+                await offline_client.aadd_task_to_project(
                     fake_project_id, fake_trajectory_id
                 )
 
@@ -821,7 +820,9 @@ class TestAsyncProjectOperations:
 @pytest.mark.live_agent
 @pytest.mark.timeout(300)
 @pytest.mark.flaky(reruns=3)
-def test_get_tasks_with_project_filter(admin_client: RestClient, task_req: TaskRequest):
+def test_get_tasks_with_project_filter(
+    admin_client: RestClient, task_req: TaskRequest
+) -> None:
     """Test retrieving trajectories filtered by project_id using real API calls."""
     project_name = f"e2e-trajectories-fetch-{uuid4()}"
     project_id = admin_client.create_project(project_name)
@@ -851,7 +852,7 @@ def test_get_tasks_with_project_filter(admin_client: RestClient, task_req: TaskR
 @pytest.mark.asyncio
 async def test_aget_tasks_with_project_filter(
     admin_client: RestClient, task_req: TaskRequest
-):
+) -> None:
     """Test async retrieving trajectories filtered by project_id using real API calls."""
     project_name = f"e2e-trajectories-async-fetch-{uuid4()}"
     project_id = await admin_client.acreate_project(project_name)
@@ -884,13 +885,15 @@ class TestJobEventOperations:
         return admin_client.create_task(task_req)
 
     @pytest.fixture
-    def job_event_create_request(self, test_trajectory_id: str):
+    def job_event_create_request(
+        self, test_trajectory_id: str
+    ) -> JobEventCreateRequest:
         return JobEventCreateRequest(
             execution_id=UUID(test_trajectory_id),
             execution_type=ExecutionType.TRAJECTORY,
             cost_component=CostComponent.LLM_USAGE,
-            started_at=datetime.datetime.now(),
-            ended_at=datetime.datetime.now(),
+            started_at=dt.datetime.now(),
+            ended_at=dt.datetime.now(),
             amount_usd=0.005,
             rate=0.0001,
             input_token_count=100,
@@ -899,7 +902,7 @@ class TestJobEventOperations:
         )
 
     @pytest.fixture
-    def job_event_update_request(self):
+    def job_event_update_request(self) -> JobEventUpdateRequest:
         return JobEventUpdateRequest(
             amount_usd=0.007,
             rate=0.00015,
@@ -910,8 +913,8 @@ class TestJobEventOperations:
 
     @pytest.mark.timeout(300)
     def test_create_job_event_success(
-        self, admin_client: RestClient, job_event_create_request
-    ):
+        self, admin_client: RestClient, job_event_create_request: JobEventCreateRequest
+    ) -> None:
         response = admin_client.create_job_event(job_event_create_request)
         assert response.id is not None
         assert isinstance(response.id, UUID)
@@ -919,15 +922,15 @@ class TestJobEventOperations:
     @pytest.mark.asyncio
     @pytest.mark.timeout(300)
     async def test_acreate_job_event_success(
-        self, admin_client: RestClient, job_event_create_request
-    ):
+        self, admin_client: RestClient, job_event_create_request: JobEventCreateRequest
+    ) -> None:
         response = await admin_client.acreate_job_event(job_event_create_request)
         assert response.id is not None
         assert isinstance(response.id, UUID)
 
     def test_create_job_event_execution_not_found(
-        self, admin_client: RestClient, job_event_create_request
-    ):
+        self, admin_client: RestClient, job_event_create_request: JobEventCreateRequest
+    ) -> None:
         # Create a new request with a non-existent execution ID
         invalid_request = JobEventCreateRequest(
             execution_id=uuid4(),  # Non-existent ID
@@ -946,8 +949,8 @@ class TestJobEventOperations:
 
     @pytest.mark.asyncio
     async def test_acreate_job_event_execution_not_found(
-        self, admin_client: RestClient, job_event_create_request
-    ):
+        self, admin_client: RestClient, job_event_create_request: JobEventCreateRequest
+    ) -> None:
         # Create a new request with a non-existent execution ID
         invalid_request = JobEventCreateRequest(
             execution_id=uuid4(),  # Non-existent ID
@@ -968,9 +971,9 @@ class TestJobEventOperations:
     def test_update_job_event_success(
         self,
         admin_client: RestClient,
-        job_event_create_request,
-        job_event_update_request,
-    ):
+        job_event_create_request: JobEventCreateRequest,
+        job_event_update_request: JobEventUpdateRequest,
+    ) -> None:
         create_response = admin_client.create_job_event(job_event_create_request)
         job_event_id = create_response.id
 
@@ -983,17 +986,17 @@ class TestJobEventOperations:
     async def test_aupdate_job_event_success(
         self,
         admin_client: RestClient,
-        job_event_create_request,
-        job_event_update_request,
-    ):
+        job_event_create_request: JobEventCreateRequest,
+        job_event_update_request: JobEventUpdateRequest,
+    ) -> None:
         create_response = await admin_client.acreate_job_event(job_event_create_request)
         job_event_id = create_response.id
 
         await admin_client.aupdate_job_event(job_event_id, job_event_update_request)
 
     def test_update_job_event_not_found(
-        self, admin_client: RestClient, job_event_update_request
-    ):
+        self, admin_client: RestClient, job_event_update_request: JobEventUpdateRequest
+    ) -> None:
         job_event_id = uuid4()
         with pytest.raises(
             JobEventUpdateError, match=r"Job event with ID .* not found"
@@ -1002,8 +1005,8 @@ class TestJobEventOperations:
 
     @pytest.mark.asyncio
     async def test_aupdate_job_event_not_found(
-        self, admin_client: RestClient, job_event_update_request
-    ):
+        self, admin_client: RestClient, job_event_update_request: JobEventUpdateRequest
+    ) -> None:
         job_event_id = uuid4()
         with pytest.raises(
             JobEventUpdateError, match=r"Job event with ID .* not found"
@@ -1011,15 +1014,17 @@ class TestJobEventOperations:
             await admin_client.aupdate_job_event(job_event_id, job_event_update_request)
 
     @pytest.fixture
-    def job_event_batch_create_request(self, test_trajectory_id: str):
+    def job_event_batch_create_request(
+        self, test_trajectory_id: str
+    ) -> JobEventBatchCreateRequest:
         return JobEventBatchCreateRequest(
             execution_id=UUID(test_trajectory_id),
             execution_type=ExecutionType.TRAJECTORY,
             job_events=[
                 JobEventBatchItemRequest(
                     cost_component=CostComponent.LLM_USAGE,
-                    started_at=datetime.datetime.now(),
-                    ended_at=datetime.datetime.now(),
+                    started_at=dt.datetime.now(),
+                    ended_at=dt.datetime.now(),
                     amount_usd=0.005,
                     rate=0.0001,
                     input_token_count=100,
@@ -1028,8 +1033,8 @@ class TestJobEventOperations:
                 ),
                 JobEventBatchItemRequest(
                     cost_component=CostComponent.STEP,
-                    started_at=datetime.datetime.now(),
-                    ended_at=datetime.datetime.now(),
+                    started_at=dt.datetime.now(),
+                    ended_at=dt.datetime.now(),
                     amount_usd=0.001,
                 ),
             ],
@@ -1038,8 +1043,10 @@ class TestJobEventOperations:
     @pytest.mark.asyncio
     @pytest.mark.timeout(300)
     async def test_acreate_job_events_batch_success(
-        self, admin_client: RestClient, job_event_batch_create_request
-    ):
+        self,
+        admin_client: RestClient,
+        job_event_batch_create_request: JobEventBatchCreateRequest,
+    ) -> None:
         response = await admin_client.acreate_job_events_batch(
             job_event_batch_create_request
         )
@@ -1050,8 +1057,10 @@ class TestJobEventOperations:
 
     @pytest.mark.asyncio
     async def test_acreate_job_events_batch_execution_not_found(
-        self, admin_client: RestClient, job_event_batch_create_request
-    ):
+        self,
+        admin_client: RestClient,
+        job_event_batch_create_request: JobEventBatchCreateRequest,
+    ) -> None:
         invalid_request = JobEventBatchCreateRequest(
             execution_id=uuid4(),  # Non-existent ID
             execution_type=job_event_batch_create_request.execution_type,

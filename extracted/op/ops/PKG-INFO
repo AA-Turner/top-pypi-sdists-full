@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ops
-Version: 3.9.0
+Version: 3.10.0
 Summary: The Python library behind great charms
 Project-URL: Homepage, https://canonical.com/juju/docs/ops/latest/
 Project-URL: Repository, https://github.com/canonical/operator
@@ -22,9 +22,9 @@ Requires-Dist: pyyaml==6.*
 Requires-Dist: websocket-client==1.*
 Provides-Extra: harness
 Provides-Extra: testing
-Requires-Dist: ops-scenario==8.9.0; extra == 'testing'
+Requires-Dist: ops-scenario==8.10.0; extra == 'testing'
 Provides-Extra: tracing
-Requires-Dist: ops-tracing==3.9.0; extra == 'tracing'
+Requires-Dist: ops-tracing==3.10.0; extra == 'tracing'
 Description-Content-Type: text/markdown
 
 # The `ops` library

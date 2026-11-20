@@ -1466,6 +1466,8 @@ def collapse_site_facts(
     """Return the facts ``keeps_root_model_named`` reads about a site of ``model_field`` that names ``root_model``.
 
     The walk over the root types and the containers of the holder's type are read only where a rule reads them.
+    Without ``--keep-enum-literal-aliases`` a type alias of an enum's ``Literal`` is inlined (row
+    ``legacy-collapse-enum-literal-aliases``).
     """
     if not root_model.fields:
         return CollapseSiteFacts()
@@ -2187,9 +2189,9 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
             *enumerate(field.data_type.data_types),
             *((None, enum_tagged_type) for enum_tagged_type in enum_tagged),
         ):
-            if not data_type.reference:  # pragma: no cover
+            if not data_type.reference:
                 continue
-            if (taggable := taggable_variant(data_type, type(field))) is None:  # pragma: no cover
+            if (taggable := taggable_variant(data_type, type(field))) is None:
                 continue
             discriminator_model, struct_tags = taggable[0], taggable[1].struct_tags
 
@@ -2237,7 +2239,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                     case _:
                         enum_source = decided.enum_source
                         for field_data_type in discriminator_field.data_type.all_data_types:
-                            if field_data_type.reference:  # pragma: no cover
+                            if field_data_type.reference:
                                 builder.detach_data_type_ref(field_data_type)
 
                         new_discriminator_data_type = parser._create_discriminator_data_type(

@@ -81,8 +81,8 @@ def _add_retryable_write_error(exc: PyMongoError) -> None:
         for label in doc.get("errorLabels", []):
             exc._add_error_label(label)
 
-    # Connection errors are always retryable except NotPrimaryError and WaitQueueTimeoutError which is
-    # handled above.
+    # Connection errors are always retryable except NotPrimaryError and WaitQueueTimeoutError which
+    # is handled above.
     if isinstance(exc, ClientBulkWriteException):
         exc_to_check = exc.error
     else:
@@ -94,9 +94,7 @@ def _add_retryable_write_error(exc: PyMongoError) -> None:
 
 
 def _after_fork_child(clients: Mapping[Any, Any]) -> None:
-    """Releases the locks in child process and resets the
-    topologies in the passed clients.
-    """
+    """Release the locks in the child process and reset the topologies in the passed clients."""
     # Reinitialize locks
     _release_locks()
 
@@ -106,7 +104,7 @@ def _after_fork_child(clients: Mapping[Any, Any]) -> None:
 
 
 def _detect_external_db(entity: str) -> bool:
-    """Detects external database hosts and logs an informational message at the INFO level."""
+    """Detect external database hosts and log an informational message at the INFO level."""
     entity = entity.lower()
     cosmos_db_hosts = [".cosmos.azure.com"]
     document_db_hosts = [".docdb.amazonaws.com", ".docdb-elastic.amazonaws.com"]
@@ -115,7 +113,8 @@ def _detect_external_db(entity: str) -> bool:
         if entity.endswith(host):
             _log_or_warn(
                 _CLIENT_LOGGER,
-                "You appear to be connected to a CosmosDB cluster. For more information regarding feature "
+                "You appear to be connected to a CosmosDB cluster. For more information "
+                "regarding feature "
                 "compatibility and support please visit https://www.mongodb.com/supportability/cosmosdb",
             )
             return True
@@ -123,7 +122,8 @@ def _detect_external_db(entity: str) -> bool:
         if entity.endswith(host):
             _log_or_warn(
                 _CLIENT_LOGGER,
-                "You appear to be connected to a DocumentDB cluster. For more information regarding feature "
+                "You appear to be connected to a DocumentDB cluster. For more information "
+                "regarding feature "
                 "compatibility and support please visit https://www.mongodb.com/supportability/documentdb",
             )
             return True
@@ -131,7 +131,7 @@ def _detect_external_db(entity: str) -> bool:
 
 
 class _AgnosticClientConnectionRetryableBase(Generic[T, _ServerT, _FuncT]):
-    """Responsible for executing retryable connections on read or write operations"""
+    """Responsible for executing retryable connections on read or write operations."""
 
     __slots__ = (
         "_address",
@@ -140,6 +140,7 @@ class _AgnosticClientConnectionRetryableBase(Generic[T, _ServerT, _FuncT]):
         "_base_backoff_ms",
         "_bulk",
         "_client",
+        "_conn_mgr",
         "_deprioritized_servers",
         "_func",
         "_is_aggregate_write",
@@ -172,6 +173,7 @@ class _AgnosticClientConnectionRetryableBase(Generic[T, _ServerT, _FuncT]):
         operation_id: int | None = None,
         is_run_command: bool = False,
         is_aggregate_write: bool = False,
+        conn_mgr: Any = None,
     ):
         self._last_error: Exception | None = None
         self._retrying = False
@@ -200,19 +202,20 @@ class _AgnosticClientConnectionRetryableBase(Generic[T, _ServerT, _FuncT]):
         self._is_run_command = is_run_command
         self._is_aggregate_write = is_aggregate_write
         self._base_backoff_ms: float | None = None
+        self._conn_mgr = conn_mgr
 
     def _is_not_eligible_for_retry(self) -> bool:
-        """Checks if the exchange is not eligible for retry"""
+        """Check if the exchange is not eligible for retry."""
         return not self._retryable or (
             self._is_retrying() and self._attempt_number >= self._max_retries
         )
 
     def _is_retrying(self) -> bool:
-        """Checks if the exchange is currently undergoing a retry"""
+        """Check if the exchange is currently undergoing a retry."""
         return self._bulk.retrying if self._bulk else self._retrying
 
     def _is_session_state_retryable(self) -> bool:
-        """Checks if provided session is eligible for retry
+        """Check if provided session is eligible for retry.
 
         reads: Make sure there is no ongoing transaction (if provided a session)
         writes: Make sure there is a session without an active transaction
@@ -222,10 +225,12 @@ class _AgnosticClientConnectionRetryableBase(Generic[T, _ServerT, _FuncT]):
         return bool(self._session and not self._session.in_transaction)
 
     def _check_last_error(self, check_csot: bool = False) -> None:
-        """Checks if the ongoing client exchange experienced a exception previously.
-        If so, raise last error
+        """Check if the ongoing client exchange experienced an exception previously.
 
-        :param check_csot: Checks CSOT to ensure we are retrying with time remaining defaults to False
+        If so, raise the last error.
+
+        :param check_csot: Checks CSOT to ensure we are retrying with time remaining defaults to
+        False
         """
         if self._is_retrying():
             remaining = _csot.remaining()

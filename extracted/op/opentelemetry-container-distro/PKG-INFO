@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opentelemetry-container-distro
-Version: 0.3.0
+Version: 0.3.1
 Summary: An OpenTelemetry distro which automatically discovers container attributes
 Project-URL: Repository, https://github.com/chrisguidry/opentelemetry-container-distro
 Project-URL: Bug Tracker, https://github.com/chrisguidry/opentelemetry-container-distro/issues

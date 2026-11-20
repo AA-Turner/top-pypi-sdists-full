@@ -40,12 +40,19 @@ class ItemReference:
             state (ItemReferenceState): Where the related item stands. Only a pull request is `merged`; `closed` means
                 closed without merging.
             direction (ItemReferenceDirection): `incoming` when the related item refers to the asked-for one,
-                `outgoing` when the asked-for one refers to it.
+                `outgoing` when the asked-for one refers to it. The `relation` is
+                always the referring item's: what the related item does to the
+                asked-for one when `incoming`, what the asked-for one does to the
+                related item when `outgoing`.
             relation (ItemReferenceRelation): What the referring item does to the referred-to one. `closes`
                 closes it when merged (a closing keyword). `refs` references it
                 without closing it (`Refs`, `Related to`, `See`). `mentions` only
-                names it. The forge's timeline does not tell the last two apart,
-                so a read from it says `mentions` for both.
+                names it. An item holds one relation to the asked-for one, the
+                strongest it has: `closes`, then `refs`, then `mentions`. The
+                forge's timeline does not tell `refs` from `mentions`, so for an
+                `incoming` entry the referring item's own description is read for
+                a `Refs`, `Related to` or `See` on the asked-for item; a `closes`
+                the forge reports is kept.
      """
 
     forge: Forge

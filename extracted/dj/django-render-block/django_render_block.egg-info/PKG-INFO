@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-render-block
-Version: 0.11
+Version: 0.12
 Summary: Render a particular block from a template to a string.
 Home-page: https://github.com/clokep/django-render-block
 Author: Patrick Cloke
@@ -10,29 +10,30 @@ Project-URL: Documentation, https://github.com/clokep/django-render-block/blob/m
 Project-URL: Release notes, https://github.com/clokep/django-render-block/blob/main/CHANGELOG.rst
 Project-URL: Source, https://github.com/clokep/django-render-block
 Project-URL: Tracker, https://github.com/clokep/django-render-block/issues
-Keywords: [django,template,block,templates,render,context]
+Keywords: django,template,block,templates,render,context
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Environment :: Web Environment
 Classifier: Topic :: Internet
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: ISC License (ISCL)
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: django>=4.2
+Requires-Dist: django>=5.2
 Provides-Extra: dev
-Requires-Dist: Jinja2>=2.8; extra == "dev"
+Requires-Dist: Jinja2>=3.1; extra == "dev"
 Dynamic: license-file
 
 Django Render Block
@@ -54,14 +55,14 @@ Features
 
 *   Render a specific block from a template
 *   Fully supports the Django templating engine
-*   Partially supports the `Jinja2 <http://jinja.pocoo.org/>`__ engine: it does
+*   Partially supports the `Jinja2 <https://jinja.palletsprojects.com/>`__ engine: it does
     not currently process the ``extends`` tag.
 
 Requirements
 ============
 
-Django Render Block supports Django 4.2, 5.1, and 5.2 on Python 3.9, 3.10, 3.11,
-3.12, and 3.13 (see the `Django documentation <https://docs.djangoproject.com/en/dev/faq/install/#what-python-version-can-i-use-with-django>`_
+Django Render Block supports Django 5.2, 6.0, and 6.1 on Python 3.11, 3.12,
+3.13, 3.14, and 3.15 (see the `Django documentation <https://docs.djangoproject.com/en/stable/faq/install/#what-python-version-can-i-use-with-django>`_
 for which versions of Python are supported by particular Django versions).
 
 Examples
@@ -207,13 +208,31 @@ This is based on a few sources:
 Changelog
 #########
 
+0.12 (May 12, 2025)
+===================
+
+Improvements
+------------
+
+* Include `py.typed` file in wheels to enable type-checking of applications using django-render-block.
+  Contributed by `@mthuurne <https://github.com/mthuurne>`_. (`#66 <https://github.com/clokep/django-render-block/pull/66>`_)
+
+Maintenance
+-----------
+
+* Support Python 3.14 and 3.15. (`#67 <https://github.com/clokep/django-render-block/pull/67>`_)
+* Support Django 6.0 and 6.1. (`#67 <https://github.com/clokep/django-render-block/pull/67>`_)
+* Drop support for Python 3.9 and 3.10. (`#67 <https://github.com/clokep/django-render-block/pull/67>`_)
+* Drop support for Django 4.2 and 5.1. (`#67 <https://github.com/clokep/django-render-block/pull/67>`_)
+* Update linters. (`#68 <https://github.com/clokep/django-render-block/pull/68>`_)
+
 0.11 (May 12, 2025)
 ===================
 
 Improvements
 ------------
 
-* Add a new ``render_block`` function which returns a `HttpResponse` with the content
+* Add a new ``render_block`` function which returns a ``HttpResponse`` with the content
   set to the result of calling ``render_block_to_string()``. Contributed by
   `@gogognome <https://github.com/gogognome>`_. (`#60 <https://github.com/clokep/django-render-block/pull/60>`_)
 

@@ -71,6 +71,7 @@ from .type_defs import (
     AttachUserPolicyRequestPolicyAttachUserTypeDef,
     AttachUserPolicyRequestUserAttachPolicyTypeDef,
     ChangePasswordRequestServiceResourceChangePasswordTypeDef,
+    ContextProviderOutputTypeDef,
     CreateAccountAliasRequestServiceResourceCreateAccountAliasTypeDef,
     CreateGroupRequestGroupCreateTypeDef,
     CreateGroupRequestServiceResourceCreateGroupTypeDef,
@@ -104,6 +105,7 @@ from .type_defs import (
     ResyncMFADeviceRequestMfaDeviceResyncTypeDef,
     RoleLastUsedTypeDef,
     RoleTypeDef,
+    SAMLKeyHashEntryTypeDef,
     SAMLPrivateKeyTypeDef,
     ServerCertificateMetadataTypeDef,
     SourceRoleTemplateTypeDef,
@@ -2764,11 +2766,15 @@ class SamlProvider(ServiceResource):
     arn: str
     saml_provider_uuid: str
     saml_metadata_document: str
+    context_provider: ContextProviderOutputTypeDef
+    saml_key_hashes: list[SAMLKeyHashEntryTypeDef]
     create_date: datetime
     valid_until: datetime
     tags: list[TagTypeDef]
     assertion_encryption_mode: AssertionEncryptionModeTypeType
     private_key_list: list[SAMLPrivateKeyTypeDef]
+    identity_center_instance_arn: str
+    identity_store_arn: str
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

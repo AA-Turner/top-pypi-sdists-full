@@ -21,6 +21,8 @@ import random
 import sys
 from typing import Any, Mapping, Optional
 
+from .late import wait_steps
+
 
 
 
@@ -74,20 +76,6 @@ IDLE_S = 60
 
 
 LOAD_MAX = 0.9
-
-
-def wait_steps(valid_len: Any, replan_at: Any) -> Optional[int]:
-    """The steps a robot plays between asking for an answer and needing it, as its policy declares them:
-    action_chunk_valid_len less action_chunk_replan_at, its last valid step when unset. Over hz, the time the next
-    answer must arrive in, and so the time a batch of its copy's robots' acts answers within. None when it declares no
-    action_chunk_valid_len; 0 when it asks at its last valid step, its robot waiting for every answer.
-"""
-    def whole(n: Any) -> bool:
-        return isinstance(n, int) and not isinstance(n, bool) and n > 0
-
-    if not whole(valid_len):
-        return None
-    return max(0, valid_len - (replan_at if whole(replan_at) else valid_len))
 
 
 def wait_said(said: Any) -> str:

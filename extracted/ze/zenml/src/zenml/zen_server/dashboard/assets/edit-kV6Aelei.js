@@ -1,0 +1,1 @@
+import{r as e}from"./utils-CinycaQR.js";import{H as t,t as n}from"./index-DACdppmF.js";var r=e();function i(){let{componentId:e}=n.useParams();return(0,r.jsx)(t,{componentId:e})}export{i as component};

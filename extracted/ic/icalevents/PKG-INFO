@@ -1,14 +1,13 @@
 Metadata-Version: 2.3
 Name: icalevents
-Version: 0.3.1
+Version: 0.3.2
 Summary: Simple Python 3 library to download, parse and query iCal sources.
 License: MIT
 Author: Martin Eigenmann
 Author-email: github@eigenmannmartin.ch
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

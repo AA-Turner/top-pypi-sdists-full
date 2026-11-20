@@ -1,10 +1,12 @@
 """ConnectorFastening.State is exposed as an enum; State 1 drives the plug sensor.
 
 Both CCS2 parsers (ApiImplType1 legacy path and GspaApiEU CCI path) read
-the same wire block. State 1 proves the cable is in; 0 is ambiguous —
+the same wire block. State 1 proves the cable is in; on Kia 0 is ambiguous —
 unplugged vs plugged while the car only locks the connector during a
 session (Hyundai-Kia-Connect/kia_uvo#2069) — so the plug sensor reads
-True only for state 1 and stays unknown otherwise. Unknown or unexpected
+True only for state 1 and stays unknown otherwise, except for Hyundai
+EU legacy statuses that omit Green.ChargingConnector entirely: there
+Fastening 0 tracks the cable (Tucson PHEV, #1613). Unknown or unexpected
 raw values must not raise.
 """
 
@@ -45,17 +47,19 @@ def vehicle() -> Vehicle:
     return Vehicle(id="test-id")
 
 
-def test_reported_state_populates_enum_plug_on_state_1(parser_api, state, vehicle):
+def test_reported_state_populates_enum_plug_on_state_1(state, vehicle):
     # EV9 fixture: fastening 0 (ambiguous -> unknown); then 1 (cable in,
-    # also true when the car locks only during a session).
-    parser_api._update_vehicle_properties_ccs2(vehicle, state)
+    # also true when the car locks only during a session). Type1 only: the
+    # CCI arms are pinned by gspa stored-status snapshots (fastening 0/1,
+    # both brands).
+    _type1_api()._update_vehicle_properties_ccs2(vehicle, state)
     assert (
         vehicle.ev_connector_fastening_state is CONNECTOR_FASTENING_STATE.DISCONNECTED
     )
     assert vehicle.ev_battery_is_plugged_in is None
 
     state["Green"]["ChargingInformation"].update({"ConnectorFastening": {"State": 1}})
-    parser_api._update_vehicle_properties_ccs2(vehicle, state)
+    _type1_api()._update_vehicle_properties_ccs2(vehicle, state)
     assert vehicle.ev_connector_fastening_state is CONNECTOR_FASTENING_STATE.CONNECTED
     assert vehicle.ev_battery_is_plugged_in is True
 
@@ -73,3 +77,45 @@ def test_unreported_block_leaves_unknown(parser_api, state, vehicle):
     parser_api._update_vehicle_properties_ccs2(vehicle, state)
     assert vehicle.ev_connector_fastening_state is None
     assert vehicle.ev_battery_is_plugged_in is None
+
+
+def _type1_api_of_brand(brand) -> ApiImplType1:
+    api = ApiImplType1.__new__(ApiImplType1)
+    api.data_timezone = None
+    api.temperature_range = [x * 0.5 for x in range(28, 60)]
+    api.brand = brand
+    return api
+
+
+class TestHyundaiLegacyNoLockBlock:  # trio gated to Hyundai, see module docstring
+    @pytest.fixture
+    def state(self):
+        return load_fixture(STATE_FIXTURE)
+
+    def test_kia_brand_stays_unknown(self, state):
+        state["Green"]["ChargingInformation"].update(
+            {"Charging": {"RemainTime": 0, "State": 0}}
+        )
+        vehicle = Vehicle(id="test-id")
+        _type1_api_of_brand(1)._update_vehicle_properties_ccs2(vehicle, state)
+        assert vehicle.ev_battery_is_plugged_in is None
+
+    def test_no_brand_attribute_stays_unknown(self, state):
+        # Impls that do not set self.brand must not hit the Hyundai branch.
+        state["Green"]["ChargingInformation"].update(
+            {"Charging": {"RemainTime": 0, "State": 0}}
+        )
+        vehicle = Vehicle(id="test-id")
+        _type1_api()._update_vehicle_properties_ccs2(vehicle, state)
+        assert vehicle.ev_battery_is_plugged_in is None
+
+    def test_active_session_stays_unknown(self, state):
+        # Charging.State 1: Fastening 0 is the Hyundai-Kia-Connect/kia_uvo#1495
+        # shape even on Hyundai-branded impls; without a corroborating
+        # capture, unknown.
+        vehicle = Vehicle(id="test-id")
+        state["Green"]["ChargingInformation"].update(
+            {"Charging": {"RemainTime": 0, "State": 1}}
+        )
+        _type1_api_of_brand(2)._update_vehicle_properties_ccs2(vehicle, state)
+        assert vehicle.ev_battery_is_plugged_in is None

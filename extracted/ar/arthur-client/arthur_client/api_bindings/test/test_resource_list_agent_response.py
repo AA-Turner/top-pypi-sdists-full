@@ -98,6 +98,9 @@ class TestResourceListAgentResponse(unittest.TestCase):
                                 config = null, )
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        trace_count = 0.0, 
+                        inference_count = 0.0, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         id = '', 
                         workspace_id = '', 
@@ -230,6 +233,9 @@ class TestResourceListAgentResponse(unittest.TestCase):
                                 config = null, )
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        trace_count = 0.0, 
+                        inference_count = 0.0, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         id = '', 
                         workspace_id = '', 

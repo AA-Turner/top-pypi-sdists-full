@@ -257,6 +257,7 @@ StackAttributeType = Literal[
     "STREAMING_EXPERIENCE_SETTINGS",
     "THEME_NAME",
     "USER_SETTINGS",
+    "WEB_AUTHN_REDIRECTION",
 ]
 StackErrorCodeType = Literal["INTERNAL_SERVICE_ERROR", "STORAGE_CONNECTOR_ERROR"]
 StorageConnectorAuthenticationType = Literal["FORCE_REAUTHENTICATION", "REUSE_CREDENTIALS"]
@@ -276,6 +277,7 @@ UserStackAssociationErrorCodeType = Literal[
 VisibilityTypeType = Literal["PRIVATE", "PUBLIC", "SHARED"]
 AppStreamServiceName = Literal["appstream"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -577,6 +579,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

@@ -89,7 +89,7 @@ import json
 import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, TypedDict
 
 from coord.decomposition_chat import is_size_triage_pending_reason
 from coord.dispatch_liveness import is_credential_probe_refusal_reason
@@ -448,6 +448,213 @@ def fix_round_ceiling_blocked_for_issue(repo_name: str, issue_number: int) -> bo
         return False
     entry = QueueEntry.from_row(row)
     return is_fix_round_ceiling_blocked(entry.state, entry.last_reason)
+
+
+#: #4036: the three verdicts :func:`conflict_fix_push_ci_verdict` can reach
+#: for a PR's live checks right after a conflict-fix leg pushed a rebase —
+#: see that function's own docstring for what distinguishes them.
+CONFLICT_FIX_PUSH_CI_RED = "red"
+CONFLICT_FIX_PUSH_CI_PENDING = "pending"
+CONFLICT_FIX_PUSH_CI_GREEN = "green"
+
+
+def conflict_fix_push_ci_verdict(check_conclusions: Sequence[str]) -> str:
+    """Classify a just-pushed conflict-fix branch's live checks for
+    :func:`requeue_after_conflict_fix`'s own gate (#4036): is it SAFE to
+    remove-then-re-add the drive-queue row right now, or must the whole
+    requeue wait for CI to settle first?
+
+    *check_conclusions* is each check's bare ``conclusion`` string — the
+    same vocabulary :class:`coord.queue_diagnose.CheckReading.conclusion`
+    already uses (``"success"`` | ``"failure"`` | ``"pending"`` |
+    ``"unknown"``), passed as plain strings rather than that dataclass so
+    this module needs no import from :mod:`coord.queue_diagnose` — which
+    already imports FROM this module (:func:`is_fix_round_ceiling_blocked`),
+    and a cycle neither side needs. Empty (no checks reported yet, right
+    after a push) reads the same as any check still ``"pending"`` — safe to
+    wait on, never upgraded to green on an absent reading.
+
+    Three verdicts:
+
+    * :data:`CONFLICT_FIX_PUSH_CI_RED` — at least one check has FAILED.
+      Requeuing a pushed "fix" whose own CI is red would just restart the
+      row on a commit that has not actually fixed anything; the caller
+      must leave it for the alert tier instead of requeuing a broken head.
+    * :data:`CONFLICT_FIX_PUSH_CI_PENDING` — nothing failed, but at least
+      one check is still running, none have reported in yet, or an
+      ``"unknown"`` reading leaves the picture incomplete (never upgraded
+      to green on an unconfirmed reading — the same fail-closed rule every
+      other live-evidence read in this fleet follows). The caller must
+      defer the whole remove-then-re-add to a LATER sweep rather than
+      drop the row now and risk the #2377/#3539 refusal a mid-flight
+      ``coord drive-queue add`` would otherwise hit.
+    * :data:`CONFLICT_FIX_PUSH_CI_GREEN` — every check completed and none
+      failed: safe to requeue right now.
+    """
+    conclusions = list(check_conclusions)
+    if any(c == "failure" for c in conclusions):
+        return CONFLICT_FIX_PUSH_CI_RED
+    if not conclusions or any(c != "success" for c in conclusions):
+        return CONFLICT_FIX_PUSH_CI_PENDING
+    return CONFLICT_FIX_PUSH_CI_GREEN
+
+
+class ConflictFixRequeueResult(TypedDict):
+    """:func:`requeue_after_conflict_fix`'s return shape."""
+
+    requeued: bool
+    detail: str
+
+
+def requeue_after_conflict_fix(
+    repo_name: str,
+    issue_number: int,
+    *,
+    ci_verdict: str,
+) -> ConflictFixRequeueResult:
+    """#4036: put a ceiling-blocked drive-queue row that a conflict-fix
+    leg just pushed a resolution for BACK at its original position, with
+    its original ``after=``/machine/hold/fix-round-override edges intact,
+    once (and only once) its new head's checks have actually settled.
+
+    *ci_verdict* is the caller's ALREADY-COMPUTED
+    :func:`conflict_fix_push_ci_verdict` reading for this row's live PR —
+    this function never probes GitHub itself (that stays the caller's
+    job, same impure/pure split :mod:`coord.board_doctor` uses throughout):
+
+    * :data:`CONFLICT_FIX_PUSH_CI_PENDING` — refuses outright, with NO
+      board mutation at all: the row is left exactly where it was (still
+      ``blocked``, still queued, nothing removed), so the caller's next
+      sweep simply tries again — "retried later", never "dropped". This
+      is the one case the #2377/#3539 ``coord drive-queue add`` CLI
+      refusal (``"its checks are not all green"``) could otherwise strand
+      an operator's manual remove+re-add on; going through this function
+      instead of that CLI path means pending checks are never confused
+      with a genuinely dead PR in the first place.
+    * :data:`CONFLICT_FIX_PUSH_CI_RED` — also refuses with no mutation:
+      the conflict-fix's own push did not actually produce a green head,
+      so requeuing it would just restart Test/Review on a commit that is
+      already known broken. Left for the alert tier instead.
+    * :data:`CONFLICT_FIX_PUSH_CI_GREEN` — resets the issue's smoke AND
+      review stage (`coord.state.reset_work_test_state`/
+      `reset_work_review_state` — the verdict either one recorded was for
+      the PRE-fix head, which no longer exists), confirms that reset
+      against a fresh board read, then delegates the actual remove+re-add
+      to `coord.board_doctor_permissions.sweep_drive_queue_requeue` — the
+      ONE sweep-authorized way to express "take this row down and put it
+      back exactly as declared" (#2096: this function used to hand-roll a
+      second, field-for-field copy of that same declaration snapshot;
+      going through the shared primitive instead means every #1757
+      deploy-gate / `authorize_sweep_action` / post-write-confirmation
+      guard that primitive already enforces applies here too, with no
+      second implementation to drift out of sync with it).
+
+    Returns ``requeued=False`` (never raises) for every refusal shape
+    above, for "not in the drive queue" (nothing to requeue — a row an
+    operator already removed by hand), for a reset that could not be
+    confirmed, and for any `SweepPermissionError`/`SweepWriteNotConfirmedError`
+    the delegated requeue raises (a gate mid-flight, a validation refusal, an
+    unconfirmed write) — the caller's convergence counter is the thing that
+    escalates a row stuck in any of these states, not an exception from here.
+    """
+    if ci_verdict == CONFLICT_FIX_PUSH_CI_PENDING:
+        return ConflictFixRequeueResult(
+            requeued=False,
+            detail=(
+                f"{repo_name}#{issue_number}: checks on the conflict-fix's "
+                "push are still running — waiting for them to settle "
+                "before requeuing; this will be retried on a later sweep"
+            ),
+        )
+    if ci_verdict == CONFLICT_FIX_PUSH_CI_RED:
+        return ConflictFixRequeueResult(
+            requeued=False,
+            detail=(
+                f"{repo_name}#{issue_number}: checks on the conflict-fix's "
+                "push came back red — leaving the row for the alert tier "
+                "instead of requeuing a still-broken head"
+            ),
+        )
+
+    from coord.board_doctor_permissions import (  # noqa: PLC0415
+        SweepPermissionError,
+        SweepWriteNotConfirmedError,
+        sweep_drive_queue_requeue,
+    )
+    from coord.state import (  # noqa: PLC0415
+        build_board,
+        get_drive_queue_entry,
+        reset_work_review_state,
+        reset_work_test_state,
+    )
+
+    if get_drive_queue_entry(repo_name, issue_number) is None:
+        return ConflictFixRequeueResult(
+            requeued=False,
+            detail=(
+                f"{repo_name}#{issue_number} is not in the drive queue — "
+                "nothing to requeue"
+            ),
+        )
+
+    # #4036: the conflict-fix's push moved the branch's head — any
+    # smoke/review verdict recorded against the PRE-fix head no longer
+    # covers the code actually sitting on the branch now. Reset BEFORE
+    # the requeue, and CONFIRM it against a fresh board read (#2096: a
+    # reported outcome must come from an observation taken after the
+    # write, never from `reset_work_test_state`/`reset_work_review_state`'s
+    # own row-matched rowcount, which proves only that the WHERE clause
+    # matched something, not that the value actually changed) — a row
+    # re-added with a stale verdict still attached would requeue it
+    # straight into the merge gate's own approval.
+    reset_work_test_state(repo_name, issue_number)
+    reset_work_review_state(repo_name, issue_number)
+    board = build_board()
+    still_stale = sorted(
+        a.assignment_id or ""
+        for a in list(board.active) + list(board.completed)
+        if a.repo_name == repo_name
+        and a.issue_number == issue_number
+        and a.type in ("work", "plan")
+        and (
+            a.review_state not in (None, "pending")
+            or a.review_verdict is not None
+            or a.test_state is not None
+        )
+    )
+    if still_stale:
+        return ConflictFixRequeueResult(
+            requeued=False,
+            detail=(
+                f"{repo_name}#{issue_number}: the pre-fix smoke/review "
+                "verdict could not be confirmed cleared on re-read for "
+                f"{', '.join(still_stale)} — leaving the row queued for a "
+                "later sweep rather than requeue it with a stale verdict "
+                "still attached"
+            ),
+        )
+
+    try:
+        outcome = sweep_drive_queue_requeue(repo_name, issue_number)
+    except (SweepPermissionError, SweepWriteNotConfirmedError) as exc:
+        return ConflictFixRequeueResult(
+            requeued=False,
+            detail=f"{repo_name}#{issue_number}: {exc}",
+        )
+    if not outcome.get("requeued"):
+        return ConflictFixRequeueResult(
+            requeued=False,
+            detail=outcome.get(
+                "detail", f"{repo_name}#{issue_number}: requeue did not land",
+            ),
+        )
+    return ConflictFixRequeueResult(
+        requeued=True,
+        detail=(
+            f"{outcome.get('detail', '')}, smoke/review stage reset for "
+            "the new head"
+        ),
+    )
 
 
 def is_checks_stale_race_giveup_reason(reason: str | None) -> bool:
@@ -1950,6 +2157,87 @@ def entries_from_rows(rows: Iterable[Mapping[str, Any]]) -> list[QueueEntry]:
     return sorted(
         (QueueEntry.from_row(r) for r in rows), key=lambda e: (e.position, e.key)
     )
+
+
+def write_queue_after(entry: QueueEntry, after: Sequence[str]) -> None:
+    """Replace *entry*'s own ``after=`` edges, leaving every other column
+    on the row — including the deploy gate's ``hold_state``/``hold_probes``
+    and the fix-round baseline ``legs_at_enqueue`` — untouched.
+
+    Deliberately NOT ``enqueue_drive_queue``'s full-row upsert: that path
+    treats every field it accepts as freshly operator-declared, so it
+    re-arms a fired gate back to ``armed`` (resetting ``hold_probes``) and
+    stamps a brand-new ``legs_at_enqueue`` baseline on every call — correct
+    for an explicit operator `add`, wrong for an autonomous sweep that only
+    wants to drop a stale edge. Goes through
+    ``coord.state.update_drive_queue_entry`` instead, which only ever
+    writes the columns its own whitelist names — ``after_json`` is in that
+    whitelist as the one field an automated caller may replace without
+    touching anything else on the row.
+    """
+    from coord.state import update_drive_queue_entry  # noqa: PLC0415
+
+    update_drive_queue_entry(
+        entry.repo,
+        entry.issue,
+        after_json=json.dumps([str(a) for a in after]),
+    )
+
+
+def record_predicted_after_drop(
+    entry: QueueEntry, drops: Sequence[tuple[str, str]],
+) -> None:
+    """Record, durably, that a stale PREDICTED ``after=`` edge was dropped
+    from *entry* — so the drop is recorded on the row itself, not only in
+    the sweep's own return value.
+
+    Two sinks, the same split ``coord.commands.drive_queue.
+    _record_overlap_prediction``/``._record_reverse_overlap_prediction``
+    already use for the opposite event (an edge being ADDED rather than
+    dropped): a durable audit row so the drop can be scored or audited
+    later, and ``last_reason`` so an operator reading ``coord drive-queue
+    list`` right now sees it immediately — even though the entry's own
+    next tick attempt will overwrite that column.
+
+    Does nothing when *drops* is empty. Both writes are best-effort: a
+    failure here must never surface as the sweep failing to apply the drop
+    it already computed and wrote via :func:`write_queue_after`.
+    """
+    if not drops:
+        return
+    note = "; ".join(
+        f"edge dropped: {dep_key} (predicted, target {reason})"
+        for dep_key, reason in drops
+    )
+    try:
+        from coord.audit import record_audit  # noqa: PLC0415
+        from coord.overlap_predict import (  # noqa: PLC0415
+            AUDIT_CATEGORY,
+            EVENT_PREDICTED_DROPPED,
+        )
+
+        record_audit(
+            tier="business",
+            category=AUDIT_CATEGORY,
+            event_type=EVENT_PREDICTED_DROPPED,
+            actor="board-doctor",
+            summary=note,
+            repo=entry.repo,
+            issue=entry.issue,
+            details={
+                "dropped": [
+                    {"after": dep_key, "reason": reason} for dep_key, reason in drops
+                ],
+            },
+        )
+    except Exception:  # noqa: BLE001 — recording must never fail the sweep
+        pass
+    try:
+        from coord.state import update_drive_queue_entry  # noqa: PLC0415
+
+        update_drive_queue_entry(entry.repo, entry.issue, last_reason=note)
+    except Exception:  # noqa: BLE001 — same
+        pass
 
 
 def effective_max_fix_rounds(

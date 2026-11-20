@@ -1,25 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rstr
-Version: 3.2.2
+Version: 4.0.0
 Summary: Generate random strings in Python
 Author-email: Leapfrog Direct Response LLC <oss@leapfrogdevelopment.com>
 Maintainer-email: Brendan McCollam <rstr@mccoll.am>
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/leapfrogonline/rstr
 Keywords: random string,reverse regex,reverse regular expression,testing,fuzz testing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: 3.16
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.7
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-License-File: AUTHORS
+Dynamic: license-file
 
 ===============================
 rstr = Random Strings in Python
@@ -33,23 +34,6 @@ It could be useful for fuzz testing, generating dummy data, or other
 applications.
 
 It has no dependencies outside the standard library.
-
-A Word of Caution
------------------
-
-By default, rstr uses the Python ``random`` module to generate pseudorandom text. This module is based on the Mersenne Twister and is *not* cryptographically secure.
-
-**If you wish to use rstr for password-generation or other cryptographic
-applications, you must create an instance that uses** SystemRandom_.
-
-For example:
-
-::
-
-    >> from rstr import Rstr
-    >> from random import SystemRandom
-    >> rs = Rstr(SystemRandom())
-
 
 Use
 ---

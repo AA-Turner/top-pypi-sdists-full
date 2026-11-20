@@ -1,10 +1,11 @@
-# ruff: noqa: ARG001, ARG005, D205
+# ruff: file-ignore[unused-function-argument, unused-lambda-argument, missing-blank-line-after-summary]
 """Tests for RestClient v0.2 object-storage-backed task reads."""
 
 from __future__ import annotations
 
 import gzip
 import json
+from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
@@ -85,7 +86,7 @@ class _Recorder:
         return [r.url.path for r in self.requests]
 
 
-def _blob_response(payload: Any, *, gzip_header: bool = False) -> httpx.Response:
+def _blob_response(payload: object, *, gzip_header: bool = False) -> httpx.Response:
     """A storage response: gzipped JSON, exactly as the writer PUT it.
 
     ``gzip_header`` models whether the provider tags the object with
@@ -96,16 +97,14 @@ def _blob_response(payload: Any, *, gzip_header: bool = False) -> httpx.Response
     """
     headers = {"Content-Encoding": "gzip"} if gzip_header else {}
     return httpx.Response(
-        200,
-        content=gzip.compress(json.dumps(payload).encode()),
-        headers=headers,
+        200, content=gzip.compress(json.dumps(payload).encode()), headers=headers
     )
 
 
 def _install(
     monkeypatch: pytest.MonkeyPatch,
     rest_client: RestClient,
-    handler: Any,
+    handler: Callable[[httpx.Request], httpx.Response],
 ) -> _Recorder:
     """Route both the API client and the blob client at ``handler``.
 
@@ -148,18 +147,22 @@ def _install(
     # them, and reading through the patched name would recurse.
     real_client, real_async_client = httpx.Client, httpx.AsyncClient
 
-    def blob_client(*args: Any, **kwargs: Any) -> httpx.Client:
+    def blob_client(
+        *args: object, follow_redirects: bool = False, **kwargs: object
+    ) -> httpx.Client:
         # ``follow_redirects`` is forwarded, not dropped, so the redirect
         # behavior under test is the real one.
         return real_client(
             transport=httpx.MockTransport(sync_handler),
-            follow_redirects=kwargs.get("follow_redirects", False),
+            follow_redirects=follow_redirects,
         )
 
-    def async_blob_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+    def async_blob_client(
+        *args: object, follow_redirects: bool = False, **kwargs: object
+    ) -> httpx.AsyncClient:
         return real_async_client(
             transport=httpx.MockTransport(async_handler),
-            follow_redirects=kwargs.get("follow_redirects", False),
+            follow_redirects=follow_redirects,
         )
 
     monkeypatch.setattr("edison_client.clients.state_blobs.httpx.Client", blob_client)
@@ -170,7 +173,9 @@ def _install(
     return recorder
 
 
-def _happy_path_handler(task_id: str, *, gzip_header: bool = False) -> Any:
+def _happy_path_handler(
+    task_id: str, *, gzip_header: bool = False
+) -> Callable[[httpx.Request], httpx.Response]:
     def handle(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         if request.url.host == BLOB_HOST:
@@ -187,7 +192,7 @@ def _happy_path_handler(task_id: str, *, gzip_header: bool = False) -> Any:
 
 def test_get_task_reads_v0d2_and_materializes_blobs(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """Happy path: one v0.2 GET, then the blobs straight from storage."""
     recorder = _install(monkeypatch, rest_client, _happy_path_handler(task_id))
 
@@ -222,7 +227,7 @@ def test_get_task_decodes_blobs_regardless_of_transport_decompression(
     rest_client: RestClient,
     task_id: str,
     gzip_header: bool,
-):
+) -> None:
     """Both blob wire formats decode to the same state.
 
     Whether a blob comes back tagged ``Content-Encoding: gzip`` is
@@ -255,7 +260,7 @@ async def test_aget_task_decodes_blobs_regardless_of_transport_decompression(
     rest_client: RestClient,
     task_id: str,
     gzip_header: bool,
-):
+) -> None:
     """Async counterpart: see the sync test for why both cases exist."""
     _install(
         monkeypatch, rest_client, _happy_path_handler(task_id, gzip_header=gzip_header)
@@ -270,7 +275,7 @@ async def test_aget_task_decodes_blobs_regardless_of_transport_decompression(
 
 def test_get_task_follows_a_storage_redirect(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """S3 answers a regional-endpoint mismatch with a 307 rather than the
     object, so blob GETs follow redirects (httpx would not by default).
     """
@@ -300,7 +305,7 @@ def test_get_task_follows_a_storage_redirect(
 
 def test_get_task_pairs_every_blob_with_its_own_row(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """A history read fans many blobs out across the thread pool at once.
 
     Results are zipped back onto ``pending`` positionally, so anything that
@@ -343,20 +348,17 @@ def test_get_task_pairs_every_blob_with_its_own_row(
 
 def test_get_task_passes_history_through_to_v0d2(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     recorder = _install(monkeypatch, rest_client, _happy_path_handler(task_id))
 
     rest_client.get_task(task_id, history=True, verbose=True)
 
-    assert dict(recorder.requests[0].url.params) == {
-        "history": "true",
-        "lite": "false",
-    }
+    assert dict(recorder.requests[0].url.params) == {"history": "true", "lite": "false"}
 
 
 def test_get_task_returns_inline_rows_verbatim(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """Legacy pre-v0.2 rows come back with ``state`` already populated;
     v0.2 returns them untouched and no blob fetch should happen.
     """
@@ -395,7 +397,7 @@ def test_get_task_returns_inline_rows_verbatim(
 
 def test_get_task_skips_rows_with_neither_state_nor_url(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """A row the server could not sign is left as ``state: None`` — v0.1
     reads of the same row are stateless too, so this is not an error.
     """
@@ -432,7 +434,7 @@ def test_get_task_skips_rows_with_neither_state_nor_url(
 
 def test_get_task_raises_when_a_blob_cannot_be_read(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """A failed blob download is loud. Silently returning the task with an
     empty ``state`` would look valid to every downstream consumer.
     """
@@ -454,7 +456,7 @@ def test_get_task_raises_when_a_blob_cannot_be_read(
 
 def test_get_task_does_not_fall_back_when_v0d2_is_missing(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """No silent downgrade to v0.1 — a missing route is a real error.
 
     Every deployment has served the v0.2 GET for months, so quietly
@@ -478,7 +480,7 @@ def test_get_task_does_not_fall_back_when_v0d2_is_missing(
 
 def test_get_task_raises_on_unknown_task_id(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """An application 404 propagates, with a readable body on the error."""
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -501,7 +503,7 @@ def test_get_task_raises_on_unknown_task_id(
 
 def test_get_task_lite_reads_v0d2_without_touching_storage(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     recorder = _install(monkeypatch, rest_client, _happy_path_handler(task_id))
 
     task = rest_client.get_task(task_id, lite=True)
@@ -515,16 +517,13 @@ def test_get_task_lite_reads_v0d2_without_touching_storage(
     # ``lite`` goes to the server, which serves it from one row read. An
     # older server without the param ignores it and answers in full; the
     # client projects locally and still skips hydration.
-    assert dict(recorder.requests[0].url.params) == {
-        "history": "false",
-        "lite": "true",
-    }
+    assert dict(recorder.requests[0].url.params) == {"history": "false", "lite": "true"}
 
 
 @pytest.mark.asyncio
 async def test_aget_task_lite_reads_v0d2_without_touching_storage(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     recorder = _install(monkeypatch, rest_client, _happy_path_handler(task_id))
 
     task = await rest_client.aget_task(task_id, lite=True)
@@ -536,7 +535,7 @@ async def test_aget_task_lite_reads_v0d2_without_touching_storage(
 
 def test_cancel_task_reads_status_lite(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """Cancel only needs ``.status``; it must not hydrate state blobs."""
     posts: list[httpx.Request] = []
 
@@ -560,7 +559,7 @@ def test_cancel_task_reads_status_lite(
 
 def test_get_task_raises_permission_error_on_403(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """403 keeps its pre-migration behavior on the new route."""
     _install(
         monkeypatch,
@@ -574,7 +573,7 @@ def test_get_task_raises_permission_error_on_403(
 
 def test_v0d1_task_get_escape_hatch_emits_deprecation(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """The deprecated v0.1 read still works for callers pinning to it."""
     inline_payload = _v0d2_payload(
         task_id,
@@ -597,7 +596,7 @@ def test_v0d1_task_get_escape_hatch_emits_deprecation(
 
 def test_get_task_non_verbose_returns_job_specific_response(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     """The v0.2 payload feeds the job-specific model the same way v0.1 did —
     including fields the model digs out of the materialized frame blob.
     """
@@ -614,7 +613,7 @@ def test_get_task_non_verbose_returns_job_specific_response(
 @pytest.mark.asyncio
 async def test_aget_task_reads_v0d2_and_materializes_blobs(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     recorder = _install(monkeypatch, rest_client, _happy_path_handler(task_id))
 
     task = await rest_client.aget_task(task_id, verbose=True)
@@ -640,7 +639,7 @@ async def test_aget_task_reads_v0d2_and_materializes_blobs(
 @pytest.mark.asyncio
 async def test_aget_task_does_not_fall_back_when_v0d2_is_missing(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     def handle(request: httpx.Request) -> httpx.Response:
         if "/v0.2/" in str(request.url):
             return httpx.Response(404, json={"detail": "Not Found"})
@@ -657,7 +656,7 @@ async def test_aget_task_does_not_fall_back_when_v0d2_is_missing(
 @pytest.mark.asyncio
 async def test_aget_task_raises_when_a_blob_cannot_be_read(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     def handle(request: httpx.Request) -> httpx.Response:
         if request.url.host == BLOB_HOST:
             return httpx.Response(403, text="expired")
@@ -674,7 +673,7 @@ async def test_aget_task_raises_when_a_blob_cannot_be_read(
 @pytest.mark.asyncio
 async def test_av0d1_task_get_escape_hatch_emits_deprecation(
     monkeypatch: pytest.MonkeyPatch, rest_client: RestClient, task_id: str
-):
+) -> None:
     inline_payload = _v0d2_payload(
         task_id,
         agent_state_row={"id": "state-row-1", "state": AGENT_STATE},

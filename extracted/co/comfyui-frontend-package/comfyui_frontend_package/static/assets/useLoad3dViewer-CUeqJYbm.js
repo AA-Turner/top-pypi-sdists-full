@@ -1,0 +1,1 @@
+import{t as e}from"./useLoad3dViewer-Bg-IODB5.js";export{e as useLoad3dViewer};

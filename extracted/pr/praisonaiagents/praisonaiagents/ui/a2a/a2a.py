@@ -123,7 +123,7 @@ class A2A:
             )
         return self._agent_card
     
-    def serve(self, host: str = "0.0.0.0", port: int = 8000):
+    def serve(self, host: str = "127.0.0.1", port: int = 8000):
         """
         Start a standalone A2A server.
         
@@ -132,11 +132,24 @@ class A2A:
         create your own FastAPI app and use get_router().
         
         Args:
-            host: Host to bind to (default: 0.0.0.0)
+            host: Host to bind to (default: 127.0.0.1). A non-loopback host
+                without ``auth_token`` uses ``PRAISONAI_LAUNCH_AUTH_TOKEN`` or
+                a generated token that is printed once, like ``Agent.launch()``.
             port: Port to bind to (default: 8000)
         """
         import uvicorn
         from fastapi import FastAPI
+
+        from praisonaiagents.agent.launch_security import launch_auth_token, require_bind_token
+
+        token = require_bind_token(
+            host, self.auth_token or launch_auth_token(), server="A2A.serve()",
+            hint="Pass A2A(auth_token=...)", generate_into="PRAISONAI_LAUNCH_AUTH_TOKEN",
+        )
+        if token != self.auth_token:
+            self.auth_token = token
+            self._router = None
+            self._agent_card = None
         
         app = FastAPI(title=self.name, version=self.version)
         app.include_router(self.get_router())
@@ -167,8 +180,10 @@ class A2A:
                 return  # No auth configured — open access
             if authorization is None:
                 raise HTTPException(status_code=401, detail="Authorization required")
+            from praisonaiagents.agent.launch_security import token_matches
+
             parts = authorization.split(" ", 1)
-            if len(parts) != 2 or parts[0].lower() != "bearer" or parts[1] != self.auth_token:
+            if len(parts) != 2 or parts[0].lower() != "bearer" or not token_matches(parts[1], self.auth_token):
                 raise HTTPException(status_code=401, detail="Invalid token")
         
         # Agent Card endpoint (well-known URI)

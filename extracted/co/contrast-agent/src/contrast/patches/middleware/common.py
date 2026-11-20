@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from enum import Enum, auto
 
+from contrast.agent import scope
 from contrast.agent.policy import patch_manager
 from contrast.utils.namespace import Namespace
 from contrast.utils.patch_utils import (
@@ -73,21 +74,23 @@ def build__init__patch(
     del patch_policy
 
     def __init__patch(wrapped, instance, args, kwargs) -> None:
-        logger.info(f"Detected application: {framework_name}")
+        with scope.contrast_scope():
+            logger.info(f"Detected application: {framework_name}")
 
-        from contrast.agent.agent_state import automatic_middleware
-        from contrast.asgi.middleware import ASGIMiddleware
-        from contrast.wsgi.middleware import WSGIMiddleware
+            from contrast.agent.agent_state import automatic_middleware
+            from contrast.asgi.middleware import ASGIMiddleware
+            from contrast.wsgi.middleware import WSGIMiddleware
 
-        result = wrapped(*args, **kwargs)
+            with scope.pop_contrast_scope():
+                result = wrapped(*args, **kwargs)
 
-        is_asgi = _is_asgi(app_interface, instance.__call__)
-        logger.info(f"Application interface: {'ASGI' if is_asgi else 'WSGI'}")
+            is_asgi = _is_asgi(app_interface, instance.__call__)
+            logger.info(f"Application interface: {'ASGI' if is_asgi else 'WSGI'}")
 
-        with automatic_middleware():
-            module.middlewares[id(instance)] = (
-                ASGIMiddleware if is_asgi else WSGIMiddleware
-            )(instance, framework_name=framework_name)
+            with automatic_middleware():
+                module.middlewares[id(instance)] = (
+                    ASGIMiddleware if is_asgi else WSGIMiddleware
+                )(instance, framework_name=framework_name)
 
         return result
 

@@ -58,7 +58,7 @@ server  = [
     "uvicorn[standard]==0.38.0"
 ]
 catalogs = [
-    "stac-fastapi-catalogs-extension>=1.0.0,<2.0",
+    "stac-fastapi-catalogs-extension>=1.1.0,<2.0",
 ]
 metrics = [
     "stac-fastapi-api[metrics]",
@@ -72,15 +72,16 @@ dev = [
         "mirakuru>=2.0,<3.0",
         "pytest",
         "pytest-cov",
-        "pytest-asyncio>=0.17,<1.3",
+        "pytest-asyncio>=1.5,<2",
         # tests only: ships the migrations to install every pgstac in the test matrix
         "pypgstac>=0.10,<0.11",
         "requests",
-        "stac-fastapi-catalogs-extension>=1.0.0,<2.0",
+        "stac-fastapi-catalogs-extension>=1.1.0,<2.0",
         "stac-fastapi-api[metrics]",
         "httpx",
         "psycopg[pool,binary]==3.2.*",
         "pre-commit",
+        "pytest-xdist>=3.6",
 ]
 docs = [
     "black>=23.10.1",
@@ -114,7 +115,7 @@ publish-url = "https://test.pypi.org/legacy/"
 explicit = true
 
 [tool.pytest.ini_options]
-addopts = "-sv"
+addopts = "-sv -n auto"
 testpaths = [
     "tests"
 ]
@@ -150,7 +151,7 @@ ignore = [
 ]
 
 [tool.bumpversion]
-current_version = "7.2.2"
+current_version = "7.3.0"
 parse = """(?x)
     (?P<major>\\d+)\\.
     (?P<minor>\\d+)\\.

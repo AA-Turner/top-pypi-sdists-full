@@ -1,0 +1,1 @@
+function e(e,t){if(e.data===void 0||e.data===null)throw Error(`${t} response contained no data`);return e.data}export{e as t};

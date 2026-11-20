@@ -58,6 +58,7 @@ from datamodel_code_generator.parser._intersection import (
     inherited_positional_tail,
 )
 from datamodel_code_generator.parser._null_facts import NullSources, null_sources, resolve_null_facts
+from datamodel_code_generator.parser._passes._shared import _TYPE_DEPENDENT_CONSTRAINTS_KEY
 from datamodel_code_generator.parser._schema_object import _ANNOTATION_KEYWORDS, JsonSchemaObject, _locate
 from datamodel_code_generator.parser._schema_reading import (
     _constraint_values,
@@ -67,7 +68,6 @@ from datamodel_code_generator.parser._schema_reading import (
     _schema_dump,
 )
 from datamodel_code_generator.parser._schema_refs import SchemaRefsHost
-from datamodel_code_generator.parser.base import _TYPE_DEPENDENT_CONSTRAINTS_KEY
 from datamodel_code_generator.types import Types, _is_plain_none, _is_value_literal, untyped_value_data_type
 
 if TYPE_CHECKING:
@@ -497,7 +497,7 @@ def extract_const_enum_from_combined(  # noqa: PLR0912
         if inferred_type is None and literal_value_kind(const_value) not in _UNTYPED_CONST_KINDS:
             inferred_type = json_type(const_value)
 
-    if not enum_values:  # pragma: no cover
+    if not enum_values:
         return None
     if read_as_const and (
         len(values := [value for value in enum_values if value is not None]) == 1

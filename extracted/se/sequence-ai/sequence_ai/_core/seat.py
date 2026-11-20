@@ -299,7 +299,7 @@ class _KeptSeat:
 
 
 
-            from .direct import _ready
+            from .notice_words import _ready
             with self._lock:
                 if self._worker is not sent_on:
                     return "kept"

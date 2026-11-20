@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.44.6
-Summary: Type annotations for boto3 1.44.6 generated with mypy-boto3-builder 8.12.0
+Version: 1.44.7
+Summary: Type annotations for boto3 1.44.7 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.45.0,>=1.44.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.44.6; extra == "boto3"
+Requires-Dist: boto3==1.44.7; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-abuse-signal<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: types-boto3-accessanalyzer<1.45.0,>=1.44.0; extra == "all"
@@ -338,6 +338,7 @@ Requires-Dist: types-boto3-outposts<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-account<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-benefits<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-channel<1.45.0,>=1.44.0; extra == "all"
+Requires-Dist: types-boto3-partnercentral-marketing<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-revenue-measurement<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-selling<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: types-boto3-payment-cryptography<1.45.0,>=1.44.0; extra == "all"
@@ -1087,6 +1088,8 @@ Provides-Extra: partnercentral-benefits
 Requires-Dist: types-boto3-partnercentral-benefits<1.45.0,>=1.44.0; extra == "partnercentral-benefits"
 Provides-Extra: partnercentral-channel
 Requires-Dist: types-boto3-partnercentral-channel<1.45.0,>=1.44.0; extra == "partnercentral-channel"
+Provides-Extra: partnercentral-marketing
+Requires-Dist: types-boto3-partnercentral-marketing<1.45.0,>=1.44.0; extra == "partnercentral-marketing"
 Provides-Extra: partnercentral-revenue-measurement
 Requires-Dist: types-boto3-partnercentral-revenue-measurement<1.45.0,>=1.44.0; extra == "partnercentral-revenue-measurement"
 Provides-Extra: partnercentral-selling
@@ -1374,7 +1377,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.44.6](https://pypi.org/project/boto3/) compatible
+Type annotations for [boto3 1.44.7](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1432,7 +1435,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.6' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.7' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1760,9 +1763,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 439 services in one package
+- `types-boto3[full]` - Type annotations for all 440 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 439 services in separate
+- `types-boto3[all]` - Type annotations for all 440 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2653,6 +2656,9 @@ repository.
   service.
 - `types-boto3[partnercentral-channel]` - Type annotations for
   [PartnerCentralChannelAPI](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_channel/)
+  service.
+- `types-boto3[partnercentral-marketing]` - Type annotations for
+  [PartnerCentralMarketing](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_marketing/)
   service.
 - `types-boto3[partnercentral-revenue-measurement]` - Type annotations for
   [PartnerCentralRevenueMeasurementAPI](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_revenue_measurement/)

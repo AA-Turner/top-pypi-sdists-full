@@ -83,8 +83,8 @@ class MissingPackage(SequencesError):
     """This machine lacks a package a call needs - an optional extra of sequence-ai, whose install command the hint
     says: installing it is the fix, and the same call fails the same way until then. Nothing about the request or the
     platform is wrong: `seq` says error[missing_package] and exits 1. Here, not in seq, because a robot - which has no
-    seq - raises it too: observe() with a Video, Depth or Tactile item and no `sequence-ai[observe]`. Before, the LeRobot
-    export said error[invalid_request], the platform's word for a request that is wrong, and observe() a bare
+    seq - raises it too: observe() with a Video, Depth or Tactile item where the encoders cannot be had (Python 3.9,
+    Windows on ARM below 3.11). Before, the LeRobot export said error[invalid_request], the platform's word for a request that is wrong, and observe() a bare
     `ModuleNotFoundError: No module named 'av'` from deep in sequence-base's encoder (0.55.1).
 
 """
@@ -142,21 +142,6 @@ class NewVersion(Conflict):
     @property
     def version(self) -> Optional[int]:
         return self.details.get("version")
-
-
-
-
-PLANNERS_GONE = ('@seq.planner is gone: planning is part of the policy now. Put a @seq.plan method in your @seq.policy '
-                 'class - def plan(self, robot), returning the next step - and connect to the policy by its name, '
-                 'connect("<policy>").')
-
-
-
-TELEOP_NAMED = ('connect(teleop=True) is gone: "teleop" is one of the names a robot connects to now, with the robot\'s own '
-                'key: sequence_ai.connect("my_policy_user", "teleop", api_key=ROBOT_KEY_user), or "teleop" alone for a '
-                'robot with no policy')
-TELEOP_BY_KEY = ('teleop() takes no policy now: the key says which robot: sequence_ai.teleop(key=ROBOT_KEY_user, '
-                 'operator="alice_user")')
 
 
 class Gone(SequencesError):
@@ -252,30 +237,6 @@ class InternalError(SequencesError):
     secret its deployment references is gone). Report it with `.request_id`."""
 
     default_code = "internal"
-
-
-class GpuBadRequest(InvalidRequest):
-    """A `sequence_ai.gpu` call refused for what it asked: a place outside the United States, a card or a count no GPU has,
-    ports or ranges that cannot be had, a snapshot of no such name in your account or one still saving or failed, a
-    snapshot name you have already (without `replace`) or held by something else of yours, a GPU saving one already or not
-    running to save, one removed while it saves (without `force`). Its `details["reason"]` says which, and its `code` what
-    the platform answered: `seq gpu` exits by that code, as every `seq` command does - 2 invalid_request, 4 not_found, 5
-    conflict.
-"""
-
-
-class GpuOverLimit(SequencesError):
-    """A `sequence_ai.gpu` call refused at one of your account's limits - its GPUs, CPU cores, memory or storage (its `code`
-    then `conflict`) - or because it can spend no more (`insufficient_credit`). Nothing was added. `seq gpu` exits by its
-    code, as every `seq` command does: 5 at a limit, 6 at the credit."""
-
-    default_code = "conflict"
-
-
-class GpuNoCard(Unavailable):
-    """No card for a GPU: none near its place for it right now, or none within the 20 minutes the platform gives one to
-    start. None of it is billed; add it again later, or near another place - `seq gpu` exits 7 for it, worth retrying,
-    as for every `unavailable`."""
 
 
 class StreamRefused(SequencesError):
@@ -419,13 +380,17 @@ def user_traceback(tb: Any) -> Any:
 
 
 def _policy_exception(message: str, common: Dict[str, Any]) -> BaseException:
-    """A built-in exception raised by the policy comes back as itself; anything else as PolicyError."""
+    """A built-in exception raised by the policy comes back as itself; anything else as PolicyError. Either says what
+    the policy raised in one line - "the policy raised ValueError: joint 3 is out of range (the server's log has the
+    traceback)" - its traceback kept in the server's log."""
     info = common["details"].get("exception") if isinstance(common["details"].get("exception"), dict) else {}
     etype, emsg, tb = info.get("type"), info.get("message"), user_traceback(info.get("traceback"))
+    if isinstance(etype, str) and etype:
+        message = f"the policy raised {etype}" + (f": {emsg}" if emsg else "") + " (the server's log has the traceback)"
     builtin = getattr(builtins, etype, None) if isinstance(etype, str) else None
     if isinstance(builtin, type) and issubclass(builtin, Exception):
         try:
-            err = builtin(emsg if emsg is not None else message)
+            err = builtin(message)
         except Exception:
             err = None
         if err is not None:

@@ -27,6 +27,7 @@ from .literals import (
     ChangeStatusType,
     ContainerProductSortByType,
     ContainerProductVisibilityStringType,
+    ContentRecommendationStatusType,
     ControlAssessmentResultType,
     DataProductSortByType,
     DataProductVisibilityStringType,
@@ -34,6 +35,8 @@ from .literals import (
     ExpressPrivateOfferConfigurationStateStringType,
     FailureCodeType,
     IntentType,
+    ListingFindingStatusType,
+    ListingQualityTierType,
     MachineLearningProductSortByType,
     MachineLearningProductVisibilityStringType,
     OfferCreatedBySourceStringType,
@@ -43,6 +46,9 @@ from .literals import (
     OfferStateStringType,
     OfferTargetingStringType,
     OwnershipTypeType,
+    RecommendationSeverityType,
+    RecommendedFeatureIdType,
+    RecommendedFeatureStatusType,
     ResaleAuthorizationResellerRoleStringType,
     ResaleAuthorizationSortByType,
     ResaleAuthorizationStatusStringType,
@@ -51,6 +57,7 @@ from .literals import (
     SortOrderType,
     SubsidiaryAuthorizationSortByType,
     SubsidiaryAuthorizationStatusStringType,
+    VerificationSourceType,
 )
 
 if sys.version_info >= (3, 12):
@@ -62,6 +69,8 @@ else:
 __all__ = (
     "AMISecurityFiltersTypeDef",
     "AMISecuritySummaryTypeDef",
+    "AdditionalResourceTypeDef",
+    "AdditionalResourcesAlternativeTypeDef",
     "AmiProductEntityIdFilterTypeDef",
     "AmiProductFiltersTypeDef",
     "AmiProductLastModifiedDateFilterDateRangeTypeDef",
@@ -78,6 +87,7 @@ __all__ = (
     "BatchDescribeErrorDetailTypeDef",
     "CancelChangeSetRequestTypeDef",
     "CancelChangeSetResponseTypeDef",
+    "CaseStudiesAlternativeTypeDef",
     "ChangeSetSummaryListItemTypeDef",
     "ChangeSummaryTypeDef",
     "ChangeTypeDef",
@@ -91,8 +101,12 @@ __all__ = (
     "ContainerProductVisibilityFilterTypeDef",
     "ContainerSecurityFiltersTypeDef",
     "ContainerSecuritySummaryTypeDef",
+    "ContentAlternativesTypeDef",
+    "ContentRecommendationTypeDef",
     "ControlAssessmentTypeDef",
     "ControlErrorTypeDef",
+    "ControlInputTypeDef",
+    "ControlSummaryTypeDef",
     "DataProductEntityIdFilterTypeDef",
     "DataProductFiltersTypeDef",
     "DataProductLastModifiedDateFilterDateRangeTypeDef",
@@ -123,7 +137,10 @@ __all__ = (
     "ExpressPrivateOfferConfigurationSortTypeDef",
     "ExpressPrivateOfferConfigurationStateFilterTypeDef",
     "ExpressPrivateOfferConfigurationSummaryTypeDef",
+    "FeatureRecommendationTypeDef",
+    "FeatureRecommendationsTypeDef",
     "FilterTypeDef",
+    "FollowUpQuestionTypeDef",
     "FrameworkFiltersTypeDef",
     "FrameworkSummaryTypeDef",
     "GetResourcePolicyRequestTypeDef",
@@ -139,6 +156,12 @@ __all__ = (
     "ListEntitiesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListingCaseStudyTypeDef",
+    "ListingFindingTypeDef",
+    "ListingQualitySummaryTypeDef",
+    "ListingRecommendationsSummaryTypeDef",
+    "ListingRecommendationsTypeDef",
+    "ListingUseCaseTypeDef",
     "MachineLearningProductEntityIdFilterTypeDef",
     "MachineLearningProductFiltersTypeDef",
     "MachineLearningProductLastModifiedDateFilterDateRangeTypeDef",
@@ -175,12 +198,15 @@ __all__ = (
     "OfferSetSummaryTypeDef",
     "OfferSortTypeDef",
     "OfferStateFilterTypeDef",
+    "OfferSubsidiaryAuthorizationIdFilterTypeDef",
     "OfferSummaryTypeDef",
     "OfferTargetAgreementIdFilterTypeDef",
     "OfferTargetAgreementIntentFilterTypeDef",
     "OfferTargetingFilterTypeDef",
     "PaginatorConfigTypeDef",
+    "ProductContentRecommendationsTypeDef",
     "PutResourcePolicyRequestTypeDef",
+    "RecommendationCitationTypeDef",
     "ResaleAuthorizationAvailabilityEndDateFilterDateRangeTypeDef",
     "ResaleAuthorizationAvailabilityEndDateFilterTypeDef",
     "ResaleAuthorizationCreatedDateFilterDateRangeTypeDef",
@@ -212,7 +238,10 @@ __all__ = (
     "SaaSProductSummaryTypeDef",
     "SaaSProductTitleFilterTypeDef",
     "SaaSProductVisibilityFilterTypeDef",
+    "SolutionContentRecommendationsTypeDef",
     "SortTypeDef",
+    "StartAssessmentRequestTypeDef",
+    "StartAssessmentResponseTypeDef",
     "StartChangeSetRequestTypeDef",
     "StartChangeSetResponseTypeDef",
     "SubsidiaryAuthorizationCreatedDateFilterDateRangeTypeDef",
@@ -230,7 +259,10 @@ __all__ = (
     "SubsidiaryAuthorizationSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
+    "TextAlternativeTypeDef",
+    "TextListAlternativeTypeDef",
     "UntagResourceRequestTypeDef",
+    "UseCasesAlternativeTypeDef",
 )
 
 
@@ -240,6 +272,16 @@ class AMISecurityFiltersTypeDef(TypedDict):
 
 class AMISecuritySummaryTypeDef(TypedDict):
     DeliveryOptionId: NotRequired[str]
+
+
+AdditionalResourceTypeDef = TypedDict(
+    "AdditionalResourceTypeDef",
+    {
+        "Type": str,
+        "Text": str,
+        "Url": str,
+    },
+)
 
 
 class AmiProductEntityIdFilterTypeDef(TypedDict):
@@ -278,6 +320,7 @@ class AssessmentTargetSummaryTypeDef(TypedDict):
 class AssessmentTargetFilterTypeDef(TypedDict):
     EntityId: NotRequired[str]
     ChangeSetId: NotRequired[str]
+    EntityIds: NotRequired[Sequence[str]]
 
 
 class EntityRequestTypeDef(TypedDict):
@@ -309,6 +352,12 @@ class ResponseMetadataTypeDef(TypedDict):
 class CancelChangeSetRequestTypeDef(TypedDict):
     Catalog: str
     ChangeSetId: str
+
+
+class ListingCaseStudyTypeDef(TypedDict):
+    Id: str
+    Title: str
+    Rationale: str
 
 
 class ChangeSetSummaryListItemTypeDef(TypedDict):
@@ -377,9 +426,36 @@ class ContainerSecuritySummaryTypeDef(TypedDict):
     DeliveryOptionId: NotRequired[str]
 
 
+class TextAlternativeTypeDef(TypedDict):
+    Value: str
+    Rationale: str
+
+
+class TextListAlternativeTypeDef(TypedDict):
+    Value: list[str]
+    Rationale: str
+
+
+class FollowUpQuestionTypeDef(TypedDict):
+    Question: str
+    Justification: str
+
+
+class ListingFindingTypeDef(TypedDict):
+    Action: str
+    Description: str
+    Severity: RecommendationSeverityType
+    Status: ListingFindingStatusType
+
+
 class ErrorScopeTypeDef(TypedDict):
     Name: NotRequired[str]
     Value: NotRequired[str]
+
+
+class ControlInputTypeDef(TypedDict):
+    ControlId: str
+    Input: NotRequired[Mapping[str, Any]]
 
 
 class DataProductEntityIdFilterTypeDef(TypedDict):
@@ -459,6 +535,7 @@ class OfferSummaryTypeDef(TypedDict):
     Name: NotRequired[str]
     ProductId: NotRequired[str]
     ResaleAuthorizationId: NotRequired[str]
+    SubsidiaryAuthorizationId: NotRequired[str]
     ReleaseDate: NotRequired[str]
     AvailabilityEndDate: NotRequired[str]
     BuyerAccounts: NotRequired[list[str]]
@@ -548,9 +625,27 @@ class ExpressPrivateOfferConfigurationStateFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[ExpressPrivateOfferConfigurationStateStringType]]
 
 
+class FeatureRecommendationTypeDef(TypedDict):
+    FeatureId: RecommendedFeatureIdType
+    Action: str
+    Rationale: str
+    Severity: RecommendationSeverityType
+    Status: RecommendedFeatureStatusType
+
+
 class FilterTypeDef(TypedDict):
     Name: NotRequired[str]
     ValueList: NotRequired[Sequence[str]]
+
+
+class ListingQualitySummaryTypeDef(TypedDict):
+    Tier: ListingQualityTierType
+    EntityRevision: NotRequired[str]
+
+
+class ListingRecommendationsSummaryTypeDef(TypedDict):
+    Tier: ListingQualityTierType
+    EntityRevision: NotRequired[str]
 
 
 class GetResourcePolicyRequestTypeDef(TypedDict):
@@ -564,6 +659,16 @@ class SortTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
+
+
+class ListingUseCaseTypeDef(TypedDict):
+    Id: str
+    Rank: int
+    Name: str
+    Group: str
+    Subgroup: str
+    Rationale: str
+    UseCaseDetails: NotRequired[str]
 
 
 class MachineLearningProductEntityIdFilterTypeDef(TypedDict):
@@ -622,6 +727,10 @@ class OfferStateFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[OfferStateStringType]]
 
 
+class OfferSubsidiaryAuthorizationIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+
 class OfferTargetAgreementIdFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[str]]
 
@@ -672,6 +781,10 @@ class OfferSetLastModifiedDateFilterDateRangeTypeDef(TypedDict):
 class OfferSetReleaseDateFilterDateRangeTypeDef(TypedDict):
     AfterValue: NotRequired[str]
     BeforeValue: NotRequired[str]
+
+
+class RecommendationCitationTypeDef(TypedDict):
+    Url: str
 
 
 class PutResourcePolicyRequestTypeDef(TypedDict):
@@ -812,6 +925,11 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
+class AdditionalResourcesAlternativeTypeDef(TypedDict):
+    Value: list[AdditionalResourceTypeDef]
+    Rationale: str
+
+
 class AmiProductLastModifiedDateFilterTypeDef(TypedDict):
     DateRange: NotRequired[AmiProductLastModifiedDateFilterDateRangeTypeDef]
 
@@ -847,10 +965,20 @@ class GetResourcePolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartAssessmentResponseTypeDef(TypedDict):
+    AssessmentId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StartChangeSetResponseTypeDef(TypedDict):
     ChangeSetId: str
     ChangeSetArn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CaseStudiesAlternativeTypeDef(TypedDict):
+    Value: list[ListingCaseStudyTypeDef]
+    Rationale: str
 
 
 class ListChangeSetsResponseTypeDef(TypedDict):
@@ -897,15 +1025,19 @@ class FrameworkFiltersTypeDef(TypedDict):
     ContainerSecurityFilters: NotRequired[ContainerSecurityFiltersTypeDef]
 
 
-class FrameworkSummaryTypeDef(TypedDict):
-    AMISecuritySummary: NotRequired[AMISecuritySummaryTypeDef]
-    ContainerSecuritySummary: NotRequired[ContainerSecuritySummaryTypeDef]
-
-
 class ControlErrorTypeDef(TypedDict):
     Code: NotRequired[str]
     Message: NotRequired[str]
     Scope: NotRequired[list[ErrorScopeTypeDef]]
+
+
+class StartAssessmentRequestTypeDef(TypedDict):
+    Catalog: str
+    FrameworkId: str
+    EntityId: str
+    ClientToken: NotRequired[str]
+    Controls: NotRequired[Sequence[ControlInputTypeDef]]
+    Tags: NotRequired[Mapping[str, str]]
 
 
 class DataProductLastModifiedDateFilterTypeDef(TypedDict):
@@ -958,6 +1090,17 @@ class ExpressPrivateOfferConfigurationFiltersTypeDef(TypedDict):
     State: NotRequired[ExpressPrivateOfferConfigurationStateFilterTypeDef]
 
 
+class FeatureRecommendationsTypeDef(TypedDict):
+    Recommendations: list[FeatureRecommendationTypeDef]
+
+
+class FrameworkSummaryTypeDef(TypedDict):
+    AMISecuritySummary: NotRequired[AMISecuritySummaryTypeDef]
+    ContainerSecuritySummary: NotRequired[ContainerSecuritySummaryTypeDef]
+    ListingQualitySummary: NotRequired[ListingQualitySummaryTypeDef]
+    ListingRecommendationsSummary: NotRequired[ListingRecommendationsSummaryTypeDef]
+
+
 class ListChangeSetsRequestPaginateTypeDef(TypedDict):
     Catalog: str
     FilterList: NotRequired[Sequence[FilterTypeDef]]
@@ -971,6 +1114,11 @@ class ListChangeSetsRequestTypeDef(TypedDict):
     Sort: NotRequired[SortTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class UseCasesAlternativeTypeDef(TypedDict):
+    Value: list[ListingUseCaseTypeDef]
+    Rationale: str
 
 
 class MachineLearningProductLastModifiedDateFilterTypeDef(TypedDict):
@@ -1077,23 +1225,6 @@ class ListAssessmentsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class AssessmentSummaryTypeDef(TypedDict):
-    AssessmentArn: NotRequired[str]
-    AssessmentId: NotRequired[str]
-    FrameworkId: NotRequired[str]
-    AssessmentTargetSummary: NotRequired[AssessmentTargetSummaryTypeDef]
-    FrameworkSummary: NotRequired[FrameworkSummaryTypeDef]
-    AssessmentResult: NotRequired[AssessmentResultType]
-    CreatedAt: NotRequired[str]
-    ExpiresAt: NotRequired[str]
-
-
-class ControlAssessmentTypeDef(TypedDict):
-    ControlId: NotRequired[str]
-    ControlAssessmentResult: NotRequired[ControlAssessmentResultType]
-    Errors: NotRequired[list[ControlErrorTypeDef]]
-
-
 class DataProductFiltersTypeDef(TypedDict):
     EntityId: NotRequired[DataProductEntityIdFilterTypeDef]
     ProductTitle: NotRequired[DataProductTitleFilterTypeDef]
@@ -1105,6 +1236,29 @@ class ListEntitiesResponseTypeDef(TypedDict):
     EntitySummaryList: list[EntitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class AssessmentSummaryTypeDef(TypedDict):
+    AssessmentArn: NotRequired[str]
+    AssessmentId: NotRequired[str]
+    FrameworkId: NotRequired[str]
+    AssessmentTargetSummary: NotRequired[AssessmentTargetSummaryTypeDef]
+    FrameworkSummary: NotRequired[FrameworkSummaryTypeDef]
+    AssessmentResult: NotRequired[AssessmentResultType]
+    CreatedAt: NotRequired[str]
+    ExpiresAt: NotRequired[str]
+
+
+ContentAlternativesTypeDef = TypedDict(
+    "ContentAlternativesTypeDef",
+    {
+        "Text": NotRequired[list[TextAlternativeTypeDef]],
+        "TextList": NotRequired[list[TextListAlternativeTypeDef]],
+        "AdditionalResources": NotRequired[list[AdditionalResourcesAlternativeTypeDef]],
+        "UseCases": NotRequired[list[UseCasesAlternativeTypeDef]],
+        "CaseStudies": NotRequired[list[CaseStudiesAlternativeTypeDef]],
+    },
+)
 
 
 class MachineLearningProductFiltersTypeDef(TypedDict):
@@ -1119,6 +1273,7 @@ class OfferFiltersTypeDef(TypedDict):
     Name: NotRequired[OfferNameFilterTypeDef]
     ProductId: NotRequired[OfferProductIdFilterTypeDef]
     ResaleAuthorizationId: NotRequired[OfferResaleAuthorizationIdFilterTypeDef]
+    SubsidiaryAuthorizationId: NotRequired[OfferSubsidiaryAuthorizationIdFilterTypeDef]
     ReleaseDate: NotRequired[OfferReleaseDateFilterTypeDef]
     AvailabilityEndDate: NotRequired[OfferAvailabilityEndDateFilterTypeDef]
     BuyerAccounts: NotRequired[OfferBuyerAccountsFilterTypeDef]
@@ -1184,18 +1339,11 @@ class ListAssessmentsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class DescribeAssessmentResponseTypeDef(TypedDict):
-    AssessmentArn: str
-    AssessmentId: str
-    FrameworkId: str
-    AssessmentTargetSummary: AssessmentTargetSummaryTypeDef
-    FrameworkSummary: FrameworkSummaryTypeDef
-    AssessmentResult: AssessmentResultType
-    CreatedAt: str
-    ExpiresAt: str
-    ControlAssessments: list[ControlAssessmentTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class ContentRecommendationTypeDef(TypedDict):
+    Status: ContentRecommendationStatusType
+    Alternatives: ContentAlternativesTypeDef
+    FollowUpQuestions: list[FollowUpQuestionTypeDef]
+    Findings: list[ListingFindingTypeDef]
 
 
 class EntityTypeFiltersTypeDef(TypedDict):
@@ -1211,6 +1359,29 @@ class EntityTypeFiltersTypeDef(TypedDict):
         ExpressPrivateOfferConfigurationFiltersTypeDef
     ]
     SubsidiaryAuthorizationFilters: NotRequired[SubsidiaryAuthorizationFiltersTypeDef]
+
+
+class ProductContentRecommendationsTypeDef(TypedDict):
+    Citations: list[RecommendationCitationTypeDef]
+    ProductTitle: NotRequired[ContentRecommendationTypeDef]
+    ShortDescription: NotRequired[ContentRecommendationTypeDef]
+    LongDescription: NotRequired[ContentRecommendationTypeDef]
+    SupportDescription: NotRequired[ContentRecommendationTypeDef]
+    Highlights: NotRequired[ContentRecommendationTypeDef]
+    SearchKeywords: NotRequired[ContentRecommendationTypeDef]
+    Categories: NotRequired[ContentRecommendationTypeDef]
+    AdditionalResources: NotRequired[ContentRecommendationTypeDef]
+
+
+class SolutionContentRecommendationsTypeDef(TypedDict):
+    Citations: list[RecommendationCitationTypeDef]
+    Title: NotRequired[ContentRecommendationTypeDef]
+    ShortDescription: NotRequired[ContentRecommendationTypeDef]
+    LongDescription: NotRequired[ContentRecommendationTypeDef]
+    IntegrationDetails: NotRequired[ContentRecommendationTypeDef]
+    AdditionalResources: NotRequired[ContentRecommendationTypeDef]
+    UseCases: NotRequired[ContentRecommendationTypeDef]
+    CaseStudies: NotRequired[ContentRecommendationTypeDef]
 
 
 class ListEntitiesRequestPaginateTypeDef(TypedDict):
@@ -1234,3 +1405,35 @@ class ListEntitiesRequestTypeDef(TypedDict):
     OwnershipType: NotRequired[OwnershipTypeType]
     EntityTypeFilters: NotRequired[EntityTypeFiltersTypeDef]
     EntityTypeSort: NotRequired[EntityTypeSortTypeDef]
+
+
+class ListingRecommendationsTypeDef(TypedDict):
+    ProductContentRecommendations: NotRequired[ProductContentRecommendationsTypeDef]
+    SolutionContentRecommendations: NotRequired[SolutionContentRecommendationsTypeDef]
+    FeatureRecommendations: NotRequired[FeatureRecommendationsTypeDef]
+
+
+class ControlSummaryTypeDef(TypedDict):
+    ListingRecommendations: NotRequired[ListingRecommendationsTypeDef]
+
+
+class ControlAssessmentTypeDef(TypedDict):
+    ControlId: NotRequired[str]
+    ControlAssessmentResult: NotRequired[ControlAssessmentResultType]
+    VerificationSource: NotRequired[VerificationSourceType]
+    Errors: NotRequired[list[ControlErrorTypeDef]]
+    ControlSummary: NotRequired[ControlSummaryTypeDef]
+
+
+class DescribeAssessmentResponseTypeDef(TypedDict):
+    AssessmentArn: str
+    AssessmentId: str
+    FrameworkId: str
+    AssessmentTargetSummary: AssessmentTargetSummaryTypeDef
+    FrameworkSummary: FrameworkSummaryTypeDef
+    AssessmentResult: AssessmentResultType
+    CreatedAt: str
+    ExpiresAt: str
+    ControlAssessments: list[ControlAssessmentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]

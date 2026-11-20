@@ -7,7 +7,9 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from typing import Never, ParamSpec, TypeVar
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -16,9 +18,12 @@ import pytest
 from edison_client import EdisonClient
 from edison_client.models.app import AuthType
 
+_P = ParamSpec("_P")
+_ResultT = TypeVar("_ResultT")
+
 
 @pytest.fixture(name="mock_rest_client")
-def fixture_mock_rest_client():
+def fixture_mock_rest_client() -> EdisonClient:
     """Create a RestClient with mocked HTTP interactions."""
     with patch(
         "edison_client.clients.rest_client.RestClient._fetch_my_orgs",
@@ -26,13 +31,13 @@ def fixture_mock_rest_client():
     ):
         # Use JWT auth instead of API key to avoid HTTP calls
         return EdisonClient(
-            auth_type=AuthType.JWT,
-            jwt="mock.jwt.token",
-            cleanup_on_exit=False,
+            auth_type=AuthType.JWT, jwt="mock.jwt.token", cleanup_on_exit=False
         )
 
 
-def test_close_idempotency(mock_rest_client, caplog):
+def test_close_idempotency(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that calling close() multiple times is safe and doesn't cause errors."""
     caplog.set_level(logging.WARNING)
 
@@ -54,7 +59,9 @@ def test_close_idempotency(mock_rest_client, caplog):
     assert mock_rest_client._closed
 
 
-def test_close_thread_safety(mock_rest_client, caplog):
+def test_close_thread_safety(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that concurrent close() calls from multiple threads are safe."""
     caplog.set_level(logging.WARNING)
 
@@ -80,7 +87,9 @@ def test_close_thread_safety(mock_rest_client, caplog):
     assert mock_rest_client._closed
 
 
-def test_close_cleans_up_sync_clients(mock_rest_client, caplog):
+def test_close_cleans_up_sync_clients(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that close() properly cleans up synchronous HTTP clients."""
     caplog.set_level(logging.WARNING)
 
@@ -91,7 +100,7 @@ def test_close_cleans_up_sync_clients(mock_rest_client, caplog):
     original_close = sync_client.close
     close_called = threading.Event()
 
-    def mock_close():
+    def mock_close() -> None:
         close_called.set()
         return original_close()
 
@@ -113,7 +122,9 @@ def test_close_cleans_up_sync_clients(mock_rest_client, caplog):
 
 
 @pytest.mark.asyncio
-async def test_aclose_cleans_up_async_clients(mock_rest_client, caplog):
+async def test_aclose_cleans_up_async_clients(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that aclose() properly cleans up async HTTP clients."""
     caplog.set_level(logging.WARNING)
 
@@ -124,7 +135,7 @@ async def test_aclose_cleans_up_async_clients(mock_rest_client, caplog):
     close_called = asyncio.Event()
     original_aclose = async_client.aclose
 
-    async def mock_aclose():
+    async def mock_aclose() -> None:
         close_called.set()
         return await original_aclose()
 
@@ -145,7 +156,9 @@ async def test_aclose_cleans_up_async_clients(mock_rest_client, caplog):
     assert len(mock_rest_client._clients) == 0
 
 
-def test_close_cleans_up_mixed_clients(mock_rest_client, caplog):
+def test_close_cleans_up_mixed_clients(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that close() handles both sync and async clients together."""
     caplog.set_level(logging.WARNING)
 
@@ -168,7 +181,23 @@ def test_close_cleans_up_mixed_clients(mock_rest_client, caplog):
     )
 
 
-def test_closed_client_raises_on_access(mock_rest_client):
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_close_ignores_non_httpx_clients(
+    mock_rest_client: EdisonClient, asynchronous: bool
+) -> None:
+    clients = (mock_rest_client.client, mock_rest_client.async_client)
+    mock_rest_client._clients["mock"] = MagicMock(spec=object)
+
+    if asynchronous:
+        asyncio.run(mock_rest_client.aclose())
+    else:
+        mock_rest_client.close()
+
+    assert all(client.is_closed for client in clients)
+    assert not mock_rest_client._clients
+
+
+def test_closed_client_raises_on_access(mock_rest_client: EdisonClient) -> None:
     """Test that accessing client properties after close() raises RuntimeError."""
     # Close the client
     mock_rest_client.close()
@@ -181,7 +210,7 @@ def test_closed_client_raises_on_access(mock_rest_client):
         _ = mock_rest_client.async_client
 
 
-def test_closed_client_get_client_raises(mock_rest_client):
+def test_closed_client_get_client_raises(mock_rest_client: EdisonClient) -> None:
     """Test that get_client() raises RuntimeError after close()."""
     # Close the client
     mock_rest_client.close()
@@ -192,7 +221,9 @@ def test_closed_client_get_client_raises(mock_rest_client):
 
 
 @pytest.mark.asyncio
-async def test_aclose_idempotency(mock_rest_client, caplog):
+async def test_aclose_idempotency(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that calling aclose() multiple times is safe and doesn't cause errors."""
     caplog.set_level(logging.WARNING)
 
@@ -215,7 +246,9 @@ async def test_aclose_idempotency(mock_rest_client, caplog):
 
 
 @pytest.mark.asyncio
-async def test_aclose_with_multiple_async_clients(mock_rest_client, caplog):
+async def test_aclose_with_multiple_async_clients(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that aclose() properly handles multiple async clients."""
     caplog.set_level(logging.WARNING)
 
@@ -245,7 +278,9 @@ async def test_aclose_with_multiple_async_clients(mock_rest_client, caplog):
     )
 
 
-def test_close_with_exception_in_client_close(mock_rest_client, caplog):
+def test_close_with_exception_in_client_close(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that close() handles exceptions from client.close() gracefully."""
     caplog.set_level(logging.WARNING)
 
@@ -253,7 +288,7 @@ def test_close_with_exception_in_client_close(mock_rest_client, caplog):
     client = mock_rest_client.client
 
     # Mock close to raise an exception
-    def raise_error():
+    def raise_error() -> Never:
         raise RuntimeError("Simulated close error")
 
     client.close = raise_error
@@ -274,7 +309,9 @@ def test_close_with_exception_in_client_close(mock_rest_client, caplog):
 
 
 @pytest.mark.asyncio
-async def test_aclose_with_exception_in_client_aclose(mock_rest_client, caplog):
+async def test_aclose_with_exception_in_client_aclose(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that aclose() handles exceptions from client.aclose() gracefully."""
     caplog.set_level(logging.WARNING)
 
@@ -282,7 +319,7 @@ async def test_aclose_with_exception_in_client_aclose(mock_rest_client, caplog):
     async_client = mock_rest_client.async_client
 
     # Mock aclose to raise an exception
-    async def raise_error():  # noqa: RUF029
+    async def raise_error() -> Never:  # ruff: ignore[unused-async]
         raise RuntimeError("Simulated aclose error")
 
     async_client.aclose = raise_error
@@ -302,7 +339,9 @@ async def test_aclose_with_exception_in_client_aclose(mock_rest_client, caplog):
     )
 
 
-def test_schedule_async_close_with_running_loop(mock_rest_client, caplog):
+def test_schedule_async_close_with_running_loop(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test _schedule_async_close when there's a running event loop."""
     caplog.set_level(logging.WARNING)
 
@@ -313,13 +352,13 @@ def test_schedule_async_close_with_running_loop(mock_rest_client, caplog):
     close_called = threading.Event()
     original_aclose = async_client.aclose
 
-    async def mock_aclose():
+    async def mock_aclose() -> None:
         close_called.set()
         return await original_aclose()
 
     async_client.aclose = mock_aclose
 
-    async def test_in_loop():
+    async def test_in_loop() -> None:
         # Schedule close while loop is running
         mock_rest_client._schedule_async_close(async_client)
 
@@ -338,7 +377,9 @@ def test_schedule_async_close_with_running_loop(mock_rest_client, caplog):
     )
 
 
-def test_schedule_async_close_without_running_loop(mock_rest_client, caplog):
+def test_schedule_async_close_without_running_loop(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test _schedule_async_close when there's no running event loop."""
     caplog.set_level(logging.WARNING)
 
@@ -346,7 +387,7 @@ def test_schedule_async_close_without_running_loop(mock_rest_client, caplog):
     async_client = MagicMock(spec=httpx.AsyncClient)
     close_called = threading.Event()
 
-    async def mock_aclose():  # noqa: RUF029
+    async def mock_aclose() -> None:  # ruff: ignore[unused-async]
         close_called.set()
 
     async_client.aclose = mock_aclose
@@ -366,7 +407,9 @@ def test_schedule_async_close_without_running_loop(mock_rest_client, caplog):
     )
 
 
-def test_close_does_not_affect_other_instances(caplog):
+def test_close_does_not_affect_other_instances(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test that closing one RestClient instance doesn't affect others."""
     caplog.set_level(logging.WARNING)
 
@@ -375,14 +418,10 @@ def test_close_does_not_affect_other_instances(caplog):
         return_value=["test-org"],
     ):
         client1 = EdisonClient(
-            auth_type=AuthType.JWT,
-            jwt="mock.jwt.token.1",
-            cleanup_on_exit=False,
+            auth_type=AuthType.JWT, jwt="mock.jwt.token.1", cleanup_on_exit=False
         )
         client2 = EdisonClient(
-            auth_type=AuthType.JWT,
-            jwt="mock.jwt.token.2",
-            cleanup_on_exit=False,
+            auth_type=AuthType.JWT, jwt="mock.jwt.token.2", cleanup_on_exit=False
         )
 
     # Access clients on both instances
@@ -409,7 +448,9 @@ def test_close_does_not_affect_other_instances(caplog):
 
 
 @pytest.mark.asyncio
-async def test_mixed_close_and_aclose(mock_rest_client, caplog):
+async def test_mixed_close_and_aclose(
+    mock_rest_client: EdisonClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test that calling both close() and aclose() is safe."""
     caplog.set_level(logging.WARNING)
 
@@ -429,7 +470,7 @@ async def test_mixed_close_and_aclose(mock_rest_client, caplog):
     )
 
 
-def test_destructor_cleanup_with_sync_clients(caplog):
+def test_destructor_cleanup_with_sync_clients(caplog: pytest.LogCaptureFixture) -> None:
     """Test that __del__ properly cleans up sync clients without warnings."""
     caplog.set_level(logging.WARNING)
 
@@ -438,9 +479,7 @@ def test_destructor_cleanup_with_sync_clients(caplog):
         return_value=["test-org"],
     ):
         client = EdisonClient(
-            auth_type=AuthType.JWT,
-            jwt="mock.jwt.token",
-            cleanup_on_exit=False,
+            auth_type=AuthType.JWT, jwt="mock.jwt.token", cleanup_on_exit=False
         )
 
         # Access sync client only
@@ -455,7 +494,7 @@ def test_destructor_cleanup_with_sync_clients(caplog):
     )
 
 
-def test_atexit_cleanup_on_forgotten_close():
+def test_atexit_cleanup_on_forgotten_close() -> None:
     """Test that atexit.register ensures cleanup even if user forgets to call close()."""
     # Create a test script that creates a client but doesn't close it
     test_script = """
@@ -490,7 +529,7 @@ with patch(
 """
 
     # Run the script in a subprocess to test atexit behavior
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
         [sys.executable, "-c", test_script],
         check=False,
         capture_output=True,
@@ -509,7 +548,9 @@ with patch(
     )
 
 
-def test_atexit_registration_with_cleanup_on_exit_true(caplog):
+def test_atexit_registration_with_cleanup_on_exit_true(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test that atexit.register is called when cleanup_on_exit=True."""
     caplog.set_level(logging.WARNING)
 
@@ -517,7 +558,9 @@ def test_atexit_registration_with_cleanup_on_exit_true(caplog):
     original_register = atexit.register
     registered_callbacks = []
 
-    def mock_register(func, *args, **kwargs):
+    def mock_register(
+        func: Callable[_P, _ResultT], *args: _P.args, **kwargs: _P.kwargs
+    ) -> Callable[_P, _ResultT]:
         registered_callbacks.append(func)
         return original_register(func, *args, **kwargs)
 
@@ -544,7 +587,9 @@ def test_atexit_registration_with_cleanup_on_exit_true(caplog):
         client.close()
 
 
-def test_atexit_not_registered_with_cleanup_on_exit_false(caplog):
+def test_atexit_not_registered_with_cleanup_on_exit_false(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test that atexit.register is NOT called when cleanup_on_exit=False."""
     caplog.set_level(logging.WARNING)
 
@@ -552,7 +597,9 @@ def test_atexit_not_registered_with_cleanup_on_exit_false(caplog):
     original_register = atexit.register
     registered_callbacks = []
 
-    def mock_register(func, *args, **kwargs):
+    def mock_register(
+        func: Callable[_P, _ResultT], *args: _P.args, **kwargs: _P.kwargs
+    ) -> Callable[_P, _ResultT]:
         registered_callbacks.append(func)
         return original_register(func, *args, **kwargs)
 
@@ -582,9 +629,7 @@ def test_atexit_not_registered_with_cleanup_on_exit_false(caplog):
         registered_callbacks.clear()
 
         client2 = EdisonClient(
-            auth_type=AuthType.JWT,
-            jwt="mock.jwt.token.2",
-            cleanup_on_exit=True,
+            auth_type=AuthType.JWT, jwt="mock.jwt.token.2", cleanup_on_exit=True
         )
 
         # This one should have registered
@@ -595,7 +640,7 @@ def test_atexit_not_registered_with_cleanup_on_exit_false(caplog):
         client2.close()
 
 
-def test_atexit_cleanup_is_idempotent(caplog):
+def test_atexit_cleanup_is_idempotent(caplog: pytest.LogCaptureFixture) -> None:
     """Test that atexit cleanup is safe even if close() was already called."""
     caplog.set_level(logging.WARNING)
 
@@ -604,9 +649,7 @@ def test_atexit_cleanup_is_idempotent(caplog):
         return_value=["test-org"],
     ):
         client = EdisonClient(
-            auth_type=AuthType.JWT,
-            jwt="mock.jwt.token",
-            cleanup_on_exit=True,
+            auth_type=AuthType.JWT, jwt="mock.jwt.token", cleanup_on_exit=True
         )
 
         # Access clients

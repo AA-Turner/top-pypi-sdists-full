@@ -18,6 +18,15 @@ from .status_fields import StatusField
 # run), keeps the module already imported by the time exit teardown starts.
 from probe import analytics as _telemetry
 
+#: A dead-letter record's flag for a refusal of what the caller sent (`settle`'s record) -> the
+#: `sdk.delivery.summary` count of it, spelled as `outbox.drained` spells it.
+_CALLER_REFUSALS = {
+    "no_such_run": "dead_lettered_no_such_run",
+    "invalid_request": "dead_lettered_invalid_request",
+    "in_trash": "dead_lettered_in_trash",
+}
+
+
 def _age_seconds(stamp: object) -> int | None:
     """Seconds since an ISO timestamp from status.json, or None."""
     if not stamp:
@@ -78,6 +87,9 @@ class DeliveryNoticesMixin:
         self._attempted_writes = 0
         self._dead_lettered_mine = 0
         self._dead_lettered_by_status: dict[str, int] = {}
+        #: How many of those the server refused for what the caller sent (the dead-letter
+        #: record's flags, as `outbox.drained` counts them), so the loss alert can excuse them.
+        self._dead_lettered_caller = dict.fromkeys(_CALLER_REFUSALS, 0)
         self._last_status: dict = {}
         self._reported: dict = {}
         self._reported_at = self._notice_polled_at
@@ -149,6 +161,8 @@ class DeliveryNoticesMixin:
             for entry in mine:
                 code = str(entry.get("status") or "none")
                 self._dead_lettered_by_status[code] = self._dead_lettered_by_status.get(code, 0) + 1
+                for flag in _CALLER_REFUSALS:
+                    self._dead_lettered_caller[flag] += bool(entry.get(flag))
             self._last_status = status
             if mine:
                 notices.note(
@@ -232,6 +246,8 @@ class DeliveryNoticesMixin:
                 "dead_lettered": self._dead_lettered_mine,
                 "discarded": int(getattr(self, "_discarded_requests", 0) or 0),
             }
+            caller = getattr(self, "_dead_lettered_caller", {})
+            counts.update({key: caller.get(flag, 0) for flag, key in _CALLER_REFUSALS.items()})
             delta = {k: v - int(self._reported.get(k, 0)) for k, v in counts.items()}
             by_status = {
                 code: n - int((self._reported.get("dead_lettered_by_status") or {}).get(code, 0))

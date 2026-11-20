@@ -29,7 +29,7 @@ def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
     cmd = [sys.executable, "-u", str(script_path)]
     print("running:", cmd)
     completed = subprocess.run(
-        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        cmd, check=False, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     print("process output:")
     print(completed.stdout.decode("utf-8"))
@@ -63,5 +63,23 @@ def test_apport_excepthook_monkeypatch_interaction():
     +---------------- 2 ----------------
     | ValueError: msg3
     +------------------------------------
+"""
+    )
+
+
+@pytest.mark.skipif(
+    sys.version_info >= (3, 11),
+    reason="No patching is done on Python >= 3.11",
+)
+def test_apport_excepthook_no_patch():
+    completed = run_script("apport_excepthook_no_patch.py")
+    stdout = completed.stdout.decode("utf-8")
+    file = Path(__file__).parent / "apport_excepthook_no_patch.py"
+    assert stdout == (
+        f"""\
+Traceback (most recent call last):
+  File "{file}", line 26, in <module>
+    raise ExceptionGroup("msg1", [KeyError("msg2"), ValueError("msg3")])
+exceptiongroup.ExceptionGroup: msg1 (2 sub-exceptions)
 """
     )

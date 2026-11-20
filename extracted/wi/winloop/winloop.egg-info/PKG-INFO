@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: winloop
-Version: 0.8.3
+Version: 0.8.4
 Summary: Windows version of uvloop
 Author-email: Vizonex <VizonexBusiness@gmail.com>
 License: MIT License

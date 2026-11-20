@@ -34,6 +34,7 @@ __all__ = (
     "BillScenarioStatusType",
     "BillingandCostManagementPricingCalculatorServiceName",
     "CurrencyCodeType",
+    "GetUsageLinesEstimatedCostErrorCodeType",
     "GroupSharingPreferenceEnumType",
     "ListBillEstimateCommitmentsPaginatorName",
     "ListBillEstimateInputCommitmentModificationsPaginatorName",
@@ -87,6 +88,9 @@ BatchUpdateBillScenarioUsageModificationErrorCodeType = Literal[
 BillEstimateStatusType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 BillScenarioStatusType = Literal["FAILED", "LOCKED", "READY", "STALE"]
 CurrencyCodeType = Literal["USD"]
+GetUsageLinesEstimatedCostErrorCodeType = Literal[
+    "BAD_REQUEST", "CONFLICT", "INTERNAL_SERVER_ERROR", "NOT_FOUND"
+]
 GroupSharingPreferenceEnumType = Literal["OPEN", "PRIORITIZED", "RESTRICTED"]
 ListBillEstimateCommitmentsPaginatorName = Literal["list_bill_estimate_commitments"]
 ListBillEstimateInputCommitmentModificationsPaginatorName = Literal[
@@ -138,6 +142,7 @@ WorkloadEstimateUpdateUsageErrorCodeType = Literal[
 ]
 BillingandCostManagementPricingCalculatorServiceName = Literal["bcm-pricing-calculator"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -246,6 +251,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -430,6 +436,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -437,6 +444,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -497,6 +505,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

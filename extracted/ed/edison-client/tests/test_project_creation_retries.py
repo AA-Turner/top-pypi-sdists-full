@@ -1,7 +1,9 @@
 """Project creation must not repeat a POST whose outcome is uncertain."""
 
 import inspect
-from uuid import uuid4
+from collections.abc import Awaitable, Callable
+from typing import Never
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -9,10 +11,18 @@ from tenacity import wait_none
 
 from edison_client.clients.rest_client import ProjectError, RestClient
 
+_CreateProject = Callable[
+    [Callable[[httpx.Request], httpx.Response], UUID | None], Awaitable[UUID]
+]
+
 
 @pytest.fixture(name="create_project", params=["create_project", "acreate_project"])
-def fixture_create_project(request, monkeypatch):
-    async def invoke(handler, persona_id):
+def fixture_create_project(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> _CreateProject:
+    async def invoke(
+        handler: Callable[[httpx.Request], httpx.Response], persona_id: UUID | None
+    ) -> UUID:
         transport = httpx.MockTransport(handler)
         with httpx.Client(base_url="https://example.com", transport=transport) as sync:
             async with httpx.AsyncClient(
@@ -33,7 +43,7 @@ def fixture_create_project(request, monkeypatch):
 @pytest.fixture(
     name="persona_id", params=[False, True], ids=["standalone", "persona-owned"]
 )
-def fixture_persona_id(request):
+def fixture_persona_id(request: pytest.FixtureRequest) -> UUID | None:
     return uuid4() if request.param else None
 
 
@@ -42,11 +52,13 @@ def fixture_persona_id(request):
     [httpx.ReadTimeout, httpx.ReadError, httpx.RemoteProtocolError, 500, 502, 503, 504],
 )
 async def test_ambiguous_failure_does_not_create_another_project(
-    create_project, persona_id, failure
-):
+    create_project: _CreateProject,
+    persona_id: UUID | None,
+    failure: int | type[httpx.TransportError],
+) -> None:
     created = []
 
-    def handle(request):
+    def handle(request: httpx.Request) -> httpx.Response:
         assert request.method == "POST"
         expected_path = (
             f"/v0.1/personas/{persona_id}/projects" if persona_id else "/v0.1/projects"
@@ -68,11 +80,15 @@ async def test_ambiguous_failure_does_not_create_another_project(
 
 
 @pytest.mark.parametrize("failure", [httpx.ConnectError, httpx.ConnectTimeout, 429])
-async def test_unprocessed_request_is_retried(create_project, persona_id, failure):
+async def test_unprocessed_request_is_retried(
+    create_project: _CreateProject,
+    persona_id: UUID | None,
+    failure: int | type[httpx.TransportError],
+) -> None:
     attempts = 0
     project_id = uuid4()
 
-    def handle(request):
+    def handle(request: httpx.Request) -> httpx.Response:
         nonlocal attempts
         attempts += 1
         if attempts == 1:
@@ -86,10 +102,12 @@ async def test_unprocessed_request_is_retried(create_project, persona_id, failur
     assert attempts == 2
 
 
-async def test_safe_retries_are_bounded(create_project, persona_id):
+async def test_safe_retries_are_bounded(
+    create_project: _CreateProject, persona_id: UUID | None
+) -> None:
     attempts = 0
 
-    def handle(request):
+    def handle(request: httpx.Request) -> Never:
         nonlocal attempts
         attempts += 1
         raise httpx.ConnectTimeout("connection not established", request=request)

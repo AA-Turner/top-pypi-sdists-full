@@ -20,6 +20,21 @@
     expire_in: 2 day
     when: on_success
 
+.linux-local-pip:
+  extends: .CI-common-linux
+  stage: build
+  script:
+    - python3 -m venv .venv
+    - source .venv/bin/activate
+    - python3 -m pip install .
+  artifacts:
+    paths:
+      - ./build
+      - ./include
+    expire_in: 2 day
+    when: on_success
+
+
 .linux-doc:
   extends: .CI-common-linux
   stage: build_docs
@@ -93,7 +108,7 @@
     CIBW_SKIP: "*-musllinux* cp36-manylinux*"
   script:
     - curl -sSL https://get.docker.com/ | sh
-    - python -m pip install cibuildwheel==2.19.2
+    - python -m pip install cibuildwheel==3.4.1
     - cibuildwheel --output-dir wheelhouse
   artifacts:
     paths:

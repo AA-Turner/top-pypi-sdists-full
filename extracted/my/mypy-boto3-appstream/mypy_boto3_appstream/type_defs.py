@@ -309,6 +309,9 @@ __all__ = (
     "VpcConfigTypeDef",
     "VpcConfigUnionTypeDef",
     "WaiterConfigTypeDef",
+    "WebAuthnRedirectionOutputTypeDef",
+    "WebAuthnRedirectionTypeDef",
+    "WebAuthnRedirectionUnionTypeDef",
 )
 
 
@@ -878,6 +881,11 @@ class StorageConnectorOutputTypeDef(TypedDict):
     DomainsRequireAdminConsent: NotRequired[list[str]]
 
 
+class WebAuthnRedirectionOutputTypeDef(TypedDict):
+    Enabled: bool
+    ProcessCompatibilityList: NotRequired[list[str]]
+
+
 class StartAppBlockBuilderRequestTypeDef(TypedDict):
     Name: str
 
@@ -928,6 +936,11 @@ class UntagResourceRequestTypeDef(TypedDict):
 class VpcConfigTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SecurityGroupIds: NotRequired[Sequence[str]]
+
+
+class WebAuthnRedirectionTypeDef(TypedDict):
+    Enabled: bool
+    ProcessCompatibilityList: NotRequired[Sequence[str]]
 
 
 class AgentAccessConfigForUpdateTypeDef(TypedDict):
@@ -1429,6 +1442,9 @@ class UsageReportSubscriptionTypeDef(TypedDict):
 
 StorageConnectorUnionTypeDef = Union[StorageConnectorTypeDef, StorageConnectorOutputTypeDef]
 VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
+WebAuthnRedirectionUnionTypeDef = Union[
+    WebAuthnRedirectionTypeDef, WebAuthnRedirectionOutputTypeDef
+]
 AgentAccessConfigUnionTypeDef = Union[AgentAccessConfigTypeDef, AgentAccessConfigOutputTypeDef]
 
 
@@ -1613,6 +1629,7 @@ class StackTypeDef(TypedDict):
     EmbedHostDomains: NotRequired[list[str]]
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionOutputTypeDef]
+    WebAuthnRedirection: NotRequired[WebAuthnRedirectionOutputTypeDef]
     AgentAccessConfig: NotRequired[AgentAccessConfigOutputTypeDef]
     StorageConnectorAuthentication: NotRequired[StorageConnectorAuthenticationType]
 
@@ -1899,6 +1916,7 @@ class CreateStackRequestTypeDef(TypedDict):
     EmbedHostDomains: NotRequired[Sequence[str]]
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]
+    WebAuthnRedirection: NotRequired[WebAuthnRedirectionUnionTypeDef]
     AgentAccessConfig: NotRequired[AgentAccessConfigUnionTypeDef]
     StorageConnectorAuthentication: NotRequired[StorageConnectorAuthenticationType]
 
@@ -1918,5 +1936,6 @@ class UpdateStackRequestTypeDef(TypedDict):
     EmbedHostDomains: NotRequired[Sequence[str]]
     StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
     ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]
+    WebAuthnRedirection: NotRequired[WebAuthnRedirectionUnionTypeDef]
     AgentAccessConfig: NotRequired[AgentAccessConfigForUpdateTypeDef]
     StorageConnectorAuthentication: NotRequired[StorageConnectorAuthenticationType]

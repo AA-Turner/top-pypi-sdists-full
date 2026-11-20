@@ -19,13 +19,12 @@ from typing import Any, Optional
 
 import torch
 import torch.nn.functional as F
-from accelerate.utils.imports import is_xpu_available
 from torch import nn
 
 from peft.tuners._buffer_dict import BufferDict
 from peft.tuners.lora.config import BdLoraConfig, MontecloraConfig
 from peft.utils.integrations import dequantize_module_weight, gather_params_ctx
-from peft.utils.other import transpose
+from peft.utils.other import infer_device, transpose
 
 from .arrow import ArrowLoraLinearLayer
 from .config import LoraConfig, PeftConfig
@@ -147,14 +146,13 @@ class DoraLinearVariant(LoraVariant):
         lora_B = module.lora_B[adapter_name].weight
         place_on_cpu = module.ephemeral_gpu_offload and (lora_A.device.type == "cpu" or lora_B.device.type == "cpu")
         if module.ephemeral_gpu_offload:
-            if lora_A.device.type in ["cuda", "xpu"]:
+            if lora_A.device.type in ["cuda", "xpu", "npu"]:
                 lora_B = lora_B.to(lora_A.device)
             else:
-                if lora_B.device.type not in ["cuda", "xpu"]:
-                    if is_xpu_available():
-                        lora_B = lora_B.to("xpu")
-                    else:
-                        lora_B = lora_B.to("cuda")
+                if lora_B.device.type not in ["cuda", "xpu", "npu"]:
+                    # Move offloaded LoRA weights to the active accelerator device
+                    # (device-agnostic: handles CUDA, XPU, NPU, MPS, etc.)
+                    lora_B = lora_B.to(infer_device())
                 lora_A = lora_A.to(lora_B.device)
         scaling = module.scaling[adapter_name]
         dora_layer.update_layer(
@@ -213,7 +211,7 @@ class DoraLinearVariant(LoraVariant):
         dora_factor = transpose(dora_factor.view(-1, 1), module.fan_in_fan_out)
         new_weight = dora_factor * (orig_weight.data + delta_weight)
         new_weight = new_weight.to(orig_dtype)
-        orig_weight.data = new_weight
+        orig_weight.data.copy_(new_weight)
 
     @staticmethod
     def unmerge(module: Linear, active_adapter: str, orig_weight: torch.Tensor) -> torch.Tensor:
@@ -320,7 +318,7 @@ class DoraEmbeddingVariant(DoraLinearVariant):
         dora_factor = dora_factor.view(1, -1)
         new_weight = dora_factor * (orig_weight.data + delta_weight)
         new_weight = new_weight.to(orig_dtype)
-        orig_weight.data = new_weight
+        orig_weight.data.copy_(new_weight)
 
     @staticmethod
     def unmerge(module: Embedding, active_adapter: str, orig_weight: torch.Tensor) -> torch.Tensor:
@@ -424,7 +422,7 @@ class _DoraConvNdVariant(LoraVariant):
         dora_factor = module.lora_magnitude_vector[active_adapter].weight / weight_norm
         new_weight = dora_factor.view(*module._get_dora_factor_view()) * (orig_weight.data + delta_weight)
         new_weight = new_weight.to(orig_dtype)
-        orig_weight.data = new_weight
+        orig_weight.data.copy_(new_weight)
 
     @staticmethod
     def unmerge(module: _ConvNd, active_adapter: str, orig_weight: torch.Tensor) -> torch.Tensor:
@@ -997,7 +995,7 @@ class BdLoraLinearVariant(LoraVariant):
             r = module.lora_A[adapter_name].out_features
             base_layer = module.get_base_layer()
             layer = BlockDiagonalLinear(
-                base_layer.in_features,
+                module.in_features,
                 r,
                 nblocks=nblocks,
                 init_zero=False,
@@ -1010,7 +1008,7 @@ class BdLoraLinearVariant(LoraVariant):
             base_layer = module.get_base_layer()
             layer = BlockDiagonalLinear(
                 r,
-                base_layer.out_features,
+                module.out_features,
                 nblocks=nblocks,
                 init_zero=True,
                 dtype=base_layer.weight.dtype,
@@ -1054,7 +1052,8 @@ class BdLoraLinearVariant(LoraVariant):
             weight_A = weight_A.float()
             weight_B = weight_B.float()
 
-        output_tensor = transpose(weight_B @ weight_A, module.fan_in_fan_out) * module.scaling[adapter]
+        output_tensor = transpose(weight_B @ weight_A, module.fan_in_fan_out)
+        output_tensor.mul_(module.scaling[adapter])
 
         if cast_to_fp32:
             output_tensor = output_tensor.to(dtype=dtype)
@@ -1504,7 +1503,8 @@ class KasaLinearVariant(LoraVariant):
 
         # (out, r) * (r,) -> scale columns of B by the diagonal, then (out, r) @ (r, in) -> (out, in).
         delta = (weight_B * diag) @ weight_A
-        output_tensor = transpose(delta, module.fan_in_fan_out) * module.scaling[adapter]
+        output_tensor = transpose(delta, module.fan_in_fan_out)
+        output_tensor.mul_(module.scaling[adapter])
 
         if cast_to_fp32:
             output_tensor = output_tensor.to(dtype=dtype)

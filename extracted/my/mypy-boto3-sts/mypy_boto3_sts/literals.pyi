@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_sts.literals import STSServiceName
+    from mypy_boto3_sts.literals import WebIdentityTokenSubjectModeTypeType
 
-    data: STSServiceName = "sts"
+    data: WebIdentityTokenSubjectModeTypeType = "AWSIdentity"
     ```
 """
 
@@ -21,10 +21,18 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Literal
 
-__all__ = ("RegionName", "ResourceServiceName", "STSServiceName", "ServiceName")
+__all__ = (
+    "RegionName",
+    "ResourceServiceName",
+    "STSServiceName",
+    "ServiceName",
+    "WebIdentityTokenSubjectModeTypeType",
+)
 
+WebIdentityTokenSubjectModeTypeType = Literal["AWSIdentity", "OriginIdentity"]
 STSServiceName = Literal["sts"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -133,6 +141,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -317,6 +326,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -324,6 +334,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -384,6 +395,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

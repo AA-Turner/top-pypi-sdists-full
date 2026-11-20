@@ -21,9 +21,7 @@ from datamodel_code_generator import Error, ProtobufVersion, SchemaParseError, V
 from datamodel_code_generator._json_schema import definition_ref
 from datamodel_code_generator._message_text import install_command
 from datamodel_code_generator._paths import files_under
-from datamodel_code_generator._python_syntax import (
-    normalize_newlines,  # noqa: F401  # Preserve the established parser.protobuf export.
-)
+from datamodel_code_generator._python_syntax import normalize_newlines as normalize_newlines
 from datamodel_code_generator._source import input_text as _input_text
 from datamodel_code_generator.parser import _schema_documents
 from datamodel_code_generator.parser._null_facts import null_schema, with_null
@@ -171,7 +169,7 @@ def _load_grpc_tools() -> tuple[Any, Path]:
     try:
         import grpc_tools  # noqa: PLC0415
         from grpc_tools import protoc  # noqa: PLC0415
-    except ImportError as exc:  # pragma: no cover
+    except ImportError as exc:
         msg = f"protobuf input requires grpcio-tools. Please run {install_command('protobuf')}."
         raise Error(msg) from exc
     return protoc, Path(grpc_tools.__file__).parent / "_proto"

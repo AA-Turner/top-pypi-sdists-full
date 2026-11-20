@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from packaging.version import InvalidVersion, Version
 from urllib3.exceptions import HTTPError
 
-from anyscale._private.models.model_base import ResultIterator
+from anyscale._private.models.model_base import ModelBase, ResultIterator
 from anyscale._private.workload import WorkloadSDK
 from anyscale.client.openapi_client.models.apply_production_service_multi_version_v2_model import (
     ApplyProductionServiceMultiVersionV2Model,
@@ -32,6 +32,7 @@ from anyscale.client.openapi_client.models.service_status_checklist import (
 from anyscale.client.openapi_client.models.status_checklist_item import (
     StatusChecklistItem as APIStatusChecklistItem,
 )
+from anyscale.client.openapi_client.models.workload_source import WorkloadSource
 from anyscale.compute_config.models import ComputeConfig
 from anyscale.sdk.anyscale_client.models import (
     AccessConfig,
@@ -96,6 +97,24 @@ def _from_api_traffic_policy(traffic_policy: APITrafficPolicy) -> TrafficPolicy:
         type=traffic_policy.type,
         static=StaticTrafficPolicy(weights=static.weights) if static is not None else None,
     )
+
+
+async def _none() -> None:
+    return None
+
+
+def _serialized(value: Any) -> Any:
+    if isinstance(value, ModelBase):
+        return value.to_dict()
+    if isinstance(value, list):
+        return [_serialized(v) for v in value]
+    return value
+
+
+def _config_project(config: Union[ServiceConfig, Dict[str, Any]]) -> Optional[str]:
+    if isinstance(config, ServiceConfig):
+        return config.project
+    return config.get("project")
 
 
 class PrivateServiceSDK(WorkloadSDK):
@@ -903,6 +922,17 @@ class PrivateServiceSDK(WorkloadSDK):
         existing_service: Optional[DecoratedProductionServiceV2APIModel] = self.client.get_service(
             name=name, cloud=cloud, project=project
         )
+        if (
+            existing_service is not None
+            and existing_service.kuberay_source == WorkloadSource.EXTERNAL
+        ):
+            # The API refuses every mutation of such a service (its RayService is owned in the
+            # cluster); refusing here spares the compute-config and working-dir writes a deploy
+            # makes before that request.
+            raise ValueError(
+                f"Service '{name}' is managed by a KubeRay RayService applied directly to the "
+                "cluster; change or re-apply the RayService in the cluster instead."
+            )
         if existing_service is None:
             self.logger.info(f"Starting new service '{name}'.")
         elif existing_service.current_state == ServiceEventCurrentState.TERMINATED:
@@ -1125,17 +1155,28 @@ class PrivateServiceSDK(WorkloadSDK):
         service_name: str,
         project_id: str,
         query_auth_token_enabled: bool,
+        cluster_submitted: bool,
     ) -> ServiceVersionStatus:
+        # A version of a cluster-submitted KubeRay service runs the RayService's own image on
+        # the customer's cluster: the API leaves build_id and compute_config_id empty, and a
+        # lookup with an empty id lands on a collection endpoint (405/400). Each lookup runs
+        # only when its id is set.
         image_uri, image_build, project, compute_config = await asyncio.gather(
-            asyncio.to_thread(self._image_sdk.get_image_uri_from_build_id, model.build_id),
-            asyncio.to_thread(self._image_sdk.get_image_build, model.build_id),
+            asyncio.to_thread(self._image_sdk.get_image_uri_from_build_id, model.build_id)
+            if model.build_id
+            else _none(),
+            asyncio.to_thread(self._image_sdk.get_image_build, model.build_id)
+            if model.build_id
+            else _none(),
             asyncio.to_thread(self.client.get_project, project_id),
-            asyncio.to_thread(self.get_user_facing_compute_config, model.compute_config_id),
+            asyncio.to_thread(self.get_user_facing_compute_config, model.compute_config_id)
+            if model.compute_config_id
+            else _none(),
         )
 
-        if image_uri is None:
+        if model.build_id and image_uri is None:
             raise RuntimeError(f"Failed to get image URI for ID {model.build_id}.")
-        if image_build is None:
+        if model.build_id and image_build is None:
             raise RuntimeError(f"Failed to get image build for ID {model.build_id}.")
 
         ray_gcs_external_storage_config = None
@@ -1160,6 +1201,46 @@ class PrivateServiceSDK(WorkloadSDK):
             model.connection_ids, model.connection_config_ids
         )
 
+        ray_serve_config = model.ray_serve_config
+        config_kwargs: Dict[str, Any] = {
+            "name": service_name,
+            "version_name": version_name,
+            # A customer's serveConfigV2 is stored as written and may lack the key.
+            "applications": ray_serve_config.get("applications", [])
+            if cluster_submitted
+            else ray_serve_config["applications"],
+            "image_uri": str(image_uri) if image_uri is not None else None,
+            "compute_config": compute_config,
+            "registry_login_secret": image_build.registry_login_secret
+            if image_build is not None
+            else None,
+            "query_auth_token_enabled": query_auth_token_enabled,
+            "http_options": ray_serve_config.get("http_options", None),
+            "grpc_options": ray_serve_config.get("grpc_options", None),
+            "logging_config": ray_serve_config.get("logging_config", None),
+            "proxy_location": self._supported_proxy_location(ray_serve_config),
+            "ray_gcs_external_storage_config": ray_gcs_external_storage_config,
+            "cloud": compute_config.cloud
+            if compute_config and isinstance(compute_config, ComputeConfig)
+            else None,
+            "project": project.name if project is not None and project.name != "default" else None,
+            "tracing_config": tracing_config,
+            "connections": connections,
+            "traffic_policy": _from_api_traffic_policy(model.traffic_policy)
+            if model.traffic_policy is not None
+            else None,
+        }
+        config: Union[ServiceConfig, Dict[str, Any]]
+        if cluster_submitted:
+            # The customer wrote this Serve config and Anyscale never validated it, so it is
+            # shown as given: a dict in the shape ServiceConfig.to_dict() would give.
+            config = {
+                key: _serialized(value)
+                for key, value in config_kwargs.items()
+                if value is not None
+            }
+        else:
+            config = ServiceConfig(**config_kwargs)
         return ServiceVersionStatus(
             id=self._get_user_facing_service_version_id(model),
             name=version_name,
@@ -1167,31 +1248,7 @@ class PrivateServiceSDK(WorkloadSDK):
             state=model.current_state,
             # NOTE(edoakes): there is also a "current_weight" field but it does not match the UI.
             weight=model.weight,
-            config=ServiceConfig(
-                name=service_name,
-                version_name=version_name,
-                applications=model.ray_serve_config["applications"],
-                image_uri=str(image_uri),
-                compute_config=compute_config,
-                registry_login_secret=image_build.registry_login_secret,
-                query_auth_token_enabled=query_auth_token_enabled,
-                http_options=model.ray_serve_config.get("http_options", None),
-                grpc_options=model.ray_serve_config.get("grpc_options", None),
-                logging_config=model.ray_serve_config.get("logging_config", None),
-                proxy_location=self._supported_proxy_location(model.ray_serve_config),
-                ray_gcs_external_storage_config=ray_gcs_external_storage_config,
-                cloud=compute_config.cloud
-                if compute_config and isinstance(compute_config, ComputeConfig)
-                else None,
-                project=project.name
-                if project is not None and project.name != "default"
-                else None,
-                tracing_config=tracing_config,
-                connections=connections,
-                traffic_policy=_from_api_traffic_policy(model.traffic_policy)
-                if model.traffic_policy is not None
-                else None,
-            ),
+            config=config,
         )
 
     def _supported_proxy_location(self, ray_serve_config: Dict[str, Any]) -> Optional[str]:
@@ -1264,6 +1321,7 @@ class PrivateServiceSDK(WorkloadSDK):
         # which means that the per-version `query_auth_token_enabled` field will lie if
         # it's changed.
         query_auth_token_enabled = model.auth_token is not None
+        cluster_submitted = model.kuberay_source == WorkloadSource.EXTERNAL
         all_versions = None
         primary_version = None
         canary_version = None
@@ -1278,18 +1336,15 @@ class PrivateServiceSDK(WorkloadSDK):
                         service_name=model.name,
                         project_id=model.project_id,
                         query_auth_token_enabled=query_auth_token_enabled,
+                        cluster_submitted=cluster_submitted,
                     )
                 )
                 for version in model.versions
             ]
             all_versions = await asyncio.gather(*version_tasks)
 
-            if (
-                all_versions
-                and all_versions[0]
-                and isinstance(all_versions[0].config, ServiceConfig)
-            ):
-                project_name = all_versions[0].config.project
+            if all_versions and all_versions[0]:
+                project_name = _config_project(all_versions[0].config)
 
         else:
             primary_version_task = None
@@ -1300,6 +1355,7 @@ class PrivateServiceSDK(WorkloadSDK):
                         service_name=model.name,
                         project_id=model.project_id,
                         query_auth_token_enabled=query_auth_token_enabled,
+                        cluster_submitted=cluster_submitted,
                     )
                 )
 
@@ -1311,14 +1367,15 @@ class PrivateServiceSDK(WorkloadSDK):
                         service_name=model.name,
                         project_id=model.project_id,
                         query_auth_token_enabled=query_auth_token_enabled,
+                        cluster_submitted=cluster_submitted,
                     )
                 )
 
             primary_version = await primary_version_task if primary_version_task else None
             canary_version = await canary_version_task if canary_version_task else None
 
-            if primary_version and isinstance(primary_version.config, ServiceConfig):
-                project_name = primary_version.config.project
+            if primary_version:
+                project_name = _config_project(primary_version.config)
 
         return ServiceStatus(
             id=model.id,

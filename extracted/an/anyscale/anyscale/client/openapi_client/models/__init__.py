@@ -780,6 +780,8 @@ from openapi_client.models.machinepoolsearchresult_list_response import Machinep
 from openapi_client.models.machinestateinfo_list_response import MachinestateinfoListResponse
 from openapi_client.models.managed_resource import ManagedResource
 from openapi_client.models.managedresource_list_response import ManagedresourceListResponse
+from openapi_client.models.manages_any_resource import ManagesAnyResource
+from openapi_client.models.managesanyresource_response import ManagesanyresourceResponse
 from openapi_client.models.market_breakdown import MarketBreakdown
 from openapi_client.models.match_expression import MatchExpression
 from openapi_client.models.metric import Metric
@@ -1293,6 +1295,7 @@ from openapi_client.models.workload_machine_info import WorkloadMachineInfo
 from openapi_client.models.workload_metrics_dashboard import WorkloadMetricsDashboard
 from openapi_client.models.workload_nodes import WorkloadNodes
 from openapi_client.models.workload_response import WorkloadResponse
+from openapi_client.models.workload_source import WorkloadSource
 from openapi_client.models.workload_state import WorkloadState
 from openapi_client.models.workload_state_info import WorkloadStateInfo
 from openapi_client.models.workload_status import WorkloadStatus

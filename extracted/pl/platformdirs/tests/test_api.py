@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import builtins
+import errno
 import functools
+import importlib
 import inspect
 import os
 import re
@@ -9,13 +11,14 @@ import stat
 import sys
 from pathlib import Path
 from subprocess import check_output  # ruff:ignore[suspicious-subprocess-import]  # import-cost subprocess test
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Final, ParamSpec
 
 import pytest
 
 import platformdirs
 from platformdirs.macos import MacOS
-from platformdirs.unix import Unix
+from platformdirs.unix import Unix, geteuid
 from platformdirs.windows import Windows
 
 # The interpreter owns the import-hook signature; this reference is restored after each test.
@@ -36,6 +39,33 @@ def test_import_platformdirs_skips_typing() -> None:
     # A coverage process hook imports typing in the child before platformdirs loads.
     env = {name: value for name, value in os.environ.items() if not name.startswith("COVERAGE_")}
     assert check_output([sys.executable, "-c", code], text=True, env=env).strip() == "False"
+
+
+@pytest.mark.parametrize(
+    ("platform", "expected"),
+    [pytest.param("win32", "Windows", id="windows"), pytest.param("darwin", "MacOS", id="macos")],
+)
+def test_native_platform_class(platform: str, expected: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(sys, "platform", platform)
+            assert importlib.reload(platformdirs).PlatformDirs.__name__ == expected
+    finally:
+        importlib.reload(platformdirs)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix credentials")
+def test_unix_uid_patch_expires() -> None:
+    code = """
+from pytest import MonkeyPatch
+from platformdirs import unix
+
+with MonkeyPatch.context() as patch:
+    patch.setattr("platformdirs._runtime.geteuid", lambda: -1)
+    unix.geteuid()
+print(unix.geteuid())
+"""
+    assert int(check_output([sys.executable, "-c", code], text=True)) == geteuid()
 
 
 def test_package_metadata() -> None:
@@ -320,6 +350,149 @@ def test_place_file_keeps_mode_of_existing_directories(home: Path) -> None:
     assert stat.S_IMODE(home.stat().st_mode) == 0o755
 
 
+@_POSIX_ONLY
+def test_ensure_exists_creates_below_sticky_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    shared.chmod(0o1777)
+    monkeypatch.setenv("XDG_DATA_HOME", str(shared / "base"))
+    assert Unix(appname="app", ensure_exists=True).user_data_dir == str(shared / "base" / "app")
+    assert {path.name: stat.S_IMODE(path.stat().st_mode) for path in (shared / "base", shared / "base" / "app")} == {
+        "base": 0o700,
+        "app": 0o700,
+    }
+
+
+@_POSIX_ONLY
+def test_place_file_creates_below_sticky_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    shared.chmod(0o1777)
+    monkeypatch.setenv("XDG_DATA_HOME", str(shared / "base"))
+    path = Unix(appname="app").place_data_file("nested/file.txt")
+    assert path == shared / "base" / "app" / "nested" / "file.txt"
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+
+
+@_POSIX_ONLY
+def test_ensure_exists_rejects_writable_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    shared.chmod(0o777)
+    monkeypatch.setenv("XDG_DATA_HOME", str(shared / "base"))
+    with pytest.raises(PermissionError):
+        _ = Unix(appname="app", ensure_exists=True).user_data_dir
+    assert not (shared / "base").exists()
+
+
+@_POSIX_ONLY
+def test_group_writable_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path.chmod(0o775)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    dirs = Unix("app", ensure_exists=True)
+    assert dirs.user_config_path == tmp_path / "app"
+    assert stat.S_IMODE(dirs.user_config_path.stat().st_mode) == 0o700
+    assert dirs.place_config_file("state") == tmp_path / "app" / "state"
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize("change", ["owner", "mode"])
+def test_ensure_exists_checks_new_shared_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, change: str
+) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    shared.chmod(0o1777)
+    monkeypatch.setenv("XDG_DATA_HOME", str(shared / "base"))
+    original_mkdir = Path.mkdir
+    original_lstat = os.lstat
+    changed: set[Path] = set()
+
+    def mkdir(path: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        original_mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+        if path == shared / "base":
+            changed.add(path)
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        info = original_lstat(path)
+        if Path(path) in changed:
+            return {
+                "owner": os.stat_result((*info[:4], info.st_uid + 1, *info[5:])),
+                "mode": os.stat_result((stat.S_IFDIR | 0o777, *info[1:])),
+            }[change]
+        return info
+
+    mocker.patch.object(Path, "mkdir", autospec=True, side_effect=mkdir)
+    mocker.patch.object(os, "lstat", autospec=True, side_effect=lstat)
+    with pytest.raises(PermissionError):
+        _ = Unix(appname="app", ensure_exists=True).user_data_dir
+    assert not (shared / "base" / "app").exists()
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [
+        pytest.param(errno.ENOENT, "is missing", id="removed"),
+        pytest.param(errno.EIO, "cannot be checked", id="io-error"),
+    ],
+)
+def test_ensure_exists_rejects_unreadable_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, code: int, message: str
+) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(shared / "base"))
+    original_lstat = os.lstat
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        if Path(path) == shared:
+            raise OSError(code, os.strerror(code), str(shared))
+        return original_lstat(path)
+
+    mocker.patch.object(os, "lstat", autospec=True, side_effect=lstat)
+    with pytest.raises(PermissionError, match=message):
+        _ = Unix(appname="app", ensure_exists=True).user_data_dir
+    assert not (shared / "base").exists()
+
+
+@_POSIX_ONLY
+def test_ensure_exists_rejects_nondirectory_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    monkeypatch.setenv("XDG_DATA_HOME", str(shared / "base"))
+    original_lstat = os.lstat
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        info = original_lstat(path)
+        return os.stat_result((stat.S_IFREG | 0o644, *info[1:])) if Path(path) == shared else info
+
+    mocker.patch.object(os, "lstat", autospec=True, side_effect=lstat)
+    with pytest.raises(PermissionError, match="not a directory"):
+        _ = Unix(appname="app", ensure_exists=True).user_data_dir
+    assert not (shared / "base").exists()
+
+
+@_POSIX_ONLY
+def test_ensure_exists_windows_creation_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (shared := tmp_path / "shared").mkdir()
+    shared.chmod(0o770)
+    monkeypatch.setenv("XDG_DATA_HOME", str(shared / "base"))
+    monkeypatch.setattr("platformdirs.api.sys", SimpleNamespace(platform="win32"))
+    assert Unix(appname="app", ensure_exists=True).user_data_dir == str(shared / "base" / "app")
+    assert (shared / "base" / "app").is_dir()
+
+
+@pytest.mark.usefixtures("home")
+def test_place_file_creates_nested_parents() -> None:
+    dirs = Unix("app")
+    name = Path(*["n"] * 80, "app.toml")
+    previous = sys.getrecursionlimit()
+    try:
+        sys.setrecursionlimit(len(inspect.stack()) + 50)
+        path = dirs.place_config_file(name)
+    finally:
+        sys.setrecursionlimit(previous)
+    assert path == dirs.user_config_path / name
+    assert path.parent.is_dir()
+
+
 _ESCAPING_NAMES: Final[list[pytest.ParameterSet]] = [
     pytest.param("../evil", id="parent"),
     pytest.param("sub/../../evil", id="nested-parent"),
@@ -537,6 +710,7 @@ def test_find_config_file_accepts_nested_path_like(dirs: Unix, config_paths: lis
 
 @pytest.mark.parametrize("multipath", [pytest.param(True, id="multipath"), pytest.param(False, id="single-path")])
 @pytest.mark.parametrize("kind", [pytest.param(kind, id=kind) for kind in ("config", "data")])
+@pytest.mark.usefixtures("root_owned_paths")
 def test_find_file_finds_root_placed_file_in_first_site_dir(
     dirs: Unix, mocker: MockerFixture, kind: str, multipath: bool
 ) -> None:
@@ -605,4 +779,4 @@ def test_system_site_dir_keeps_default_mode(
     mocker.patch("sys.platform", "linux")
     mkdir = mocker.patch.object(Path, "mkdir", autospec=True)
     getattr(dirs_class(appname="app", ensure_exists=True), prop)
-    assert mkdir.call_args_list == [mocker.call(Path(created), parents=True, exist_ok=True)]
+    assert mkdir.call_args_list == [mocker.call(Path(created), mode=0o777, exist_ok=True)]

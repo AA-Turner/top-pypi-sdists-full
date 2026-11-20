@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import os
 import re
 import stat
@@ -299,26 +300,19 @@ def test_macos_ensure_exists_returns_configured_media_symlink(
     assert (MacOS(ensure_exists=True).user_documents_path, path.is_dir()) == (path, is_dir)
 
 
-@pytest.mark.parametrize(
-    ("xdg_value", "created"), [pytest.param("/custom/media", True, id="xdg"), pytest.param(None, False, id="default")]
-)
+@pytest.mark.parametrize("override", [pytest.param("{root}/custom/media", id="xdg"), pytest.param("", id="default")])
 @pytest.mark.parametrize(("env_var", "prop"), _MEDIA_DIRS)
-# parametrized case inputs
-def test_macos_ensure_exists_creates_configured_media_dir_only(  # ruff:ignore[too-many-arguments]
-    mocker: MockerFixture,
-    monkeypatch: pytest.MonkeyPatch,
-    env_var: str,
-    prop: str,
-    xdg_value: str | None,
-    created: bool,
+def test_macos_ensure_exists_creates_configured_media_dir_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env_var: str, prop: str, override: str
 ) -> None:
-    if xdg_value is None:  # simplint: ignore[conditional-in-test]  # distinct environment setups
-        monkeypatch.delenv(env_var, raising=False)
-    else:
-        monkeypatch.setenv(env_var, xdg_value)
-    mkdir = mocker.patch.object(Path, "mkdir", autospec=True)
-    getattr(MacOS(ensure_exists=True), prop)
-    assert [call.args[0] for call in mkdir.call_args_list] == {True: [Path("/custom/media")], False: []}[created]
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    # XDG paths use POSIX syntax even when the test runs on a Windows drive.
+    monkeypatch.setenv(env_var, override.format(root=tmp_path.as_posix().removeprefix(tmp_path.drive)))
+    path = Path(getattr(MacOS(ensure_exists=True), prop)).absolute()
+    assert path.is_relative_to(tmp_path)
+    assert path.is_dir() is bool(override)
 
 
 @pytest.mark.parametrize(
@@ -577,13 +571,27 @@ def test_homebrew_site_path_ensure_exists_ignores_multipath(mocker: MockerFixtur
     assert [c.args[0] for c in mkdir.call_args_list] == [Path(created)]
 
 
-@pytest.mark.usefixtures("_clear_xdg_env", "_homebrew_py_prefix")
-@pytest.mark.parametrize("method", ["iter_data_dirs", "iter_config_dirs", "iter_cache_dirs"])
-def test_homebrew_iter_dirs_create_site_dirs_only_as_consumed(mocker: MockerFixture, method: str) -> None:
-    mkdir = mocker.patch.object(Path, "mkdir", autospec=True)
+@pytest.mark.usefixtures("_clear_xdg_env")
+@pytest.mark.parametrize(
+    ("method", "directory"),
+    [
+        pytest.param("iter_data_dirs", "share", id="data"),
+        pytest.param("iter_config_dirs", "share", id="config"),
+        pytest.param("iter_cache_dirs", "var/cache", id="cache"),
+    ],
+)
+def test_homebrew_iter_dirs_create_site_dirs_only_as_consumed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, method: str, directory: str
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setattr(sys, "base_prefix", f"{tmp_path.as_posix()}/opt/python/Frameworks/Python.framework/Versions/3")
     dirs = getattr(MacOS(appname="foo", ensure_exists=True), method)()
-    user, site = next(dirs), next(dirs)
-    assert [c.args[0] for c in mkdir.call_args_list] == [Path(user), Path(site)]
+    assert Path(next(dirs)).is_dir()
+    site = tmp_path / directory / "foo"
+    assert not site.exists()
+    assert Path(next(dirs)) == site
+    assert site.is_dir()
 
 
 @pytest.mark.usefixtures("_clear_xdg_env")
@@ -682,12 +690,12 @@ def test_homebrew_virtual_environment(
 ) -> None:
     monkeypatch.setattr(sys, "prefix", "/Users/me/project/.venv")
     monkeypatch.setattr(sys, "base_prefix", f"{homebrew_prefix}/{framework}/Versions/3.13")
-    suffix: Final = {True: "var/cache", False: "share"}["cache" in prop]
+    suffix: Final[str] = {True: "var/cache", False: "share"}["cache" in prop]
     expected: str | Path = f"{homebrew_prefix}/{suffix}{os.sep}Example{os.sep}1.0"
     if prop.endswith("_path"):  # simplint: ignore[conditional-in-test]  # Path result
         expected = Path(expected)
     elif multipath and prop != "site_state_dir":
-        fallback: Final = {True: "Caches", False: "Application Support"}["cache" in prop]
+        fallback: Final[str] = {True: "Caches", False: "Application Support"}["cache" in prop]
         expected += f":/Library/{fallback}{os.sep}Example{os.sep}1.0"
     assert getattr(MacOS(appname="Example", version="1.0", multipath=multipath), prop) == expected
 
@@ -868,10 +876,10 @@ def test_macos_user_runtime_dir_rejects_xdg_runtime_dir_of_other_user(home: str)
 
 @_POSIX_ONLY
 def test_macos_user_runtime_dir_rejects_xdg_runtime_dir_of_other_user_warns(foreign_runtime_dir: Path) -> None:
-    owner: Final = foreign_runtime_dir.stat().st_uid
+    owner: Final[int] = foreign_runtime_dir.stat().st_uid
     with pytest.warns(RuntimeDirWarning) as record:
         _ = MacOS(appname="foo").user_runtime_dir
-    expected: Final = (
+    expected: Final[str] = (
         f"XDG_RUNTIME_DIR {foreign_runtime_dir} is owned by uid {owner}, not {owner + 1}, "
         "falling back to the platform default"
     )
@@ -884,3 +892,154 @@ def test_macos_user_runtime_dir_rejects_shared_xdg_runtime_dir(runtime_dir: Path
     runtime_dir.mkdir()
     runtime_dir.chmod(0o777)
     assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"
+
+
+@_POSIX_ONLY
+@pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
+def test_find_macos_runtime_file_in_native_fallback_inside_xdg_path(
+    runtime_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime_dir.mkdir()
+    runtime_dir.chmod(0o755)
+    monkeypatch.setenv("HOME", str(runtime_dir))
+    path = runtime_dir / "Library/Caches/TemporaryItems/demo/state"
+    path.parent.mkdir(parents=True)
+    path.touch()
+    assert MacOS(appname="demo").find_runtime_file("state") == path
+
+
+@_POSIX_ONLY
+def test_macos_place_and_find_after_fallback(runtime_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(home := runtime_dir.parent / "home"))
+    mkdir = Path.mkdir
+
+    def deny_override(path: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        if path == runtime_dir:
+            raise PermissionError
+        mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+
+    monkeypatch.setattr(Path, "mkdir", deny_override)
+    dirs = MacOS("app", ensure_exists=True)
+    with pytest.warns(RuntimeDirWarning):
+        placed = dirs.place_runtime_file("state")
+    assert placed == home / "Library/Caches/TemporaryItems/app/state"
+    placed.touch()
+    assert dirs.find_runtime_file("state") == placed
+    assert list(dirs.iter_runtime_dirs()) == [str(placed.parent)]
+    assert dirs.site_runtime_path == placed.parent
+
+
+@_POSIX_ONLY
+@pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
+def test_macos_find_when_xdg_names_native_path(runtime_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(runtime_dir))
+    native = runtime_dir / "Library/Caches/TemporaryItems"
+    native.mkdir(parents=True)
+    native.chmod(0o755)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(native))
+    dirs = MacOS("app")
+    placed = dirs.place_runtime_file("state")
+    placed.touch()
+    assert dirs.find_runtime_files("state") == [placed]
+
+
+@_POSIX_ONLY
+def test_macos_search_existing_xdg(runtime_dir: Path) -> None:
+    dirs = MacOS("app")
+    dirs.place_runtime_file("state").touch()
+    assert dirs.find_runtime_files("state") == [runtime_dir / "app/state"]
+
+
+@_POSIX_ONLY
+def test_macos_site_runtime_creates_private_directory(runtime_dir: Path) -> None:
+    assert MacOS("app", ensure_exists=True).site_runtime_path == runtime_dir / "app"
+    assert stat.S_IMODE(runtime_dir.stat().st_mode) == 0o700
+
+
+@_POSIX_ONLY
+def test_macos_user_runtime_dir_rejects_foreign_parent(runtime_dir: Path, home: str, mocker: MockerFixture) -> None:
+    parent = runtime_dir.parent
+    info = parent.lstat()
+    original_lstat = os.lstat
+    other_owner = os.stat_result((*info[:4], info.st_uid + 1, *info[5:]))
+    mocker.patch.object(
+        os,
+        "lstat",
+        autospec=True,
+        side_effect=lambda path, **kwargs: other_owner if path == parent else original_lstat(path, **kwargs),
+    )
+    with pytest.warns(RuntimeDirWarning):
+        assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize(
+    "link_target",
+    [
+        pytest.param(lambda target: target, id="absolute"),
+        pytest.param(lambda target: target.name, id="relative"),
+    ],
+)
+def test_macos_user_runtime_dir_follows_owned_parent_link(
+    runtime_dir: Path, monkeypatch: pytest.MonkeyPatch, link_target: Callable[[Path], Path | str]
+) -> None:
+    (target := runtime_dir.parent / "target").mkdir()
+    (link := runtime_dir.parent / "link").symlink_to(link_target(target), target_is_directory=True)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(base := link / "session"))
+    assert MacOS(appname="foo").user_runtime_dir == str(base / "foo")
+
+
+@_POSIX_ONLY
+def test_macos_user_runtime_dir_rejects_writable_parent(runtime_dir: Path, home: str) -> None:
+    runtime_dir.parent.chmod(0o777)
+    with pytest.warns(RuntimeDirWarning):
+        assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"
+
+
+@_POSIX_ONLY
+def test_macos_user_runtime_dir_rejects_group_writable_parent(runtime_dir: Path, home: str) -> None:
+    runtime_dir.parent.chmod(0o770)
+    with pytest.warns(RuntimeDirWarning):
+        assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"
+
+
+@_POSIX_ONLY
+def test_macos_user_runtime_dir_rejects_file_parent(
+    runtime_dir: Path, home: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (file := runtime_dir.parent / "file").touch()
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(file / "session"))
+    with pytest.warns(RuntimeDirWarning):
+        assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"
+
+
+@_POSIX_ONLY
+def test_macos_user_runtime_dir_rejects_unreadable_parent(runtime_dir: Path, home: str, mocker: MockerFixture) -> None:
+    parent = runtime_dir.parent
+    original_lstat = os.lstat
+
+    def unreadable(path: str | os.PathLike[str]) -> os.stat_result:
+        if Path(path) == parent:
+            raise OSError(errno.EIO, os.strerror(errno.EIO), str(path))
+        return original_lstat(path)
+
+    mocker.patch.object(os, "lstat", autospec=True, side_effect=unreadable)
+    with pytest.warns(RuntimeDirWarning):
+        assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"
+
+
+@pytest.fixture
+def long_link_chain(runtime_dir: Path) -> Path:
+    (runtime_dir.parent / "target").mkdir()
+    for index in range(41):
+        (runtime_dir.parent / f"link{index}").symlink_to(f"link{index + 1}" if index < 40 else "target")
+    return runtime_dir.parent / "link0" / "session"
+
+
+@_POSIX_ONLY
+def test_macos_user_runtime_dir_rejects_long_link_chain(
+    long_link_chain: Path, home: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(long_link_chain))
+    with pytest.warns(RuntimeDirWarning):
+        assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"

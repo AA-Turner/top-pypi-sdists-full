@@ -8,6 +8,7 @@ Resolution order (first match wins):
 
 from __future__ import annotations
 
+from ..errors import PraisonAIError
 import difflib
 import importlib.util
 import logging
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 _praisonai_tools_available: Optional[bool] = None
 
 
-class ToolResolutionError(ValueError):
+class ToolResolutionError(ValueError, PraisonAIError):
     """Raised in strict mode when one or more tool names cannot be resolved."""
 
     def __init__(self, unknown: List[str], suggestions: Dict[str, List[str]]):
@@ -83,14 +84,16 @@ def _available_tool_names() -> List[str]:
 
         names.update(get_registry().list_tools())
     except Exception:
-        pass
+        logger.debug("Tool suggestions: could not list registry tools",
+                     exc_info=True)
 
     try:
         from . import TOOL_MAPPINGS
 
         names.update(TOOL_MAPPINGS.keys())
     except Exception:
-        pass
+        logger.debug("Tool suggestions: could not read built-in tool names",
+                     exc_info=True)
 
     global _praisonai_tools_available
     if _praisonai_tools_available is None:
@@ -101,7 +104,8 @@ def _available_tool_names() -> List[str]:
 
             names.update(getattr(praisonai_tools, "__all__", []) or [])
         except Exception:
-            pass
+            logger.debug("Tool suggestions: could not read praisonai_tools "
+                         "names", exc_info=True)
 
     return sorted(names)
 

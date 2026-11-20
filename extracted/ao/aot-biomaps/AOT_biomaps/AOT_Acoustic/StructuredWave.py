@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from AOT_biomaps.Config import config
 from ._mainAcoustic import KWAVE_AVAILABLE, AcousticField
-from .AcousticEnums import TypeSim, WaveType
-from .AcousticTools import detect_space_0_and_space_1, get_angle, get_frequency, format_angle, compute_field_numba, get_piezo_to_grid_mapping
+from .AcousticEnums import TypeSim, WaveType, ApodType
+from .AcousticTools import detect_space_0_and_space_1, get_angle, get_frequency, format_angle, compute_field_numba, get_piezo_to_grid_mapping, tukey_window
 
 import os
 import numpy as np
@@ -202,6 +202,56 @@ class StructuredWave(AcousticField):
         except AttributeError:
             print("[AOT-biomaps] delayedSignal not set yet: run _set_up_source first.")
 
+    def _get_apod_window(self, num_elements):
+        """
+        Generate an apodization window for the transducer elements.
+        Defaults to rectangular (all ones) if apodization params are absent.
+
+        apodStrength in [0, 1] controls the apodization amount for EVERY window:
+        - 0: rectangular (no apodization), except for Tukey/Gaussian where it is
+          the native parameter (alpha / relative sigma)
+        - 1: full window
+
+        Parameters:
+            num_elements (int): Number of transducer elements.
+
+        Returns:
+            numpy.ndarray: Apodization window of shape (num_elements,).
+        """
+        use = self.params.acoustic.get('useApod', False)
+        if isinstance(use, str):
+            use = use.strip().lower() in ('true', '1', 'yes')
+
+        if not use:
+            return np.ones(num_elements, dtype=np.float32)
+
+        raw_type = self.params.acoustic.get('apodType', ApodType.Rectangular)
+        apod_type = raw_type if isinstance(raw_type, ApodType) else ApodType(str(raw_type).strip().lower())
+        sigma = float(np.clip(self.params.acoustic.get('apodStrength', 1.0), 0.0, 1.0))
+
+        if apod_type == ApodType.Rectangular:
+            return np.ones(num_elements, dtype=np.float32)
+
+        if apod_type == ApodType.Tukey:
+            alpha = max(sigma, 1e-3)         
+            w = tukey_window(num_elements, alpha=alpha)
+        elif apod_type == ApodType.Gaussian:
+            sig = max(sigma, 1e-3) * (num_elements - 1) / 2.0  
+            e = np.arange(num_elements) - (num_elements - 1) / 2.0
+            w = np.exp(-0.5 * (e / sig) ** 2)
+        else:
+            if apod_type == ApodType.Hanning:
+                w0 = np.hanning(num_elements)
+            elif apod_type == ApodType.Hamming:
+                w0 = np.hamming(num_elements)
+            elif apod_type == ApodType.Blackman:
+                w0 = np.blackman(num_elements)
+            else:
+                raise ValueError(f"[AOT-biomaps] Unknown apodization type: {apod_type}")
+            w = 1.0 + sigma * (w0 - 1.0)
+
+        return (w / w.max()).astype(np.float32)
+
     def _set_up_source(self, source, burst=None):
         """
         Set up the k-Wave source for the acoustic field simulation.
@@ -244,15 +294,22 @@ class StructuredWave(AcousticField):
         delay_samples = np.round(delay_sec / dt).astype(int)
         delay_samples = delay_samples - np.min(delay_samples) + 10
 
+        apod_window = self._get_apod_window(num_elements)
+        active_mask = active_list.astype(bool)
+        w = apod_window * active_mask
+
         if burst is not None:
             burst_sig = np.asarray(burst)
             num_time_steps = len(burst_sig) + np.max(delay_samples) + 20
             element_signals = np.zeros((num_elements, num_time_steps))
             for i in range(num_elements):
+                if not active_mask[i]:
+                    continue
                 shift = delay_samples[i]
-                element_signals[i, shift:shift + len(burst_sig)] = burst_sig
+                element_signals[i, shift:shift + len(burst_sig)] = burst_sig * w[i]
         else:
             element_signals = tone_burst(1 / dt, f_US, num_cycles, signal_offset=delay_samples)
+            element_signals *= w[:, None]
 
         self.delayedSignal = element_signals
 
@@ -446,12 +503,7 @@ class StructuredWave(AcousticField):
         # Probe setup
         num_elements = int(self.params.acoustic['probe']['num_elements'])
 
-        if self.params.acoustic.get('useApod', False):
-            from scipy.signal.windows import tukey
-            alpha = np.clip(self.params.acoustic.get('apodStrength', 0.5), 1e-3, 1.0)
-            apod_window = tukey(num_elements, alpha=alpha).astype(np.float32)
-        else:
-            apod_window = np.ones(num_elements, dtype=np.float32)
+        apod_window = self._get_apod_window(num_elements)
 
         active_hex = self.pattern.activeList
         active_list = np.array([int(char) for char in ''.join(f"{int(active_hex[i:i+2], 16):08b}" for i in range(0, len(active_hex), 2))])

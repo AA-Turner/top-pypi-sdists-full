@@ -1,7 +1,7 @@
 [package]
 name = "egobox-ego"
 authors.workspace = true
-version = "0.43.0"
+version = "0.44.0"
 license.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -13,22 +13,23 @@ categories = ["algorithms", "mathematics", "science"]
 
 [features]
 default = []
-# Use cobyla crate (C-ported NLopt COBYLA) instead of basin COBYLA
+# Deprecated since 0.44.0, will be removed in the next breaking release:
+# use cobyla crate (C-ported NLopt COBYLA) instead of basin COBYLA
 # for infill optimization and GP hyperparameters training
 c-cobyla = ["dep:cobyla", "egobox-gp/c-cobyla", "egobox-moe/c-cobyla"]
-# Use slsqp crate (C-ported NLopt SLSQP) instead of basin SLSQP for infill optimization
+# Deprecated since 0.44.0, will be removed in the next breaking release:
+# use slsqp crate (C-ported NLopt SLSQP) instead of basin SLSQP for infill optimization
 c-slsqp = ["dep:slsqp"]
 
 blas = ["ndarray-linalg", "linfa/ndarray-linalg", "linfa-pls/blas"]
 
 [dependencies]
 basin = { workspace = true, features = ["serde"] }
-ctrlc = { workspace = true }
 egobox-doe = { version = "0.35.2", path = "../doe", features = [
     "serializable",
 ] }
-egobox-gp = { version = "0.37.2", path = "../gp", features = ["serializable"] }
-egobox-moe = { version = "0.37.0", path = "../moe" }
+egobox-gp = { version = "0.38.0", path = "../gp", features = ["serializable"] }
+egobox-moe = { version = "0.38.0", path = "../moe" }
 
 linfa.workspace = true
 linfa-linalg.workspace = true
@@ -63,12 +64,20 @@ serde_json.workspace = true
 typetag = { version = "0.2" }
 dyn-clonable = { version = "0.9" }
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Console",
+] }
+
 [dev-dependencies]
 criterion.workspace = true
 approx.workspace = true
 argmin_testfunctions.workspace = true
 serial_test = "3.1.0"
-paste = "1.0"
 
 [[bench]]
 name = "ego"

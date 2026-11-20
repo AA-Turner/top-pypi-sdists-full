@@ -22,7 +22,9 @@ import sys
 from time import perf_counter
 from unittest.mock import patch
 
+from pymongo import AsyncMongoClient
 from pymongo.common import MAX_ADAPTIVE_RETRIES
+from pymongo.cursor_shared import CursorType
 
 sys.path[0:0] = [""]
 
@@ -162,6 +164,95 @@ class TestBackpressure(AsyncIntegrationTest):
         self.assertIn("RetryableError", str(error.exception))
         self.assertIn("SystemOverloadedError", str(error.exception))
 
+    @async_client_context.require_failCommand_appName
+    async def test_retry_overload_error_getMore_pinned_connection(self):
+        # PYTHON-6262: getMores on pinned (e.g. load-balanced) connections must
+        # retry retryable overload errors on the pinned connection.
+        coll = self.db.coll
+        await coll.delete_many({})
+        await coll.insert_many([{"x": 1} for _ in range(10)])
+        fail_many = {
+            "configureFailPoint": "failCommand",
+            "mode": {"times": MAX_ADAPTIVE_RETRIES},
+            "data": {
+                "failCommands": ["getMore"],
+                "errorCode": 462,  # IngressRequestRateLimitExceeded
+                "errorLabels": ["RetryableError", "SystemOverloadedError"],
+            },
+        }
+        with patch.object(type(self.db.client), "_should_pin_cursor", return_value=True):
+            # Ensure pinned getMore is retried on overload error.
+            cursor = coll.find(batch_size=2)
+            await cursor.next()
+            # Verify the cursor actually pinned its connection.
+            self.assertIsNotNone(cursor._sock_mgr)
+            async with self.fail_point(fail_many):
+                self.assertEqual(len(await cursor.to_list()), 9)
+
+            # Ensure pinned getMore stops retrying after MAX_ADAPTIVE_RETRIES.
+            fail_too_many = fail_many.copy()
+            fail_too_many["mode"] = {"times": MAX_ADAPTIVE_RETRIES + 1}
+            cursor = coll.find(batch_size=2)
+            await cursor.next()
+            async with self.fail_point(fail_too_many):
+                with self.assertRaises(PyMongoError) as error:
+                    await cursor.to_list()
+
+        self.assertIn("RetryableError", str(error.exception))
+        self.assertIn("SystemOverloadedError", str(error.exception))
+
+    @async_client_context.require_failCommand_appName
+    @async_client_context.require_exhaust_stream
+    async def test_retry_overload_error_getMore_exhaust_receive_only(self):
+        # PYTHON-6262: an error on a receive-only exhaust getMore must
+        # surface instead of retrying a receive with no request in flight.
+        # Use a dedicated client: the abandoned exhaust stream leaves the
+        # pinned connection unusable.
+        uri = await async_client_context.uri
+        client = AsyncMongoClient(
+            uri, server_api=async_client_context.default_client_options.get("server_api")
+        )
+        self.addAsyncCleanup(client.close)
+        coll = client.get_database(self.db.name).coll
+        await coll.delete_many({})
+        await coll.insert_many([{"x": 1} for _ in range(10)])
+        with patch.object(type(client), "_should_pin_cursor", return_value=True):
+            cursor = coll.find(batch_size=2, cursor_type=CursorType.EXHAUST)
+            for _ in range(4):
+                await cursor.next()
+                if cursor._sock_mgr and cursor._sock_mgr.more_to_come:
+                    break
+            self.assertTrue(cursor._sock_mgr.more_to_come)
+            conn = cursor._sock_mgr.conn
+            orig_receive = type(conn).receive_message
+            receives = 0
+
+            async def fail_receive_only(conn, request_id):
+                # Consume the streamed reply, then fail like a retryable
+                # overload reply would.
+                reply = await orig_receive(conn, request_id)
+                if request_id is None:
+                    nonlocal receives
+                    receives += 1
+                    raise OperationFailure(
+                        "getMore overload",
+                        462,
+                        {
+                            "errorLabels": ["RetryableError", "SystemOverloadedError"],
+                            "baseBackoffMS": 10,
+                        },
+                    )
+                return reply
+
+            with patch.object(type(conn), "receive_message", fail_receive_only):
+                with self.assertRaises(PyMongoError) as error:
+                    await cursor.to_list()
+
+        # The failed receive ended the stream: no request-less retry.
+        self.assertEqual(receives, 1)
+        self.assertIn("RetryableError", str(error.exception))
+        self.assertIn("SystemOverloadedError", str(error.exception))
+
 
 # Prose tests.
 class AsyncTestClientBackpressure(AsyncIntegrationTest):
@@ -183,7 +274,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
     @patch("random.random")
     @async_client_context.require_failCommand_appName
     async def test_01_operation_retry_uses_exponential_backoff(self, random_func):
-        # Drivers should test that retries do not occur immediately when a SystemOverloadedError is encountered.
+        # Drivers should test that retries do not occur immediately when a SystemOverloadedError is
+        # encountered.
 
         # 1. let `client` be a `MongoClient`
         client = self.client
@@ -193,7 +285,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
 
         # 3. Now, run transactions without backoff:
 
-        # a. Configure the random number generator used for jitter to always return `0` -- this effectively disables backoff.
+        # a. Configure the random number generator used for jitter to always return `0` -- this
+        # effectively disables backoff.
         random_func.return_value = 0
 
         # b. Configure the following failPoint:
@@ -207,7 +300,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
             ),
         )
         async with self.fail_point(fail_point):
-            # c. Execute the following command. Expect that the command errors. Measure the duration of the command execution.
+            # c. Execute the following command. Expect that the command errors. Measure the duration
+            # of the command execution.
             start0 = perf_counter()
             with self.assertRaises(OperationFailure):
                 await collection.insert_one({"a": 1})
@@ -223,8 +317,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
             end1 = perf_counter()
 
             # f. Compare the times between the two runs.
-            # The sum of 2 backoffs is 0.6 seconds. There is a 0.6-second window to account for potential variance between the two
-            # runs.
+            # The sum of 2 backoffs is 0.6 seconds. There is a 0.6-second window to account for
+            # potential variance between the two runs.
             self.assertTrue(abs((end1 - start1) - (end0 - start0 + 0.6)) < 0.6)
 
     @async_client_context.require_failCommand_appName
@@ -252,7 +346,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
             with self.assertRaises(PyMongoError) as error:
                 await coll.find_one({})
 
-        # 5. Assert that the raised error contains both the `RetryableError` and `SystemOverloadedError` error labels.
+        # 5. Assert that the raised error contains both the `RetryableError` and
+        # `SystemOverloadedError` error labels.
         self.assertIn("RetryableError", str(error.exception))
         self.assertIn("SystemOverloadedError", str(error.exception))
 
@@ -261,10 +356,12 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
 
     @async_client_context.require_failCommand_appName
     async def test_04_overload_retries_limited_configured(self):
-        # Drivers should test that overload errors are retried a maximum of maxAdaptiveRetries times.
+        # Drivers should test that overload errors are retried a maximum of maxAdaptiveRetries
+        # times.
         max_retries = 1
 
-        # 1. Let `client` be a `MongoClient` with `maxAdaptiveRetries=1` and command event monitoring enabled.
+        # 1. Let `client` be a `MongoClient` with `maxAdaptiveRetries=1` and command event
+        # monitoring enabled.
         client = await self.async_single_client(
             maxAdaptiveRetries=max_retries, event_listeners=[self.listener]
         )
@@ -287,7 +384,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
             with self.assertRaises(PyMongoError) as error:
                 await coll.find_one({})
 
-        # 5. Assert that the raised error contains both the `RetryableError` and `SystemOverloadedError` error labels.
+        # 5. Assert that the raised error contains both the `RetryableError` and
+        # `SystemOverloadedError` error labels.
         self.assertIn("RetryableError", str(error.exception))
         self.assertIn("SystemOverloadedError", str(error.exception))
 
@@ -302,7 +400,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
     @async_client_context.require_version_min(9, 0, 0, -1)
     @async_client_context.require_failCommand_appName
     async def test_05_overload_errors_with_basebackoffms_override_backoff(self, random_func):
-        # Drivers should test that overload errors with `baseBackoffMS` override the default backoff duration.
+        # Drivers should test that overload errors with `baseBackoffMS` override the default
+        # backoff duration.
 
         # 1. Let `client` be a `MongoClient`.
         client = self.client
@@ -310,8 +409,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
         # 2. Let `coll` be a collection.
         coll = client.db.coll
 
-        # 3. Configure the random number generator used for exponential backoff jitter to always return a number as
-        # close as possible to `1`.
+        # 3. Configure the random number generator used for exponential backoff jitter to always
+        # return a number as close as possible to `1`.
         random_func.return_value = 1
 
         # 4. Configure the following failPoint:
@@ -325,8 +424,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
             ),
         )
         async with self.fail_point(fail_point):
-            # 5. Insert the document `{ a: 1 }`. Expect that the command errors. Measure the duration of the command
-            # execution.
+            # 5. Insert the document `{ a: 1 }`. Expect that the command errors. Measure the
+            # duration of the command execution.
             start0 = perf_counter()
             with self.assertRaises(OperationFailure):
                 await coll.insert_one({"a": 1})
@@ -344,7 +443,8 @@ class AsyncTestClientBackpressure(AsyncIntegrationTest):
                 end1 = perf_counter()
                 with_base_backoff_ms_time = end1 - start1
 
-                # 8. Assert the server attached `baseBackoffMS` to the error and the driver parsed it.
+                # 8. Assert the server attached `baseBackoffMS` to the error and the driver parsed
+                # it.
                 self.assertEqual(ctx.exception._base_backoff_ms, 50)
             finally:
                 # 9. Run the following command to disable `baseBackoffMS` on overload errors.

@@ -6,6 +6,8 @@ import plistlib
 import re
 import warnings
 
+from numbers_parser.constants import SUPPORTED_NUMBERS_VERSIONS
+
 with warnings.catch_warnings():
     # Protobuf
     warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -22,18 +24,21 @@ _VERSION_PLIST_PATH = "Contents/version.plist"
 
 
 def _get_version() -> str:
+    """Return the version."""
     return __version__
 
 
-def _check_installed_numbers_version() -> str:
+def _check_installed_numbers_version() -> str | None:
+    """Check installed numbers version."""
     try:
-        fp = open(os.path.join(_DEFAULT_NUMBERS_INSTALL_PATH, _VERSION_PLIST_PATH), "rb")
+        with open(
+            os.path.join(_DEFAULT_NUMBERS_INSTALL_PATH, _VERSION_PLIST_PATH),
+            "rb",
+        ) as fp:
+            version_dict = plistlib.load(fp)
     except OSError:
         return None
-    version_dict = plistlib.load(fp)
     installed_version = version_dict["CFBundleShortVersionString"]
-
-    from numbers_parser.constants import SUPPORTED_NUMBERS_VERSIONS
 
     installed_version = re.sub(r"(\d+)\.(\d+)\.\d+", r"\1.\2", installed_version)
     if installed_version not in SUPPORTED_NUMBERS_VERSIONS:
@@ -41,7 +46,6 @@ def _check_installed_numbers_version() -> str:
             f"Numbers version {installed_version} not tested with this version",
             stacklevel=2,
         )
-    fp.close()
     return installed_version
 
 

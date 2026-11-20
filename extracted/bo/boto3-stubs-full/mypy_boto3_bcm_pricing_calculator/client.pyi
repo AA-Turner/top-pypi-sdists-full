@@ -71,6 +71,8 @@ from .type_defs import (
     GetBillScenarioRequestTypeDef,
     GetBillScenarioResponseTypeDef,
     GetPreferencesResponseTypeDef,
+    GetUsageLinesEstimatedCostRequestTypeDef,
+    GetUsageLinesEstimatedCostResponseTypeDef,
     GetWorkloadEstimateRequestTypeDef,
     GetWorkloadEstimateResponseTypeDef,
     ListBillEstimateCommitmentsRequestTypeDef,
@@ -340,6 +342,16 @@ class BillingandCostManagementPricingCalculatorClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-pricing-calculator/client/get_preferences.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_pricing_calculator/client/#get_preferences)
+        """
+
+    def get_usage_lines_estimated_cost(
+        self, **kwargs: Unpack[GetUsageLinesEstimatedCostRequestTypeDef]
+    ) -> GetUsageLinesEstimatedCostResponseTypeDef:
+        """
+        Retrieves the estimated cost of a list of usage lines.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-pricing-calculator/client/get_usage_lines_estimated_cost.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_pricing_calculator/client/#get_usage_lines_estimated_cost)
         """
 
     def get_workload_estimate(

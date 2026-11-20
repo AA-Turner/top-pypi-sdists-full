@@ -4,12 +4,11 @@ __all__ = [
     "catch",
     "format_exception",
     "format_exception_only",
-    "print_exception",
     "print_exc",
+    "print_exception",
     "suppress",
 ]
 
-import os
 import sys
 
 from ._catch import catch
@@ -23,9 +22,6 @@ if sys.version_info < (3, 11):
         print_exc,
         print_exception,
     )
-
-    if os.getenv("EXCEPTIONGROUP_NO_PATCH") != "1":
-        from . import _formatting  # noqa: F401
 
     BaseExceptionGroup.__module__ = __name__
     ExceptionGroup.__module__ = __name__

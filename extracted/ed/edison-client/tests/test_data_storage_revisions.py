@@ -1,10 +1,12 @@
 import inspect
 import json
+from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Never, NotRequired, TypedDict, TypeVar
 from uuid import UUID, uuid4
 
 import httpx
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, JsonValue, ValidationError
 
 from edison_client.clients.data_storage_methods import (
     DataStorageError,
@@ -18,28 +20,57 @@ from edison_client.clients.exceptions import (
 )
 from edison_client.models.data_storage_methods import DataStorageRevisionUpdate
 
+_ResultT = TypeVar("_ResultT", bound=BaseModel)
 
-async def invoke(method, *args, **kwargs):
-    result = method(*args, **kwargs)
+
+async def resolve_result(result: _ResultT | Awaitable[_ResultT]) -> _ResultT:
     return await result if inspect.isawaitable(result) else result
 
 
 class StorageClient(DataStorageMethods):
-    def __init__(self, client, async_client):
+    def __init__(self, client: httpx.Client, async_client: httpx.AsyncClient) -> None:
         self._client = client
         self._async_client = async_client
 
     @property
-    def client(self):
+    def client(self) -> httpx.Client:
         return self._client
 
     @property
-    def async_client(self):
+    def async_client(self) -> httpx.AsyncClient:
         return self._async_client
 
 
+_StorageClientFactory = Callable[
+    [Callable[[httpx.Request], httpx.Response]], StorageClient
+]
+
+
+class _EntryData(TypedDict):
+    id: str
+    name: str
+    content: str
+    status: str
+    share_status: str
+    user_id: str
+    created_at: str
+    modified_at: str
+    project_id: NotRequired[str]
+    short_alias: NotRequired[str | None]
+
+
+class _EntryResponse(TypedDict):
+    data_storage: _EntryData
+    storage_locations: list[dict[str, JsonValue]]
+    revision_id: str
+    current_revision_id: str
+    version: int
+    content: NotRequired[str]
+    revision_generation: NotRequired[int]
+
+
 @pytest.fixture(name="entry_response")
-def fixture_entry_response():
+def fixture_entry_response() -> _EntryResponse:
     entry_id, revision_id = str(uuid4()), str(uuid4())
     return {
         "data_storage": {
@@ -72,10 +103,10 @@ def fixture_entry_response():
 
 
 @pytest.fixture(name="storage_client")
-async def fixture_storage_client():
+async def fixture_storage_client() -> AsyncIterator[_StorageClientFactory]:
     clients = []
 
-    def create(handler):
+    def create(handler: Callable[[httpx.Request], httpx.Response]) -> StorageClient:
         transport = httpx.MockTransport(handler)
         client = httpx.Client(transport=transport, base_url="https://storage.test")
         async_client = httpx.AsyncClient(
@@ -94,15 +125,19 @@ async def fixture_storage_client():
 @pytest.mark.parametrize("fetch", [False, True])
 @pytest.mark.parametrize("selector", ["latest", "version", "revision_id"])
 async def test_exact_reads_preserve_selectors_and_empty_content(
-    storage_client, entry_response, asynchronous, fetch, selector
-):
+    storage_client: _StorageClientFactory,
+    entry_response: _EntryResponse,
+    asynchronous: bool,
+    fetch: bool,
+    selector: str,
+) -> None:
     selectors: dict[str, int | UUID] = {}
     if selector == "version":
         selectors[selector] = 0
     elif selector == "revision_id":
         selectors[selector] = uuid4()
 
-    def handle(request):
+    def handle(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/v0.1/data-storage/data-entries/report-alias"
         assert dict(request.url.params) == {k: str(v) for k, v in selectors.items()}
         return httpx.Response(200, json=entry_response)
@@ -113,7 +148,7 @@ async def test_exact_reads_preserve_selectors_and_empty_content(
     result = method("report-alias", **selectors)
     if asynchronous:
         result = await result
-    assert result.content == ""  # noqa: PLC1901
+    assert result.content == ""  # ruff: ignore[compare-to-empty-string]
     if not fetch:
         assert str(result.revision_id) == entry_response["revision_id"]
         assert str(result.current_revision_id) == entry_response["current_revision_id"]
@@ -124,22 +159,27 @@ async def test_exact_reads_preserve_selectors_and_empty_content(
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("fetch", [False, True])
-async def test_missing_exact_read_fails(storage_client, asynchronous, fetch):
+async def test_missing_exact_read_fails(
+    storage_client: _StorageClientFactory, asynchronous: bool, fetch: bool
+) -> None:
     client = storage_client(
         lambda _: httpx.Response(404, json={"detail": "Missing revision"})
     )
     name = "fetch_data_from_storage" if fetch else "get_data_storage_entry"
     method = getattr(client, f"a{name}" if asynchronous else name)
     with pytest.raises(DataStorageNotFoundError, match="404"):
-        await invoke(method, "report-alias", version=99)
+        await resolve_result(method("report-alias", version=99))
     await client.async_client.aclose()
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("description", [None, "Corrected results", ""])
 async def test_update_retries_same_revision_and_does_not_retry_conflicts(
-    storage_client, entry_response, asynchronous, description
-):
+    storage_client: _StorageClientFactory,
+    entry_response: _EntryResponse,
+    asynchronous: bool,
+    description: str | None,
+) -> None:
     bodies = []
     payload = DataStorageRevisionUpdate(
         revision_id=uuid4(),
@@ -149,7 +189,7 @@ async def test_update_retries_same_revision_and_does_not_retry_conflicts(
         description=description,
     )
 
-    def handle(request):
+    def handle(request: httpx.Request) -> httpx.Response:
         assert request.method == "PATCH"
         bodies.append(json.loads(request.content))
         if description is None:
@@ -168,13 +208,11 @@ async def test_update_retries_same_revision_and_does_not_retry_conflicts(
         if asynchronous
         else client.update_data_storage_entry
     )
-    result = method("report-alias", payload)
-    if asynchronous:
-        result = await result
+    result = await resolve_result(method("report-alias", payload))
     assert result.version == 2
     assert bodies == [payload.model_dump(mode="json", exclude_none=True)] * 2
     with pytest.raises(DataStorageConflictError, match="409") as exc:
-        await invoke(method, "report-alias", payload)
+        await resolve_result(method("report-alias", payload))
     assert isinstance(exc.value.__cause__, httpx.HTTPStatusError)
     assert exc.value.__cause__.response.status_code == 409
     assert len(bodies) == 3
@@ -183,11 +221,13 @@ async def test_update_retries_same_revision_and_does_not_retry_conflicts(
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 async def test_history_pagination_and_draft_publication(
-    storage_client, entry_response, asynchronous
-):
+    storage_client: _StorageClientFactory,
+    entry_response: _EntryResponse,
+    asynchronous: bool,
+) -> None:
     revision_id, base_id = uuid4(), uuid4()
 
-    def handle(request):
+    def handle(request: httpx.Request) -> httpx.Response:
         if request.method == "PATCH":
             assert json.loads(request.content) == {
                 "revision_id": str(revision_id),
@@ -232,9 +272,9 @@ async def test_history_pagination_and_draft_publication(
         if asynchronous
         else client.list_data_storage_revisions
     )
-    history = method("report-alias", limit=10, offset=20, include_unpublished=True)
-    if asynchronous:
-        history = await history
+    history = await resolve_result(
+        method("report-alias", limit=10, offset=20, include_unpublished=True)
+    )
     assert history.revisions[0].snapshot.content == "draft"
     assert history.revisions[0].snapshot.embedding == [1.0, 0.0]
     assert history.revisions[0].published_at is None
@@ -243,12 +283,14 @@ async def test_history_pagination_and_draft_publication(
         if asynchronous
         else client.update_data_storage_entry
     )
-    result = update(
-        "report-alias",
-        DataStorageRevisionUpdate(revision_id=revision_id, base_revision_id=base_id),
+    await resolve_result(
+        update(
+            "report-alias",
+            DataStorageRevisionUpdate(
+                revision_id=revision_id, base_revision_id=base_id
+            ),
+        )
     )
-    if asynchronous:
-        await result
     await client.async_client.aclose()
 
 
@@ -260,11 +302,13 @@ async def test_history_pagination_and_draft_publication(
         {"name": "renamed"},
     ],
 )
-def test_invalid_updates_fail_locally(fields):
+def test_invalid_updates_fail_locally(fields: dict[str, UUID | str | bool]) -> None:
     with pytest.raises(ValidationError) as exc:
-        DataStorageRevisionUpdate(
-            revision_id=uuid4(), base_revision_id=uuid4(), **fields
-        )
+        DataStorageRevisionUpdate.model_validate({
+            "revision_id": uuid4(),
+            "base_revision_id": uuid4(),
+            **fields,
+        })
     assert isinstance(exc.value.errors()[0]["ctx"]["error"], DataStorageValidationError)
 
 
@@ -274,16 +318,19 @@ def test_invalid_updates_fail_locally(fields):
     "selectors", [{"version": -1}, {"version": 0, "revision_id": uuid4()}]
 )
 async def test_invalid_read_selectors_fail_before_http(
-    storage_client, asynchronous, fetch, selectors
-):
-    def handle(_):
+    storage_client: _StorageClientFactory,
+    asynchronous: bool,
+    fetch: bool,
+    selectors: dict[str, UUID | int],
+) -> None:
+    def handle(_: object) -> Never:
         pytest.fail("Invalid selectors must not make an HTTP request")
 
     client = storage_client(handle)
     name = "fetch_data_from_storage" if fetch else "get_data_storage_entry"
     method = getattr(client, f"a{name}" if asynchronous else name)
     with pytest.raises(DataStorageValidationError):
-        await invoke(method, "report-alias", **selectors)
+        await resolve_result(method("report-alias", **selectors))
     await client.async_client.aclose()
 
 
@@ -298,8 +345,11 @@ async def test_invalid_read_selectors_fail_before_http(
     ],
 )
 async def test_storage_http_errors_preserve_specific_type_and_cause(
-    storage_client, asynchronous, status_code, error_type
-):
+    storage_client: _StorageClientFactory,
+    asynchronous: bool,
+    status_code: int,
+    error_type: type[Exception],
+) -> None:
     client = storage_client(
         lambda _: httpx.Response(status_code, json={"detail": "Rejected"})
     )
@@ -312,18 +362,23 @@ async def test_storage_http_errors_preserve_specific_type_and_cause(
         revision_id=uuid4(), base_revision_id=uuid4(), content="new"
     )
     with pytest.raises(error_type) as exc:
-        await invoke(method, "report-alias", payload)
+        await resolve_result(method("report-alias", payload))
     assert isinstance(exc.value, DataStorageError)
     assert isinstance(exc.value.__cause__, httpx.HTTPStatusError)
     assert exc.value.__cause__.response.status_code == status_code
 
 
+class _Pagination(TypedDict, total=False):
+    limit: int
+    offset: int
+
+
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
 async def test_invalid_history_pagination_raises_validation_error(
-    storage_client, asynchronous, params
-):
-    def unexpected_request(_):
+    storage_client: _StorageClientFactory, asynchronous: bool, params: _Pagination
+) -> None:
+    def unexpected_request(_: object) -> Never:
         pytest.fail("Invalid pagination must fail before HTTP")
 
     client = storage_client(unexpected_request)
@@ -333,4 +388,4 @@ async def test_invalid_history_pagination_raises_validation_error(
         else client.list_data_storage_revisions
     )
     with pytest.raises(DataStorageValidationError):
-        await invoke(method, "report-alias", **params)
+        await resolve_result(method("report-alias", **params))

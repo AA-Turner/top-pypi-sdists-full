@@ -25,12 +25,12 @@ from typing_extensions import Self
 
 class FetchDiscoveredAgentsJobSpec(BaseModel):
     """
-    Surfaces one discovery source's tasks on one engine to the Agents API (D-10).  Scoped to a source rather than to a config or a scan, because there is no DAG runner: a job cannot wait on the N scan jobs that touched a source, so each scan chains its own fetch and a standalone schedule catches whatever none of them did. Scoped to an engine because the tasks live in that engine's GenAI Engine.
+    Surfaces one discovery source's tasks on one engine to the Agents API (D-10).  Scoped to a source rather than to a config or a scan, because there is no DAG runner: a job cannot wait on the N scan jobs that touched a source, so each scan chains its own fetch and a standalone schedule catches whatever none of them did. Scoped to an engine because the tasks live in that engine's GenAI Engine.  Every fetch also uploads the engine's tasks no source reported. A fetch with no source does only that, so an engine no source is configured on still lists every task it holds as an agent.
     """ # noqa: E501
     job_type: Optional[StrictStr] = 'fetch_discovered_agents'
     workspace_id: StrictStr = Field(description="The ID of the workspace the engine belongs to.")
     data_plane_id: StrictStr = Field(description="The ID of the engine whose GenAI Engine holds the tasks.")
-    discovery_source_id: StrictStr = Field(description="ID of the discovery source whose tasks to fetch.")
+    discovery_source_id: Optional[StrictStr] = None
     reported_since: Optional[datetime] = None
     scan_id: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["job_type", "workspace_id", "data_plane_id", "discovery_source_id", "reported_since", "scan_id"]
@@ -84,6 +84,11 @@ class FetchDiscoveredAgentsJobSpec(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if discovery_source_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.discovery_source_id is None and "discovery_source_id" in self.model_fields_set:
+            _dict['discovery_source_id'] = None
+
         # set to None if reported_since (nullable) is None
         # and model_fields_set contains the field
         if self.reported_since is None and "reported_since" in self.model_fields_set:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: liquidpy
-Version: 0.10.0
+Version: 0.10.1
 Summary: A port of liquid template engine for python
 Project-URL: Homepage, https://github.com/pwwang/liquidpy
 Project-URL: Repository, https://github.com/pwwang/liquidpy

@@ -13,7 +13,7 @@
 import traceback
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import sqlparse
 
@@ -129,7 +129,7 @@ class ModeSource(DashboardServiceSource):
         )
 
     @classmethod
-    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None):  # noqa: UP045
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: str | None = None):
         config = WorkflowSource.model_validate(config_dict)
         connection: ModeConnection = config.serviceConnection.root.config
         if not isinstance(connection, ModeConnection):

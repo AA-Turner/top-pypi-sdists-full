@@ -1,6 +1,7 @@
 package leet_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/wandb/wandb/core/internal/leet"
 	"github.com/wandb/wandb/core/internal/observability"
+	txnlogtest "github.com/wandb/wandb/core/internal/transactionlogtest"
 )
 
 // newTestInspector builds an inspector over a small .wandb file with its
@@ -18,7 +20,7 @@ func newTestInspector(t *testing.T) *leet.Inspector {
 	t.Helper()
 
 	logger := observability.NewNoOpLogger()
-	path := writeWandbFile(t, inspectorTestRecords()...)
+	path := txnlogtest.WandbFile(t, inspectorTestRecords()...)
 	ins := leet.NewInspector(leet.InspectorParams{
 		RunFile: path,
 		Config:  leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger),
@@ -55,6 +57,60 @@ func TestInspector_ListsRecordsAndShowsDetail(t *testing.T) {
 	// complete.
 	assert.Contains(t, view, "[5 records]")
 	assert.NotContains(t, view, "live")
+}
+
+func TestInspector_HeaderErrorStopsScanning(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		header  []byte
+		message string
+	}{
+		{
+			name:    "unsupported version",
+			header:  []byte(":W&B\xE1\xBE\x01"),
+			message: "a newer wandb version is required to read this file",
+		},
+		{
+			name:    "invalid magic",
+			header:  []byte(":W&B\x00\x00\x00"),
+			message: "invalid W&B magic",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			logger := observability.NewNoOpLogger()
+			path := txnlogtest.WandbFile(t, inspectorTestRecords()...)
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+			copy(data, test.header)
+			require.NoError(t, os.WriteFile(path, data, 0o600))
+			ins := leet.NewInspector(leet.InspectorParams{
+				RunFile: path,
+				Config:  leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger),
+			})
+			t.Cleanup(ins.Cleanup)
+			_, _ = ins.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+
+			initMsg := leet.InitializeInspector(path, "", logger)()
+			require.IsType(t, leet.InspectorInitMsg{}, initMsg)
+			_, cmd := ins.Update(initMsg)
+			require.NotNil(t, cmd)
+			msg := cmd()
+			require.IsType(t, leet.InspectorBatchMsg{}, msg)
+			assert.ErrorContains(t, msg.(leet.InspectorBatchMsg).Err, test.message)
+
+			_, cmd = ins.Update(msg)
+			assert.Nil(t, cmd)
+			view := ins.View().Content
+			assert.Contains(t, view, test.message)
+			assert.Contains(t, view, "No records yet.")
+			assert.NotContains(t, view, "corrupt regions skipped")
+
+			_, cmd = ins.Update(leet.InspectorFileChangedMsg{})
+			assert.Nil(t, cmd)
+			_, cmd = ins.Update(leet.InspectorBatchMsg{})
+			assert.Nil(t, cmd)
+		})
+	}
 }
 
 func TestInspector_FocusToggleDimsSelection(t *testing.T) {
@@ -108,7 +164,7 @@ func TestInspector_FilterNarrowsList(t *testing.T) {
 func TestInspector_DragResizesAndResetsListPane(t *testing.T) {
 	logger := observability.NewNoOpLogger()
 	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
-	path := writeWandbFile(t, inspectorTestRecords()...)
+	path := txnlogtest.WandbFile(t, inspectorTestRecords()...)
 
 	ins := leet.NewInspector(leet.InspectorParams{
 		RunFile: path,

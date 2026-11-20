@@ -59,7 +59,11 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
-from coord.drive_queue import QueueEntry, is_unreachable_wait_shape
+from coord.drive_queue import (
+    QueueEntry,
+    is_fix_round_ceiling_blocked,
+    is_unreachable_wait_shape,
+)
 from coord.models import (
     is_needs_decomposition_reason,
     is_premise_refusal_reason,
@@ -67,11 +71,13 @@ from coord.models import (
 )
 
 if TYPE_CHECKING:
+    from coord.entry_truth import EntryTruth
     from coord.gates import GateReport
 
 _log = logging.getLogger(__name__)
 
 __all__ = [
+    "CAUSE_CONFIG_DRIFT",
     "CAUSE_INTEGRATION_RED",
     "CAUSE_NEEDS_DECOMPOSITION",
     "CAUSE_NEVER_DISPATCHED",
@@ -94,6 +100,7 @@ __all__ = [
     "LiveState",
     "diagnose",
     "is_foreign_launch",
+    "live_entry_truth",
     "needs_diagnosis",
     "run_pass",
     "stalled_keys",
@@ -390,6 +397,20 @@ class LiveState:
     #: to judge staleness could not be read — "could not tell", not
     #: "confirmed not stale".
     test_stale: bool | None = None
+    #: #4050: the branch's Test-gate DECISION's own ``base_moved_note``
+    #: (:func:`coord.gates._base_moved_note`), read straight off the SAME
+    #: ``GateReport`` :func:`GhLiveProbe._gates` already builds for
+    #: ``branch_test_state``/``review_stale``/``test_stale`` above — never
+    #: a second ``build_gate_report`` call. Populated only when that note
+    #: itself is populated: a POSITIVELY CONFIRMED divergence between the
+    #: tested SHA's merge-base and the target branch's current tip, i.e.
+    #: GitHub's merge-ref CI is building a different tree than the one the
+    #: Test stage built (quadraui#2726's shape). ``None`` covers every
+    #: other case — no live gh access, no test decision, the check never
+    #: ran, or a confirmed "the base has not moved" reading — never
+    #: collapsed with a genuine confirmation, same posture as every other
+    #: optional field on this class.
+    base_moved_note: str | None = None
 
     @property
     def read_anything(self) -> bool:
@@ -464,6 +485,17 @@ def _branch_test_line(live: LiveState) -> str:
     return f"coord gates (test decision): branch Test verdict reads {live.branch_test_state!r}"
 
 
+def _base_moved_line(live: LiveState) -> str:
+    """Rendered unconditionally, same posture as :func:`_branch_test_line`/
+    :func:`_staleness_line` — the one place an operator reading ANY cause
+    can see whether ``coord gates``'s own Test decision confirmed a
+    quadraui#2726-shaped divergence between the tree the Test stage built
+    and the tree GitHub's merge-ref CI is building (#4050)."""
+    if live.base_moved_note is None:
+        return "coord gates (base-moved note): not read, or no confirmed divergence"
+    return f"coord gates (base-moved note): {live.base_moved_note}"
+
+
 def _staleness_line(live: LiveState) -> str:
     """Rendered unconditionally, same posture as :func:`_branch_test_line` —
     the one place an operator reading ANY cause can see what the merge
@@ -521,6 +553,7 @@ def _evidence(entry: QueueEntry, live: LiveState) -> list[str]:
         _checks_line(live),
         _gate_line(live),
         _branch_test_line(live),
+        _base_moved_line(live),
         _staleness_line(live),
         _health_line(entry, live),
     ]
@@ -773,12 +806,20 @@ def _rule_integration_red(entry: QueueEntry, live: LiveState) -> tuple[str, str,
     if not failing or live.branch_test_state != "passed":
         return None
     names = ", ".join(sorted(c.name for c in failing)[:3])
-    return (
-        CAUSE_INTEGRATION_RED,
-        CONFIDENCE_HIGH,
+    decisive = (
         f"gh pr checks: failing — {names} — but this branch's own latest "
-        f"Test-gate verdict is {live.branch_test_state!r}",
+        f"Test-gate verdict is {live.branch_test_state!r}"
     )
+    # #4050: when `coord gates` itself confirms the divergence (a
+    # positively-read `base_moved_note`, never a mere absence), fold it into
+    # the SAME decisive string rather than leaving it to `_evidence`'s
+    # unconditional `_base_moved_line` alone — this is the one reading a
+    # ceiling-blocked sweep's own candidate filter treats as load-bearing
+    # (see `coord.board_doctor._live_base_sync_fix_evidence`), so it must be
+    # visible on the decisive line a `block_log` summary actually keeps.
+    if live.base_moved_note:
+        decisive = f"{decisive}; {live.base_moved_note}"
+    return (CAUSE_INTEGRATION_RED, CONFIDENCE_HIGH, decisive)
 
 
 def _rule_ci_red(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] | None:
@@ -878,6 +919,50 @@ _RULES = (
 )
 
 
+#: The rule order used once a row has exhausted its fix-round budget and
+#: will not be relaunched or retried by anything else in the fleet. Reached
+#: through :func:`diagnose` only when `coord.drive_queue.
+#: is_fix_round_ceiling_blocked` reads true for *entry* — never a second,
+#: independently-decided ceiling check (the same predicate
+#: `coord.board_doctor` and `coord.drive_queue` itself already answer to).
+#:
+#: Identical to :data:`_RULES` except :func:`_rule_conflict` moves from
+#: ahead of the CI/gate rules to just behind them. For an ordinary row that
+#: distinction does not matter — another diagnosis pass is coming, so
+#: naming the conflict first (and letting the mechanical conflict-fix leg
+#: run) is a safe, cheap first move regardless of what else is also wrong.
+#: A ceiling-blocked row gets no such follow-up pass: it is diagnosed once
+#: and then left alone (or alerted on) until an operator intervenes. Naming
+#: a standing conflict as the cause there, while a currently-failing
+#: smoke/CI/review gate is the actual reason nothing has progressed, points
+#: every downstream consumer — the auto-dispatcher, the operator reading
+#: the alert — at the wrong fix: the conflict-fix leg has no way to touch a
+#: real build/test/review failure, so it reruns forever while the real
+#: blocker goes unmentioned. Putting the gate/CI rules first here means the
+#: cause named is whichever gate is *actually* still failing; a standing
+#: conflict is only reported when nothing else is — i.e. when the conflict
+#: really is the thing blocking progress.
+#:
+#: Derived from :data:`_RULES` itself — moving :func:`_rule_conflict` to
+#: just after :func:`_rule_gate_blocked` — rather than hand-copied, so a
+#: rule added to/removed from :data:`_RULES` later can never silently fail
+#: to apply here too (the hardest population to notice a missing rule in,
+#: since nothing re-diagnoses a ceiling-blocked row a second time).
+def _reorder_rules_for_ceiling_blocked(
+    rules: tuple[Callable[[QueueEntry, LiveState], tuple[str, str, str] | None], ...],
+) -> tuple[Callable[[QueueEntry, LiveState], tuple[str, str, str] | None], ...]:
+    without_conflict = tuple(rule for rule in rules if rule is not _rule_conflict)
+    insert_at = without_conflict.index(_rule_gate_blocked) + 1
+    return (
+        *without_conflict[:insert_at],
+        _rule_conflict,
+        *without_conflict[insert_at:],
+    )
+
+
+_RULES_CEILING_BLOCKED = _reorder_rules_for_ceiling_blocked(_RULES)
+
+
 # ── the diagnosis ────────────────────────────────────────────────────────────
 
 
@@ -916,12 +1001,30 @@ def diagnose(
 ) -> Diagnosis:
     """Derive *entry*'s real blocker from *live*.  **Pure — no I/O, no clock.**
 
-    The stated reason is read exactly once, at the end, and only to ask
-    whether the evidence still supports it.  It never selects, orders or
-    breaks ties between causes.
+    Below the rule-table selection (#4033, next paragraph), the stated
+    reason is read exactly once more, at the end, and only to ask whether
+    the evidence still supports it — it never selects, orders or breaks
+    ties between causes within whichever table ends up in play.
+
+    Which TABLE is in play is itself one last_reason-driven read, made
+    once, before the rule loop runs: :data:`_RULES_CEILING_BLOCKED`
+    instead of :data:`_RULES` whenever *entry* already reads
+    `coord.drive_queue.is_fix_round_ceiling_blocked` — see that data's own
+    docstring for why a row nothing will retry needs its standing conflict
+    ranked behind a currently-failing gate rather than ahead of it. This
+    is a coarser, earlier decision than the per-cause tie-breaking the
+    previous paragraph rules out — picking a global order to try, not
+    selecting a cause directly — the same way :func:`_rule_terminal_park`
+    (#3979) already reads ``last_reason`` from inside a single rule to
+    classify, without this function itself picking a cause.
     """
+    rules = (
+        _RULES_CEILING_BLOCKED
+        if is_fix_round_ceiling_blocked(entry.state, entry.last_reason)
+        else _RULES
+    )
     verdict: tuple[str, str, str] | None = None
-    for rule in _RULES:
+    for rule in rules:
         verdict = rule(entry, live)
         if verdict is not None:
             break
@@ -1108,7 +1211,7 @@ class GhLiveProbe:
         errors: list[str] = []
         (
             branch, gate_ready, gate_blockers, no_assignment_ever, branch_test_state,
-            review_stale, test_stale,
+            review_stale, test_stale, base_moved_note,
         ) = self._gates(entry, errors)
         pr_number, pr_state, mergeable, checks = self._github(entry, branch, errors)
         reachable, has_session, crits = self._health(entry)
@@ -1125,6 +1228,7 @@ class GhLiveProbe:
             probe_errors=tuple(errors),
             no_assignment_ever=no_assignment_ever,
             branch_test_state=branch_test_state,
+            base_moved_note=base_moved_note,
             review_stale=review_stale,
             test_stale=test_stale,
         )
@@ -1132,7 +1236,10 @@ class GhLiveProbe:
     # -- `coord gates`, verbatim ------------------------------------------
     def _gates(
         self, entry: QueueEntry, errors: list[str]
-    ) -> tuple[str, bool | None, list[str], bool | None, str | None, bool | None, bool | None]:
+    ) -> tuple[
+        str, bool | None, list[str], bool | None, str | None, bool | None, bool | None,
+        str | None,
+    ]:
         # #3936 review: `_staleness` now reads off the SAME `GateReport`
         # this builds (via `reconcile_entry`'s own `report=` passthrough)
         # rather than paying for — and risking disagreeing with — a SECOND
@@ -1145,7 +1252,7 @@ class GhLiveProbe:
         # second time; it simply has no report to read a verdict from.
         if self.board is None or self.config is None:
             review_stale, test_stale = self._staleness(entry, errors, report=None)
-            return "", None, [], None, None, review_stale, test_stale
+            return "", None, [], None, None, review_stale, test_stale, None
         try:
             from coord import github_ops  # noqa: PLC0415
             from coord.gates import build_gate_report  # noqa: PLC0415
@@ -1155,7 +1262,7 @@ class GhLiveProbe:
             )
         except Exception as exc:  # noqa: BLE001 — a probe, never a decision
             errors.append(f"coord gates: {type(exc).__name__}: {exc}")
-            return "", None, [], None, None, None, None
+            return "", None, [], None, None, None, None, None
         review_stale, test_stale = self._staleness(entry, errors, report=report)
         # `build_gate_report` returns early, with `report.rows` empty, ONLY
         # when `assignments_for_issue` found nothing on the board for this
@@ -1205,18 +1312,25 @@ class GhLiveProbe:
                 )
                 if row is not None:
                     branch_test_state = row.test_state
+        # #4050: the SAME `test_decision` object `_base_moved_note` is
+        # stamped on, read verbatim — never a second `build_gate_report`
+        # call. `getattr` rather than a direct attribute read because
+        # `test_decision` can be `None` here (no Test gate on this issue at
+        # all), and `GateDecision.base_moved_note` is itself optional on
+        # every pre-#3899 caller's decision object.
+        base_moved_note = getattr(test_decision, "base_moved_note", None)
         decisions = [d for d in report.decisions if getattr(d, "required", False)]
         if not decisions:
             return (
                 str(report.branch or ""), None, [], no_assignment_ever, branch_test_state,
-                review_stale, test_stale,
+                review_stale, test_stale, base_moved_note,
             )
         blockers = [
             f"{d.gate}: {d.reason or 'refused'}" for d in decisions if not d.ok
         ]
         return (
             str(report.branch or ""), not blockers, blockers, no_assignment_ever,
-            branch_test_state, review_stale, test_stale,
+            branch_test_state, review_stale, test_stale, base_moved_note,
         )
 
     # -- #3936: review/test staleness decided from a live EntryTruth -------
@@ -1509,6 +1623,40 @@ class GhLiveProbe:
         # renamed, or hand-written) — we have no reading for it, which is
         # `None` ("could not tell"), never `False` ("it is down").
         return None, has_session, []
+
+
+def live_entry_truth(
+    entry: QueueEntry, board: Any, config: Any, *, gh_ops: Any = None,
+) -> "EntryTruth | None":
+    """The live :class:`~coord.entry_truth.EntryTruth` for *entry*'s own
+    ``(repo, issue)`` (#4045) — the one "what do the live gates say happens
+    next" read :func:`coord.board_doctor.next_action_unperformed_rows`
+    consults, built through the exact same :func:`coord.entry_truth.
+    reconcile_entry` call :meth:`GhLiveProbe._staleness` already makes for
+    :data:`CAUSE_REVIEW_STALE`/:data:`CAUSE_TEST_STALE`, never a second,
+    independently-timed derivation of the same facts (#2096).
+
+    ``None`` — never raised — whenever there is nothing to probe with
+    (*gh_ops* omitted) or the live call itself raises: a probe failure is
+    "could not tell", the same fail-closed reading :func:`~coord.
+    entry_truth.reconcile_entry` itself gives every inconclusive field, and
+    a caller must never read it as "nothing to do" (:data:`~coord.
+    entry_truth.NEXT_ACTION_UNKNOWN`/:data:`~coord.entry_truth.
+    NEXT_ACTION_WAIT` are real, confirmed verdicts `reconcile_entry` returns
+    on success; this is the layer below that, "we never got an answer at
+    all").
+    """
+    if gh_ops is None:
+        return None
+    from coord.entry_truth import reconcile_entry  # noqa: PLC0415
+
+    try:
+        return reconcile_entry(board, config, entry.repo, entry.issue, gh_ops=gh_ops)
+    except Exception:  # noqa: BLE001 — a probe, never a decision
+        _log.debug(
+            "queue_diagnose: live_entry_truth failed for %s", entry.key, exc_info=True,
+        )
+        return None
 
 
 # ── trigger + budget + the pass ──────────────────────────────────────────────
@@ -1825,6 +1973,83 @@ def extract_failing_file_paths(output: str) -> tuple[str, ...]:
     aborted before any test ran, or the output is empty).
     """
     return tuple(dict.fromkeys(_FAILING_FILE_RE.findall(output)))
+
+
+#: #4035: a stage failing because the FLEET config (``coordinator.yml``,
+#: never the repo under test) names a cargo target the branch's own diff
+#: just deleted — quadraui#2695's shape: the PR finished removing `Panel`,
+#: deleting `examples/win_panel.rs`, but the smoke command still ran
+#: `cargo clippy --example win_panel ...`, so every leg failed identically
+#: no matter what the branch did. Never minted by :func:`diagnose` itself —
+#: only by a caller that has independently confirmed, against the branch's
+#: OWN diff, that the named target is really gone (see
+#: :func:`classify_config_drift`) — the same "narrow cause minted by a
+#: reclassifier" shape :data:`coord.board_doctor.CAUSE_CEILING_BLOCKED_
+#: MERGEABLE` documents for itself.
+CAUSE_CONFIG_DRIFT = "config-drift"
+
+CAUSE_PROSE[CAUSE_CONFIG_DRIFT] = (
+    "the failing command names a cargo target this branch's own diff "
+    "deletes — the fleet config is stale, not the code; fix or flag "
+    "coordinator.yml's smoke/test/build command instead of spending a fix "
+    "round on it"
+)
+
+#: Matches cargo's own wording for a dangling ``--example``/``--bin``/
+#: ``--test``/``--bench`` target — the one piece of vocabulary both
+#: :func:`extract_dangling_cargo_target` (parses a FAILING command's
+#: output) and :mod:`coord.smoke`'s own command-TEXT parser
+#: (``cargo_target_flags_in_command``) need to agree on. Anchored on
+#: cargo's literal wording (not a generic "not found") so this never
+#: mis-fires on an unrelated missing-file error.
+_DANGLING_CARGO_TARGET_RE = re.compile(
+    r"no (example|bin|test|bench) target named [`'\"]?([\w.\-]+)[`'\"]?",
+    re.IGNORECASE,
+)
+
+
+def extract_dangling_cargo_target(output: str) -> tuple[str, str] | None:
+    """``(kind, name)`` for cargo's own "no such target" wording in
+    *output* (e.g. ``"no example target named win_panel in `quadraui`
+    package"`` -> ``("example", "win_panel")``), or ``None`` when *output*
+    names no such target at all — including a genuine test failure's own
+    summary, which this never mistakes for a dangling-target error.
+    """
+    match = _DANGLING_CARGO_TARGET_RE.search(output or "")
+    if match is None:
+        return None
+    return match.group(1).lower(), match.group(2)
+
+
+def classify_config_drift(
+    test_reason: str | None, deleted_paths: Iterable[str],
+) -> tuple[str, str] | None:
+    """``(kind, name)`` when *test_reason* is #4035's config-drift shape —
+    cargo's own "no such target" wording naming a target *deleted_paths*
+    (paths a diff REMOVES ENTIRELY, never merely touches) confirms this
+    branch's own diff actually deleted. ``None`` otherwise, which covers
+    two very different failure modes identically: *test_reason* names no
+    dangling target at all (an ordinary test failure), or it names one
+    *deleted_paths* does NOT show as deleted (the target is dangling for
+    some OTHER reason — a real regression, not config drift, and this must
+    never guess otherwise).
+
+    Delegates the kind->path mapping to :func:`coord.smoke.
+    cargo_target_touches_path` rather than re-deriving it here — the two
+    callers (this failing-OUTPUT parser, and :mod:`coord.smoke`'s own
+    command-TEXT parser used for the #4035 pre-smoke check) must never
+    silently drift onto two different ideas of which file a given
+    ``kind``/``name`` pair names (#2096, "one question, one answer").
+    """
+    from coord.smoke import cargo_target_touches_path  # noqa: PLC0415
+
+    found = extract_dangling_cargo_target(test_reason or "")
+    if found is None:
+        return None
+    kind, name = found
+    if not cargo_target_touches_path(kind, name, deleted_paths):
+        return None
+    return kind, name
 
 
 @dataclass(frozen=True)

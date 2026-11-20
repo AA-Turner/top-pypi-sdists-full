@@ -13,10 +13,10 @@ Base class for ingesting api services
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, Set  # noqa: UP035
+from collections.abc import Iterable
+from typing import Annotated, Any
 
 from pydantic import Field
-from typing_extensions import Annotated  # noqa: UP035
 
 from metadata.generated.schema.api.data.createAPICollection import (
     CreateAPICollectionRequest,
@@ -39,13 +39,12 @@ from metadata.generated.schema.metadataIngestion.workflow import (
 from metadata.ingestion.api.delete import delete_entity_from_source
 from metadata.ingestion.api.models import Either
 from metadata.ingestion.api.steps import Source
-from metadata.ingestion.api.topology_runner import TopologyRunnerMixin
+from metadata.ingestion.api.topology_runner import PerSourceState, TopologyRunnerMixin
 from metadata.ingestion.models.barrier import Barrier
 from metadata.ingestion.models.delete_entity import DeleteEntity
 from metadata.ingestion.models.topology import (
     NodeStage,
     ServiceTopology,
-    TopologyContextManager,
     TopologyNode,
 )
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
@@ -131,9 +130,8 @@ class ApiServiceSource(TopologyRunnerMixin, Source, ABC):
     service_connection: ApiConnection.model_fields["config"].annotation  # noqa: F821
 
     topology = ApiServiceTopology()
-    context = TopologyContextManager(topology)
-    api_collection_source_state: Set = set()  # noqa: RUF012, UP006
-    api_endpoint_source_state: Set = set()  # noqa: RUF012, UP006
+    api_collection_source_state = PerSourceState(set)
+    api_endpoint_source_state = PerSourceState(set)
 
     def __init__(
         self,

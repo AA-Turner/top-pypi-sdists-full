@@ -83,10 +83,6 @@ def _pack(obj: Any, out: list, depth: int) -> None:
     else:
         arr = _numpy_map(obj)
         if arr is None:
-            if type(obj).__module__ == "sequence_ai.markers":
-
-                raise MsgpackError(f"a sequence_ai.{type(obj).__name__} goes in observe(), which sends it as what it is "
-                                   "marks; act() sends no marker")
             raise MsgpackError(f"{type(obj).__name__} cannot be sent as msgpack (JSON values, bytes and numpy arrays "
                                "can)")
         _pack(arr, out, depth)

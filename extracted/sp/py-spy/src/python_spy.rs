@@ -12,12 +12,8 @@ use remoteprocess::{Pid, Process, ProcessMemory, Tid};
 use crate::config::{Config, LockingStrategy};
 #[cfg(feature = "unwind")]
 use crate::native_stack_trace::NativeStack;
-use crate::python_bindings::{
-    v2_7_15, v3_10_0, v3_11_0, v3_12_0, v3_13_0, v3_14_0, v3_15_0, v3_3_7, v3_5_5, v3_6_6, v3_7_0,
-    v3_8_0, v3_9_5,
-};
 use crate::python_data_access::format_variable;
-use crate::python_interpreters::{InterpreterState, ThreadState};
+use crate::python_interpreters::{dispatch_by_version, InterpreterState, ThreadState};
 use crate::python_process_info::{get_python_version, PythonProcessInfo, PythonProcessLayout};
 use crate::python_threading::thread_name_lookup;
 use crate::stack_trace::{get_gil_threadid, get_stack_trace, StackTrace};
@@ -28,7 +24,7 @@ pub struct PythonSpy {
     pub pid: Pid,
     pub process: Process,
     pub version: Version,
-    pub addresses: PythonProcessLayout,
+    pub layout: PythonProcessLayout,
     pub config: Config,
     #[cfg(feature = "unwind")]
     pub native: Option<NativeStack>,
@@ -58,11 +54,8 @@ impl PythonSpy {
         let version = get_python_version(&python_info, &process)?;
         info!("python version {} detected", version);
 
-        let addresses = PythonProcessLayout::new(&python_info, &process, &version, config)?;
-        info!(
-            "Found interpreter at 0x{:016x}",
-            addresses.interpreter_address
-        );
+        let layout = PythonProcessLayout::new(&python_info, &process, &version, config)?;
+        info!("Found interpreter at 0x{:016x}", layout.interpreter_address);
 
         #[cfg(feature = "unwind")]
         let native = if config.native {
@@ -79,7 +72,7 @@ impl PythonSpy {
             pid,
             process,
             version,
-            addresses,
+            layout,
             #[cfg(feature = "unwind")]
             native,
             #[cfg(target_os = "linux")]
@@ -121,70 +114,13 @@ impl PythonSpy {
 
     /// Gets a StackTrace for each thread in the current process
     pub fn get_stack_traces(&mut self) -> Result<Vec<StackTrace>, Error> {
-        match self.version {
-            // ABI for 2.3/2.4/2.5/2.6/2.7 is compatible for our purpose
-            Version {
-                major: 2,
-                minor: 3..=7,
-                ..
-            } => self._get_stack_traces::<v2_7_15::_is>(),
-            Version {
-                major: 3, minor: 3, ..
-            } => self._get_stack_traces::<v3_3_7::_is>(),
-            // ABI for 3.4 and 3.5 is the same for our purposes
-            Version {
-                major: 3, minor: 4, ..
-            } => self._get_stack_traces::<v3_5_5::_is>(),
-            Version {
-                major: 3, minor: 5, ..
-            } => self._get_stack_traces::<v3_5_5::_is>(),
-            Version {
-                major: 3, minor: 6, ..
-            } => self._get_stack_traces::<v3_6_6::_is>(),
-            Version {
-                major: 3, minor: 7, ..
-            } => self._get_stack_traces::<v3_7_0::_is>(),
-            Version {
-                major: 3, minor: 8, ..
-            } => self._get_stack_traces::<v3_8_0::_is>(),
-            Version {
-                major: 3, minor: 9, ..
-            } => self._get_stack_traces::<v3_9_5::_is>(),
-            Version {
-                major: 3,
-                minor: 10,
-                ..
-            } => self._get_stack_traces::<v3_10_0::_is>(),
-            Version {
-                major: 3,
-                minor: 11,
-                ..
-            } => self._get_stack_traces::<v3_11_0::_is>(),
-            Version {
-                major: 3,
-                minor: 12,
-                ..
-            } => self._get_stack_traces::<v3_12_0::_is>(),
-            Version {
-                major: 3,
-                minor: 13,
-                ..
-            } => self._get_stack_traces::<v3_13_0::_is>(),
-            Version {
-                major: 3,
-                minor: 14,
-                ..
-            } => self._get_stack_traces::<v3_14_0::_is>(),
-            Version {
-                major: 3,
-                minor: 15,
-                ..
-            } => self._get_stack_traces::<v3_15_0::_is>(),
-            _ => Err(format_err!(
-                "Unsupported version of Python: {}",
-                self.version
-            )),
+        type P = Process;
+        fn get_traces<I: InterpreterState, P: ProcessMemory>(
+            spy: &mut PythonSpy,
+        ) -> Result<Vec<StackTrace>, Error> {
+            spy._get_stack_traces::<I>()
         }
+        dispatch_by_version!(&self.version, self.layout.free_threaded, get_traces, self)
     }
 
     // implementation of get_stack_traces, where we have a type for the InterpreterState
@@ -217,15 +153,14 @@ impl PythonSpy {
         };
 
         // Find PyThreadState, and loop over all the python threads
-        let threadstate_ptr_ptr = I::threadstate_ptr_ptr(self.addresses.interpreter_address);
-        let threads_head = self
+        let threads_head: *const I::ThreadState = self
             .process
-            .copy_pointer(threadstate_ptr_ptr)
+            .copy_struct(self.layout.threads_head_address)
             .context("Failed to copy PyThreadState head pointer")?;
 
         // get the threadid of the gil if appropriate
         let gil_thread_id =
-            get_gil_threadid::<I, Process>(self.addresses.threadstate_address, &self.process)
+            get_gil_threadid::<I, Process>(self.layout.threadstate_address, &self.process)
                 .context("failed to get gil_thread_id")?;
 
         let mut did_thread_name_lookup = false;
@@ -259,6 +194,7 @@ impl PythonSpy {
                 &self.process,
                 self.config.dump_locals > 0,
                 self.config.lineno,
+                &self.layout.type_checks,
             )
             .with_context(|| {
                 format!(
@@ -342,6 +278,7 @@ impl PythonSpy {
                             &self.version,
                             local.addr,
                             max_length,
+                            &self.layout,
                         );
                         local.repr = Some(repr.unwrap_or_else(|_| "?".to_owned()));
                     }

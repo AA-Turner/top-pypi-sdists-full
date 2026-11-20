@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST
+from typing_extensions import override
 
 from trainer import Trainer, TrainerArgs, TrainerConfig, TrainerModel
 
@@ -46,28 +47,31 @@ class MnistModel(TrainerModel):
 
         return F.log_softmax(x, dim=1)
 
-    def train_step(self, batch, criterion):
+    def train_step(self, batch, criterion, optimizer_idx=None):
         x, y = batch
         logits = self(x)
         loss = criterion(logits, y)
         return {"model_outputs": logits}, {"loss": loss}
 
-    def eval_step(self, batch, criterion):
+    def eval_step(self, batch, criterion, optimizer_idx=None):
         x, y = batch
         logits = self(x)
         loss = criterion(logits, y)
         return {"model_outputs": logits}, {"loss": loss}
 
-    @staticmethod
-    def get_criterion():
+    @override
+    def get_criterion(self):
         return torch.nn.NLLLoss()
 
-    def get_data_loader(self, config, *, is_eval, samples=None, verbose=False):
-        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-        dataset = MNIST(Path.cwd(), train=not is_eval, download=True, transform=transform)
-        dataset.data = dataset.data[:256]
-        dataset.targets = dataset.targets[:256]
-        return DataLoader(dataset, batch_size=config.batch_size)
+    @override
+    def get_data_loader(self, config, *, is_eval=False, samples, verbose=False):
+        return DataLoader(samples, batch_size=config.batch_size)
+
+
+def get_mnist_samples(*, is_eval, num_samples=256):
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
+    dataset = MNIST(Path.cwd(), train=not is_eval, download=True, transform=transform)
+    return [dataset[i] for i in range(num_samples)]
 
 
 def main():
@@ -84,8 +88,8 @@ def main():
         train_args,
         config,
         model=model,
-        train_samples=model.get_data_loader(config, is_eval=False),
-        eval_samples=model.get_data_loader(config, is_eval=True),
+        train_samples=get_mnist_samples(is_eval=False),
+        eval_samples=get_mnist_samples(is_eval=True),
         parse_command_line_args=True,
     )
     trainer.fit()

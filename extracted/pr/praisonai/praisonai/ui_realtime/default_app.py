@@ -11,11 +11,14 @@ Requires: pip install "praisonai[ui]"
 import os
 from praisonai.integration.host_app import UIPreset, build_ui_app
 
-# Initialize the realtime manager for voice functionality
+# The realtime manager turns on the chat composer's microphone (aiui >= 0.3.172):
+# speech is transcribed into the message box. It was imported from
+# ``praisonaiui.realtime``, a module that never existed, so voice stayed off.
 try:
-    from praisonaiui.realtime import OpenAIRealtimeManager
+    from praisonaiui.features.realtime import OpenAIRealtimeManager
+
     realtime_manager = OpenAIRealtimeManager()
-except ImportError:
+except Exception:  # older aiui, or the manager cannot start: text chat still works
     realtime_manager = None
 
 app = build_ui_app(UIPreset(
@@ -34,6 +37,6 @@ app = build_ui_app(UIPreset(
         {"label": "Settings", "message": "Configure voice settings", "icon": "⚙️"},
         {"label": "Help", "message": "How do I use voice commands?", "icon": "❓"},
     ],
-    welcome="🎤 Welcome to PraisonAI Realtime Voice! Click the microphone button to start talking.",
+    welcome="🎤 Welcome to PraisonAI Realtime Voice! Type a message below to start the conversation.",
     realtime_manager=realtime_manager,
 ))

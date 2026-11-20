@@ -15,7 +15,9 @@ from fit_tool.components import (
 from fit_tool.field_component import FieldComponent
 from fit_tool.field_definition import FieldDefinition
 from fit_tool.fit_file import FitFile
+from fit_tool.profile.messages.event_message import EventMessage
 from fit_tool.profile.messages.record_message import RecordMessage
+from fit_tool.profile.profile_type import Event
 from fit_tool.tests.protocol_fixture_helpers import (
     build_record_with_compressed_speed_distance,
     definition_and_data,
@@ -147,9 +149,9 @@ class TestAccumulatorRollover(unittest.TestCase):
         source.size = 2
         acc: dict[tuple[int, int], int] = {}
 
-        source.encoded_values = [65535]
+        source.encoded_values = [65534]
         expand_message_components(message, acc)
-        self.assertEqual(acc[(20, 29)], 65535)
+        self.assertEqual(acc[(20, 29)], 65534)
 
         source.encoded_values = [1]
         expand_message_components(message, acc)
@@ -157,6 +159,21 @@ class TestAccumulatorRollover(unittest.TestCase):
         assert power is not None
         self.assertEqual(acc[(20, 29)], 65537)
         self.assertEqual(power.get_value(), 65537)
+
+    def test_all_invalid_source_does_not_expand(self):
+        """0xFFFF is the uint16 sentinel, so a packed field with no value expands nothing."""
+        message = RecordMessage()
+        source = message.get_field(28)
+        assert source is not None
+        source.size = 2
+        acc: dict[tuple[int, int], int] = {}
+
+        source.encoded_values = [65535]
+        expand_message_components(message, acc)
+        self.assertNotIn((20, 29), acc)
+        power = message.get_field(29)
+        assert power is not None
+        self.assertEqual(power.size, 0)
 
     def test_8bit_cycles_accumulate_to_total_cycles(self):
         message = RecordMessage()
@@ -249,3 +266,93 @@ class TestVariableLengthPayload(unittest.TestCase):
         expand_message_components(msg)
         values = [v for v in dest.encoded_values if v is not None]
         self.assertEqual(len(values), 2)
+
+
+class TestProfileSubfieldGatedComponents(unittest.TestCase):
+    """Profile subfield-gated components on ``event.data``.
+
+    Profile 21.222.0 packs gear-change, Varia radar-threat and sport-point data into
+    ``event.data`` under a gated subfield. No committed fixture carries those event
+    types, so these cases use constructed messages and constructed wire bytes.
+    """
+
+    @staticmethod
+    def _expand(event, packed_data):
+        message = EventMessage()
+        message.event = event
+        data = message.get_field(3)
+        assert data is not None
+        data.size = 4
+        data.encoded_values = [packed_data]
+        expand_message_components(message)
+        return message
+
+    def test_front_gear_change_expands_all_four_gear_fields(self):
+        # LSB first: rear_gear_num, rear_gear, front_gear_num, front_gear.
+        packed = 2 | (11 << 8) | (1 << 16) | (52 << 24)
+        message = self._expand(Event.FRONT_GEAR_CHANGE, packed)
+        self.assertEqual(1, message.front_gear_num)
+        self.assertEqual(52, message.front_gear)
+        self.assertEqual(2, message.rear_gear_num)
+        self.assertEqual(11, message.rear_gear)
+
+    def test_rear_gear_change_uses_the_same_layout(self):
+        packed = 3 | (28 << 8) | (2 << 16) | (36 << 24)
+        message = self._expand(Event.REAR_GEAR_CHANGE, packed)
+        self.assertEqual(2, message.front_gear_num)
+        self.assertEqual(36, message.front_gear)
+        self.assertEqual(3, message.rear_gear_num)
+        self.assertEqual(28, message.rear_gear)
+
+    def test_radar_threat_alert_scales_approach_speeds_per_component(self):
+        # level 3, count 2, average 100/10 = 10.0 m/s, maximum 250/10 = 25.0 m/s.
+        packed = 3 | (2 << 8) | (100 << 16) | (250 << 24)
+        message = self._expand(Event.RADAR_THREAT_ALERT, packed)
+        self.assertEqual(3, message.radar_threat_level_max)
+        self.assertEqual(2, message.radar_threat_count)
+        self.assertAlmostEqual(10.0, message.radar_threat_avg_approach_speed)
+        self.assertAlmostEqual(25.0, message.radar_threat_max_approach_speed)
+
+    def test_sport_point_splits_two_16_bit_scores(self):
+        packed = 21 | (17 << 16)
+        message = self._expand(Event.SPORT_POINT, packed)
+        self.assertEqual(21, message.score)
+        self.assertEqual(17, message.opponent_score)
+
+    def test_other_event_types_do_not_expand_packed_data(self):
+        packed = 2 | (11 << 8) | (1 << 16) | (52 << 24)
+        message = self._expand(Event.TIMER, packed)
+        self.assertIsNone(message.front_gear_num)
+        self.assertIsNone(message.front_gear)
+        self.assertIsNone(message.rear_gear_num)
+        self.assertIsNone(message.rear_gear)
+
+    def test_wire_decode_expands_gear_change_and_keeps_bytes(self):
+        packed = 2 | (11 << 8) | (1 << 16) | (52 << 24)
+        payload = (
+            struct.pack('<I', 1000)
+            + struct.pack('<B', Event.FRONT_GEAR_CHANGE.value)
+            + struct.pack('<I', packed)
+        )
+        raw = wrap_records(
+            definition_and_data(
+                global_id=21,
+                field_definitions=[
+                    FieldDefinition(field_id=253, size=4, base_type=BaseType.UINT32),
+                    FieldDefinition(field_id=0, size=1, base_type=BaseType.ENUM),
+                    FieldDefinition(field_id=3, size=4, base_type=BaseType.UINT32),
+                ],
+                payload=payload,
+            )
+        )
+
+        fit = FitFile.from_bytes(raw)
+        message = next(r.message for r in fit.records if not r.header.is_definition)
+        self.assertIsInstance(message, EventMessage)
+        self.assertEqual(1, message.front_gear_num)
+        self.assertEqual(52, message.front_gear)
+        self.assertEqual(2, message.rear_gear_num)
+        self.assertEqual(11, message.rear_gear)
+        # The packed source keeps its wire value and re-encodes byte-for-byte.
+        self.assertEqual(packed, message.data)
+        self.assertEqual(raw, fit.to_bytes())

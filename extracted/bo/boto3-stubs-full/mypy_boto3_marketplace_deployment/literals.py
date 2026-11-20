@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_marketplace_deployment.literals import MarketplaceDeploymentServiceServiceName
+    from mypy_boto3_marketplace_deployment.literals import DeliveryOptionTypeType
 
-    data: MarketplaceDeploymentServiceServiceName = "marketplace-deployment"
+    data: DeliveryOptionTypeType = "data-as-a-service"
     ```
 """
 
@@ -22,9 +22,24 @@ else:
     from typing_extensions import Literal
 
 
-__all__ = ("MarketplaceDeploymentServiceServiceName", "ResourceServiceName", "ServiceName")
+__all__ = (
+    "DeliveryOptionTypeType",
+    "DeploymentConfigurationJobErrorCodeType",
+    "DeploymentConfigurationJobStatusType",
+    "ListDeploymentConfigurationJobsPaginatorName",
+    "MarketplaceDeploymentServiceServiceName",
+    "PaginatorName",
+    "ResourceServiceName",
+    "ServiceName",
+)
 
 
+DeliveryOptionTypeType = Literal["data-as-a-service"]
+DeploymentConfigurationJobErrorCodeType = Literal[
+    "ENDPOINT_INVALID", "FULFILLMENT_URL_UNREACHABLE", "INTERNAL_ERROR"
+]
+DeploymentConfigurationJobStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+ListDeploymentConfigurationJobsPaginatorName = Literal["list_deployment_configuration_jobs"]
 MarketplaceDeploymentServiceServiceName = Literal["marketplace-deployment"]
 ServiceName = Literal[
     "abuse-signal",
@@ -329,6 +344,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -470,3 +486,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_deployment_configuration_jobs"]

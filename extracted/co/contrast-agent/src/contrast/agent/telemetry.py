@@ -89,6 +89,7 @@ class Telemetry(threading.Thread):
         self._msg_count = 0
         self.settings = Settings()
 
+    @scope.contrast_scope()
     def stop(self, timeout: float | None = 30):
         if not self.is_alive():
             return
@@ -122,14 +123,14 @@ class Telemetry(threading.Thread):
         return _mac_addr
 
     def run(self):
-        self._check_enabled()
-
-        if not self.enabled:
-            return
-
         # Ensure thread runs in scope because it is initialized
         # before our thread.start patch is applied.
         with scope.contrast_scope():
+            self._check_enabled()
+
+            if not self.enabled:
+                return
+
             logger.debug("Starting telemetry thread")
 
             # Do not move creating startup msg outside of this function

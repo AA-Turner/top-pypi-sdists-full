@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-polly
-Version: 1.44.0
-Summary: Type annotations for boto3 Polly 1.44.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.44.7
+Summary: Type annotations for boto3 Polly 1.44.7 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Polly 1.44.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Polly 1.44.7](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -79,6 +79,7 @@ See how it helps you find and fix potential bugs:
   - [Explicit type annotations](#explicit-type-annotations)
     - [Client annotations](#client-annotations)
     - [Paginators annotations](#paginators-annotations)
+    - [Waiters annotations](#waiters-annotations)
     - [Literals](#literals)
     - [Type definitions](#type-definitions)
   - [How it works](#how-it-works)
@@ -104,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.7' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Polly` service.
 4. Use provided commands to install generated packages.
@@ -354,6 +355,25 @@ list_speech_synthesis_tasks_paginator: ListSpeechSynthesisTasksPaginator = clien
 )
 ```
 
+<a id="waiters-annotations"></a>
+
+### Waiters annotations
+
+`mypy_boto3_polly.waiter` module contains type annotations for all waiters.
+
+```python
+from boto3.session import Session
+
+from mypy_boto3_polly import PollyClient
+from mypy_boto3_polly.waiter import VoiceActiveWaiter
+
+client: PollyClient = Session().client("polly")
+
+# Explicit type annotations are optional here
+# Types should be correctly discovered by mypy and IDEs
+voice_active_waiter: VoiceActiveWaiter = client.get_waiter("voice_active")
+```
+
 <a id="literals"></a>
 
 ### Literals
@@ -365,10 +385,10 @@ Full list of `Polly` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/literals/).
 
 ```python
-from mypy_boto3_polly.literals import DescribeVoicesPaginatorName
+from mypy_boto3_polly.literals import AudioFormatType
 
 
-def check_value(value: DescribeVoicesPaginatorName) -> bool: ...
+def check_value(value: AudioFormatType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

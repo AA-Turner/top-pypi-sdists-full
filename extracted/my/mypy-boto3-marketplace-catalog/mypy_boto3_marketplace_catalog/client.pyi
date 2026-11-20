@@ -55,6 +55,8 @@ from .type_defs import (
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
+    StartAssessmentRequestTypeDef,
+    StartAssessmentResponseTypeDef,
     StartChangeSetRequestTypeDef,
     StartChangeSetResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -241,6 +243,16 @@ class MarketplaceCatalogClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/put_resource_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#put_resource_policy)
+        """
+
+    def start_assessment(
+        self, **kwargs: Unpack[StartAssessmentRequestTypeDef]
+    ) -> StartAssessmentResponseTypeDef:
+        """
+        Starts an assessment of a product entity against a framework.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/start_assessment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#start_assessment)
         """
 
     def start_change_set(

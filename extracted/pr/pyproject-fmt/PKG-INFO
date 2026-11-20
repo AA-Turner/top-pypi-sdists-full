@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.31.1
+Version: 2.31.2
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -227,9 +227,33 @@ The formatter writes tables in this order:
    6. Task runners: ``doit``, ``spin``, ``tox``
    7. Release tools: ``bumpversion``, ``commitizen``, ``jupyter-releaser``, ``semantic_release``, ``tbump``,
       ``towncrier``, ``vendoring``
-   8. Any other ``tool.*`` in alphabetical order
+   8. Unlisted tools, in the order each tool first appears in the file
 
-5. Other tables, alphabetically
+5. Other tables, in the order each top-level name first appears in the file
+
+For example, ``[tool.ruff]`` moves ahead of both unlisted tools. ``[tool.zzz]`` keeps its place before ``[tool.aaa]``.
+
+.. code-block:: toml
+
+   # Before
+   [tool.zzz]
+   enabled = true
+
+   [tool.aaa]
+   enabled = false
+
+   [tool.ruff]
+   line-length = 100
+
+   # After
+   [tool.ruff]
+   line-length = 100
+
+   [tool.zzz]
+   enabled = true
+
+   [tool.aaa]
+   enabled = false
 
 String Quotes
 ~~~~~~~~~~~~~
@@ -287,7 +311,8 @@ Short arrays stay on one line:
    # After
    keywords = [ "python", "toml" ]
 
-An array that exceeds ``column_width`` expands and gains a trailing comma:
+The formatter adds a trailing comma when it wraps a non-empty single-line array to fit ``column_width``.
+It measures the full line, including the key, indentation, and any end-of-line comment.
 
 .. code-block:: toml
 
@@ -324,8 +349,6 @@ A member comment also retains multiline form:
      "E501", # too long
      "E701",
    ]
-
-An array uses multiline form when it has a trailing comma, exceeds ``column_width``, or contains a member comment.
 
 String Wrapping
 ~~~~~~~~~~~~~~~

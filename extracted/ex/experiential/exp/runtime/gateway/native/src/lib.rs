@@ -45,6 +45,7 @@ mod reasoning_display;
 mod reasoning_estimate;
 mod rejection_shapes;
 mod relay;
+mod relayed_gemini_block;
 mod replay;
 mod replay_repair;
 mod request_policy;
@@ -587,6 +588,9 @@ fn parse_fixture_events(events_json: &str) -> Result<Vec<events::Event>, String>
                 cache_writes_read_back: false,
                 image_output_tokens: object
                     .get("image_output_tokens")
+                    .and_then(serde_json::Value::as_u64),
+                image_input_tokens: object
+                    .get("image_input_tokens")
                     .and_then(serde_json::Value::as_u64),
                 cache_creation_12h_input_tokens: object
                     .get("cache_creation_12h_input_tokens")

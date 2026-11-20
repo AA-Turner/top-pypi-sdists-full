@@ -907,7 +907,7 @@ class ExperimentalWorkspace(object):
     def idle_timeout_minutes(self):
         """Gets the idle_timeout_minutes of this ExperimentalWorkspace.  # noqa: E501
 
-        How long nothing may happen in the workspace before the platform stops it, in minutes. Read from the `anyscale.com/idle-timeout-minutes` annotation when the custom resource is created, editable afterwards through the workspace settings endpoint, and the platform default when nothing asks for anything; 0 means the workspace is never stopped for being idle. KubeRay workspaces only: null on any other workspace, which says nothing about whether it has a timeout.  # noqa: E501
+        Idle timeout of the workspace, in minutes. The platform stops the workspace after it has been idle for this long. 0 means idle termination is disabled. For a KubeRay workspace, the value comes from the `anyscale.com/idle-timeout-minutes` annotation when the custom resource is created, or from the platform default. The workspace settings endpoint can change it later. For any other workspace, it is the idle timeout of its cluster.  # noqa: E501
 
         :return: The idle_timeout_minutes of this ExperimentalWorkspace.  # noqa: E501
         :rtype: int
@@ -918,7 +918,7 @@ class ExperimentalWorkspace(object):
     def idle_timeout_minutes(self, idle_timeout_minutes):
         """Sets the idle_timeout_minutes of this ExperimentalWorkspace.
 
-        How long nothing may happen in the workspace before the platform stops it, in minutes. Read from the `anyscale.com/idle-timeout-minutes` annotation when the custom resource is created, editable afterwards through the workspace settings endpoint, and the platform default when nothing asks for anything; 0 means the workspace is never stopped for being idle. KubeRay workspaces only: null on any other workspace, which says nothing about whether it has a timeout.  # noqa: E501
+        Idle timeout of the workspace, in minutes. The platform stops the workspace after it has been idle for this long. 0 means idle termination is disabled. For a KubeRay workspace, the value comes from the `anyscale.com/idle-timeout-minutes` annotation when the custom resource is created, or from the platform default. The workspace settings endpoint can change it later. For any other workspace, it is the idle timeout of its cluster.  # noqa: E501
 
         :param idle_timeout_minutes: The idle_timeout_minutes of this ExperimentalWorkspace.  # noqa: E501
         :type: int

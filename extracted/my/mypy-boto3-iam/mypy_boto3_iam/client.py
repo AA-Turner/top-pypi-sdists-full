@@ -308,6 +308,7 @@ from .type_defs import (
     UpdateDelegationRequestRequestTypeDef,
     UpdateGroupRequestTypeDef,
     UpdateLoginProfileRequestTypeDef,
+    UpdateOpenIDConnectProviderRequestTypeDef,
     UpdateOpenIDConnectProviderThumbprintRequestTypeDef,
     UpdateRoleDescriptionRequestTypeDef,
     UpdateRoleDescriptionResponseTypeDef,
@@ -2128,6 +2129,17 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/update_login_profile.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#update_login_profile)
+        """
+
+    def update_open_id_connect_provider(
+        self, **kwargs: Unpack[UpdateOpenIDConnectProviderRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the configuration of an existing IAM OpenID Connect (OIDC) identity
+        provider resource object.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/update_open_id_connect_provider.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#update_open_id_connect_provider)
         """
 
     def update_open_id_connect_provider_thumbprint(

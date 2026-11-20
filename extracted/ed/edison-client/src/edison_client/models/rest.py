@@ -64,7 +64,7 @@ class EnvironmentFrameInitRequest(BaseModel):
     agent_state_point_in_time: str
     current_agent_step: str
     trajectory_timestep: int | None = None
-    metadata: JsonValue | None = None
+    metadata: "JsonValue | None" = None
     content_encoding: StateContentEncoding = "gzip"
     size_bytes: int | None = None
 
@@ -90,12 +90,10 @@ class PermittedAccessors(BaseModel):
     """Permitted accessors for trajectories and projects."""
 
     users: list[str] | None = Field(
-        default=None,
-        description="List of user emails to grant access",
+        default=None, description="List of user emails to grant access"
     )
     organizations: list[str | int] | None = Field(
-        default=None,
-        description="List of organization IDs to grant access",
+        default=None, description="List of organization IDs to grant access"
     )
 
 
@@ -136,8 +134,7 @@ class ContentLocation(StrEnum):
 
 
 class WorldModel(BaseModel):
-    """
-    Payload for creating a new world model snapshot.
+    """Payload for creating a new world model snapshot.
 
     This model is sent to the API.
     """
@@ -148,7 +145,7 @@ class WorldModel(BaseModel):
     name: str | None = None
     description: str | None = None
     trajectory_id: UUID | str | None = None
-    model_metadata: JsonValue | None = None
+    model_metadata: "JsonValue | None" = None
     project_id: UUID | str | None = None
 
 
@@ -189,18 +186,29 @@ class WorldModelSearchPayload(BaseModel):
 
 
 class WorldModelResponse(WorldModel):
-    """
-    Response model for a world model snapshot.
+    """Response model for a world model snapshot.
 
     This model is received from the API.
     """
 
     id: UUID | str
-    name: str  # type: ignore[mutable-override]  # The API always returns a non-optional name, overriding the base model's optional field.
+    # The API always returns a non-optional name.
+    name: str  # ty: ignore[incompatible-mutable-override]
     email: str | None
     enabled: bool
     created_at: datetime
     data_storage_id: UUID | None = None
+
+
+class WorldModelSearchResult(BaseModel):
+    """World model search summary matching the server's SimpleWorldModel."""
+
+    id: UUID
+    name: str
+    description: str | None = None
+    project_id: UUID | None = None
+    trajectory_id: UUID | None = None
+    created_at: datetime | None = None
 
 
 class WorldModelCreateResponse(BaseModel):

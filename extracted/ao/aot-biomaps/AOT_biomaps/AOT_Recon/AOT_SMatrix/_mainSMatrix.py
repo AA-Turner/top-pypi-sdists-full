@@ -67,7 +67,7 @@ class SMatrix(ABC):
             print("[AOT-biomaps] Using real SMatrix representation (float32).")
 
         if experiment is None:
-            warnings.warn("[AOT-biomaps] No experiment provided. SMatrix will not be initialized with AcousticFields.")
+            print("[AOT-biomaps] No experiment provided. SMatrix will not be initialized with AcousticFields.")
             self.N = None
             self.T = None
             self.Z = None

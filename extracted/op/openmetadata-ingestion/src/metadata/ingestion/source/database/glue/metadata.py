@@ -13,7 +13,8 @@ Glue source methods.
 """
 
 import traceback
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Tuple, cast  # noqa: UP035
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, cast
 
 from metadata.generated.schema.api.data.createDatabase import CreateDatabaseRequest
 from metadata.generated.schema.api.data.createDatabaseSchema import (
@@ -78,6 +79,7 @@ from metadata.ingestion.source.database.glue.models import (
     GlueTable,
     StorageDetails,
     TablePage,
+    TableParameters,
 )
 from metadata.ingestion.source.database.glue.utils import get_schema_definition
 from metadata.ingestion.source.database.stored_procedures_mixin import QueryByProcedure
@@ -120,7 +122,7 @@ class GlueSource(ExternalTableLineageMixin, CustomPropertyExtensionMixin, Databa
             self.test_connection()
 
     @classmethod
-    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None):  # noqa: UP045
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: str | None = None):
         config: WorkflowSource = WorkflowSource.model_validate(config_dict)
         connection: GlueConnection = config.serviceConnection.root.config
         if not isinstance(connection, GlueConnection):
@@ -283,7 +285,7 @@ class GlueSource(ExternalTableLineageMixin, CustomPropertyExtensionMixin, Databa
         yield Either(right=schema_request)
         self.register_record_schema_request(schema_request=schema_request)
 
-    def get_tables_name_and_type(self) -> Optional[Iterable[Tuple[str, str]]]:  # noqa: UP006, UP045
+    def get_tables_name_and_type(self) -> Iterable[tuple[str, str]] | None:
         """
         Handle table and views.
 
@@ -333,6 +335,11 @@ class GlueSource(ExternalTableLineageMixin, CustomPropertyExtensionMixin, Databa
                         # iceberg tables need to pass a key/value pair in the DDL `'table_type'='ICEBERG'`
                         # https://docs.aws.amazon.com/athena/latest/ug/querying-iceberg-creating-tables.html
                         table_type = TableType.Iceberg
+                    elif table.TableType != "VIRTUAL_VIEW" and self._is_delta_table(parameters):
+                        # Kept after the Iceberg check so a UniForm table carrying both markers
+                        # stays Iceberg. Athena DDL writes table_type=DELTA, Spark and the crawler
+                        # write spark.sql.sources.provider=delta; producers disagree on case.
+                        table_type = TableType.DeltaLake
                     elif table.TableType == "EXTERNAL_TABLE":
                         table_type = TableType.External
                     elif table.TableType == "VIRTUAL_VIEW":
@@ -349,7 +356,7 @@ class GlueSource(ExternalTableLineageMixin, CustomPropertyExtensionMixin, Databa
                         )
                     )
 
-    def yield_table(self, table_name_and_type: Tuple[str, TableType]) -> Iterable[Either[CreateTableRequest]]:  # noqa: UP006
+    def yield_table(self, table_name_and_type: tuple[str, TableType]) -> Iterable[Either[CreateTableRequest]]:
         """
         From topology.
         Prepare a table request and pass it to the sink
@@ -444,7 +451,7 @@ class GlueSource(ExternalTableLineageMixin, CustomPropertyExtensionMixin, Databa
         parsed_string["description"] = column.Comment
         return Column(**parsed_string)
 
-    def get_columns(self, column_data: StorageDetails) -> Optional[Iterable[Column]]:  # noqa: UP045
+    def get_columns(self, column_data: StorageDetails) -> Iterable[Column] | None:
         """
         Get columns from Glue, yielding each column name at most once.
 
@@ -487,8 +494,22 @@ class GlueSource(ExternalTableLineageMixin, CustomPropertyExtensionMixin, Databa
         for column in table.PartitionKeys or []:
             yield self._get_column_object(column)
 
+    @staticmethod
+    def _is_delta_table(parameters: TableParameters | None) -> bool:
+        """A Glue Delta table is marked by table_type=DELTA (Athena DDL) or
+        spark.sql.sources.provider=delta (Spark/crawler). Producers disagree on case, so both
+        keys are compared case-insensitively. The provider key is dotted, so it is only reachable
+        through the extra-allowed dump, not attribute access."""
+        if not parameters:
+            return False
+        values = parameters.model_dump()
+        return any(
+            isinstance(values.get(key), str) and values[key].lower() == "delta"
+            for key in ("table_type", "spark.sql.sources.provider")
+        )
+
     @classmethod
-    def get_format(cls, storage: StorageDetails) -> Optional[FileFormat]:  # noqa: UP045
+    def get_format(cls, storage: StorageDetails) -> FileFormat | None:
         library = storage.SerdeInfo.SerializationLibrary if storage.SerdeInfo else None
         if library is None:
             return None
@@ -515,10 +536,10 @@ class GlueSource(ExternalTableLineageMixin, CustomPropertyExtensionMixin, Databa
 
     def get_source_url(
         self,
-        database_name: Optional[str],  # noqa: UP045
-        schema_name: Optional[str] = None,  # noqa: UP045
-        table_name: Optional[str] = None,  # noqa: UP045
-    ) -> Optional[str]:  # noqa: UP045
+        database_name: str | None,
+        schema_name: str | None = None,
+        table_name: str | None = None,
+    ) -> str | None:
         """
         Method to get the source url for dynamodb
         """

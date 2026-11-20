@@ -4,7 +4,7 @@ import contextlib
 import json
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextvars import ContextVar
 from typing import Any
 
@@ -16,7 +16,7 @@ _timing_fields: ContextVar[dict[str, Any] | None] = ContextVar(
 
 
 @contextlib.contextmanager
-def log_timing(operation: str, **fields: Any) -> Iterator[dict[str, Any]]:
+def log_timing(operation: str, **fields: object) -> Generator[dict[str, Any]]:
     """Log wall time and identifiers; nested operations inherit identifiers."""
     fields = {**(_timing_fields.get() or {}), **fields}
     token = _timing_fields.set(fields)

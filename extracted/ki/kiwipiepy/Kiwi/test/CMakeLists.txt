@@ -10,6 +10,7 @@ test_c.cpp
 test_cpp.cpp
 test_sw_tokenizer.cpp
 test_bpe_tokenizer.cpp
+test_search.cpp
 )
 
 ######################################
@@ -26,6 +27,8 @@ else()
   #target_link_libraries(kiwi-test -Wl,--whole-archive -lpthread -Wl,--no-whole-archive)
 endif()
 target_link_libraries(kiwi-test "${CMAKE_PROJECT_NAME}_static")
+# internal headers (e.g. src/search.h) must see the same allocator settings as the library
+target_compile_options(kiwi-test PRIVATE "${ADDITIONAL_FLAGS}")
 
 ##################################
 # Just make the test runnable with

@@ -20,11 +20,14 @@ Usage::
         LinkDeletedWaiter,
         LinkRoutingRuleActiveWaiter,
         LinkRoutingRuleDeletedWaiter,
+        ListAvailableModuleVersionsPaginator,
+        ListAvailableModulesPaginator,
         ListCertificateAssociationsPaginator,
         ListLinkRoutingRulesPaginator,
         ListLinksPaginator,
         ListRequesterGatewaysPaginator,
         ListResponderGatewaysPaginator,
+        ListUpdatesPaginator,
         OutboundExternalLinkActiveWaiter,
         OutboundExternalLinkDeletedWaiter,
         RTBFabricClient,
@@ -53,21 +56,27 @@ Usage::
     responder_gateway_active_waiter: ResponderGatewayActiveWaiter = client.get_waiter("responder_gateway_active")
     responder_gateway_deleted_waiter: ResponderGatewayDeletedWaiter = client.get_waiter("responder_gateway_deleted")
 
+    list_available_module_versions_paginator: ListAvailableModuleVersionsPaginator = client.get_paginator("list_available_module_versions")
+    list_available_modules_paginator: ListAvailableModulesPaginator = client.get_paginator("list_available_modules")
     list_certificate_associations_paginator: ListCertificateAssociationsPaginator = client.get_paginator("list_certificate_associations")
     list_link_routing_rules_paginator: ListLinkRoutingRulesPaginator = client.get_paginator("list_link_routing_rules")
     list_links_paginator: ListLinksPaginator = client.get_paginator("list_links")
     list_requester_gateways_paginator: ListRequesterGatewaysPaginator = client.get_paginator("list_requester_gateways")
     list_responder_gateways_paginator: ListResponderGatewaysPaginator = client.get_paginator("list_responder_gateways")
+    list_updates_paginator: ListUpdatesPaginator = client.get_paginator("list_updates")
     ```
 """
 
 from .client import RTBFabricClient
 from .paginator import (
+    ListAvailableModulesPaginator,
+    ListAvailableModuleVersionsPaginator,
     ListCertificateAssociationsPaginator,
     ListLinkRoutingRulesPaginator,
     ListLinksPaginator,
     ListRequesterGatewaysPaginator,
     ListResponderGatewaysPaginator,
+    ListUpdatesPaginator,
 )
 from .waiter import (
     CertificateAssociatedWaiter,
@@ -101,11 +110,14 @@ __all__ = (
     "LinkDeletedWaiter",
     "LinkRoutingRuleActiveWaiter",
     "LinkRoutingRuleDeletedWaiter",
+    "ListAvailableModuleVersionsPaginator",
+    "ListAvailableModulesPaginator",
     "ListCertificateAssociationsPaginator",
     "ListLinkRoutingRulesPaginator",
     "ListLinksPaginator",
     "ListRequesterGatewaysPaginator",
     "ListResponderGatewaysPaginator",
+    "ListUpdatesPaginator",
     "OutboundExternalLinkActiveWaiter",
     "OutboundExternalLinkDeletedWaiter",
     "RTBFabricClient",

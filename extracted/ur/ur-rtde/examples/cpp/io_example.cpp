@@ -7,8 +7,8 @@ using namespace ur_rtde;
 
 int main(int argc, char* argv[])
 {
-  RTDEIOInterface rtde_io("127.0.0.1");
-  RTDEReceiveInterface rtde_receive("127.0.0.1");
+  RTDEIOInterface rtde_io("192.168.56.101");
+  RTDEReceiveInterface rtde_receive("192.168.56.101");
 
   /** How-to set and get standard and tool digital outputs. Notice that we need the
     * RTDEIOInterface for setting an output and RTDEReceiveInterface for getting the state

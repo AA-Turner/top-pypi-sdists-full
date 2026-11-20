@@ -15,7 +15,8 @@ from edison_client.utils.general import (
 def _retry_state(exc: BaseException) -> RetryCallState:
     """A stand-in tenacity `RetryCallState` whose outcome raised `exc`."""
     return cast(
-        RetryCallState, SimpleNamespace(outcome=SimpleNamespace(exception=lambda: exc))
+        "RetryCallState",
+        SimpleNamespace(outcome=SimpleNamespace(exception=lambda: exc)),
     )
 
 
@@ -25,12 +26,12 @@ def _requests_http_error(status_code: int) -> requests.HTTPError:
     return requests.HTTPError(response=response)
 
 
-def test_raw_connection_error_is_retryable():
+def test_raw_connection_error_is_retryable() -> None:
     should_retry = create_retry_if_connection_error()
     assert should_retry(_retry_state(httpx.ConnectError("boom"))) is True
 
 
-def test_connection_error_wrapped_via_cause_is_retryable():
+def test_connection_error_wrapped_via_cause_is_retryable() -> None:
     """A transient error re-raised as a domain error (`raise ... from e`) still retries."""
     should_retry = create_retry_if_connection_error()
     try:
@@ -41,7 +42,7 @@ def test_connection_error_wrapped_via_cause_is_retryable():
     assert should_retry(_retry_state(wrapped)) is True
 
 
-def test_non_connection_error_is_not_retryable():
+def test_non_connection_error_is_not_retryable() -> None:
     should_retry = create_retry_if_connection_error()
     try:
         raise ValueError("not transient")
@@ -51,7 +52,7 @@ def test_non_connection_error_is_not_retryable():
     assert should_retry(_retry_state(wrapped)) is False
 
 
-def test_wrapped_requests_http_error_is_gated_on_status_code():
+def test_wrapped_requests_http_error_is_gated_on_status_code() -> None:
     """A re-raised requests HTTPError retries on transient 5xx but not on permanent 4xx.
 
     Unlike connection errors, requests' HTTPError must not be blanket-retried just because
@@ -75,7 +76,7 @@ def _httpx_status_error(status_code: int) -> httpx.HTTPStatusError:
     )
 
 
-def test_not_idempotent_retries_only_when_the_request_never_left():
+def test_not_idempotent_retries_only_when_the_request_never_left() -> None:
     should_retry = create_retry_if_connection_error_not_idempotent()
     assert should_retry(_retry_state(httpx.ConnectError("refused"))) is True
     assert should_retry(_retry_state(httpx.ConnectTimeout("slow handshake"))) is True
@@ -86,7 +87,7 @@ def test_not_idempotent_retries_only_when_the_request_never_left():
     assert should_retry(_retry_state(requests.Timeout())) is False
 
 
-def test_not_idempotent_retries_only_a_rate_limit_status():
+def test_not_idempotent_retries_only_a_rate_limit_status() -> None:
     should_retry = create_retry_if_connection_error_not_idempotent()
     assert should_retry(_retry_state(_httpx_status_error(429))) is True
     assert should_retry(_retry_state(_httpx_status_error(500))) is False
@@ -94,7 +95,7 @@ def test_not_idempotent_retries_only_a_rate_limit_status():
     assert should_retry(_retry_state(_httpx_status_error(502))) is False
 
 
-def test_not_idempotent_still_walks_the_cause_chain():
+def test_not_idempotent_still_walks_the_cause_chain() -> None:
     should_retry = create_retry_if_connection_error_not_idempotent()
     wrapped = DataStorageRetrievalError("wrapped")
     wrapped.__cause__ = httpx.ConnectError("refused")

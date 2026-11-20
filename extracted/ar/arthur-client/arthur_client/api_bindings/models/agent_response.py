@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
 from arthur_client.api_bindings.models.data_source_response import DataSourceResponse
 from arthur_client.api_bindings.models.evidence_level import EvidenceLevel
@@ -49,6 +50,9 @@ class AgentResponse(BaseModel):
     is_autocreated: Optional[StrictBool] = Field(default=True, description="Whether this agent was auto-created from traces.")
     rules: Optional[List[RuleResponse]] = Field(default=None, description="Rules associated with this agent's task.")
     last_fetched: Optional[datetime] = None
+    trace_count: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = None
+    inference_count: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = None
+    last_activity_at: Optional[datetime] = None
     muted_until: Optional[datetime] = None
     id: StrictStr = Field(description="Agent ID.")
     workspace_id: StrictStr = Field(description="UUID of the workspace this agent belongs to.")
@@ -68,7 +72,7 @@ class AgentResponse(BaseModel):
     source_classes: Optional[List[SourceClass]] = Field(default=None, description="Where this agent has been observed from -- cloud, siem, endpoint, otel or manual -- in evidence order. Backs the \"Found by\" column and the source_classes filter.")
     evidence_level: EvidenceLevel = Field(description="How much of this agent its sources can see right now: full when a source still reporting sees the whole agent, limited when sources still report but none sees it whole, stale when every source has gone quiet. Rolled up over all evidence, whatever the list is filtered to; backs the evidence_levels filter and the evidence_level sort.")
     first_seen: datetime = Field(description="The earliest time any source reported seeing this agent: the earliest evidence first_seen, or the agent's created_at when no evidence records one. Backs the first_seen sort and the first_seen_after/before filters.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "mute_reason", "muted_by", "muted_at", "is_stale", "source_ids", "external_ids", "source_classes", "evidence_level", "first_seen"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "trace_count", "inference_count", "last_activity_at", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "mute_reason", "muted_by", "muted_at", "is_stale", "source_ids", "external_ids", "source_classes", "evidence_level", "first_seen"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -172,6 +176,21 @@ class AgentResponse(BaseModel):
         if self.last_fetched is None and "last_fetched" in self.model_fields_set:
             _dict['last_fetched'] = None
 
+        # set to None if trace_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.trace_count is None and "trace_count" in self.model_fields_set:
+            _dict['trace_count'] = None
+
+        # set to None if inference_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.inference_count is None and "inference_count" in self.model_fields_set:
+            _dict['inference_count'] = None
+
+        # set to None if last_activity_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_activity_at is None and "last_activity_at" in self.model_fields_set:
+            _dict['last_activity_at'] = None
+
         # set to None if muted_until (nullable) is None
         # and model_fields_set contains the field
         if self.muted_until is None and "muted_until" in self.model_fields_set:
@@ -215,6 +234,9 @@ class AgentResponse(BaseModel):
             "is_autocreated": obj.get("is_autocreated") if obj.get("is_autocreated") is not None else True,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
             "last_fetched": obj.get("last_fetched"),
+            "trace_count": obj.get("trace_count"),
+            "inference_count": obj.get("inference_count"),
+            "last_activity_at": obj.get("last_activity_at"),
             "muted_until": obj.get("muted_until"),
             "id": obj.get("id"),
             "workspace_id": obj.get("workspace_id"),

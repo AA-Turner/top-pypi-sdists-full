@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.3.2
+Version: 1.3.3
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -44,7 +44,8 @@ Requires-Dist: aiobotocore>=3.9.1,<4 ; extra == 'bedrock'
 Requires-Dist: dashscope>=1.25.13 ; extra == 'dashscope'
 Requires-Dist: ddgs>=9.0.0,<10 ; extra == 'ddgs'
 Requires-Dist: elevenlabs>=2.73.0,<3 ; extra == 'elevenlabs'
-Requires-Dist: google-genai>=1.68.0,<3.0 ; extra == 'gemini'
+Requires-Dist: google-genai>=1.68.0,<4 ; extra == 'gemini'
+Requires-Dist: httpx2>=2.0.0,<3 ; extra == 'gemini'
 Requires-Dist: google-auth ; extra == 'gemini'
 Requires-Dist: mcp>=2.3.0,<3 ; extra == 'mcp'
 Requires-Dist: mcp-types>=2.3.0,<3 ; extra == 'mcp'

@@ -21,6 +21,7 @@ from pyomo.common.numeric_types import native_complex_types
 from pyomo.common.shutdown import python_is_shutting_down
 from pyomo.common.timing import HierarchicalTimer
 
+from pyomo.contrib.solver.common.base import Availability
 from pyomo.contrib.solver.common.factory import SolverFactory
 from pyomo.contrib.solver.common.util import NoSolutionError
 from .gurobi_direct_base import GurobiDirectBase, GurobiDirectSolutionLoaderBase

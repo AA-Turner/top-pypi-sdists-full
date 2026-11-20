@@ -36,7 +36,8 @@ class TestJobDequeueParameters(unittest.TestCase):
         if include_optional:
             return JobDequeueParameters(
                 memory_limit_mb = 56,
-                discovery_source_test = True
+                discovery_source_test = True,
+                agent_task_sync = True
             )
         else:
             return JobDequeueParameters(

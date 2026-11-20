@@ -207,13 +207,18 @@ class PhoneNumbersResource:
         return self._client._get("/v1/phone-numbers/availability", params=params)
 
     def get_phone_number_kyc_form(
-        self, country: str, *, number_type: str | None = None
+        self,
+        country: str,
+        *,
+        number_type: str | None = None,
+        profile_id: str | None = None,
     ) -> dict[str, Any]:
         """Get KYC form spec"""
         params = self._build_query(
             {
                 "country": country,
                 "numberType": number_type,
+                "profileId": profile_id,
             }
         )
         return self._client._get("/v1/phone-numbers/kyc", params=params)
@@ -229,6 +234,7 @@ class PhoneNumbersResource:
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         phone_number: str | None = None,
         pre_order: bool | None = None,
         end_user_first_name: str | None = None,
@@ -248,6 +254,7 @@ class PhoneNumbersResource:
                 "reuseOptionId": reuse_option_id,
                 "reuseFrom": reuse_from,
                 "areaCode": area_code,
+                "purchaseIntentId": purchase_intent_id,
                 "phoneNumber": phone_number,
                 "preOrder": pre_order,
                 "endUserFirstName": end_user_first_name,
@@ -303,6 +310,7 @@ class PhoneNumbersResource:
         country: str,
         *,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         language: str | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
@@ -313,6 +321,7 @@ class PhoneNumbersResource:
                 "profileId": profile_id,
                 "country": country,
                 "areaCode": area_code,
+                "purchaseIntentId": purchase_intent_id,
                 "language": language,
                 "branding": branding,
                 "redirect_url": redirect_url,
@@ -622,13 +631,18 @@ class PhoneNumbersResource:
         return await self._client._aget("/v1/phone-numbers/availability", params=params)
 
     async def aget_phone_number_kyc_form(
-        self, country: str, *, number_type: str | None = None
+        self,
+        country: str,
+        *,
+        number_type: str | None = None,
+        profile_id: str | None = None,
     ) -> dict[str, Any]:
         """Get KYC form spec (async)"""
         params = self._build_query(
             {
                 "country": country,
                 "numberType": number_type,
+                "profileId": profile_id,
             }
         )
         return await self._client._aget("/v1/phone-numbers/kyc", params=params)
@@ -644,6 +658,7 @@ class PhoneNumbersResource:
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         phone_number: str | None = None,
         pre_order: bool | None = None,
         end_user_first_name: str | None = None,
@@ -663,6 +678,7 @@ class PhoneNumbersResource:
                 "reuseOptionId": reuse_option_id,
                 "reuseFrom": reuse_from,
                 "areaCode": area_code,
+                "purchaseIntentId": purchase_intent_id,
                 "phoneNumber": phone_number,
                 "preOrder": pre_order,
                 "endUserFirstName": end_user_first_name,
@@ -718,6 +734,7 @@ class PhoneNumbersResource:
         country: str,
         *,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         language: str | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
@@ -728,6 +745,7 @@ class PhoneNumbersResource:
                 "profileId": profile_id,
                 "country": country,
                 "areaCode": area_code,
+                "purchaseIntentId": purchase_intent_id,
                 "language": language,
                 "branding": branding,
                 "redirect_url": redirect_url,

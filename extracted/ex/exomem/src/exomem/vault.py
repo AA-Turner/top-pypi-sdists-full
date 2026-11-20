@@ -5512,7 +5512,7 @@ def post_commit_batch_fanout(
     # self-writes so the watcher does not re-observe them, and the graph
     # epoch check below.
     with call_spans.span("index.self_write_registration", {"paths": len(replaced)}):
-        corpus_published = file_watcher.register_self_write_and_close(
+        corpus_publication = file_watcher.register_self_write_and_close(
             vault_root, replaced, publication_intents
         )
     try:
@@ -5520,7 +5520,10 @@ def post_commit_batch_fanout(
 
         kwargs: dict[str, Any] = {
             "created_paths": list(created_paths),
-            "publish_corpus_change": not corpus_published,
+            # A handed-off publication is still owed like False, but the
+            # publish worker owns the delta: republishing it inline would
+            # race that worker under this same boundary.
+            "publish_corpus_change": corpus_publication is False,
         }
         if semantic_states:
             kwargs["semantic_states"] = semantic_states
@@ -9842,6 +9845,9 @@ def writer_link_visibility(vault_root: Path) -> Callable[[str], bool] | None:
     """
     from .governance import egress
 
+    # A bound store hands every caller a release filter, the owner's too; "restricted" is the question this answers.
+    if not egress.caller_restricted(vault_root):
+        return None
     return egress.visible_page_filter(vault_root)
 
 

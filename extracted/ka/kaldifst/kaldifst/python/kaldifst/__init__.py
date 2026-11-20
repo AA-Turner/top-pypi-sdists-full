@@ -1,4 +1,5 @@
 from kaldifst.lib._kaldifst import (
+    lookahead_compose_fst,
     FloatWeight,
     Lattice,
     LatticeArc,
@@ -44,4 +45,4 @@ from .table_types import (
     SequentialVectorFstReader,
     VectorFstWriter,
 )
-__version__ = '1.9.0'
+__version__ = '1.9.1'

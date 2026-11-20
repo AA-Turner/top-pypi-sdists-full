@@ -71,22 +71,22 @@ def info(title: str, message: str, level: Literal['success', 'info', 'warning'] 
             return gr.Warning(message, **kwargs)
 
 
-def error(title: str, message: str): # pragma: no cover
+def error(title: str, message: str, print_exception: bool = False): # pragma: no cover
     params = inspect.signature(gr.Error).parameters
     kwargs: dict[str, Any] = {}
     if 'title' in params:
         kwargs = {**kwargs, 'title': title}
     if 'print_exception' in params:
-        kwargs = {**kwargs, 'print_exception': False}
+        kwargs = {**kwargs, 'print_exception': print_exception}
     return gr.Error(message, **kwargs)
 
 
-def exception_mapper(detail: ZeroGPUError, exc: Exception | None, show_error: bool):
+def exception_mapper(detail: ZeroGPUError, exc: Exception | None, show_error: bool, print_exception: bool):
     if isinstance(exc, gr.Error):
         exc.print_exception = False
         return exc
     message = str(exc) if exc is not None and show_error else detail['message']
-    return error(detail['title'], message)
+    return error(detail['title'], message, print_exception)
 
 
 def log_emitter(log: ZeroGPULog): # pragma: no cover
@@ -232,12 +232,14 @@ def patch():
                         detail=exc.detail,
                         exc=exc.exception,
                         show_error=blocks.show_error,
+                        print_exception=exc.print_exception,
                     ) from exc
                 except ZeroGPUException as exc:
                     raise exception_mapper(
                         detail=exc.detail,
                         exc=None,
                         show_error=blocks.show_error,
+                        print_exception=exc.print_exception,
                     ) from exc
 
         return wrap_with_context(wrapped, execution_context)

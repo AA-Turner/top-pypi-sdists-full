@@ -28,8 +28,12 @@ from .literals import (
     DomainListTypeType,
     FirewallDomainListStatusType,
     FirewallDomainRedirectionActionType,
+    FirewallDomainStatusFilterType,
+    FirewallDomainStatusType,
     FirewallDomainUpdateOperationType,
     FirewallFailOpenStatusType,
+    FirewallRuleDomainSortByType,
+    FirewallRuleDomainSortOrderType,
     FirewallRuleGroupAssociationStatusType,
     FirewallRuleGroupStatusType,
     IpAddressStatusType,
@@ -66,6 +70,7 @@ __all__ = (
     "AssociateResolverQueryLogConfigResponseTypeDef",
     "AssociateResolverRuleRequestTypeDef",
     "AssociateResolverRuleResponseTypeDef",
+    "AutoAllowlistConfigTypeDef",
     "BatchCreateFirewallRuleErrorTypeDef",
     "BatchCreateFirewallRuleRequestTypeDef",
     "BatchCreateFirewallRuleResponseTypeDef",
@@ -120,6 +125,7 @@ __all__ = (
     "FirewallConfigTypeDef",
     "FirewallDomainListMetadataTypeDef",
     "FirewallDomainListTypeDef",
+    "FirewallRuleDomainTypeDef",
     "FirewallRuleGroupAssociationTypeDef",
     "FirewallRuleGroupMetadataTypeDef",
     "FirewallRuleGroupTypeDef",
@@ -170,6 +176,10 @@ __all__ = (
     "ListFirewallDomainsRequestPaginateTypeDef",
     "ListFirewallDomainsRequestTypeDef",
     "ListFirewallDomainsResponseTypeDef",
+    "ListFirewallRuleDomainsQueryOptionsTypeDef",
+    "ListFirewallRuleDomainsRequestPaginateTypeDef",
+    "ListFirewallRuleDomainsRequestTypeDef",
+    "ListFirewallRuleDomainsResponseTypeDef",
     "ListFirewallRuleGroupAssociationsRequestPaginateTypeDef",
     "ListFirewallRuleGroupAssociationsRequestTypeDef",
     "ListFirewallRuleGroupAssociationsResponseTypeDef",
@@ -337,6 +347,11 @@ class ResolverRuleAssociationTypeDef(TypedDict):
     Status: NotRequired[ResolverRuleAssociationStatusType]
     StatusMessage: NotRequired[str]
 
+class AutoAllowlistConfigTypeDef(TypedDict):
+    InitialDataTimeframeHours: int
+    ImportFromFirewallDomainListId: NotRequired[str]
+    AutoAllowlistFirewallDomainListId: NotRequired[str]
+
 class DeleteFirewallRuleEntryTypeDef(TypedDict):
     FirewallRuleGroupId: str
     FirewallDomainListId: NotRequired[str]
@@ -474,6 +489,16 @@ class FirewallDomainListMetadataTypeDef(TypedDict):
     ManagedOwnerName: NotRequired[str]
     ManagedListType: NotRequired[DomainListTypeType]
     Category: NotRequired[str]
+    FirewallRuleGroupId: NotRequired[str]
+    FirewallThreatProtectionId: NotRequired[str]
+    Status: NotRequired[FirewallDomainListStatusType]
+
+class FirewallRuleDomainTypeDef(TypedDict):
+    DomainName: NotRequired[str]
+    DomainStatus: NotRequired[FirewallDomainStatusType]
+    Last24HourRequests: NotRequired[int]
+    TotalRequests: NotRequired[int]
+    AddedTime: NotRequired[str]
 
 class FirewallRuleGroupMetadataTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -579,6 +604,12 @@ class ListFirewallDomainsRequestTypeDef(TypedDict):
     FirewallDomainListId: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class ListFirewallRuleDomainsQueryOptionsTypeDef(TypedDict):
+    DomainStatus: NotRequired[FirewallDomainStatusFilterType]
+    SortBy: NotRequired[FirewallRuleDomainSortByType]
+    SortOrder: NotRequired[FirewallRuleDomainSortOrderType]
+    DomainNameFilter: NotRequired[str]
 
 class ListFirewallRuleGroupAssociationsRequestTypeDef(TypedDict):
     FirewallRuleGroupId: NotRequired[str]
@@ -871,6 +902,8 @@ class DeleteFirewallDomainListResponseTypeDef(TypedDict):
 
 class GetFirewallDomainListResponseTypeDef(TypedDict):
     FirewallDomainList: FirewallDomainListTypeDef
+    FirewallRuleGroupId: str
+    FirewallThreatProtectionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFirewallRuleGroupResponseTypeDef(TypedDict):
@@ -1025,6 +1058,11 @@ class ListFirewallDomainListsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListFirewallRuleDomainsResponseTypeDef(TypedDict):
+    Domains: list[FirewallRuleDomainTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListFirewallRuleGroupsResponseTypeDef(TypedDict):
     FirewallRuleGroups: list[FirewallRuleGroupMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1042,6 +1080,7 @@ class FirewallRuleTypeTypeDef(TypedDict):
     FirewallAdvancedContentCategory: NotRequired[FirewallAdvancedContentCategoryConfigTypeDef]
     FirewallAdvancedThreatCategory: NotRequired[FirewallAdvancedThreatCategoryConfigTypeDef]
     DnsThreatProtection: NotRequired[DnsThreatProtectionRuleTypeConfigTypeDef]
+    AutoAllowlist: NotRequired[AutoAllowlistConfigTypeDef]
 
 class GetResolverConfigResponseTypeDef(TypedDict):
     ResolverConfig: ResolverConfigTypeDef
@@ -1147,6 +1186,21 @@ class ListResolverRulesRequestPaginateTypeDef(TypedDict):
 class ListTagsForResourceRequestPaginateTypeDef(TypedDict):
     ResourceArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFirewallRuleDomainsRequestPaginateTypeDef(TypedDict):
+    FirewallRuleGroupId: str
+    FirewallThreatProtectionId: NotRequired[str]
+    FirewallDomainListId: NotRequired[str]
+    QueryOptions: NotRequired[ListFirewallRuleDomainsQueryOptionsTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFirewallRuleDomainsRequestTypeDef(TypedDict):
+    FirewallRuleGroupId: str
+    FirewallThreatProtectionId: NotRequired[str]
+    FirewallDomainListId: NotRequired[str]
+    QueryOptions: NotRequired[ListFirewallRuleDomainsQueryOptionsTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class UpdateResolverEndpointRequestTypeDef(TypedDict):
     ResolverEndpointId: str

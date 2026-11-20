@@ -20,6 +20,8 @@ import sys
 from collections.abc import Sequence
 from datetime import datetime
 
+from .literals import WebIdentityTokenSubjectModeTypeType
+
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -46,14 +48,20 @@ __all__ = (
     "GetDelegatedAccessTokenResponseTypeDef",
     "GetFederationTokenRequestTypeDef",
     "GetFederationTokenResponseTypeDef",
+    "GetScopedCredentialsRequestTypeDef",
+    "GetScopedCredentialsResponseTypeDef",
     "GetSessionTokenRequestTypeDef",
     "GetSessionTokenResponseTypeDef",
     "GetWebIdentityTokenRequestTypeDef",
     "GetWebIdentityTokenResponseTypeDef",
+    "OriginIdentityTypeDef",
     "PolicyDescriptorTypeTypeDef",
     "ProvidedContextTypeDef",
     "ResponseMetadataTypeDef",
+    "ScopedSessionTypeDef",
     "TagTypeDef",
+    "TransactionContextTypeDef",
+    "TrustedIdentityPropagationContextTypeDef",
 )
 
 class PolicyDescriptorTypeTypeDef(TypedDict):
@@ -97,11 +105,30 @@ class GetAccessKeyInfoRequestTypeDef(TypedDict):
 class GetDelegatedAccessTokenRequestTypeDef(TypedDict):
     TradeInToken: str
 
+class GetScopedCredentialsRequestTypeDef(TypedDict):
+    Policy: NotRequired[str]
+    DurationSeconds: NotRequired[int]
+    MinimumSessionTokenSize: NotRequired[int]
+    ScopedSessionDescription: NotRequired[str]
+
+class ScopedSessionTypeDef(TypedDict):
+    ScopedSessionId: str
+    Arn: str
+
 class GetSessionTokenRequestTypeDef(TypedDict):
     DurationSeconds: NotRequired[int]
     SerialNumber: NotRequired[str]
     TokenCode: NotRequired[str]
     MinimumSessionTokenSize: NotRequired[int]
+
+class OriginIdentityTypeDef(TypedDict):
+    Subject: NotRequired[str]
+    SubjectType: NotRequired[str]
+    Issuer: NotRequired[str]
+    FederatedProviderArn: NotRequired[str]
+
+class TransactionContextTypeDef(TypedDict):
+    IdentityProvider: NotRequired[dict[str, str]]
 
 class AssumeRoleWithSAMLRequestTypeDef(TypedDict):
     RoleArn: str
@@ -155,38 +182,14 @@ class GetWebIdentityTokenRequestTypeDef(TypedDict):
     Audience: Sequence[str]
     SigningAlgorithm: str
     DurationSeconds: NotRequired[int]
+    Scope: NotRequired[str]
+    SubjectMode: NotRequired[WebIdentityTokenSubjectModeTypeType]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class AssumeRoleResponseTypeDef(TypedDict):
     Credentials: CredentialsTypeDef
     AssumedRoleUser: AssumedRoleUserTypeDef
     PackedPolicySize: int
-    SourceIdentity: str
-    SessionTokenUtilization: int
-    SessionTokenSize: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class AssumeRoleWithSAMLResponseTypeDef(TypedDict):
-    Credentials: CredentialsTypeDef
-    AssumedRoleUser: AssumedRoleUserTypeDef
-    PackedPolicySize: int
-    Subject: str
-    SubjectType: str
-    Issuer: str
-    Audience: str
-    NameQualifier: str
-    SourceIdentity: str
-    SessionTokenUtilization: int
-    SessionTokenSize: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class AssumeRoleWithWebIdentityResponseTypeDef(TypedDict):
-    Credentials: CredentialsTypeDef
-    SubjectFromWebIdentityToken: str
-    AssumedRoleUser: AssumedRoleUserTypeDef
-    PackedPolicySize: int
-    Provider: str
-    Audience: str
     SourceIdentity: str
     SessionTokenUtilization: int
     SessionTokenSize: int
@@ -236,4 +239,45 @@ class GetFederationTokenResponseTypeDef(TypedDict):
     PackedPolicySize: int
     SessionTokenUtilization: int
     SessionTokenSize: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetScopedCredentialsResponseTypeDef(TypedDict):
+    Credentials: CredentialsTypeDef
+    SessionInfo: ScopedSessionTypeDef
+    SessionTokenUtilization: int
+    SessionTokenSize: int
+    ScopedPoliciesCount: int
+    SourceIdentity: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TrustedIdentityPropagationContextTypeDef(TypedDict):
+    OriginIdentity: NotRequired[OriginIdentityTypeDef]
+    TransactionContext: NotRequired[TransactionContextTypeDef]
+
+class AssumeRoleWithSAMLResponseTypeDef(TypedDict):
+    Credentials: CredentialsTypeDef
+    AssumedRoleUser: AssumedRoleUserTypeDef
+    PackedPolicySize: int
+    Subject: str
+    SubjectType: str
+    Issuer: str
+    Audience: str
+    NameQualifier: str
+    SourceIdentity: str
+    SessionTokenUtilization: int
+    SessionTokenSize: int
+    TrustedIdentityPropagationContext: TrustedIdentityPropagationContextTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class AssumeRoleWithWebIdentityResponseTypeDef(TypedDict):
+    Credentials: CredentialsTypeDef
+    SubjectFromWebIdentityToken: str
+    AssumedRoleUser: AssumedRoleUserTypeDef
+    PackedPolicySize: int
+    Provider: str
+    Audience: str
+    SourceIdentity: str
+    SessionTokenUtilization: int
+    SessionTokenSize: int
+    TrustedIdentityPropagationContext: TrustedIdentityPropagationContextTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

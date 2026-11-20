@@ -4984,6 +4984,17 @@ class TestIrodoriGenerateSmoke(unittest.TestCase):
         self.assertEqual(results[0].sample_rate, 48000)
         self.assertGreater(results[0].samples, 0)
 
+    def test_generate_seed_alias(self):
+        model = self._make_model()
+        cases = [({}, 0), ({"seed": 7}, 7), ({"seed": 7, "rng_seed": 0}, 0)]
+        with patch.object(
+            model, "generate_latents", wraps=model.generate_latents
+        ) as sample:
+            for kwargs, expected in cases:
+                with self.subTest(kwargs=kwargs):
+                    next(model.generate("こんにちは", **kwargs))
+                    self.assertEqual(sample.call_args.kwargs["rng_seed"], expected)
+
     def test_generate_with_ref_audio(self):
         from mlx_audio.tts.models.irodori_tts.irodori_tts import Model
 
@@ -8776,6 +8787,45 @@ class TestMeloTTSText(unittest.TestCase):
         self.assertEqual(text_normalize("£3"), "three pounds sterling")
         self.assertEqual(text_normalize("€2.5"), "two euros fifty cents")
         self.assertEqual(text_normalize("¥100"), "one hundred yen")
+
+    def test_text_normalize_minus_sign(self):
+        from mlx_audio.tts.models.melotts.text import text_normalize
+
+        self.assertEqual(
+            text_normalize("It was -5 degrees."), "it was minus five degrees."
+        )
+        self.assertEqual(text_normalize("-2.5"), "minus two point five")
+        self.assertEqual(text_normalize("-0.5"), "minus zero point five")
+        self.assertEqual(text_normalize("(-3)"), "(minus three)")
+        self.assertEqual(text_normalize("[-4, 4]"), "[minus four, four]")
+        self.assertEqual(text_normalize("-1,000,000"), "minus one million")
+        # A hyphen between digits or after a letter is not a sign.
+        self.assertEqual(text_normalize("5-10 minutes"), "five-ten minutes")
+        self.assertEqual(text_normalize("covid-19"), "covid-nineteen")
+        self.assertEqual(text_normalize("pages 10 - 20"), "pages ten - twenty")
+
+    def test_text_normalize_millions(self):
+        from mlx_audio.tts.models.melotts.text import text_normalize
+
+        self.assertEqual(text_normalize("2,000,000 people"), "two million people")
+        self.assertEqual(
+            text_normalize("1,500,000"), "one million five hundred thousand"
+        )
+        self.assertEqual(text_normalize("1000001"), "one million one")
+        self.assertEqual(text_normalize("3,000,000,000"), "three billion")
+        self.assertEqual(text_normalize("42,000"), "forty two thousand")
+
+    def test_text_normalize_times(self):
+        from mlx_audio.tts.models.melotts.text import text_normalize
+
+        self.assertEqual(
+            text_normalize("Meet at 3:30 pm today."), "meet at three thirty p m today."
+        )
+        self.assertEqual(text_normalize("9:05 A.M."), "nine oh five a m.")
+        self.assertEqual(text_normalize("at 12:00am"), "at twelve a m")
+        self.assertEqual(text_normalize("15:45"), "fifteen forty five")
+        self.assertEqual(text_normalize("at 7:00"), "at seven")
+        self.assertEqual(text_normalize("3:30 amazing"), "three thirty amazing")
 
     def _require_g2p(self):
         try:

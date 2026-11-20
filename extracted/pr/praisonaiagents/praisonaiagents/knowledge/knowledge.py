@@ -58,7 +58,7 @@ class Knowledge:
     def __init__(self, config=None, verbose=None):
         self._config = config
         self._verbose = verbose or 0
-        os.environ['ANONYMIZED_TELEMETRY'] = 'False'  # Chromadb
+        os.environ.setdefault('ANONYMIZED_TELEMETRY', 'False')  # Chromadb; a host value wins (T-07)
         
         # Configure logging levels based on verbose setting
         if not self._verbose:
@@ -358,7 +358,8 @@ class Knowledge:
             elif event_type == "add":
                 emitter.knowledge_add(agent_name, source, chunk_count, metadata)
         except Exception:
-            pass  # Silent fail - tracing should never break knowledge operations
+            # Tracing must never break knowledge operations.
+            logger.debug("Knowledge %s trace event failed", event_type, exc_info=True)
 
     def store(self, content, user_id=None, agent_id=None, run_id=None, metadata=None, is_content=False):
         """Store a memory.
@@ -802,10 +803,18 @@ class Knowledge:
         same path as local files. Failures are surfaced to the caller so a
         single bad URL in a batch is visible, matching local-file behaviour.
         """
-        from ..tools.url_safety import is_safe_http_url
+        import io
+        import mimetypes
+        from ..tools.url_safety import is_safe_http_url, safe_fetch
         if not is_safe_http_url(url):
             raise ValueError(f"Refusing to fetch unsafe URL: {url}")
-        result = self.markdown.convert(url)
+        # Fetched here (pinned, every redirect re-checked), then converted.
+        response = safe_fetch(url)
+        response.raise_for_status()
+        ctype = response.headers.get("content-type", "").split(";")[0].strip()
+        result = self.markdown.convert_stream(
+            io.BytesIO(response.content), url=str(response.url),
+            file_extension=mimetypes.guess_extension(ctype) or os.path.splitext(response.url.path)[1] or None)
         content = getattr(result, 'text_content', None)
         if not content:
             raise ValueError(f"No content could be extracted from URL: {url}")

@@ -40,6 +40,7 @@ class TestMuteUnregisteredAgentsRequest(unittest.TestCase):
                     ],
                 filters = arthur_client.api_bindings.models.unregistered_agent_filter.UnregisteredAgentFilter(
                     name_filter = '', 
+                    search = '', 
                     agent_ids = [
                         ''
                         ], 

@@ -292,7 +292,7 @@ class GoogleFlightsNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.google_flights.calendar(departureDateFrom="2026-12-19", departureDateTo="2027-01-17", destination="LHR", origin="JFK")
+            res = client.google_flights.calendar(departureDateFrom="2026-12-20", departureDateTo="2027-01-18", destination="LHR", origin="JFK")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.calendar", dict(input), options
@@ -320,7 +320,7 @@ class GoogleFlightsNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.google_flights.search(departureDate="2026-12-19", destination="LHR", origin="JFK")
+            res = client.google_flights.search(departureDate="2026-12-20", destination="LHR", origin="JFK")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.search", dict(input), options
@@ -352,7 +352,7 @@ class AsyncGoogleFlightsNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.google_flights.calendar(departureDateFrom="2026-12-19", departureDateTo="2027-01-17", destination="LHR", origin="JFK")
+            res = client.google_flights.calendar(departureDateFrom="2026-12-20", departureDateTo="2027-01-18", destination="LHR", origin="JFK")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.calendar", dict(input), options
@@ -380,7 +380,7 @@ class AsyncGoogleFlightsNamespace:
         Price: $0.00085 per request.
 
         Example:
-            res = client.google_flights.search(departureDate="2026-12-19", destination="LHR", origin="JFK")
+            res = client.google_flights.search(departureDate="2026-12-20", destination="LHR", origin="JFK")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.search", dict(input), options

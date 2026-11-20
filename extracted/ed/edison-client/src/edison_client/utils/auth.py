@@ -1,8 +1,9 @@
 import logging
 from collections.abc import Collection, Generator
-from typing import ClassVar
+from typing import ClassVar, assert_never
 
 import httpx
+from typing_extensions import override
 
 from edison_client.models.app import APIKeyPayload, AuthType
 
@@ -17,6 +18,7 @@ def _run_auth(
     api_key: str | None = None,
     jwt: str | None = None,
 ) -> str:
+    auth_type = AuthType(auth_type)
     auth_payload: APIKeyPayload | None
     if auth_type == AuthType.API_KEY:
         if api_key is None:
@@ -24,17 +26,24 @@ def _run_auth(
         auth_payload = APIKeyPayload(api_key=api_key)
     elif auth_type == AuthType.JWT:
         auth_payload = None
+    else:
+        assert_never(auth_type)
     try:
         if auth_payload:
             response = client.post("/auth/login", json=auth_payload.model_dump())
             response.raise_for_status()
             token_data = response.json()
-            return token_data["access_token"]
+            token = token_data["access_token"]
+            if not isinstance(token, str) or not token:
+                raise ValueError(
+                    "Authentication response access_token must be a non-empty string"
+                )
+            return token
         if jwt:
             return jwt
         raise ValueError("JWT token required for JWT authentication.")
     except Exception as e:
-        raise Exception("Failed to authenticate") from e  # noqa: TRY002
+        raise Exception("Failed to authenticate") from e  # ruff: ignore[raise-vanilla-class]
 
 
 class RefreshingJWT(httpx.Auth):
@@ -51,24 +60,20 @@ class RefreshingJWT(httpx.Auth):
         auth_type: AuthType = AuthType.API_KEY,
         api_key: str | None = None,
         jwt: str | None = None,
-    ):
+    ) -> None:
         self.auth_type = auth_type
         self.auth_client = auth_client
         self.api_key = api_key
         self._jwt = _run_auth(
-            client=auth_client,
-            jwt=jwt,
-            auth_type=auth_type,
-            api_key=api_key,
+            client=auth_client, jwt=jwt, auth_type=auth_type, api_key=api_key
         )
 
     def refresh_token(self) -> None:
         self._jwt = _run_auth(
-            client=self.auth_client,
-            auth_type=self.auth_type,
-            api_key=self.api_key,
+            client=self.auth_client, auth_type=self.auth_type, api_key=self.api_key
         )
 
+    @override
     def auth_flow(
         self, request: httpx.Request
     ) -> Generator[httpx.Request, httpx.Response, None]:

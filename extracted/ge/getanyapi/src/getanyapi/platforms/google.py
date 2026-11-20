@@ -277,7 +277,7 @@ class GoogleSearchInput(TypedDict, total=False):
     autocorrect: NotRequired[bool]
     """Toggle Google spelling autocorrect (default true). Set false to search the exact query without correction."""
     cursor: NotRequired[str]
-    """Deprecated: send page instead. A continuation token from an earlier response's nextCursor is still accepted and still continues on the source that issued it; page is ignored when cursor is sent alongside it."""
+    """Deprecated: send page instead. A token from an earlier response's nextCursor continues on the source that issued it; page is ignored when cursor is sent alongside it. A token issued for a query restricted with site: may be refused; repeat the request with page instead."""
     gl: NotRequired[str]
     """Two-letter country code for result localization (e.g. us, gb, de). Default: us."""
     hl: NotRequired[str]
@@ -289,15 +289,15 @@ class GoogleSearchInput(TypedDict, total=False):
     location: NotRequired[str]
     """Fine-grained location to localize results to, more specific than the country-level gl. Send it as an Active Canonical Name from Google's geo-target list: place, then each parent region, then country, with no space after each comma, e.g. 'New York,New York,United States', 'Austin,Texas,United States', 'London,England,United Kingdom'. Common variations are translated to that name when they point to exactly one place: spaces after commas, missing accents, a US state abbreviation ('Orlando, FL, United States'), or a skipped region ('Sydney, Australia'). A value that names no place, or more than one, is rejected rather than quietly searched from somewhere else."""
     page: NotRequired[int]
-    """Which page of about 10 organic results to return, starting at 1. Send page 2, 3, ... to walk deeper; each page is billed as one request and any source can serve any page. Replaces cursor. Minimum: 1. Default: 1."""
+    """Which page of about 10 organic results to return, starting at 1. Send page 2, 3, ... to walk deeper; each page is billed as one request. Past page 1, a query restricted with site: is served only by sources that keep the restriction on later pages. Replaces cursor. Minimum: 1. Default: 1."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
     """The Google search query."""
     requireCursor: NotRequired[bool]
-    """Deprecated. Every source for this search returns a nextCursor, so this changes nothing about the price or which source serves you; it stays accepted so callers that already send it keep working."""
+    """Deprecated: send page instead. Serves the request only from a source that returns a nextCursor for it. Some sources return none for a query restricted with site:, so for such a query this can pick a dearer source."""
     source: NotRequired[list[str]]
-    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`. On this endpoint, a source marked `byName` in `lanes` serves only requests that name it in `source`: a request that does not name it is never answered by it, even when every other source fails, except a next page continuing a cursor it issued. Its results can differ from the other sources', so name it after testing it."""
     timeframe: NotRequired[Literal["1h", "1d", "7d", "1y", "all"]]
     """Restrict results to a recent time window: 1h, 1d, 7d, 1y, or all. Default all (no time restriction)."""
 
@@ -923,7 +923,7 @@ class GoogleSearchData(BaseModel):
     next_cursor: str | None = Field(
         default=None,
         alias="nextCursor",
-        description="Opaque cursor for the next page of results, or null when this lane has no more. Pass it back as cursor to continue.",
+        description="Opaque cursor for the next page of results. Pass it back as cursor to continue. Null when the source that answered has no more results, or cannot continue this search (some sources on a query restricted with site:); send page for the next page instead.",
     )
     query: str
     results: list[GoogleSearchResult] = Field(
@@ -1271,7 +1271,7 @@ class GoogleNamespace:
         Search Google News by keyword and get fresh articles (headlines, sources,
         links, and publish times) as clean JSON.
 
-        Price: $0.00089 per request.
+        Price: $0.00088 per request.
 
         Example:
             res = client.google.news(gl="us", hl="en", query="openai")
@@ -1413,7 +1413,7 @@ class GoogleNamespace:
         build the list, so a call can take up to about five minutes - use
         google.search when you want the first page back in a second.
 
-        Price: $0.024 per request.
+        Price: $0.0018 per request.
 
         Example:
             res = client.google.search_100(gl="us", hl="en", query="best crm software")
@@ -1700,7 +1700,7 @@ class AsyncGoogleNamespace:
         Search Google News by keyword and get fresh articles (headlines, sources,
         links, and publish times) as clean JSON.
 
-        Price: $0.00089 per request.
+        Price: $0.00088 per request.
 
         Example:
             res = client.google.news(gl="us", hl="en", query="openai")
@@ -1842,7 +1842,7 @@ class AsyncGoogleNamespace:
         build the list, so a call can take up to about five minutes - use
         google.search when you want the first page back in a second.
 
-        Price: $0.024 per request.
+        Price: $0.0018 per request.
 
         Example:
             res = client.google.search_100(gl="us", hl="en", query="best crm software")

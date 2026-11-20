@@ -1939,7 +1939,7 @@ class OpenAIClient:
                 metadata={"provider": "openai", "stream": False},
             )
         except Exception:
-            pass
+            logger.debug("Token usage tracking failed for model %s", model, exc_info=True)
 
     def create_completion(
         self,
@@ -2341,7 +2341,8 @@ class OpenAIClient:
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
                 cost=cost,
-                latency_ms=llm_latency_ms
+                latency_ms=llm_latency_ms,
+                usage=usage,
             )
 
             # Check for tool calls

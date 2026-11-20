@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-core
-Version: 0.20.0
+Version: 0.20.1
 Summary: Megatron Core - a library for efficient and scalable training of transformer based models
 Author-email: NVIDIA <nemo-toolkit@nvidia.com>
 Maintainer-email: NVIDIA <nemo-toolkit@nvidia.com>
@@ -63,7 +63,7 @@ Requires-Dist: megatron-energon[av_decode]~=7.0; extra == "dev"
 Requires-Dist: av; extra == "dev"
 Requires-Dist: Pillow>=13.0.0; extra == "dev"
 Requires-Dist: flashinfer-python<0.7.0,>=0.5.0; extra == "dev"
-Requires-Dist: nvidia-cudnn-frontend[cutedsl]==1.29.0; extra == "dev"
+Requires-Dist: nvidia-cudnn-frontend[cutedsl]==1.29.1; extra == "dev"
 Requires-Dist: wget; extra == "dev"
 Requires-Dist: onnxscript; extra == "dev"
 Requires-Dist: fastapi~=0.50; extra == "dev"

@@ -186,6 +186,16 @@ jobs:
     - name: Benchmarks run
       run: make bench-run-check
 
+    # The rows that run just measured, each with its recorded unit, held to
+    # benchmarks/labels.toml at PR time (#2390): a new row with no label was
+    # first seen on release day, as #3029's five were at v0.83.0. One leg:
+    # the rows are the same on both, and the checker needs tomllib, which
+    # the 22.04 image's Python 3.10 lacks. It fails, naming the module, if a
+    # future image's python3 has none, so an image bump cannot turn it off.
+    - name: Benchmark rows are labelled
+      if: matrix.os == 'ubuntu-24.04'
+      run: make bench-labels-pr-check BENCH_LABELS_SUITE=c
+
     # dp_isotime.h follows just-bashit's `iso-8601-basic` rather than defining
     # the format itself, so the reference has to be present for the agreement
     # to be checkable at all. Clone it and set ISOTIME_REQUIRE=1: without the
@@ -239,6 +249,14 @@ jobs:
       # rename; a downstream could read them, include them, and fail at
       # link time. Reads `nm`, so it needs the build above.
       run: make installed-headers-check
+
+    - name: Verify installed headers parse as C++, and a C++ consumer runs
+      # No C++ compiler reads a doppler header anywhere else: the build is
+      # LANGUAGES C. So a header that stopped parsing as C++ was found by a
+      # downstream (#3108). Both g++ and clang++, from the image; they
+      # disagree about real things, which is also why this is in the Linux
+      # job alone: on macOS `g++` IS clang++.
+      run: make cxx-headers-check
 
     - name: Verify the exported CMake link interface names no absolute path
       # v0.51.0 exported find_library's `/usr/lib64/libm.so` into
@@ -640,11 +658,20 @@ jobs:
 
     - name: Test with coverage
       # The primary leg: the coverage.xml it writes is uploaded below.
+      # BENCH_ROWS=1 also records every Python benchmark row the run
+      # measured, for the next step.
       if: matrix.python-version == needs.pythons.outputs.primary
       run: |
-        make test-python PYTEST_ARGS="--cov \
+        make test-python BENCH_ROWS=1 PYTEST_ARGS="--cov \
           --cov-report=term-missing \
           --cov-report=xml:coverage.xml"
+
+    # Every Python benchmark row this run measured is labelled (#2390): the
+    # pull request half of bench-coverage-check's release-time label gate.
+    # Its unit is not checked -- a Python bench's rate needs a timed run.
+    - name: Benchmark rows are labelled
+      if: matrix.python-version == needs.pythons.outputs.primary
+      run: make bench-labels-pr-check BENCH_LABELS_SUITE=py
 
     - name: Python example smoke tests
       # BEFORE nats-down, deliberately. The examples gate runs the
@@ -1052,7 +1079,11 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     needs: [pin, changes]
     name: ${{ matrix.san.label }}
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: on an ubuntu-26.04 host the TSan runtime
+    # dies at startup ("unexpected memory mapping") before any test runs,
+    # with the same container and tree that pass on 24.04 (#3058). The
+    # image pins the toolchain; this pins the one input it cannot.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false

@@ -13,6 +13,8 @@ Usage::
     from mypy_boto3_kafka.client import KafkaClient
     from mypy_boto3_kafka.paginator import (
         DescribeTopicPartitionsPaginator,
+        ListAssessmentFindingsPaginator,
+        ListAssessmentsPaginator,
         ListClientVpcConnectionsPaginator,
         ListClusterOperationsPaginator,
         ListClusterOperationsV2Paginator,
@@ -24,6 +26,7 @@ Usage::
         ListNodesPaginator,
         ListReplicatorsPaginator,
         ListScramSecretsPaginator,
+        ListTopicReassignmentsPaginator,
         ListTopicsPaginator,
         ListVpcConnectionsPaginator,
     )
@@ -32,6 +35,8 @@ Usage::
     client: KafkaClient = session.client("kafka")
 
     describe_topic_partitions_paginator: DescribeTopicPartitionsPaginator = client.get_paginator("describe_topic_partitions")
+    list_assessment_findings_paginator: ListAssessmentFindingsPaginator = client.get_paginator("list_assessment_findings")
+    list_assessments_paginator: ListAssessmentsPaginator = client.get_paginator("list_assessments")
     list_client_vpc_connections_paginator: ListClientVpcConnectionsPaginator = client.get_paginator("list_client_vpc_connections")
     list_cluster_operations_paginator: ListClusterOperationsPaginator = client.get_paginator("list_cluster_operations")
     list_cluster_operations_v2_paginator: ListClusterOperationsV2Paginator = client.get_paginator("list_cluster_operations_v2")
@@ -43,6 +48,7 @@ Usage::
     list_nodes_paginator: ListNodesPaginator = client.get_paginator("list_nodes")
     list_replicators_paginator: ListReplicatorsPaginator = client.get_paginator("list_replicators")
     list_scram_secrets_paginator: ListScramSecretsPaginator = client.get_paginator("list_scram_secrets")
+    list_topic_reassignments_paginator: ListTopicReassignmentsPaginator = client.get_paginator("list_topic_reassignments")
     list_topics_paginator: ListTopicsPaginator = client.get_paginator("list_topics")
     list_vpc_connections_paginator: ListVpcConnectionsPaginator = client.get_paginator("list_vpc_connections")
     ```
@@ -58,6 +64,10 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     DescribeTopicPartitionsRequestPaginateTypeDef,
     DescribeTopicPartitionsResponseTypeDef,
+    ListAssessmentFindingsRequestPaginateTypeDef,
+    ListAssessmentFindingsResponseTypeDef,
+    ListAssessmentsRequestPaginateTypeDef,
+    ListAssessmentsResponseTypeDef,
     ListClientVpcConnectionsRequestPaginateTypeDef,
     ListClientVpcConnectionsResponseTypeDef,
     ListClusterOperationsRequestPaginateTypeDef,
@@ -80,6 +90,8 @@ from .type_defs import (
     ListReplicatorsResponseTypeDef,
     ListScramSecretsRequestPaginateTypeDef,
     ListScramSecretsResponseTypeDef,
+    ListTopicReassignmentsRequestPaginateTypeDef,
+    ListTopicReassignmentsResponseTypeDef,
     ListTopicsRequestPaginateTypeDef,
     ListTopicsResponseTypeDef,
     ListVpcConnectionsRequestPaginateTypeDef,
@@ -93,6 +105,8 @@ else:
 
 __all__ = (
     "DescribeTopicPartitionsPaginator",
+    "ListAssessmentFindingsPaginator",
+    "ListAssessmentsPaginator",
     "ListClientVpcConnectionsPaginator",
     "ListClusterOperationsPaginator",
     "ListClusterOperationsV2Paginator",
@@ -104,6 +118,7 @@ __all__ = (
     "ListNodesPaginator",
     "ListReplicatorsPaginator",
     "ListScramSecretsPaginator",
+    "ListTopicReassignmentsPaginator",
     "ListTopicsPaginator",
     "ListVpcConnectionsPaginator",
 )
@@ -124,6 +139,42 @@ class DescribeTopicPartitionsPaginator(_DescribeTopicPartitionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/DescribeTopicPartitions.html#Kafka.Paginator.DescribeTopicPartitions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#describetopicpartitionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAssessmentFindingsPaginatorBase = Paginator[ListAssessmentFindingsResponseTypeDef]
+else:
+    _ListAssessmentFindingsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAssessmentFindingsPaginator(_ListAssessmentFindingsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListAssessmentFindings.html#Kafka.Paginator.ListAssessmentFindings)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#listassessmentfindingspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssessmentFindingsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAssessmentFindingsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListAssessmentFindings.html#Kafka.Paginator.ListAssessmentFindings.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#listassessmentfindingspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAssessmentsPaginatorBase = Paginator[ListAssessmentsResponseTypeDef]
+else:
+    _ListAssessmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAssessmentsPaginator(_ListAssessmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListAssessments.html#Kafka.Paginator.ListAssessments)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#listassessmentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssessmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAssessmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListAssessments.html#Kafka.Paginator.ListAssessments.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#listassessmentspaginator)
         """
 
 if TYPE_CHECKING:
@@ -322,6 +373,24 @@ class ListScramSecretsPaginator(_ListScramSecretsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListScramSecrets.html#Kafka.Paginator.ListScramSecrets.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#listscramsecretspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTopicReassignmentsPaginatorBase = Paginator[ListTopicReassignmentsResponseTypeDef]
+else:
+    _ListTopicReassignmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListTopicReassignmentsPaginator(_ListTopicReassignmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListTopicReassignments.html#Kafka.Paginator.ListTopicReassignments)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#listtopicreassignmentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTopicReassignmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListTopicReassignmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/paginator/ListTopicReassignments.html#Kafka.Paginator.ListTopicReassignments.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/paginators/#listtopicreassignmentspaginator)
         """
 
 if TYPE_CHECKING:

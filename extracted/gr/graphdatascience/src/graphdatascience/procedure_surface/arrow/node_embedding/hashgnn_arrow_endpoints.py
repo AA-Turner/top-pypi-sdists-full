@@ -8,15 +8,17 @@ from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, AL
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
 from graphdatascience.procedure_surface.api.node_embedding.hashgnn_endpoints import (
-    HashGNNEndpoints,
     HashGNNMutateResult,
     HashGNNWriteResult,
+)
+from graphdatascience.procedure_surface.api.node_embedding.hashgnn_session_endpoints import (
+    HashGNNSessionEndpoints,
 )
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
 from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
-class HashGNNArrowEndpoints(HashGNNEndpoints):
+class HashGNNArrowEndpoints(HashGNNSessionEndpoints):
     """
     Implementation of the HashGNN algorithm endpoints using Arrow Flight backend.
     This class handles the actual execution by forwarding calls to the node property endpoints.
@@ -52,6 +54,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
         username: str | None = None,
         concurrency: int | None = None,
         job_id: str | None = None,
+        result_as_vector: bool = False,
     ) -> JobHandle:
         config = self._node_property_endpoints.create_base_config(
             G,
@@ -71,6 +74,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
             username=username,
             concurrency=concurrency,
             job_id=job_id,
+            result_as_vector=result_as_vector,
         )
         return self._node_property_endpoints.run_job(G, "v2/embeddings.hashgnn", config)
 
@@ -94,6 +98,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
         username: str | None = None,
         concurrency: int | None = None,
         job_id: str | None = None,
+        result_as_vector: bool = False,
     ) -> HashGNNMutateResult:
         """
         Compute node embeddings using HashGNN and store the result as a node property in the in-memory graph.
@@ -117,6 +122,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
             username=username,
             concurrency=concurrency,
             job_id=job_id,
+            result_as_vector=result_as_vector,
         )
 
         result = self._node_property_endpoints.run_job_and_mutate("v2/embeddings.hashgnn", config, mutate_property)
@@ -142,6 +148,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
         username: str | None = None,
         concurrency: int | None = None,
         job_id: str | None = None,
+        result_as_vector: bool = False,
     ) -> DataFrame:
         """
         Compute node embeddings using HashGNN and stream the results.
@@ -165,6 +172,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
             username=username,
             concurrency=concurrency,
             job_id=job_id,
+            result_as_vector=result_as_vector,
         )
 
         return self._node_property_endpoints.run_job_and_stream("v2/embeddings.hashgnn", G, config)
@@ -190,6 +198,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
         job_id: str | None = None,
         write_concurrency: int | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
     ) -> HashGNNWriteResult:
         """
         Compute node embeddings using HashGNN and write the results to the Neo4j database.
@@ -214,6 +223,7 @@ class HashGNNArrowEndpoints(HashGNNEndpoints):
             job_id=job_id,
             write_concurrency=write_concurrency,
             random_seed=random_seed,
+            result_as_vector=result_as_vector,
         )
 
         result = self._node_property_endpoints.run_job_and_write(

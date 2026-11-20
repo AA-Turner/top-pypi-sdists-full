@@ -26,19 +26,28 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import ListDeploymentConfigurationJobsPaginator
 from .type_defs import (
+    GetDeploymentConfigurationJobRequestTypeDef,
+    GetDeploymentConfigurationJobResponseTypeDef,
+    GetDeploymentConfigurationRequestTypeDef,
+    GetDeploymentConfigurationResponseTypeDef,
+    ListDeploymentConfigurationJobsRequestTypeDef,
+    ListDeploymentConfigurationJobsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutDeploymentParameterRequestTypeDef,
     PutDeploymentParameterResponseTypeDef,
+    StartDeploymentConfigurationJobRequestTypeDef,
+    StartDeploymentConfigurationJobResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Unpack
+    from typing import Literal, Unpack
 else:
-    from typing_extensions import Unpack
+    from typing_extensions import Literal, Unpack
 
 
 __all__ = ("MarketplaceDeploymentServiceClient",)
@@ -90,11 +99,42 @@ class MarketplaceDeploymentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#generate_presigned_url)
         """
 
+    def get_deployment_configuration(
+        self, **kwargs: Unpack[GetDeploymentConfigurationRequestTypeDef]
+    ) -> GetDeploymentConfigurationResponseTypeDef:
+        """
+        Returns the active deployment configuration for a product and delivery option.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-deployment/client/get_deployment_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#get_deployment_configuration)
+        """
+
+    def get_deployment_configuration_job(
+        self, **kwargs: Unpack[GetDeploymentConfigurationJobRequestTypeDef]
+    ) -> GetDeploymentConfigurationJobResponseTypeDef:
+        """
+        Returns the details of a deployment configuration job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-deployment/client/get_deployment_configuration_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#get_deployment_configuration_job)
+        """
+
+    def list_deployment_configuration_jobs(
+        self, **kwargs: Unpack[ListDeploymentConfigurationJobsRequestTypeDef]
+    ) -> ListDeploymentConfigurationJobsResponseTypeDef:
+        """
+        Lists the deployment configuration jobs that you started for a product and
+        delivery option, ordered from newest to oldest.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-deployment/client/list_deployment_configuration_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#list_deployment_configuration_jobs)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        Lists all tags that have been added to a deployment parameter resource.
+        Lists all tags that have been added to a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-deployment/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#list_tags_for_resource)
@@ -111,6 +151,17 @@ class MarketplaceDeploymentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#put_deployment_parameter)
         """
 
+    def start_deployment_configuration_job(
+        self, **kwargs: Unpack[StartDeploymentConfigurationJobRequestTypeDef]
+    ) -> StartDeploymentConfigurationJobResponseTypeDef:
+        """
+        Starts a job that publishes a deployment configuration for a product and
+        delivery option.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-deployment/client/start_deployment_configuration_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#start_deployment_configuration_job)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource.
@@ -125,4 +176,14 @@ class MarketplaceDeploymentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-deployment/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#untag_resource)
+        """
+
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_deployment_configuration_jobs"]
+    ) -> ListDeploymentConfigurationJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-deployment/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_deployment/client/#get_paginator)
         """

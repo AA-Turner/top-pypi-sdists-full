@@ -367,6 +367,7 @@ TracingModeType = Literal["Active", "PassThrough"]
 UpdateRuntimeOnType = Literal["Auto", "FunctionUpdate", "Manual"]
 LambdaServiceName = Literal["lambda"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -668,6 +669,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

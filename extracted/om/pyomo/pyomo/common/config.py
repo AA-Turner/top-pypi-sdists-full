@@ -33,7 +33,6 @@ import inspect
 import io
 import logging
 import os
-import pickle
 import re
 import sys
 import textwrap
@@ -44,6 +43,7 @@ from operator import attrgetter
 import pyomo.tpl.ply.lex as lex
 
 from pyomo.common.collections import Sequence, MutableMapping
+from pyomo.common.dependencies import pickle
 from pyomo.common.deprecation import (
     deprecated,
     deprecation_warning,
@@ -1164,7 +1164,11 @@ class numpydoc_ConfigFormatter(ConfigFormatter):
                     (
                         'optional'
                         if obj._default is None
-                        else f'default={obj._default!r}'
+                        else (
+                            f"default={str(obj._default).split('.')[-1]}"
+                            if isinstance(obj._default, enum.Enum)
+                            else f"default={obj._default!r}"
+                        )
                     ),
                 ],
             )

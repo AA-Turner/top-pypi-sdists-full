@@ -24,6 +24,7 @@ from arthur_client.api_bindings.models.agent_registration_response import AgentR
 from arthur_client.api_bindings.models.agent_response import AgentResponse
 from arthur_client.api_bindings.models.agent_sort import AgentSort
 from arthur_client.api_bindings.models.bulk_unregistered_agents_response import BulkUnregisteredAgentsResponse
+from arthur_client.api_bindings.models.engine_task_sync import EngineTaskSync
 from arthur_client.api_bindings.models.evidence_level import EvidenceLevel
 from arthur_client.api_bindings.models.mute_unregistered_agents_request import MuteUnregisteredAgentsRequest
 from arthur_client.api_bindings.models.organization_bulk_unregistered_agents_response import OrganizationBulkUnregisteredAgentsResponse
@@ -332,6 +333,291 @@ class AgentsV1Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v1/workspaces/{workspace_id}/agents/registrations/{registration_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_engine_task_sync(
+        self,
+        workspace_id: StrictStr,
+        data_plane_id: Annotated[StrictStr, Field(description="The ID of an engine in the workspace.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> EngineTaskSync:
+        """Get An Engine'S Task Sync.
+
+        How current the agents of an engine's tasks are: the engine's most recent task sync and its state, and whether a sync can be asked for now. A completed sync uploaded every task no discovery source reported; a queued, running or failed one may not have. Requires workspace_list_unregistered_agents permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param data_plane_id: The ID of an engine in the workspace. (required)
+        :type data_plane_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_engine_task_sync_serialize(
+            workspace_id=workspace_id,
+            data_plane_id=data_plane_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "EngineTaskSync",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_engine_task_sync_with_http_info(
+        self,
+        workspace_id: StrictStr,
+        data_plane_id: Annotated[StrictStr, Field(description="The ID of an engine in the workspace.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[EngineTaskSync]:
+        """Get An Engine'S Task Sync.
+
+        How current the agents of an engine's tasks are: the engine's most recent task sync and its state, and whether a sync can be asked for now. A completed sync uploaded every task no discovery source reported; a queued, running or failed one may not have. Requires workspace_list_unregistered_agents permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param data_plane_id: The ID of an engine in the workspace. (required)
+        :type data_plane_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_engine_task_sync_serialize(
+            workspace_id=workspace_id,
+            data_plane_id=data_plane_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "EngineTaskSync",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_engine_task_sync_without_preload_content(
+        self,
+        workspace_id: StrictStr,
+        data_plane_id: Annotated[StrictStr, Field(description="The ID of an engine in the workspace.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get An Engine'S Task Sync.
+
+        How current the agents of an engine's tasks are: the engine's most recent task sync and its state, and whether a sync can be asked for now. A completed sync uploaded every task no discovery source reported; a queued, running or failed one may not have. Requires workspace_list_unregistered_agents permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param data_plane_id: The ID of an engine in the workspace. (required)
+        :type data_plane_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_engine_task_sync_serialize(
+            workspace_id=workspace_id,
+            data_plane_id=data_plane_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "EngineTaskSync",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_engine_task_sync_serialize(
+        self,
+        workspace_id,
+        data_plane_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if workspace_id is not None:
+            _path_params['workspace_id'] = workspace_id
+        if data_plane_id is not None:
+            _path_params['data_plane_id'] = data_plane_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/workspaces/{workspace_id}/agents/engines/{data_plane_id}/task_sync',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -2326,6 +2612,7 @@ class AgentsV1Api:
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -2379,6 +2666,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -2435,6 +2724,7 @@ class AgentsV1Api:
             data_source_urls=data_source_urls,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -2483,6 +2773,7 @@ class AgentsV1Api:
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -2536,6 +2827,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -2592,6 +2885,7 @@ class AgentsV1Api:
             data_source_urls=data_source_urls,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -2640,6 +2934,7 @@ class AgentsV1Api:
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -2693,6 +2988,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -2749,6 +3046,7 @@ class AgentsV1Api:
             data_source_urls=data_source_urls,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -2792,6 +3090,7 @@ class AgentsV1Api:
         data_source_urls,
         page,
         page_size,
+        search,
         source_ids,
         data_plane_ids,
         has_source,
@@ -2885,6 +3184,10 @@ class AgentsV1Api:
         if page_size is not None:
             
             _query_params.append(('page_size', page_size))
+            
+        if search is not None:
+            
+            _query_params.append(('search', search))
             
         if source_ids is not None:
             
@@ -6404,6 +6707,7 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -6455,6 +6759,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -6510,6 +6816,7 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -6557,6 +6864,7 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -6608,6 +6916,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -6663,6 +6973,7 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -6710,6 +7021,7 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -6761,6 +7073,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -6816,6 +7130,7 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -6858,6 +7173,7 @@ class AgentsV1Api:
         show_muted,
         page,
         page_size,
+        search,
         source_ids,
         data_plane_ids,
         has_source,
@@ -6948,6 +7264,10 @@ class AgentsV1Api:
         if page_size is not None:
             
             _query_params.append(('page_size', page_size))
+            
+        if search is not None:
+            
+            _query_params.append(('search', search))
             
         if source_ids is not None:
             
@@ -7078,6 +7398,7 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -7131,6 +7452,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -7187,6 +7510,7 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -7235,6 +7559,7 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -7288,6 +7613,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -7344,6 +7671,7 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -7392,6 +7720,7 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
         data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
         has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
@@ -7445,6 +7774,8 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param search: Filter agents whose name or task ID contains this text, ignoring case and surrounding whitespace; % and _ match literally. Hyphens are ignored when matching the task ID, so a pasted ID matches with or without them.
+        :type search: str
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
         :param data_plane_ids: Filter agents found by any engine in this list.
@@ -7501,6 +7832,7 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            search=search,
             source_ids=source_ids,
             data_plane_ids=data_plane_ids,
             has_source=has_source,
@@ -7544,6 +7876,7 @@ class AgentsV1Api:
         show_muted,
         page,
         page_size,
+        search,
         source_ids,
         data_plane_ids,
         has_source,
@@ -7636,6 +7969,10 @@ class AgentsV1Api:
         if page_size is not None:
             
             _query_params.append(('page_size', page_size))
+            
+        if search is not None:
+            
+            _query_params.append(('search', search))
             
         if source_ids is not None:
             
@@ -8345,7 +8682,7 @@ class AgentsV1Api:
     ) -> PutAgentsResponse:
         """Upsert Agents.
 
-        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
+        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Replaces the stored agent on match, except for tools, sub_agents, llm_models and data_sources: a list left out keeps the stored one, and an empty list clears it. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -8420,7 +8757,7 @@ class AgentsV1Api:
     ) -> ApiResponse[PutAgentsResponse]:
         """Upsert Agents.
 
-        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
+        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Replaces the stored agent on match, except for tools, sub_agents, llm_models and data_sources: a list left out keeps the stored one, and an empty list clears it. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -8495,7 +8832,7 @@ class AgentsV1Api:
     ) -> RESTResponseType:
         """Upsert Agents.
 
-        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
+        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Replaces the stored agent on match, except for tools, sub_agents, llm_models and data_sources: a list left out keeps the stored one, and an empty list clears it. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -8927,6 +9264,294 @@ class AgentsV1Api:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/api/v1/workspaces/{workspace_id}/agents/unregistered/{agent_id}/register',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def sync_engine_tasks(
+        self,
+        workspace_id: StrictStr,
+        data_plane_id: Annotated[StrictStr, Field(description="The ID of an engine in the workspace.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> EngineTaskSync:
+        """Sync An Engine'S Tasks.
+
+        Asks the engine to upload every task no discovery source reported as an agent, with its activity but not the tool, sub-agent and model names read from spans. Answers with the sync already pending when there is one; poll the GET for its outcome. Refused with the reason when the engine cannot sync. Requires workspace_upsert_agents permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param data_plane_id: The ID of an engine in the workspace. (required)
+        :type data_plane_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._sync_engine_tasks_serialize(
+            workspace_id=workspace_id,
+            data_plane_id=data_plane_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '202': "EngineTaskSync",
+            '500': "InternalServerError",
+            '400': "BadRequestError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def sync_engine_tasks_with_http_info(
+        self,
+        workspace_id: StrictStr,
+        data_plane_id: Annotated[StrictStr, Field(description="The ID of an engine in the workspace.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[EngineTaskSync]:
+        """Sync An Engine'S Tasks.
+
+        Asks the engine to upload every task no discovery source reported as an agent, with its activity but not the tool, sub-agent and model names read from spans. Answers with the sync already pending when there is one; poll the GET for its outcome. Refused with the reason when the engine cannot sync. Requires workspace_upsert_agents permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param data_plane_id: The ID of an engine in the workspace. (required)
+        :type data_plane_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._sync_engine_tasks_serialize(
+            workspace_id=workspace_id,
+            data_plane_id=data_plane_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '202': "EngineTaskSync",
+            '500': "InternalServerError",
+            '400': "BadRequestError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def sync_engine_tasks_without_preload_content(
+        self,
+        workspace_id: StrictStr,
+        data_plane_id: Annotated[StrictStr, Field(description="The ID of an engine in the workspace.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Sync An Engine'S Tasks.
+
+        Asks the engine to upload every task no discovery source reported as an agent, with its activity but not the tool, sub-agent and model names read from spans. Answers with the sync already pending when there is one; poll the GET for its outcome. Refused with the reason when the engine cannot sync. Requires workspace_upsert_agents permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param data_plane_id: The ID of an engine in the workspace. (required)
+        :type data_plane_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._sync_engine_tasks_serialize(
+            workspace_id=workspace_id,
+            data_plane_id=data_plane_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '202': "EngineTaskSync",
+            '500': "InternalServerError",
+            '400': "BadRequestError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _sync_engine_tasks_serialize(
+        self,
+        workspace_id,
+        data_plane_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if workspace_id is not None:
+            _path_params['workspace_id'] = workspace_id
+        if data_plane_id is not None:
+            _path_params['data_plane_id'] = data_plane_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v1/workspaces/{workspace_id}/agents/engines/{data_plane_id}/task_sync',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

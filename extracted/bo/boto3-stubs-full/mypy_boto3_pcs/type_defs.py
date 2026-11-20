@@ -76,6 +76,8 @@ __all__ = (
     "GetQueueRequestTypeDef",
     "GetQueueResponseTypeDef",
     "InstanceConfigTypeDef",
+    "JobSubmitPluginTypeDef",
+    "JobSubmitScriptSourceTypeDef",
     "JwtAuthTypeDef",
     "JwtKeyTypeDef",
     "ListClustersRequestPaginateTypeDef",
@@ -314,6 +316,12 @@ class GetQueueRequestTypeDef(TypedDict):
     queueIdentifier: str
 
 
+class JobSubmitScriptSourceTypeDef(TypedDict):
+    scriptLocation: str
+    s3VersionId: NotRequired[str]
+    checksum: NotRequired[str]
+
+
 class JwtKeyTypeDef(TypedDict):
     secretArn: str
     secretVersion: str
@@ -424,15 +432,6 @@ class UpdateQueueSlurmConfigurationRequestTypeDef(TypedDict):
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
 
 
-class ClusterSlurmConfigurationRequestTypeDef(TypedDict):
-    scaleDownIdleTimeInSeconds: NotRequired[int]
-    slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
-    slurmdbdCustomSettings: NotRequired[Sequence[SlurmdbdCustomSettingTypeDef]]
-    cgroupCustomSettings: NotRequired[Sequence[CgroupCustomSettingTypeDef]]
-    accounting: NotRequired[AccountingRequestTypeDef]
-    slurmRest: NotRequired[SlurmRestRequestTypeDef]
-
-
 class ListClustersResponseTypeDef(TypedDict):
     clusters: list[ClusterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -448,6 +447,16 @@ class ListComputeNodeGroupsResponseTypeDef(TypedDict):
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+JobSubmitPluginTypeDef = TypedDict(
+    "JobSubmitPluginTypeDef",
+    {
+        "name": str,
+        "type": Literal["STARLARK"],
+        "scriptSource": JobSubmitScriptSourceTypeDef,
+    },
+)
 
 
 class JwtAuthTypeDef(TypedDict):
@@ -490,15 +499,6 @@ class NodeLifecycleScriptTypeDef(TypedDict):
     executionPolicy: NotRequired[ExecutionPolicyType]
 
 
-class UpdateClusterSlurmConfigurationRequestTypeDef(TypedDict):
-    scaleDownIdleTimeInSeconds: NotRequired[int]
-    slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
-    slurmdbdCustomSettings: NotRequired[Sequence[SlurmdbdCustomSettingTypeDef]]
-    cgroupCustomSettings: NotRequired[Sequence[CgroupCustomSettingTypeDef]]
-    accounting: NotRequired[UpdateAccountingRequestTypeDef]
-    slurmRest: NotRequired[UpdateSlurmRestRequestTypeDef]
-
-
 class CreateQueueRequestTypeDef(TypedDict):
     clusterIdentifier: str
     queueName: str
@@ -533,14 +533,24 @@ class UpdateQueueRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class CreateClusterRequestTypeDef(TypedDict):
-    clusterName: str
-    scheduler: SchedulerRequestTypeDef
-    size: SizeType
-    networking: NetworkingRequestTypeDef
-    slurmConfiguration: NotRequired[ClusterSlurmConfigurationRequestTypeDef]
-    clientToken: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
+class ClusterSlurmConfigurationRequestTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
+    slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
+    slurmdbdCustomSettings: NotRequired[Sequence[SlurmdbdCustomSettingTypeDef]]
+    cgroupCustomSettings: NotRequired[Sequence[CgroupCustomSettingTypeDef]]
+    jobSubmitPlugins: NotRequired[Sequence[JobSubmitPluginTypeDef]]
+    accounting: NotRequired[AccountingRequestTypeDef]
+    slurmRest: NotRequired[SlurmRestRequestTypeDef]
+
+
+class UpdateClusterSlurmConfigurationRequestTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
+    slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
+    slurmdbdCustomSettings: NotRequired[Sequence[SlurmdbdCustomSettingTypeDef]]
+    cgroupCustomSettings: NotRequired[Sequence[CgroupCustomSettingTypeDef]]
+    jobSubmitPlugins: NotRequired[Sequence[JobSubmitPluginTypeDef]]
+    accounting: NotRequired[UpdateAccountingRequestTypeDef]
+    slurmRest: NotRequired[UpdateSlurmRestRequestTypeDef]
 
 
 class ClusterSlurmConfigurationTypeDef(TypedDict):
@@ -548,6 +558,7 @@ class ClusterSlurmConfigurationTypeDef(TypedDict):
     slurmCustomSettings: NotRequired[list[SlurmCustomSettingTypeDef]]
     slurmdbdCustomSettings: NotRequired[list[SlurmdbdCustomSettingTypeDef]]
     cgroupCustomSettings: NotRequired[list[CgroupCustomSettingTypeDef]]
+    jobSubmitPlugins: NotRequired[list[JobSubmitPluginTypeDef]]
     authKey: NotRequired[SlurmAuthKeyTypeDef]
     jwtAuth: NotRequired[JwtAuthTypeDef]
     accounting: NotRequired[AccountingTypeDef]
@@ -564,13 +575,6 @@ NodeLifecycleScriptUnionTypeDef = Union[
 ]
 
 
-class UpdateClusterRequestTypeDef(TypedDict):
-    clusterIdentifier: str
-    clientToken: NotRequired[str]
-    slurmConfiguration: NotRequired[UpdateClusterSlurmConfigurationRequestTypeDef]
-    scheduler: NotRequired[UpdateSchedulerRequestTypeDef]
-
-
 class CreateQueueResponseTypeDef(TypedDict):
     queue: QueueTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -584,6 +588,23 @@ class GetQueueResponseTypeDef(TypedDict):
 class UpdateQueueResponseTypeDef(TypedDict):
     queue: QueueTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateClusterRequestTypeDef(TypedDict):
+    clusterName: str
+    scheduler: SchedulerRequestTypeDef
+    size: SizeType
+    networking: NetworkingRequestTypeDef
+    slurmConfiguration: NotRequired[ClusterSlurmConfigurationRequestTypeDef]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateClusterRequestTypeDef(TypedDict):
+    clusterIdentifier: str
+    clientToken: NotRequired[str]
+    slurmConfiguration: NotRequired[UpdateClusterSlurmConfigurationRequestTypeDef]
+    scheduler: NotRequired[UpdateSchedulerRequestTypeDef]
 
 
 ClusterTypeDef = TypedDict(

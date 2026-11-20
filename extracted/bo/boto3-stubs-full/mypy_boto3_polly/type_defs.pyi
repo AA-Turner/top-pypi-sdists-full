@@ -19,12 +19,14 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any
+from typing import IO, Any, Union
 
 from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 
 from .literals import (
+    AudioFormatType,
+    CustomVoiceLanguageCodeType,
     EngineType,
     GenderType,
     LanguageCodeType,
@@ -35,6 +37,8 @@ from .literals import (
     TextTypeType,
     ValidationExceptionReasonType,
     VoiceIdType,
+    VoiceOriginType,
+    VoiceStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -44,7 +48,14 @@ else:
 
 __all__ = (
     "AudioEventTypeDef",
+    "BlobTypeDef",
+    "CreateVoiceInputTypeDef",
+    "CreateVoiceOutputTypeDef",
+    "CustomerManagedEncryptionOutputTypeDef",
+    "CustomerManagedEncryptionTypeDef",
+    "CustomerManagedEncryptionUnionTypeDef",
     "DeleteLexiconInputTypeDef",
+    "DeleteVoiceInputTypeDef",
     "DescribeVoicesInputPaginateTypeDef",
     "DescribeVoicesInputTypeDef",
     "DescribeVoicesOutputTypeDef",
@@ -53,6 +64,9 @@ __all__ = (
     "GetLexiconOutputTypeDef",
     "GetSpeechSynthesisTaskInputTypeDef",
     "GetSpeechSynthesisTaskOutputTypeDef",
+    "GetVoiceInputTypeDef",
+    "GetVoiceInputWaitTypeDef",
+    "GetVoiceOutputTypeDef",
     "LexiconAttributesTypeDef",
     "LexiconDescriptionTypeDef",
     "LexiconTypeDef",
@@ -66,6 +80,10 @@ __all__ = (
     "ListTagsForResourceOutputTypeDef",
     "PaginatorConfigTypeDef",
     "PutLexiconInputTypeDef",
+    "RecordingDataOutputTypeDef",
+    "RecordingDataTypeDef",
+    "RecordingOutputTypeDef",
+    "RecordingTypeDef",
     "ResponseMetadataTypeDef",
     "ServiceFailureExceptionTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
@@ -86,14 +104,38 @@ __all__ = (
     "UntagResourceInputTypeDef",
     "ValidationExceptionFieldTypeDef",
     "ValidationExceptionTypeDef",
+    "VoiceCreationDataOutputTypeDef",
+    "VoiceCreationDataTypeDef",
+    "VoiceCreationDataUnionTypeDef",
     "VoiceTypeDef",
+    "WaiterConfigTypeDef",
 )
 
 class AudioEventTypeDef(TypedDict):
     AudioChunk: NotRequired[bytes]
 
+BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+class CustomerManagedEncryptionOutputTypeDef(TypedDict):
+    KmsKeyArn: str
+    EncryptionContext: NotRequired[dict[str, str]]
+
+class CustomerManagedEncryptionTypeDef(TypedDict):
+    KmsKeyArn: str
+    EncryptionContext: NotRequired[Mapping[str, str]]
+
 class DeleteLexiconInputTypeDef(TypedDict):
     Name: str
+
+class DeleteVoiceInputTypeDef(TypedDict):
+    VoiceId: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -105,22 +147,6 @@ class DescribeVoicesInputTypeDef(TypedDict):
     LanguageCode: NotRequired[LanguageCodeType]
     IncludeAdditionalLanguageCodes: NotRequired[bool]
     NextToken: NotRequired[str]
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-class VoiceTypeDef(TypedDict):
-    Gender: NotRequired[GenderType]
-    Id: NotRequired[VoiceIdType]
-    LanguageCode: NotRequired[LanguageCodeType]
-    LanguageName: NotRequired[str]
-    Name: NotRequired[str]
-    AdditionalLanguageCodes: NotRequired[list[LanguageCodeType]]
-    SupportedEngines: NotRequired[list[EngineType]]
 
 class FlushStreamConfigurationTypeDef(TypedDict):
     Force: NotRequired[bool]
@@ -160,6 +186,13 @@ class SynthesisTaskTypeDef(TypedDict):
     VoiceId: NotRequired[VoiceIdType]
     LanguageCode: NotRequired[LanguageCodeType]
 
+class GetVoiceInputTypeDef(TypedDict):
+    VoiceId: str
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
 class ListLexiconsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
@@ -175,6 +208,10 @@ class PutLexiconInputTypeDef(TypedDict):
     Name: str
     Content: str
     Tags: NotRequired[Mapping[str, str]]
+
+class RecordingDataOutputTypeDef(TypedDict):
+    S3Url: NotRequired[str]
+    Bytes: NotRequired[bytes]
 
 class ServiceFailureExceptionTypeDef(TypedDict):
     message: NotRequired[str]
@@ -235,6 +272,24 @@ class ValidationExceptionFieldTypeDef(TypedDict):
     name: str
     message: str
 
+class RecordingDataTypeDef(TypedDict):
+    S3Url: NotRequired[str]
+    Bytes: NotRequired[BlobTypeDef]
+
+class ListTagsForResourceOutputTypeDef(TypedDict):
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SynthesizeSpeechOutputTypeDef(TypedDict):
+    AudioStream: StreamingBody
+    ContentType: str
+    RequestCharacters: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+CustomerManagedEncryptionUnionTypeDef = Union[
+    CustomerManagedEncryptionTypeDef, CustomerManagedEncryptionOutputTypeDef
+]
+
 class DescribeVoicesInputPaginateTypeDef(TypedDict):
     Engine: NotRequired[EngineType]
     LanguageCode: NotRequired[LanguageCodeType]
@@ -247,21 +302,6 @@ class ListLexiconsInputPaginateTypeDef(TypedDict):
 class ListSpeechSynthesisTasksInputPaginateTypeDef(TypedDict):
     Status: NotRequired[TaskStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class SynthesizeSpeechOutputTypeDef(TypedDict):
-    AudioStream: StreamingBody
-    ContentType: str
-    RequestCharacters: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeVoicesOutputTypeDef(TypedDict):
-    Voices: list[VoiceTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
 
 TextEventTypeDef = TypedDict(
     "TextEventTypeDef",
@@ -294,6 +334,14 @@ class StartSpeechSynthesisTaskOutputTypeDef(TypedDict):
     SynthesisTask: SynthesisTaskTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetVoiceInputWaitTypeDef(TypedDict):
+    VoiceId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class RecordingOutputTypeDef(TypedDict):
+    Format: AudioFormatType
+    Data: RecordingDataOutputTypeDef
+
 class ThrottlingExceptionTypeDef(TypedDict):
     message: NotRequired[str]
     throttlingReasons: NotRequired[list[ThrottlingReasonTypeDef]]
@@ -302,6 +350,10 @@ class ValidationExceptionTypeDef(TypedDict):
     message: str
     reason: ValidationExceptionReasonType
     fields: NotRequired[list[ValidationExceptionFieldTypeDef]]
+
+class RecordingTypeDef(TypedDict):
+    Format: AudioFormatType
+    Data: RecordingDataTypeDef
 
 class StartSpeechSynthesisStreamActionStreamTypeDef(TypedDict):
     TextEvent: NotRequired[TextEventTypeDef]
@@ -312,6 +364,9 @@ class ListLexiconsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class VoiceCreationDataOutputTypeDef(TypedDict):
+    Recordings: list[RecordingOutputTypeDef]
+
 class StartSpeechSynthesisStreamEventStreamTypeDef(TypedDict):
     AudioEvent: NotRequired[AudioEventTypeDef]
     StreamClosedEvent: NotRequired[StreamClosedEventTypeDef]
@@ -319,6 +374,9 @@ class StartSpeechSynthesisStreamEventStreamTypeDef(TypedDict):
     ServiceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
     ServiceFailureException: NotRequired[ServiceFailureExceptionTypeDef]
     ThrottlingException: NotRequired[ThrottlingExceptionTypeDef]
+
+class VoiceCreationDataTypeDef(TypedDict):
+    Recordings: Sequence[RecordingTypeDef]
 
 class StartSpeechSynthesisStreamInputTypeDef(TypedDict):
     Engine: EngineType
@@ -329,6 +387,46 @@ class StartSpeechSynthesisStreamInputTypeDef(TypedDict):
     SampleRate: NotRequired[str]
     ActionStream: NotRequired[EventStream[StartSpeechSynthesisStreamActionStreamTypeDef]]
 
+class VoiceTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Gender: NotRequired[GenderType]
+    Id: NotRequired[VoiceIdType]
+    LanguageCode: NotRequired[LanguageCodeType]
+    LanguageName: NotRequired[str]
+    Name: NotRequired[str]
+    Origin: NotRequired[VoiceOriginType]
+    Status: NotRequired[VoiceStatusType]
+    StatusReason: NotRequired[str]
+    AdditionalLanguageCodes: NotRequired[list[LanguageCodeType]]
+    SupportedEngines: NotRequired[list[EngineType]]
+    VoiceCreationData: NotRequired[VoiceCreationDataOutputTypeDef]
+    CustomerManagedEncryption: NotRequired[CustomerManagedEncryptionOutputTypeDef]
+    CreationTime: NotRequired[datetime]
+
 class StartSpeechSynthesisStreamOutputTypeDef(TypedDict):
     EventStream: EventStream[StartSpeechSynthesisStreamEventStreamTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+VoiceCreationDataUnionTypeDef = Union[VoiceCreationDataTypeDef, VoiceCreationDataOutputTypeDef]
+
+class CreateVoiceOutputTypeDef(TypedDict):
+    Voice: VoiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeVoicesOutputTypeDef(TypedDict):
+    Voices: list[VoiceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetVoiceOutputTypeDef(TypedDict):
+    Voice: VoiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateVoiceInputTypeDef(TypedDict):
+    Name: str
+    LanguageCode: CustomVoiceLanguageCodeType
+    TermsAccepted: bool
+    VoiceCreationData: VoiceCreationDataUnionTypeDef
+    CustomerManagedEncryption: NotRequired[CustomerManagedEncryptionUnionTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]

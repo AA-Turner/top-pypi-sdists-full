@@ -15,8 +15,6 @@ readme = "README.md"
 
 [dependencies]
 pyo3.workspace = true
-ryo3-core.workspace = true
-ryo3-macro-rules.workspace = true
 
 [lints]
 workspace = true

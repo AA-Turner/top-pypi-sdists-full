@@ -33,6 +33,7 @@ class SubmitValuesRequest(BaseSerDeModel):
     allow_clones: t.Optional[bool] = None
     is_defer_to_profile: bool = False
     defer_enabled: bool = False
+    ignore_external_modifications: t.Optional[bool] = None
 
 
 @proto_dataclass(sql_service_pb2.SubmitEnrichedSQLRequest)

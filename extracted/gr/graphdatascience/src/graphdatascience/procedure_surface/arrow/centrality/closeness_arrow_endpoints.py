@@ -5,12 +5,16 @@ from pandas import DataFrame
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.centrality.closeness_endpoints import (
-    ClosenessEndpoints,
     ClosenessMutateResult,
     ClosenessStatsResult,
     ClosenessWriteResult,
 )
-from graphdatascience.procedure_surface.api.centrality.closeness_harmonic_endpoints import ClosenessHarmonicEndpoints
+from graphdatascience.procedure_surface.api.centrality.closeness_harmonic_session_endpoints import (
+    ClosenessHarmonicSessionEndpoints,
+)
+from graphdatascience.procedure_surface.api.centrality.closeness_session_endpoints import (
+    ClosenessSessionEndpoints,
+)
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
@@ -21,7 +25,7 @@ from graphdatascience.procedure_surface.arrow.node_property_endpoints import Nod
 from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
-class ClosenessArrowEndpoints(ClosenessEndpoints):
+class ClosenessArrowEndpoints(ClosenessSessionEndpoints):
     """Arrow-based implementation of Closeness Centrality algorithm endpoints."""
 
     def __init__(
@@ -38,7 +42,7 @@ class ClosenessArrowEndpoints(ClosenessEndpoints):
         )
 
     @property
-    def harmonic(self) -> ClosenessHarmonicEndpoints:
+    def harmonic(self) -> ClosenessHarmonicSessionEndpoints:
         return ClosenessHarmonicArrowEndpoints(self._arrow_client, self._write_protocol, self._show_progress)
 
     def compute(

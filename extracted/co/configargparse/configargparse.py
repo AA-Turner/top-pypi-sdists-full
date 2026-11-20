@@ -8,7 +8,6 @@ import argparse
 import ast
 import configparser
 import copy
-import csv
 import enum
 import functools
 import json
@@ -735,10 +734,34 @@ def parse_toml_section_name(section_name):
         ' j . "ʞ" . "l" '  # same as [j."ʞ"."l"], double or simple quotes here are supported. -> returns ("j", "ʞ", "l")
     """
     section = []
-    for row in csv.reader([section_name], delimiter="."):
-        for a in row:
-            section.append(unquote_str(a.strip(), triple=False))
-    return tuple(section)
+    quote = None
+    escaped = False
+    start = 0
+    for index, char in enumerate(section_name):
+        if escaped:
+            escaped = False
+        elif quote == '"' and char == "\\":
+            escaped = True
+        elif quote is not None:
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == ".":
+            section.append(section_name[start:index].strip())
+            start = index + 1
+    section.append(section_name[start:].strip())
+
+    # TOML literal keys do not interpret backslash escapes. Basic quoted keys
+    # do, including Unicode escapes.
+    return tuple(
+        (
+            part[1:-1]
+            if part.startswith("'") and part.endswith("'")
+            else unquote_str(part, triple=False)
+        )
+        for part in section
+    )
 
 
 def get_toml_section(data, section):
@@ -1562,6 +1585,9 @@ class ArgumentParser(argparse.ArgumentParser):
         argparse's own pattern for a negative number, which differs by Python
         version (from 3.14 it also matches eg. "-1e5").
 
+        A non-string arg (eg. None, which argparse reads as a value) is never an
+        option.
+
         Args:
             arg_string: a single command line arg.
 
@@ -1570,7 +1596,8 @@ class ArgumentParser(argparse.ArgumentParser):
             a value
         """
         return (
-            len(arg_string) > 1
+            isinstance(arg_string, str)
+            and len(arg_string) > 1
             and arg_string[0] in self.prefix_chars
             and not (
                 self._negative_number_matcher.match(arg_string)
@@ -2384,7 +2411,11 @@ class ArgumentParser(argparse.ArgumentParser):
             # argparse's end-of-options separator, which it matches literally
             # rather than through prefix_chars, and never treats as an option
             return False
-        if len(arg_string) < 2 or arg_string[0] not in self.prefix_chars:
+        if (
+            not isinstance(arg_string, str)
+            or len(arg_string) < 2
+            or arg_string[0] not in self.prefix_chars
+        ):
             return False
 
         # argparse looks for an option matching the part before any '=' first,
@@ -2837,10 +2868,13 @@ class ArgumentParser(argparse.ArgumentParser):
             if (option_string in negative_option_strings) != value_to_set
         ]
         if not option_strings_that_set_value:
-            # eg. an arg with only short option strings has no negative form
+            # only False can be missing: every option string the user gave sets
+            # True, but eg. an arg with only short option strings has no
+            # negative form
             self._report_error(
-                "%s can't set %s to %s: none of %s does"
-                % (key, action.dest, value_to_set, "/".join(action.option_strings))
+                "%s cannot be set to false. %s has no --no- form, so it can only "
+                "be set to true. Set %s to true or remove it."
+                % (key, "/".join(action.option_strings), key)
             )
             # in case exit() was overridden and returned
             return []

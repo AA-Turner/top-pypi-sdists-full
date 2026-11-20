@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_rtbfabric.type_defs import ResponseMetadataTypeDef
+    from mypy_boto3_rtbfabric.type_defs import ErrorDetailTypeDef
 
-    data: ResponseMetadataTypeDef = ...
+    data: ErrorDetailTypeDef = ...
     ```
 """
 
@@ -19,22 +19,31 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     CertificateAssociationStatusType,
     ClientRoutingPolicyType,
+    ConfigurableActionType,
     ConnectivityTypeType,
+    ErrorCodeType,
+    FailureModeType,
     FilterTypeType,
     GatewayTypeType,
     LinkDirectionType,
     LinkStatusType,
+    ModulePermissionType,
+    ModuleVersionStatusType,
     ProtocolType,
     RequesterGatewayStatusType,
     ResponderErrorMaskingActionType,
     ResponderErrorMaskingLoggingTypeType,
     ResponderGatewayStatusType,
     RuleStatusType,
+    SubscriptionStatusType,
+    SubscriptionTypeType,
+    UpdateStatusType,
+    UpdateTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -51,6 +60,8 @@ __all__ = (
     "AssociateCertificateResponseTypeDef",
     "AutoScalingGroupsConfigurationOutputTypeDef",
     "AutoScalingGroupsConfigurationTypeDef",
+    "AvailableModuleSummaryTypeDef",
+    "AvailableModuleVersionSummaryTypeDef",
     "CertificateAssociationSummaryTypeDef",
     "CreateInboundExternalLinkRequestTypeDef",
     "CreateInboundExternalLinkResponseTypeDef",
@@ -79,12 +90,29 @@ __all__ = (
     "DisassociateCertificateRequestTypeDef",
     "DisassociateCertificateResponseTypeDef",
     "EksEndpointsConfigurationTypeDef",
+    "ErrorDetailTypeDef",
     "FilterCriterionOutputTypeDef",
     "FilterCriterionTypeDef",
     "FilterCriterionUnionTypeDef",
     "FilterOutputTypeDef",
     "FilterTypeDef",
     "FilterUnionTypeDef",
+    "FlowModuleOutputTypeDef",
+    "FlowModuleTypeDef",
+    "FlowModuleUnionTypeDef",
+    "FlowOutputTypeDef",
+    "FlowPhaseOutputTypeDef",
+    "FlowPhaseTypeDef",
+    "FlowPhaseUnionTypeDef",
+    "FlowPipelineOutputTypeDef",
+    "FlowPipelineTypeDef",
+    "FlowPipelineUnionTypeDef",
+    "FlowTypeDef",
+    "FlowUnionTypeDef",
+    "GetAvailableModuleRequestTypeDef",
+    "GetAvailableModuleResponseTypeDef",
+    "GetAvailableModuleVersionRequestTypeDef",
+    "GetAvailableModuleVersionResponseTypeDef",
     "GetCertificateAssociationRequestTypeDef",
     "GetCertificateAssociationRequestWaitExtraTypeDef",
     "GetCertificateAssociationRequestWaitTypeDef",
@@ -114,6 +142,8 @@ __all__ = (
     "GetResponderGatewayRequestWaitExtraTypeDef",
     "GetResponderGatewayRequestWaitTypeDef",
     "GetResponderGatewayResponseTypeDef",
+    "GetUpdateRequestTypeDef",
+    "GetUpdateResponseTypeDef",
     "HeaderTagActionTypeDef",
     "HealthCheckConfigTypeDef",
     "LinkApplicationLogConfigurationTypeDef",
@@ -121,8 +151,17 @@ __all__ = (
     "LinkAttributesOutputTypeDef",
     "LinkAttributesTypeDef",
     "LinkAttributesUnionTypeDef",
+    "LinkConfigParametersTypeDef",
+    "LinkFlowParametersTypeDef",
     "LinkLogSettingsTypeDef",
     "LinkRoutingRuleSummaryTypeDef",
+    "LinkTargetTypeDef",
+    "ListAvailableModuleVersionsRequestPaginateTypeDef",
+    "ListAvailableModuleVersionsRequestTypeDef",
+    "ListAvailableModuleVersionsResponseTypeDef",
+    "ListAvailableModulesRequestPaginateTypeDef",
+    "ListAvailableModulesRequestTypeDef",
+    "ListAvailableModulesResponseTypeDef",
     "ListCertificateAssociationsRequestPaginateTypeDef",
     "ListCertificateAssociationsRequestTypeDef",
     "ListCertificateAssociationsResponseTypeDef",
@@ -141,6 +180,9 @@ __all__ = (
     "ListResponderGatewaysResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListUpdatesRequestPaginateTypeDef",
+    "ListUpdatesRequestTypeDef",
+    "ListUpdatesResponseTypeDef",
     "ListenerConfigOutputTypeDef",
     "ListenerConfigTypeDef",
     "ListenerConfigUnionTypeDef",
@@ -159,14 +201,25 @@ __all__ = (
     "OpenRtbAttributeModuleParametersTypeDef",
     "OpenRtbAttributeModuleParametersUnionTypeDef",
     "PaginatorConfigTypeDef",
+    "PhasedPipelineOutputTypeDef",
+    "PhasedPipelineTypeDef",
+    "PhasedPipelineUnionTypeDef",
+    "PutLinkFlowsRequestTypeDef",
+    "PutLinkFlowsResponseTypeDef",
     "QueryStringKeyValuePairTypeDef",
     "RateLimiterModuleParametersTypeDef",
     "RejectLinkRequestTypeDef",
     "RejectLinkResponseTypeDef",
     "ResponderErrorMaskingForHttpCodeOutputTypeDef",
     "ResponderErrorMaskingForHttpCodeTypeDef",
+    "ResponderGatewayConfigParametersTypeDef",
     "ResponseMetadataTypeDef",
+    "RoutingRuleParametersTypeDef",
+    "RoutingRuleTargetTypeDef",
     "RuleConditionTypeDef",
+    "SequentialPipelineOutputTypeDef",
+    "SequentialPipelineTypeDef",
+    "SequentialPipelineUnionTypeDef",
     "TagResourceRequestTypeDef",
     "TrustStoreConfigurationOutputTypeDef",
     "TrustStoreConfigurationTypeDef",
@@ -178,12 +231,22 @@ __all__ = (
     "UpdateLinkResponseTypeDef",
     "UpdateLinkRoutingRuleRequestTypeDef",
     "UpdateLinkRoutingRuleResponseTypeDef",
+    "UpdateParametersTypeDef",
     "UpdateRequesterGatewayRequestTypeDef",
     "UpdateRequesterGatewayResponseTypeDef",
     "UpdateResponderGatewayRequestTypeDef",
     "UpdateResponderGatewayResponseTypeDef",
+    "UpdateSummaryTypeDef",
+    "UpdateTargetTypeDef",
+    "UpdateTypeDef",
     "WaiterConfigTypeDef",
 )
+
+
+class ErrorDetailTypeDef(TypedDict):
+    code: ErrorCodeType
+    message: str
+    resourceIds: NotRequired[list[str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -218,6 +281,22 @@ class HealthCheckConfigTypeDef(TypedDict):
     statusCodeMatcher: NotRequired[str]
     healthyThresholdCount: NotRequired[int]
     unhealthyThresholdCount: NotRequired[int]
+
+
+class AvailableModuleSummaryTypeDef(TypedDict):
+    moduleId: str
+    moduleArn: str
+    moduleName: str
+    subscriptionType: SubscriptionTypeType
+    subscriptionStatus: SubscriptionStatusType
+    marketplaceProductId: NotRequired[str]
+
+
+class AvailableModuleVersionSummaryTypeDef(TypedDict):
+    version: str
+    moduleVersionArn: str
+    status: ModuleVersionStatusType
+    createdAt: datetime
 
 
 class CertificateAssociationSummaryTypeDef(TypedDict):
@@ -293,6 +372,33 @@ class FilterCriterionTypeDef(TypedDict):
     values: Sequence[str]
 
 
+class FlowModuleOutputTypeDef(TypedDict):
+    name: str
+    moduleVersionArn: str
+    selectedActions: NotRequired[list[ConfigurableActionType]]
+    failureMode: NotRequired[FailureModeType]
+    activationPercentage: NotRequired[float]
+    configurationValues: NotRequired[str]
+
+
+class FlowModuleTypeDef(TypedDict):
+    name: str
+    moduleVersionArn: str
+    selectedActions: NotRequired[Sequence[ConfigurableActionType]]
+    failureMode: NotRequired[FailureModeType]
+    activationPercentage: NotRequired[float]
+    configurationValues: NotRequired[str]
+
+
+class GetAvailableModuleRequestTypeDef(TypedDict):
+    moduleId: str
+
+
+class GetAvailableModuleVersionRequestTypeDef(TypedDict):
+    moduleId: str
+    version: str
+
+
 class GetCertificateAssociationRequestTypeDef(TypedDict):
     gatewayId: str
     acmCertificateArn: str
@@ -336,6 +442,11 @@ class TrustStoreConfigurationOutputTypeDef(TypedDict):
     certificateAuthorityCertificates: list[str]
 
 
+class GetUpdateRequestTypeDef(TypedDict):
+    gatewayId: str
+    updateId: str
+
+
 class LinkApplicationLogSamplingTypeDef(TypedDict):
     errorLog: float
     filterLog: float
@@ -355,10 +466,27 @@ class ResponderErrorMaskingForHttpCodeTypeDef(TypedDict):
     responseLoggingPercentage: NotRequired[float]
 
 
+class LinkTargetTypeDef(TypedDict):
+    linkId: str
+
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+
+class ListAvailableModuleVersionsRequestTypeDef(TypedDict):
+    moduleId: str
+    status: NotRequired[ModuleVersionStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListAvailableModulesRequestTypeDef(TypedDict):
+    subscriptionType: NotRequired[SubscriptionTypeType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListCertificateAssociationsRequestTypeDef(TypedDict):
@@ -394,6 +522,29 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+ListUpdatesRequestTypeDef = TypedDict(
+    "ListUpdatesRequestTypeDef",
+    {
+        "gatewayId": str,
+        "linkId": NotRequired[str],
+        "ruleId": NotRequired[str],
+        "type": NotRequired[UpdateTypeType],
+        "status": NotRequired[UpdateStatusType],
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+UpdateSummaryTypeDef = TypedDict(
+    "UpdateSummaryTypeDef",
+    {
+        "updateId": str,
+        "type": UpdateTypeType,
+        "status": UpdateStatusType,
+        "createdAt": datetime,
+    },
+)
+
+
 class ListenerConfigTypeDef(TypedDict):
     protocols: Sequence[ProtocolType]
 
@@ -416,6 +567,11 @@ class QueryStringKeyValuePairTypeDef(TypedDict):
 class RejectLinkRequestTypeDef(TypedDict):
     gatewayId: str
     linkId: str
+
+
+class RoutingRuleTargetTypeDef(TypedDict):
+    linkId: str
+    ruleId: str
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -517,12 +673,39 @@ class DisassociateCertificateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetAvailableModuleResponseTypeDef(TypedDict):
+    moduleId: str
+    moduleArn: str
+    moduleName: str
+    description: str
+    subscriptionType: SubscriptionTypeType
+    subscriptionStatus: SubscriptionStatusType
+    marketplaceProductId: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAvailableModuleVersionResponseTypeDef(TypedDict):
+    moduleId: str
+    version: str
+    moduleVersionArn: str
+    status: ModuleVersionStatusType
+    permissions: list[ModulePermissionType]
+    configurableActions: list[ConfigurableActionType]
+    configurationSchema: str
+    releaseNotes: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetCertificateAssociationResponseTypeDef(TypedDict):
     gatewayId: str
     acmCertificateArn: str
     status: CertificateAssociationStatusType
     associatedAt: datetime
     updatedAt: datetime
+    errorDetails: list[ErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -532,6 +715,7 @@ class GetRequesterGatewayResponseTypeDef(TypedDict):
     description: str
     createdAt: datetime
     updatedAt: datetime
+    errorDetails: list[ErrorDetailTypeDef]
     vpcId: str
     subnetIds: list[str]
     securityGroupIds: list[str]
@@ -559,16 +743,26 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class PutLinkFlowsResponseTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    status: LinkStatusType
+    updateId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateLinkModuleFlowResponseTypeDef(TypedDict):
     gatewayId: str
     linkId: str
     status: LinkStatusType
+    updateId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateLinkResponseTypeDef(TypedDict):
     linkId: str
     status: LinkStatusType
+    updateId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -576,6 +770,7 @@ class UpdateLinkRoutingRuleResponseTypeDef(TypedDict):
     ruleId: str
     status: RuleStatusType
     updatedAt: datetime
+    updateId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -589,6 +784,7 @@ class UpdateResponderGatewayResponseTypeDef(TypedDict):
     gatewayId: str
     status: ResponderGatewayStatusType
     clientRoutingPolicy: ClientRoutingPolicyType
+    updateId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -607,6 +803,19 @@ class AutoScalingGroupsConfigurationTypeDef(TypedDict):
     autoScalingGroupNames: Sequence[str]
     roleArn: str
     healthCheckConfig: NotRequired[HealthCheckConfigTypeDef]
+
+
+class ListAvailableModulesResponseTypeDef(TypedDict):
+    modules: list[AvailableModuleSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAvailableModuleVersionsResponseTypeDef(TypedDict):
+    moduleId: str
+    versions: list[AvailableModuleVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListCertificateAssociationsResponseTypeDef(TypedDict):
@@ -629,6 +838,21 @@ class FilterOutputTypeDef(TypedDict):
 
 
 FilterCriterionUnionTypeDef = Union[FilterCriterionTypeDef, FilterCriterionOutputTypeDef]
+
+
+class FlowPhaseOutputTypeDef(TypedDict):
+    modules: list[FlowModuleOutputTypeDef]
+
+
+class SequentialPipelineOutputTypeDef(TypedDict):
+    modules: list[FlowModuleOutputTypeDef]
+
+
+FlowModuleUnionTypeDef = Union[FlowModuleTypeDef, FlowModuleOutputTypeDef]
+
+
+class SequentialPipelineTypeDef(TypedDict):
+    modules: Sequence[FlowModuleTypeDef]
 
 
 class GetCertificateAssociationRequestWaitExtraTypeDef(TypedDict):
@@ -733,6 +957,17 @@ class LinkAttributesTypeDef(TypedDict):
     customerProvidedId: NotRequired[str]
 
 
+class ListAvailableModuleVersionsRequestPaginateTypeDef(TypedDict):
+    moduleId: str
+    status: NotRequired[ModuleVersionStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAvailableModulesRequestPaginateTypeDef(TypedDict):
+    subscriptionType: NotRequired[SubscriptionTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListCertificateAssociationsRequestPaginateTypeDef(TypedDict):
     gatewayId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -757,6 +992,25 @@ class ListResponderGatewaysRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+ListUpdatesRequestPaginateTypeDef = TypedDict(
+    "ListUpdatesRequestPaginateTypeDef",
+    {
+        "gatewayId": str,
+        "linkId": NotRequired[str],
+        "ruleId": NotRequired[str],
+        "type": NotRequired[UpdateTypeType],
+        "status": NotRequired[UpdateStatusType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+
+class ListUpdatesResponseTypeDef(TypedDict):
+    updates: list[UpdateSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 ListenerConfigUnionTypeDef = Union[ListenerConfigTypeDef, ListenerConfigOutputTypeDef]
 
 
@@ -767,6 +1021,12 @@ class RuleConditionTypeDef(TypedDict):
     pathExact: NotRequired[str]
     queryStringEquals: NotRequired[QueryStringKeyValuePairTypeDef]
     queryStringExists: NotRequired[str]
+
+
+class UpdateTargetTypeDef(TypedDict):
+    gateway: NotRequired[dict[str, Any]]
+    link: NotRequired[LinkTargetTypeDef]
+    routingRule: NotRequired[RoutingRuleTargetTypeDef]
 
 
 TrustStoreConfigurationUnionTypeDef = Union[
@@ -795,6 +1055,17 @@ class FilterTypeDef(TypedDict):
     criteria: Sequence[FilterCriterionUnionTypeDef]
 
 
+class PhasedPipelineOutputTypeDef(TypedDict):
+    phases: list[FlowPhaseOutputTypeDef]
+
+
+class FlowPhaseTypeDef(TypedDict):
+    modules: Sequence[FlowModuleUnionTypeDef]
+
+
+SequentialPipelineUnionTypeDef = Union[SequentialPipelineTypeDef, SequentialPipelineOutputTypeDef]
+
+
 class LinkLogSettingsTypeDef(TypedDict):
     applicationLogs: LinkApplicationLogConfigurationTypeDef
 
@@ -821,6 +1092,7 @@ class GetLinkRoutingRuleResponseTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     tags: dict[str, str]
+    errorDetails: list[ErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -831,6 +1103,12 @@ class LinkRoutingRuleSummaryTypeDef(TypedDict):
     status: RuleStatusType
     createdAt: datetime
     updatedAt: datetime
+    errorDetails: NotRequired[list[ErrorDetailTypeDef]]
+
+
+class RoutingRuleParametersTypeDef(TypedDict):
+    priority: int
+    conditions: RuleConditionTypeDef
 
 
 class UpdateLinkRoutingRuleRequestTypeDef(TypedDict):
@@ -839,6 +1117,7 @@ class UpdateLinkRoutingRuleRequestTypeDef(TypedDict):
     ruleId: str
     priority: int
     conditions: RuleConditionTypeDef
+    clientToken: NotRequired[str]
 
 
 class GetResponderGatewayResponseTypeDef(TypedDict):
@@ -849,6 +1128,7 @@ class GetResponderGatewayResponseTypeDef(TypedDict):
     description: str
     createdAt: datetime
     updatedAt: datetime
+    errorDetails: list[ErrorDetailTypeDef]
     domainName: str
     port: int
     protocol: ProtocolType
@@ -866,6 +1146,17 @@ class GetResponderGatewayResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ResponderGatewayConfigParametersTypeDef(TypedDict):
+    port: int
+    protocol: ProtocolType
+    description: NotRequired[str]
+    clientRoutingPolicy: NotRequired[ClientRoutingPolicyType]
+    domainName: NotRequired[str]
+    listenerConfig: NotRequired[ListenerConfigOutputTypeDef]
+    trustStoreConfiguration: NotRequired[TrustStoreConfigurationOutputTypeDef]
+    managedEndpointConfiguration: NotRequired[ManagedEndpointConfigurationOutputTypeDef]
+
+
 ManagedEndpointConfigurationUnionTypeDef = Union[
     ManagedEndpointConfigurationTypeDef, ManagedEndpointConfigurationOutputTypeDef
 ]
@@ -880,11 +1171,25 @@ class ModuleParametersOutputTypeDef(TypedDict):
 FilterUnionTypeDef = Union[FilterTypeDef, FilterOutputTypeDef]
 
 
+class FlowPipelineOutputTypeDef(TypedDict):
+    sequential: NotRequired[SequentialPipelineOutputTypeDef]
+    phased: NotRequired[PhasedPipelineOutputTypeDef]
+
+
+FlowPhaseUnionTypeDef = Union[FlowPhaseTypeDef, FlowPhaseOutputTypeDef]
+
+
+class LinkConfigParametersTypeDef(TypedDict):
+    logSettings: NotRequired[LinkLogSettingsTypeDef]
+    timeoutInMillis: NotRequired[int]
+
+
 class UpdateLinkRequestTypeDef(TypedDict):
     gatewayId: str
     linkId: str
     logSettings: NotRequired[LinkLogSettingsTypeDef]
     timeoutInMillis: NotRequired[int]
+    clientToken: NotRequired[str]
 
 
 class AcceptLinkRequestTypeDef(TypedDict):
@@ -972,6 +1277,15 @@ class OpenRtbAttributeModuleParametersTypeDef(TypedDict):
     holdbackPercentage: float
 
 
+class FlowOutputTypeDef(TypedDict):
+    name: str
+    pipeline: FlowPipelineOutputTypeDef
+
+
+class PhasedPipelineTypeDef(TypedDict):
+    phases: Sequence[FlowPhaseUnionTypeDef]
+
+
 class AcceptLinkResponseTypeDef(TypedDict):
     gatewayId: str
     peerGatewayId: str
@@ -984,6 +1298,7 @@ class AcceptLinkResponseTypeDef(TypedDict):
     attributes: LinkAttributesOutputTypeDef
     logSettings: LinkLogSettingsTypeDef
     connectivityType: ConnectivityTypeType
+    errorDetails: list[ErrorDetailTypeDef]
     linkId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1000,59 +1315,9 @@ class CreateLinkResponseTypeDef(TypedDict):
     attributes: LinkAttributesOutputTypeDef
     logSettings: LinkLogSettingsTypeDef
     connectivityType: ConnectivityTypeType
+    errorDetails: list[ErrorDetailTypeDef]
     linkId: str
     customerProvidedId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetInboundExternalLinkResponseTypeDef(TypedDict):
-    gatewayId: str
-    linkId: str
-    status: LinkStatusType
-    domainName: str
-    flowModules: list[ModuleConfigurationOutputTypeDef]
-    pendingFlowModules: list[ModuleConfigurationOutputTypeDef]
-    attributes: LinkAttributesOutputTypeDef
-    createdAt: datetime
-    updatedAt: datetime
-    tags: dict[str, str]
-    logSettings: LinkLogSettingsTypeDef
-    connectivityType: ConnectivityTypeType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetLinkResponseTypeDef(TypedDict):
-    gatewayId: str
-    peerGatewayId: str
-    status: LinkStatusType
-    createdAt: datetime
-    updatedAt: datetime
-    direction: LinkDirectionType
-    flowModules: list[ModuleConfigurationOutputTypeDef]
-    pendingFlowModules: list[ModuleConfigurationOutputTypeDef]
-    attributes: LinkAttributesOutputTypeDef
-    logSettings: LinkLogSettingsTypeDef
-    connectivityType: ConnectivityTypeType
-    linkId: str
-    tags: dict[str, str]
-    httpResponderAllowed: bool
-    timeoutInMillis: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetOutboundExternalLinkResponseTypeDef(TypedDict):
-    gatewayId: str
-    linkId: str
-    status: LinkStatusType
-    publicEndpoint: str
-    flowModules: list[ModuleConfigurationOutputTypeDef]
-    pendingFlowModules: list[ModuleConfigurationOutputTypeDef]
-    attributes: LinkAttributesOutputTypeDef
-    createdAt: datetime
-    updatedAt: datetime
-    tags: dict[str, str]
-    logSettings: LinkLogSettingsTypeDef
-    connectivityType: ConnectivityTypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1069,6 +1334,7 @@ class ListLinksResponseStructureTypeDef(TypedDict):
     attributes: NotRequired[LinkAttributesOutputTypeDef]
     logSettings: NotRequired[LinkLogSettingsTypeDef]
     connectivityType: NotRequired[ConnectivityTypeType]
+    errorDetails: NotRequired[list[ErrorDetailTypeDef]]
     tags: NotRequired[dict[str, str]]
     publicEndpoint: NotRequired[str]
 
@@ -1085,6 +1351,7 @@ class RejectLinkResponseTypeDef(TypedDict):
     attributes: LinkAttributesOutputTypeDef
     logSettings: LinkLogSettingsTypeDef
     connectivityType: ConnectivityTypeType
+    errorDetails: list[ErrorDetailTypeDef]
     linkId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1092,6 +1359,74 @@ class RejectLinkResponseTypeDef(TypedDict):
 OpenRtbAttributeModuleParametersUnionTypeDef = Union[
     OpenRtbAttributeModuleParametersTypeDef, OpenRtbAttributeModuleParametersOutputTypeDef
 ]
+
+
+class GetInboundExternalLinkResponseTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    status: LinkStatusType
+    domainName: str
+    flowModules: list[ModuleConfigurationOutputTypeDef]
+    pendingFlowModules: list[ModuleConfigurationOutputTypeDef]
+    attributes: LinkAttributesOutputTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    tags: dict[str, str]
+    logSettings: LinkLogSettingsTypeDef
+    connectivityType: ConnectivityTypeType
+    errorDetails: list[ErrorDetailTypeDef]
+    lockToken: str
+    flows: list[FlowOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetLinkResponseTypeDef(TypedDict):
+    gatewayId: str
+    peerGatewayId: str
+    status: LinkStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    direction: LinkDirectionType
+    flowModules: list[ModuleConfigurationOutputTypeDef]
+    pendingFlowModules: list[ModuleConfigurationOutputTypeDef]
+    attributes: LinkAttributesOutputTypeDef
+    logSettings: LinkLogSettingsTypeDef
+    connectivityType: ConnectivityTypeType
+    errorDetails: list[ErrorDetailTypeDef]
+    linkId: str
+    tags: dict[str, str]
+    httpResponderAllowed: bool
+    timeoutInMillis: int
+    lockToken: str
+    flows: list[FlowOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetOutboundExternalLinkResponseTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    status: LinkStatusType
+    publicEndpoint: str
+    flowModules: list[ModuleConfigurationOutputTypeDef]
+    pendingFlowModules: list[ModuleConfigurationOutputTypeDef]
+    attributes: LinkAttributesOutputTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    tags: dict[str, str]
+    logSettings: LinkLogSettingsTypeDef
+    connectivityType: ConnectivityTypeType
+    errorDetails: list[ErrorDetailTypeDef]
+    lockToken: str
+    flows: list[FlowOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class LinkFlowParametersTypeDef(TypedDict):
+    modules: NotRequired[list[ModuleConfigurationOutputTypeDef]]
+    flows: NotRequired[list[FlowOutputTypeDef]]
+
+
+PhasedPipelineUnionTypeDef = Union[PhasedPipelineTypeDef, PhasedPipelineOutputTypeDef]
 
 
 class ListLinksResponseTypeDef(TypedDict):
@@ -1106,7 +1441,32 @@ class ModuleParametersTypeDef(TypedDict):
     rateLimiter: NotRequired[RateLimiterModuleParametersTypeDef]
 
 
+class UpdateParametersTypeDef(TypedDict):
+    responderGatewayConfig: NotRequired[ResponderGatewayConfigParametersTypeDef]
+    linkConfig: NotRequired[LinkConfigParametersTypeDef]
+    linkFlow: NotRequired[LinkFlowParametersTypeDef]
+    routingRule: NotRequired[RoutingRuleParametersTypeDef]
+
+
+class FlowPipelineTypeDef(TypedDict):
+    sequential: NotRequired[SequentialPipelineUnionTypeDef]
+    phased: NotRequired[PhasedPipelineUnionTypeDef]
+
+
 ModuleParametersUnionTypeDef = Union[ModuleParametersTypeDef, ModuleParametersOutputTypeDef]
+UpdateTypeDef = TypedDict(
+    "UpdateTypeDef",
+    {
+        "updateId": str,
+        "type": UpdateTypeType,
+        "status": UpdateStatusType,
+        "target": UpdateTargetTypeDef,
+        "createdAt": datetime,
+        "parameters": NotRequired[UpdateParametersTypeDef],
+        "errorDetails": NotRequired[list[ErrorDetailTypeDef]],
+    },
+)
+FlowPipelineUnionTypeDef = Union[FlowPipelineTypeDef, FlowPipelineOutputTypeDef]
 
 
 class ModuleConfigurationTypeDef(TypedDict):
@@ -1116,9 +1476,20 @@ class ModuleConfigurationTypeDef(TypedDict):
     moduleParameters: NotRequired[ModuleParametersUnionTypeDef]
 
 
+class GetUpdateResponseTypeDef(TypedDict):
+    update: UpdateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class FlowTypeDef(TypedDict):
+    name: str
+    pipeline: FlowPipelineUnionTypeDef
+
+
 ModuleConfigurationUnionTypeDef = Union[
     ModuleConfigurationTypeDef, ModuleConfigurationOutputTypeDef
 ]
+FlowUnionTypeDef = Union[FlowTypeDef, FlowOutputTypeDef]
 
 
 class UpdateLinkModuleFlowRequestTypeDef(TypedDict):
@@ -1126,3 +1497,11 @@ class UpdateLinkModuleFlowRequestTypeDef(TypedDict):
     gatewayId: str
     linkId: str
     modules: Sequence[ModuleConfigurationUnionTypeDef]
+
+
+class PutLinkFlowsRequestTypeDef(TypedDict):
+    gatewayId: str
+    linkId: str
+    lockToken: str
+    flows: Sequence[FlowUnionTypeDef]
+    clientToken: NotRequired[str]

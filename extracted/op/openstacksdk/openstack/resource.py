@@ -74,7 +74,7 @@ import requests
 from openstack import _log
 from openstack import exceptions
 from openstack import fields
-from openstack import types
+from openstack.types import UNSET
 from openstack import utils
 from openstack import warnings as os_warnings
 
@@ -273,6 +273,7 @@ class QueryParameters:
         self,
         *names: str,
         include_pagination_defaults: bool = True,
+        include_sorting_defaults: bool = False,
         **mappings: str | QueryMapping,
     ) -> None:
         """Create a dict of accepted query parameters
@@ -282,7 +283,11 @@ class QueryParameters:
             expected by the server.
         :param include_pagination_defaults: If true, include default pagination
             parameters, ``limit`` and ``marker``. These are the most common
-            query parameters used for listing resources in OpenStack APIs.
+            query parameters used for paginating resources in OpenStack APIs.
+        :param include_sorting_defaults: If true, include default sorting
+            parameters, ``sort_dir`` and ``sort_key``. These are the most
+            common query parameters used for sorting resources in OpenStack
+            APIs.
         :param mappings: Key-value pairs where the key is the client-side
             name we'll accept here and the value is the name
             the server expects, e.g, ``changes_since=changes-since``.
@@ -295,6 +300,10 @@ class QueryParameters:
         self._mapping: dict[str, str | QueryMapping] = {}
         if include_pagination_defaults:
             self._mapping.update({"limit": "limit", "marker": "marker"})
+        if include_sorting_defaults:
+            self._mapping.update(
+                {"sort_dir": "sort_dir", "sort_key": "sort_key"}
+            )
         self._mapping.update({name: name for name in names})
         self._mapping.update(mappings)
 
@@ -409,17 +418,17 @@ class CreateOpts:
     #: Key to use when enveloping requests. If unset, defaults to the
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: enveloping.
-    request_key: str | types.Unset | None = types.UNSET
+    request_key: str | UNSET | None = UNSET
     #: Key to use when de-enveloping responses. If unset, defaults to the
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: de-enveloping.
-    response_key: str | types.Unset | None = types.UNSET
+    response_key: str | UNSET | None = UNSET
     #: Method to use for create requests. If unset, defaults to POST.
     method: Literal['POST', 'PUT'] = 'POST'
     # TODO(stephenfin): Could we drop this in favour of a SingletonResource or
     # similar?
     #: Whether an ID is required or not. If unset, derived from the method.
-    requires_id: bool | types.Unset = types.UNSET
+    requires_id: bool | UNSET = UNSET
     #: Whether the request includes a body.
     request_has_body: bool = True
     #: Whether the response includes a body. If unset, defaults to True.
@@ -432,11 +441,11 @@ class CommitOpts:
     #: Key to use when enveloping requests. If unset, defaults to the
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: enveloping.
-    request_key: str | types.Unset | None = types.UNSET
+    request_key: str | UNSET | None = UNSET
     #: Key to use when de-enveloping responses. If unset, defaults to the
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: de-enveloping.
-    response_key: str | types.Unset | None = types.UNSET
+    response_key: str | UNSET | None = UNSET
     #: Method to use for commit requests. This must be PATCH if allow_patch is
     #: True.
     method: Literal['POST', 'PATCH', 'PUT'] = 'PUT'
@@ -1293,6 +1302,18 @@ class Resource(dict[str, Any]):
         # NOTE(gtema) sort result, since we might need validate it in tests
         return sorted(patch, key=operator.itemgetter('path'))
 
+    @staticmethod
+    def _format_path(base_path: str, params: dict[str, Any]) -> str:
+        # IDs and URI attributes are raw values, not URL syntax. Quote each
+        # substitution rather than the entire path, leaving separators and
+        # any query string in the template intact.
+        return base_path % {
+            key: urllib.parse.quote(value, safe='')
+            if isinstance(value, str)
+            else value
+            for key, value in params.items()
+        }
+
     def _prepare_request(
         self,
         *,
@@ -1342,14 +1363,16 @@ class Resource(dict[str, Any]):
 
         if base_path is None:
             base_path = self.base_path
-        uri = base_path % {'id': self.id, **self._uri.attributes}
+        uri = self._format_path(
+            base_path, {'id': self.id, **self._uri.attributes}
+        )
         if requires_id:
             if self.id is None:
                 raise exceptions.InvalidRequest(
                     "Request requires an ID but none was found"
                 )
 
-            uri = utils.urljoin(uri, self.id)
+            uri = utils.urljoin(uri, urllib.parse.quote(str(self.id), safe=''))
 
         if params:
             uri += '?' + urllib.parse.urlencode(params)
@@ -1647,12 +1670,12 @@ class Resource(dict[str, Any]):
         if microversion is None:
             microversion = self._get_microversion(session)
 
-        if not isinstance(self.create_opts.requires_id, types.Unset):
+        if self.create_opts.requires_id is not UNSET:
             requires_id = self.create_opts.requires_id
         else:
             requires_id = bool(method == 'PUT')
 
-        if not isinstance(self.create_opts.request_key, types.Unset):
+        if self.create_opts.request_key is not UNSET:
             prepend_key = self.create_opts.request_key is not None
             request_key = self.create_opts.request_key
         else:
@@ -1660,7 +1683,7 @@ class Resource(dict[str, Any]):
 
         response_key = (
             self.create_opts.response_key
-            if not isinstance(self.create_opts.response_key, types.Unset)
+            if self.create_opts.response_key is not UNSET
             else resource_response_key
         )
 
@@ -1760,7 +1783,7 @@ class Resource(dict[str, Any]):
         if microversion is None:
             microversion = cls._get_microversion(session)
 
-        if not isinstance(cls.create_opts.requires_id, types.Unset):
+        if cls.create_opts.requires_id is not UNSET:
             requires_id = cls.create_opts.requires_id
         else:
             requires_id = bool(method == 'PUT')
@@ -1983,7 +2006,7 @@ class Resource(dict[str, Any]):
         if not self.requires_commit:
             return self
 
-        if not isinstance(self.commit_opts.request_key, types.Unset):
+        if self.commit_opts.request_key is not UNSET:
             prepend_key = self.commit_opts.request_key is not None
             request_key = self.commit_opts.request_key
         else:
@@ -2308,7 +2331,7 @@ class Resource(dict[str, Any]):
             ):
                 client_filters[k] = v
         query_params = cls._query_mapping._transpose(api_filters, cls)
-        uri = base_path % params
+        uri = cls._format_path(base_path, params)
         uri_params = {}
 
         if max_items and not query_params.get('limit'):

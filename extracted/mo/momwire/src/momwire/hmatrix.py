@@ -48,6 +48,7 @@ from scipy.sparse.linalg import splu
 from .bspline import BSplineSolver, _SplineBasis, _EK_SAME_EDGE, _ek_slice
 from ._port_solution import PortSolution, port_impedances, refuse_undriven
 
+from . import _fill_report
 from . import _ground_mirror, _ground_refl, _potential_ground, _schedule, _sommerfeld
 from ._bspline_kernels import (
     _LADDER_PHASE_LIMITED_BELOW,
@@ -543,6 +544,8 @@ class HMatrixSolver(BSplineSolver):
     resolve to the dense BSplineSolver path until later phases override them,
     so the class is usable and correct from the start.
     """
+
+    _fill_report_route_name = "hmatrix"
 
     # momwire#1408: this class's fills never reach the dense route's
     # exact-kernel correction, so `exact_kernel=True` is refused here.
@@ -1694,6 +1697,7 @@ class HMatrixSolver(BSplineSolver):
         if k is None:
             k = self.k
         self._refuse_buried_fast_operator("HMatrixSolver.build_hmatrix")
+        self._decline_unread_hint("the H-matrix operator does not read the hint")
         part = self.build_partition(eta=eta, leaf_size=leaf_size)
         ctx = self._context()
         n = ctx["n_basis"]
@@ -2441,7 +2445,8 @@ class HMatrixSolver(BSplineSolver):
         ctx = self._context()
         geom = ctx["geom"]
         n = ctx["n_basis"]
-        H = self._build_operator()
+        with _fill_report.fill_clock(self):
+            H = self._build_operator()
         # Junction-port columns (#172 dense contract, lifted onto the
         # iterative paths by #234): the ported junction's KCL row leaves the
         # constraint set and becomes a port column, drive vector == readout
@@ -2484,7 +2489,8 @@ class HMatrixSolver(BSplineSolver):
         ctx = self._context()
         geom = ctx["geom"]
         n = ctx["n_basis"]
-        H = self._build_operator()
+        with _fill_report.fill_clock(self):
+            H = self._build_operator()
 
         v_per_feed = []
         for w_i, arc_i, _v in self.feeds:

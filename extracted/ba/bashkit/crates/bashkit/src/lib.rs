@@ -323,7 +323,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.21.0", features = ["git"] }
+//! bashkit = { version = "0.21.1", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -354,7 +354,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.21.0", features = ["python"] }
+//! bashkit = { version = "0.21.1", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -421,6 +421,9 @@
 // Stricter panic prevention - prefer proper error handling over unwrap()
 #![warn(clippy::unwrap_used)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
+// Tests build host temp paths freely; the VFS separator ban (clippy.toml)
+// targets library code.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 
 // The rustls-backed HTTP client installs its own crypto provider (reqwest is
 // built with `rustls-no-provider`), so a backend must be selected. Fail here
@@ -610,7 +613,7 @@ pub use monty_types::{ExcType, ExtFunctionResult, MontyException, MontyObject, O
 #[cfg(feature = "typescript")]
 pub use builtins::{
     TypeScriptConfig, TypeScriptExtension, TypeScriptExternalFnHandler, TypeScriptExternalFns,
-    TypeScriptLimits,
+    TypeScriptLimits, TypeScriptVmConcurrencyError, configure_typescript_vm_concurrency,
 };
 // Re-export ZapCode types needed by external handler consumers.
 #[cfg(feature = "typescript")]
@@ -2041,10 +2044,10 @@ impl HostMounts {
             .iter()
             .filter_map(|mount| {
                 let rest = vfs_path.strip_prefix(&mount.vfs_path).ok()?;
-                Some((
-                    mount.vfs_path.components().count(),
-                    mount.host_path.join(rest),
-                ))
+                // Host side of the mount: the host separator is correct here.
+                #[allow(clippy::disallowed_methods)]
+                let host = mount.host_path.join(rest);
+                Some((mount.vfs_path.components().count(), host))
             })
             .max_by_key(|(depth, _)| *depth)
             .map(|(_, host)| host)

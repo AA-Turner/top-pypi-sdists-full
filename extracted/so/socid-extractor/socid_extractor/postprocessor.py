@@ -72,40 +72,37 @@ class Gravatar:
         self.url = data['image']
         self.email_hash = self.extract_email_hash()
 
-        # old workaround
+        # A username that is just the avatar hash repeats the hash, it is not a name.
+        # Resolving the real one needs a fetch of en.gravatar.com/{hash}.json, which is
+        # the Gravatar scheme's url_mutations job (--enrich); parsing stays offline here.
         if self.email_hash and self.username == self.email_hash:
-            self.username = self.get_username_from_url()
+            self.username = ''
 
     def extract_email_hash(self):
-        gravatar_re = re.search(r'gravatar\.com/avatar/(\w{32})', self.url)
+        # The longer form is matched first and bounded on the right: \w{32}
+        # alone took the front half of a sha256 and let it pass as an md5,
+        # which made up both the hash and the profile URL built from it.
+        gravatar_re = re.search(r'gravatar\.com/avatar/([0-9a-f]{64}|[0-9a-f]{32})(?![0-9a-f])', self.url, re.I)
         if gravatar_re:
-            return gravatar_re.group(1)
+            return gravatar_re.group(1).lower()
         return ''
 
     def make_main_url(self):
         return f'https://gravatar.com/{self.email_hash}'
 
-    def make_en_url(self):
-        return f'https://en.gravatar.com/{self.email_hash}'
-
-    def get_username_from_url(self):
-        import requests
-        gravatar_account_location = requests.head(self.make_en_url())
-        username = gravatar_account_location.headers.get('location', '').strip('/')
-        if username == 'profiles/no-such-user':
-            username = ''
-
-        return username
-
     def process(self):
         output = {}
 
-        if self.username and is_valid_gravatar_email_hash(self.email_hash):
+        if is_valid_gravatar_email_hash(self.email_hash):
             output = {
                 'gravatar_url': self.make_main_url(),
-                'gravatar_username': self.username,
-                'gravatar_email_md5_hash': self.email_hash,
+                # named for what it actually is, so nothing tries to look up
+                # a sha256 somewhere that expects an md5
+                ('gravatar_email_md5_hash' if len(self.email_hash) == 32
+                 else 'gravatar_email_sha256_hash'): self.email_hash,
             }
+            if self.username:
+                output['gravatar_username'] = self.username
 
         return output
 

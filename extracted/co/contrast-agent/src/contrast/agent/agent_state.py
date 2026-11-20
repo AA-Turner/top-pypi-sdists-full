@@ -19,6 +19,7 @@ from contrast import AGENT_CURR_WORKING_DIR, __version__, import_hook, loader, p
 from contrast.agent import (
     agent_lib,
     patch_controller,
+    scope,
     sys_monitoring,
     thread_watcher,
 )
@@ -45,7 +46,11 @@ from contrast.utils.loggers.logger import (
     setup_security_logger,
 )
 from contrast.utils.namespace import Namespace
-from contrast_rewriter import initialize_rewriter_logger, is_rewriter_enabled
+from contrast_rewriter import (
+    initialize_rewriter_logger,
+    initialize_rewriter_scope,
+    is_rewriter_enabled,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -438,6 +443,7 @@ def _check_middleware_warnings():
         logger.warning(NO_EXPLICIT_MIDDLEWARE_WARNING)
 
 
+@scope.contrast_scope()
 def initialize():
     """
     If this method is called more than once per process, we use the is_initialized
@@ -503,6 +509,7 @@ def initialize():
 
         # The rewriter is applied long before we have any settings or logger so
         # the deferred logs are finally processed here
+        initialize_rewriter_scope(scope.contrast_scope, scope.pop_contrast_scope)
         initialize_rewriter_logger(logger)
 
         module.fireball_client = fireball.Client()

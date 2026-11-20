@@ -14,6 +14,29 @@ others allow.
 
 Import it directly (`import shell_text`); the hooks directory is on `sys.path` for both the
 `run-python.sh` launch and the test conftest.
+
+Decisions
+---------
+Git Bash mounts other than the drives are NOT resolved (`/tmp`, `/usr`, `/bin`, `/etc`, `/`).
+- Decision: on a Windows host a rooted Bash-tool path that is not a drive path (`/c/...`) keeps the
+  host's os.path reading, rooted at the current drive. `msys_drive_path` translates the drive
+  form only.
+- Why: the mapping lives in the shell's mount table, and nothing a hook can read cheaply states it.
+  `/` is the Git INSTALL directory (C:/Program Files/Git by default, but a per-user, portable or
+  package-manager install puts it elsewhere), `/bin` is the install's usr/bin, and `/tmp` is the
+  calling user's own %TEMP% only because the shipped /etc/fstab carries a `usertemp` line, which a
+  user may edit, as they may add mounts of their own. `EXEPATH`, which names the install, is set
+  only by the bin/bash.exe launcher, not by usr/bin/bash.exe. Asking `cygpath -w` is exact but
+  spawns a process per hook call, and a host without Git Bash has no cygpath (nor a Bash tool whose
+  text would need it). A guessed mapping lands a guard in a directory the shell never entered,
+  which is worse than the reading it replaces.
+- Evidence: measured with `mount` and `cygpath -w` in Git Bash (Git for Windows, MSYS 3.6): `/` ->
+  C:/Program Files/Git, `/bin` and `/usr/bin` -> C:/Program Files/Git/usr/bin, `/tmp` ->
+  C:/Users/<user>/AppData/Local/Temp (mount option `usertemp`), `/cygdrive/c` -> C:/Program
+  Files/Git/cygdrive/c; one `cygpath` call took 63 ms; a native child of usr/bin/bash.exe had no
+  `EXEPATH`. Pinned by `test_a_non_drive_mount_keeps_the_host_s_reading`.
+- Reopen if: Claude Code passes the hook the Git Bash it runs (its root or mount table), or a
+  measured guard decision on Windows turns on a `/tmp` or `/usr` path.
 """
 
 import bisect
@@ -547,14 +570,42 @@ def _readable_dir(target, base, msys_drives=False):
     Unreadable: no target (a bare `cd` goes to HOME), `-` ($OLDPWD), a tilde path (the HOME of the
     shell that runs it), or a variable, substitution or glob. An absolute target is readable even
     when `base` is not. A path that does not exist is left for git to refuse. With `msys_drives` a
-    Git Bash drive path (`/c/temp`) is read as that drive (see `msys_drive_path`).
+    Git Bash drive path (`/c/temp`) is read as that drive (see `resolve_path`).
     """
     if not target or target == "-" or target.startswith("~") or _UNKNOWABLE_DIR.search(target):
         return None
-    target = msys_drive_path(target, msys_drives)
-    if is_rooted(target):
-        return os.path.normpath(target)
-    return os.path.normpath(os.path.join(base, target)) if base else None
+    landing = resolve_path(target, base, msys_drives=msys_drives)
+    return os.path.normpath(landing) if landing else None
+
+
+def reads_msys_drives(tool_name="Bash", os_name=os.name):
+    """True when a path in `tool_name`'s command text spells a drive as Git Bash does. PURE.
+
+    Claude Code's Bash tool is Git Bash on a Windows host, so there `cd /c/temp` (and a `/c/temp`
+    argument it hands to a native program such as git or python) means drive C. The PowerShell tool
+    passes the same text on unchanged, and on any other host `/c` is an ordinary directory. This is
+    THE default for every reader in this module that takes `msys_drives=None`: a caller left to the
+    default cannot read a drive path as the current-drive root, which is how all but one guard got
+    it wrong while the reading was opt-in. `os_name` is a parameter so tests reach both arms on any
+    host.
+    """
+    return os_name == "nt" and (tool_name or "Bash") == "Bash"
+
+
+def resolve_path(path, base, tool_name="Bash", *, msys_drives=None):
+    """`path` as the shell finds it from `base`, not normalised, or None for a relative `path` and
+    no `base`.
+
+    A Git Bash drive path is spelled as its drive (`/c/temp` -> `C:/temp`, see `msys_drive_path`),
+    a rooted path is kept, and a relative one is joined onto `base`. `msys_drives` None asks
+    `reads_msys_drives(tool_name)`; True or False overrides it. A translated drive path counts as
+    rooted on every host, so both arms give the same answer wherever the tests run.
+    """
+    windows = reads_msys_drives(tool_name) if msys_drives is None else msys_drives
+    drive = msys_drive_path(path, windows)
+    if drive != path or is_rooted(path):
+        return drive
+    return os.path.join(base, path) if base else None
 
 
 def is_rooted(path):
@@ -580,14 +631,27 @@ def msys_drive_path(path, windows):
     `pwd` prints `/c/temp` and `cd /c/temp` lands in C:\\temp, either letter case. os.path has no
     such mount and roots `/c/temp` at the CURRENT drive, C:\\c\\temp - a directory the shell never
     entered. Only the drive form is translated: `/cygdrive/c` does not resolve in Git Bash at all,
-    and the other mounts (`/tmp`, `/usr`) need the mount table, which a static read does not have.
+    and the other mounts (`/tmp`, `/usr`) need the mount table, which a hook cannot read cheaply
+    (see Decisions in the module docstring).
     The caller decides `windows` (the host is Windows AND the text is Git Bash's, not PowerShell's
-    or a script's), so both arms are testable on every host.
+    or a script's: `reads_msys_drives`), so both arms are testable on every host. Readers resolve
+    through `resolve_path`, which asks `reads_msys_drives` by default.
     """
     match = _MSYS_DRIVE.match(path) if windows else None
     if not match:
         return path
     return match.group(1).upper() + ":/" + path[match.end():]
+
+
+def msys_drive_path_for_tool(path, tool_name="Bash", os_name=os.name):
+    """`path` as `tool_name`'s shell on this host reaches it, for a caller reading ONE word. PURE.
+
+    `msys_drive_path` with the drive decision taken from `reads_msys_drives`, the decision every
+    other reader here takes, so a caller cannot decide the host on its own and disagree with them.
+    A caller with a base directory to join onto uses `resolve_path` instead. `os_name` is a
+    parameter so tests reach both arms on any host.
+    """
+    return msys_drive_path(path, reads_msys_drives(tool_name, os_name))
 
 
 def is_work_tree_root(directory):
@@ -626,7 +690,7 @@ def _cd_target(args):
 _STACK_ROTATION = re.compile(r"^[+-]\d+$")
 
 
-def directory_change(statement, here, tool_name="Bash", *, expand_home=False, msys_drives=False):
+def directory_change(statement, here, tool_name="Bash", *, expand_home=False, msys_drives=None):
     """(changes, landing) for ONE statement: does it move the shell's directory, and to where.
 
     THE cd reader. Four nudges once carried a private regex each, and they had drifted in every
@@ -645,18 +709,19 @@ def directory_change(statement, here, tool_name="Bash", *, expand_home=False, ms
     come from `argv_for_match`, so `cd "a b"` is one word and a trailing comment is not one. Loop
     and branch keywords, a subshell paren and `NAME=value` prefixes in front of the program are
     skipped. `expand_home` resolves `~` and `~/...` against this process's HOME, for a caller that
-    has decided the hook and the shell share one. `msys_drives` reads a Git Bash drive path
-    (`cd /c/temp`) as that drive, for a caller that has decided the text is Git Bash's on a Windows
-    host (see `msys_drive_path`); it is off by default, because the guards and nudges here were
-    written and tested against the current-drive reading, and moving them is its own change.
+    has decided the hook and the shell share one. A Git Bash drive path (`cd /c/temp`) lands on
+    that drive whenever `reads_msys_drives(tool_name)` says the text is Git Bash's on a Windows host;
+    `msys_drives` True or False overrides that, for a test that must reach the other arm.
     """
     tool = tool_name or "Bash"
     tokens = argv_for_match((statement or "").strip().lstrip("(").strip(), tool)
     return _directory_change_tokens(tokens, here, tool, expand_home, msys_drives)
 
 
-def _directory_change_tokens(tokens, here, tool, expand_home=False, msys_drives=False):
+def _directory_change_tokens(tokens, here, tool, expand_home=False, msys_drives=None):
     """`directory_change` on an argv the caller already split."""
+    if msys_drives is None:
+        msys_drives = reads_msys_drives(tool)
     idx = 0
     while idx < len(tokens) and (
         tokens[idx] in _STATEMENT_KEYWORDS
@@ -678,7 +743,7 @@ def _directory_change_tokens(tokens, here, tool, expand_home=False, msys_drives=
     return True, _readable_dir(target, here, msys_drives)
 
 
-def _apply_git_options(prefix, here, tool):
+def _apply_git_options(prefix, here, tool, msys_drives):
     """`here` moved by the `-C` options in `prefix` (the tokens before the verb), or None.
 
     None when a `--git-dir`/`--work-tree` option or a `GIT_DIR`/`GIT_WORK_TREE` assignment points
@@ -693,7 +758,8 @@ def _apply_git_options(prefix, here, tool):
         if token.startswith(_REPO_OPTIONS):
             return None
         if token == "-C":                         # several compose, each relative to the last
-            here = _readable_dir(options[index + 1] if index + 1 < len(options) else None, here)
+            here = _readable_dir(options[index + 1] if index + 1 < len(options) else None, here,
+                                 msys_drives)
         index += 2 if token in GIT_VALUE_OPTS else 1
     return here
 
@@ -1075,7 +1141,7 @@ class _BodyTracker:
         self.unknown = self.unknown or (in_case and _moves_the_shell(tokens, self.tool))
 
 
-def git_verb_dir(command, cwd, verbs, tool_name=None):
+def git_verb_dir(command, cwd, verbs, tool_name=None, *, msys_drives=None):
     """The directory the first `git <verb>` in `command` runs in, or None when it is unreadable.
 
     Follows every cd-like statement before the verb, then the verb's own `-C` values, starting from
@@ -1129,8 +1195,12 @@ def git_verb_dir(command, cwd, verbs, tool_name=None):
     Once the command assigns `CDPATH` (`CDPATH=/a; cd sub`, `export CDPATH=...`, or as a prefix),
     a RELATIVE cd is unknown: bash tries each CDPATH entry first, and whether `/a/sub` exists is not
     in the text. A CDPATH inherited from the environment is invisible here and not modelled.
+
+    A Git Bash drive path in a cd or a `-C` value (`cd /c/repo`, `git -C /d/x`) is read as that
+    drive where `reads_msys_drives(tool_name)` says so; `msys_drives` True or False overrides it.
     """
     tool, here = tool_name or "Bash", cwd
+    drives = reads_msys_drives(tool) if msys_drives is None else msys_drives
     text = blank_heredoc_bodies(command or "")
     segments = list(iter_segments(text, tool))
     known, leading, previous_end = {}, tool == "Bash", 0
@@ -1175,24 +1245,25 @@ def git_verb_dir(command, cwd, verbs, tool_name=None):
                                    len(subshells.open))
         # With CDPATH set, a relative target is unknown: reading it from no directory (None) makes
         # `_readable_dir` refuse exactly the relative ones and keep the rooted ones.
-        changed, landing = _directory_change_tokens(tokens, None if cdpath_set else here, tool)
+        changed, landing = _directory_change_tokens(tokens, None if cdpath_set else here, tool,
+                                                    msys_drives=drives)
         # `cd x & ...` and `cd x | ...` run the cd in a subshell: the next statement starts where
         # this one did, so such a cd moves nothing.
         moves = changed and gap_after.strip(" \t") not in ("&", "|")
         if in_body:
             # Defined here, run only where it is called: a verb in it has no readable directory.
-            if held is _NOT_HELD and git_segment_dir(tokens, verbs, here, tool)[0]:
+            if held is _NOT_HELD and git_segment_dir(tokens, verbs, here, tool, msys_drives=drives)[0]:
                 return None
         elif (action := chain.statement(joined or None, moves, _negated(tokens))) == "unknown":
             here = None
         elif action == "skipped":
             # A verb that never runs has no directory to answer with.
-            if held is _NOT_HELD and git_segment_dir(tokens, verbs, here, tool)[0]:
+            if held is _NOT_HELD and git_segment_dir(tokens, verbs, here, tool, msys_drives=drives)[0]:
                 return None
         elif moves:
             here = landing
         elif held is _NOT_HELD:
-            is_verb, where = git_segment_dir(tokens, verbs, here, tool)
+            is_verb, where = git_segment_dir(tokens, verbs, here, tool, msys_drives=drives)
             unknown = subshells.lost or bodies.unknown or chain.or_seen
             answer = None if unknown else where
             if is_verb and (answer is None or not bodies.in_loop):
@@ -1206,16 +1277,18 @@ def git_verb_dir(command, cwd, verbs, tool_name=None):
     return None
 
 
-def git_segment_dir(tokens, verbs, here, tool_name="Bash"):
+def git_segment_dir(tokens, verbs, here, tool_name="Bash", *, msys_drives=None):
     """(is this statement `git <verb>` for one of `verbs`, the directory it runs in or None).
 
     `here` is where the statement starts; the verb's own `-C` values move it, and a `--git-dir`,
-    `--work-tree` or `GIT_DIR` points it somewhere nothing here models (None)."""
+    `--work-tree` or `GIT_DIR` points it somewhere nothing here models (None). A Git Bash drive
+    path in a `-C` value follows `reads_msys_drives(tool_name)` unless `msys_drives` overrides it."""
     tool = tool_name or "Bash"
+    drives = reads_msys_drives(tool) if msys_drives is None else msys_drives
     operands = git_verb_operands(tokens, verbs, tool)
     if operands is None:
         return False, here
-    return True, _apply_git_options(tokens[:len(tokens) - len(operands) - 1], here, tool)
+    return True, _apply_git_options(tokens[:len(tokens) - len(operands) - 1], here, tool, drives)
 
 
 def iter_segments(text, tool_name=None):

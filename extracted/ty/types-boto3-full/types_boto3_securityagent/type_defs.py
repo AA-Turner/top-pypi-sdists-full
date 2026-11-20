@@ -28,6 +28,7 @@ from .literals import (
     ArtifactTypeType,
     AuthenticationProviderTypeType,
     CleanUpStrategyType,
+    CodeRemediationJobStatusType,
     CodeRemediationStrategyType,
     CodeRemediationTaskStatusType,
     ConfidenceLevelType,
@@ -818,6 +819,9 @@ class CodeRemediationTaskDetailsTypeDef(TypedDict):
     repoName: NotRequired[str]
     codeDiffLink: NotRequired[str]
     pullRequestLink: NotRequired[str]
+    status: NotRequired[CodeRemediationJobStatusType]
+    statusCode: NotRequired[str]
+    statusReason: NotRequired[str]
 
 
 class CodeReviewJobSummaryTypeDef(TypedDict):

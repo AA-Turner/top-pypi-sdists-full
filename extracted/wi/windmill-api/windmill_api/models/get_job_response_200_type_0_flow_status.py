@@ -19,6 +19,9 @@ if TYPE_CHECKING:
         GetJobResponse200Type0FlowStatusPreprocessorModule,
     )
     from ..models.get_job_response_200_type_0_flow_status_retry import GetJobResponse200Type0FlowStatusRetry
+    from ..models.get_job_response_200_type_0_flow_status_test_subflows import (
+        GetJobResponse200Type0FlowStatusTestSubflows,
+    )
 
 
 T = TypeVar("T", bound="GetJobResponse200Type0FlowStatus")
@@ -36,6 +39,8 @@ class GetJobResponse200Type0FlowStatus:
         retry (Union[Unset, GetJobResponse200Type0FlowStatusRetry]):
         continued_on_error (Union[Unset, List['GetJobResponse200Type0FlowStatusContinuedOnErrorItem']]): On a root flow,
             the steps at any depth that failed and that the flow went past because of continue_on_error (at most 100).
+        test_subflows (Union[Unset, GetJobResponse200Type0FlowStatusTestSubflows]): In a flow test run, deployed subflow
+            path -> the flow value with the test's step overrides applied, run in place of the deployed subflow.
     """
 
     step: int
@@ -45,6 +50,7 @@ class GetJobResponse200Type0FlowStatus:
     preprocessor_module: Union[Unset, "GetJobResponse200Type0FlowStatusPreprocessorModule"] = UNSET
     retry: Union[Unset, "GetJobResponse200Type0FlowStatusRetry"] = UNSET
     continued_on_error: Union[Unset, List["GetJobResponse200Type0FlowStatusContinuedOnErrorItem"]] = UNSET
+    test_subflows: Union[Unset, "GetJobResponse200Type0FlowStatusTestSubflows"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -74,6 +80,10 @@ class GetJobResponse200Type0FlowStatus:
 
                 continued_on_error.append(continued_on_error_item)
 
+        test_subflows: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.test_subflows, Unset):
+            test_subflows = self.test_subflows.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -91,6 +101,8 @@ class GetJobResponse200Type0FlowStatus:
             field_dict["retry"] = retry
         if continued_on_error is not UNSET:
             field_dict["continued_on_error"] = continued_on_error
+        if test_subflows is not UNSET:
+            field_dict["test_subflows"] = test_subflows
 
         return field_dict
 
@@ -109,6 +121,9 @@ class GetJobResponse200Type0FlowStatus:
             GetJobResponse200Type0FlowStatusPreprocessorModule,
         )
         from ..models.get_job_response_200_type_0_flow_status_retry import GetJobResponse200Type0FlowStatusRetry
+        from ..models.get_job_response_200_type_0_flow_status_test_subflows import (
+            GetJobResponse200Type0FlowStatusTestSubflows,
+        )
 
         d = src_dict.copy()
         step = d.pop("step")
@@ -147,6 +162,13 @@ class GetJobResponse200Type0FlowStatus:
 
             continued_on_error.append(continued_on_error_item)
 
+        _test_subflows = d.pop("test_subflows", UNSET)
+        test_subflows: Union[Unset, GetJobResponse200Type0FlowStatusTestSubflows]
+        if isinstance(_test_subflows, Unset):
+            test_subflows = UNSET
+        else:
+            test_subflows = GetJobResponse200Type0FlowStatusTestSubflows.from_dict(_test_subflows)
+
         get_job_response_200_type_0_flow_status = cls(
             step=step,
             modules=modules,
@@ -155,6 +177,7 @@ class GetJobResponse200Type0FlowStatus:
             preprocessor_module=preprocessor_module,
             retry=retry,
             continued_on_error=continued_on_error,
+            test_subflows=test_subflows,
         )
 
         get_job_response_200_type_0_flow_status.additional_properties = d

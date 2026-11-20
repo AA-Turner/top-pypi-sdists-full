@@ -157,6 +157,8 @@ from .flow_run_error_details_code import FlowRunErrorDetailsCode
 from .flow_run_error_details_kind import FlowRunErrorDetailsKind
 from .flow_run_status import FlowRunStatus
 from .flow_run_step import FlowRunStep
+from .flow_run_step_attempt import FlowRunStepAttempt
+from .flow_run_step_attempt_details import FlowRunStepAttemptDetails
 from .flow_run_step_details import FlowRunStepDetails
 from .flow_run_step_status import FlowRunStepStatus
 from .flow_run_step_type import FlowRunStepType
@@ -179,6 +181,10 @@ from .git_credentials import GitCredentials
 from .header import Header
 from .header_input import HeaderInput
 from .header_with_cursor import HeaderWithCursor
+from .hosted_repo import HostedRepo
+from .hosted_repo_post_input import HostedRepoPOSTInput
+from .hosted_repo_state import HostedRepoState
+from .hosted_repo_with_cursor import HostedRepoWithCursor
 from .image import Image
 from .image_pull_failed import ImagePullFailed
 from .initial_deploy_hook_ended import InitialDeployHookEnded
@@ -637,6 +643,8 @@ __all__ = (
     "FlowRunErrorDetailsKind",
     "FlowRunStatus",
     "FlowRunStep",
+    "FlowRunStepAttempt",
+    "FlowRunStepAttemptDetails",
     "FlowRunStepDetails",
     "FlowRunStepsPage",
     "FlowRunStepStatus",
@@ -657,6 +665,10 @@ __all__ = (
     "Header",
     "HeaderInput",
     "HeaderWithCursor",
+    "HostedRepo",
+    "HostedRepoPOSTInput",
+    "HostedRepoState",
+    "HostedRepoWithCursor",
     "Image",
     "ImagePullFailed",
     "InitialDeployHookEnded",

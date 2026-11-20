@@ -106,6 +106,25 @@ adr_handover_phase (const dp_async_dsss_receiver_state_t *state,
   return phase;
 }
 
+/* A tracking receiver's code phase at the stream's next sample. The Dll's
+ * own phase is at the next sample IT runs, and the live chain runs whole
+ * tsamps-sample periods, carrying the rest (car_carry_buf), so the stream's
+ * next sample is car_carry_len past it. Fed whole periods (as the pool
+ * feeds it) at a whole-sample period the carry is 0; at a fractional period
+ * it is a constant remainder, up to a whole period -- at 2.2 samples a chip,
+ * 2,140 samples, which read ~50 chips off and let the pool's search re-seed
+ * every held signal (#3063) -- and fed arbitrary blocks it is anything.
+ * Carried at the rate the code NCO runs, the loop's rate plus the carrier
+ * aid (dll_core.h: code_rate excludes the aid). */
+static double
+adr_live_chip_phase (const dp_async_dsss_receiver_state_t *s)
+{
+  const double ahead = (double)s->car_carry_len / s->spc
+                       * (dp_dll_get_code_rate (s->dll) + s->dll->rate_aid);
+  return dp_fmod_pos (dp_dll_get_code_phase (s->dll) + ahead,
+                      (double)s->code_len);
+}
+
 /* Every state transition goes through here so the two running clocks stay
  * honest: `state_samples` counts from the entry, and the release clock
  * (`both_down_samples`) only ever runs inside tracking. */
@@ -983,18 +1002,13 @@ adr_align_skip (dp_async_dsss_receiver_state_t *s, size_t x_len)
   return (size_t)owed;
 }
 
-/* One signal's code phase, within a chip, circularly over the code: the
- * zone a tracked signal holds and a peak's neighbouring cells share
- * (design async-dsss-receiver.md §7.2; keyed on code phase alone, never
- * carrier, async-dsss-receiver-measurements.md §12.14). */
+/* One signal's code phase: the one key, dp__adsss_same_code_phase()
+ * (async_dsss_receiver_private.h), which the pool's duplicate test calls
+ * too. */
 static int
 adr_same_code_phase (double a, double b, size_t code_len)
 {
-  double       d  = fabs (a - b);
-  const double cl = (double)code_len;
-  if (d > cl / 2.0)
-    d = cl - d;
-  return d <= 1.0;
+  return dp__adsss_same_code_phase (a, b, (double)code_len);
 }
 
 /* A dwell's peak list, strongest first, to the one this receiver takes.
@@ -1293,6 +1307,20 @@ dp_async_dsss_receiver_create (
      the one-peak detector's pick, so rank 0 with no exclusions takes what
      max_peaks 1 took. */
   (void)dp_correlator_set_max_peaks (obj->acq, ASYNC_DSSS_RX_MAX_PEAKS, NULL);
+  /* One emitter, one listed peak: a zone over every Doppler bin of every
+     roll, so a strong emitter's own lag -- its slow-time sidelobes, its
+     roll aliases, its data's spread inside a coherent dwell -- cannot take
+     the list's slots from a weaker one elsewhere (doppler#3067), and the
+     zone removes only what the pick drops anyway (doppler#3060). Half the
+     pick's key wide, not the whole key: the zone is a lag, and with a
+     carrier set the key carries each hit's code phase on by its own
+     Doppler's dilation, off the lag grid, so a zone as wide as the key
+     masks pairs two lags apart that the key keeps -- for several dwells
+     when their Dopplers are close (#3071, measured at +/- 2 kHz). Half the
+     key keeps the zone inside it; an emitter off the grid by half a lag
+     then shows its shoulder once a dwell, which the bench does not see. */
+  (void)dp_correlator_set_peak_zone (
+      obj->acq, 1, DP_CORRELATOR_SAME_PHASE_CHIPS / 2.0, NULL);
   /* A deep block bounds rule 2 with the code's worst sidelobe as a floor
      (adr_sidelobe_bound()), which the searcher computes on the first read.
      Read it here, so that sweep is this create's cost and never a stall
@@ -2157,8 +2185,10 @@ dp_async_dsss_receiver_configure_chain_raw (
   /* Read before the rebuild, while sps is still the old grid's: the sum
      is loop 1 PLUS loop 2. Loop 2's residual alone (what this read before
      #2414) dropped loop 1's carrier, so a receiver tracking +2.4 kHz was
-     rebuilt near 0 Hz and lost the signal. */
-  double chip_phase     = dp_dll_get_code_phase (state->dll);
+     rebuilt near 0 Hz and lost the signal. The phase is the stream's next
+     sample's, not the Dll's: the rebuild drops the samples the old chain
+     carried, so the new chain's first sample is the stream's next (#3063). */
+  double chip_phase     = adr_live_chip_phase (state);
   double doppler_hz_now = adr_tracked_doppler_hz (state);
 
   adr_rebuild_track_chain (state, chip_phase, doppler_hz_now, segments, sps,
@@ -2265,7 +2295,7 @@ dp_async_dsss_receiver_get_chip_phase (
   if (state->state == ASYNC_DSSS_RX_REFINING)
     return adr_handover_phase (state, state->seed_doppler_hz_est,
                                state->refine_samples_fed);
-  return dp_dll_get_code_phase (state->dll);
+  return adr_live_chip_phase (state);
 }
 double
 dp_async_dsss_receiver_get_code_rate (

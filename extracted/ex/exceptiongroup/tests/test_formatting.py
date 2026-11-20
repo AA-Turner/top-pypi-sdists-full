@@ -65,13 +65,32 @@ def old_argstyle(request: SubRequest) -> bool:
 def test_unpatched_tracebackexception_format():
     dummy_script_path = Path(__file__).parent / "dummyscript.py"
     process = subprocess.run(
-        [sys.executable, str(dummy_script_path)], capture_output=True
+        [sys.executable, str(dummy_script_path)], check=True, capture_output=True
     )
     tbe = pickle.loads(process.stdout)
     assert not hasattr(tbe, "exceptions")
     assert not hasattr(tbe, "__notes__")
     formatted = tbe.format()
     "".join(formatted)
+
+
+@pytest.mark.skipif(
+    sys.version_info >= (3, 11),
+    reason="No patching is done on Python >= 3.11",
+)
+def test_no_patch_env_var():
+    script_path = Path(__file__).parent / "no_patch.py"
+    process = subprocess.run(
+        [sys.executable, str(script_path)], check=True, capture_output=True, text=True
+    )
+    assert process.stderr == (
+        f"""\
+Traceback (most recent call last):
+  File "{script_path}", line 13, in <module>
+    raise ExceptionGroup("msg1", [KeyError("msg2"), ValueError("msg3")])
+exceptiongroup.ExceptionGroup: msg1 (2 sub-exceptions)
+"""
+    )
 
 
 def test_exceptionhook(capsys: CaptureFixture) -> None:
@@ -306,6 +325,25 @@ def test_format_exception(
     +------------------------------------
 """
         )
+
+
+def test_format_exception_limit() -> None:
+    from exceptiongroup import format_exception
+
+    try:
+        raise ValueError("foo")
+    except ValueError as exc:
+        group = ExceptionGroup("test message", [exc])
+
+    module_prefix = "" if sys.version_info >= (3, 11) else "exceptiongroup."
+    assert "".join(format_exception(group, limit=0)) == (
+        f"""\
+  | {module_prefix}ExceptionGroup: test message (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | ValueError: foo
+    +------------------------------------
+"""
+    )
 
 
 def test_format_nested(monkeypatch: MonkeyPatch) -> None:
@@ -544,7 +582,7 @@ def test_nameerror_suggestions_in_group(
         eg = ExceptionGroup("a", [e])
         print_exception(eg)
         output = capsys.readouterr().err
-        assert "Did you mean" in output and "'append'?" in output
+        assert "Did you mean" in output and "append'" in output
 
 
 def test_bug_suggestions_attributeerror_no_obj(

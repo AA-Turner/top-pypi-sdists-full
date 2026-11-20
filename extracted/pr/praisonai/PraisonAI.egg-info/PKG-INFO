@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.7.26
+Version: 4.8.0
 Summary: Open-source Python AI agent framework that runs on your own computers, even fully offline.
 Author: Mervin Praison
 License: MIT
@@ -11,14 +11,14 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.7.24
-Requires-Dist: praisonai-code>=0.1.23
-Requires-Dist: praisonai-bot>=0.1.23
-Requires-Dist: praisonai-train>=0.1.23
-Requires-Dist: praisonai-browser>=0.1.23
-Requires-Dist: praisonai-mcp>=0.1.25
-Requires-Dist: praisonai-sandbox>=0.1.23
-Requires-Dist: praisonai-deploy>=0.1.23
+Requires-Dist: praisonaiagents>=1.8.0
+Requires-Dist: praisonai-code>=0.2.0
+Requires-Dist: praisonai-bot>=0.2.0
+Requires-Dist: praisonai-train>=0.2.0
+Requires-Dist: praisonai-browser>=0.2.0
+Requires-Dist: praisonai-mcp>=0.2.0
+Requires-Dist: praisonai-sandbox>=0.2.0
+Requires-Dist: praisonai-deploy>=0.2.0
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<1.106,>=1.83.14
 Requires-Dist: PyYAML>=6.0
@@ -29,7 +29,7 @@ Requires-Dist: textual>=0.47.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: toml>=0.10.2
 Provides-Extra: ui
-Requires-Dist: aiui<0.4,>=0.3.159; extra == "ui"
+Requires-Dist: aiui<0.4,>=0.3.172; extra == "ui"
 Provides-Extra: gradio
 Requires-Dist: gradio>=4.26.0; extra == "gradio"
 Provides-Extra: api
@@ -51,13 +51,13 @@ Requires-Dist: langfuse>=3.0.0; extra == "langfuse"
 Provides-Extra: langextract
 Requires-Dist: langextract>=1.0.0; extra == "langextract"
 Provides-Extra: chat
-Requires-Dist: aiui<0.4,>=0.3.159; extra == "chat"
+Requires-Dist: aiui<0.4,>=0.3.172; extra == "chat"
 Requires-Dist: tavily-python==0.5.0; extra == "chat"
 Requires-Dist: crawl4ai>=0.7.0; extra == "chat"
 Requires-Dist: playwright>=1.47.0; extra == "chat"
 Requires-Dist: rich; extra == "chat"
 Provides-Extra: code
-Requires-Dist: aiui<0.4,>=0.3.159; extra == "code"
+Requires-Dist: aiui<0.4,>=0.3.172; extra == "code"
 Requires-Dist: tavily-python==0.5.0; extra == "code"
 Requires-Dist: crawl4ai>=0.7.0; extra == "code"
 Requires-Dist: playwright>=1.47.0; extra == "code"
@@ -78,7 +78,7 @@ Requires-Dist: praisonai-sandbox[daytona]; extra == "daytona"
 Provides-Extra: tenki
 Requires-Dist: praisonai-sandbox[tenki]; extra == "tenki"
 Provides-Extra: realtime
-Requires-Dist: aiui<0.4,>=0.3.159; extra == "realtime"
+Requires-Dist: aiui<0.4,>=0.3.172; extra == "realtime"
 Requires-Dist: tavily-python==0.5.0; extra == "realtime"
 Requires-Dist: crawl4ai>=0.7.0; extra == "realtime"
 Requires-Dist: playwright>=1.47.0; extra == "realtime"
@@ -160,7 +160,7 @@ Requires-Dist: slack_sdk>=3.0.0; extra == "all"
 Requires-Dist: slack-bolt>=1.18.0; extra == "all"
 Requires-Dist: brotlicffi>=1.0.0; extra == "all"
 Requires-Dist: aiohttp>=3.8.0; extra == "all"
-Requires-Dist: aiui<0.4,>=0.3.159; extra == "all"
+Requires-Dist: aiui<0.4,>=0.3.172; extra == "all"
 Requires-Dist: redis>=5.0.0; extra == "all"
 Requires-Dist: pymongo>=4.6.0; extra == "all"
 Requires-Dist: psycopg2-binary>=2.9.0; extra == "all"
@@ -170,7 +170,7 @@ Provides-Extra: observability
 Requires-Dist: langfuse>=3.0.0; extra == "observability"
 Provides-Extra: bot
 Requires-Dist: praisonai-bot[bot]; extra == "bot"
-Requires-Dist: aiui<0.4,>=0.3.159; extra == "bot"
+Requires-Dist: aiui<0.4,>=0.3.172; extra == "bot"
 Provides-Extra: bot-whatsapp-web
 Requires-Dist: praisonai-bot[bot-whatsapp-web]; extra == "bot-whatsapp-web"
 Provides-Extra: redis
@@ -191,21 +191,23 @@ Provides-Extra: cockroachdb
 Requires-Dist: psycopg2-binary>=2.9.0; extra == "cockroachdb"
 Provides-Extra: xata
 Requires-Dist: psycopg2-binary>=2.9.0; extra == "xata"
+Provides-Extra: dashboard
+Requires-Dist: aiui[all]<0.4,>=0.3.172; extra == "dashboard"
+Requires-Dist: praisonaiagents[all]>=1.5.40; extra == "dashboard"
+Requires-Dist: praisonai-bot[bot,gateway]>=0.0.6; extra == "dashboard"
+Requires-Dist: flask>=3.0.0; extra == "dashboard"
+Requires-Dist: tavily-python==0.5.0; extra == "dashboard"
+Requires-Dist: crawl4ai>=0.7.0; extra == "dashboard"
+Requires-Dist: playwright>=1.47.0; extra == "dashboard"
+Requires-Dist: ddgs>=9.0.0; extra == "dashboard"
+Requires-Dist: langfuse>=3.0.0; extra == "dashboard"
+Requires-Dist: redis>=5.0.0; extra == "dashboard"
+Requires-Dist: pymongo>=4.6.0; extra == "dashboard"
+Requires-Dist: psycopg2-binary>=2.9.0; extra == "dashboard"
+Requires-Dist: boto3>=1.35.0; extra == "dashboard"
+Requires-Dist: httpx>=0.27.0; extra == "dashboard"
 Provides-Extra: claw
-Requires-Dist: aiui[all]<0.4,>=0.3.159; extra == "claw"
-Requires-Dist: praisonaiagents[all]>=1.5.40; extra == "claw"
-Requires-Dist: praisonai-bot[bot,gateway]>=0.0.6; extra == "claw"
-Requires-Dist: flask>=3.0.0; extra == "claw"
-Requires-Dist: tavily-python==0.5.0; extra == "claw"
-Requires-Dist: crawl4ai>=0.7.0; extra == "claw"
-Requires-Dist: playwright>=1.47.0; extra == "claw"
-Requires-Dist: ddgs>=9.0.0; extra == "claw"
-Requires-Dist: langfuse>=3.0.0; extra == "claw"
-Requires-Dist: redis>=5.0.0; extra == "claw"
-Requires-Dist: pymongo>=4.6.0; extra == "claw"
-Requires-Dist: psycopg2-binary>=2.9.0; extra == "claw"
-Requires-Dist: boto3>=1.35.0; extra == "claw"
-Requires-Dist: httpx>=0.27.0; extra == "claw"
+Requires-Dist: praisonai[dashboard]; extra == "claw"
 Provides-Extra: n8n
 Requires-Dist: httpx>=0.27.0; extra == "n8n"
 Provides-Extra: dev
@@ -343,7 +345,6 @@ The TypeScript and JavaScript SDK has its own guide at [praison.ai/docs/js](http
 
 ## The company
 
-- **Who:** Praison AI Limited in Cambridge, UK, building PraisonAI since September 2023. Co-founders Mervin Praison (CEO), Leebana Smith (COO) and Karthick Subramanian (CBO). [About us](https://praison.ai/about/)
 - **What we're building:** the task handover above, as a self-hosted product on top of this framework. It is in early access, and we are taking on our first design partners.
 - **Why now:** highly regulated teams want AI but can't send customer data to outside models, and from 6 January 2027 OpenAI takes no new self-serve fine-tuning jobs.
 - **How it fits together:** the framework stays free and MIT-licensed, and brings developers in. Regulated teams license the handover to run inside their own walls.
@@ -403,7 +404,7 @@ The full `praisonai` package, with the CLI, bots, dashboard and integrations:
 ```
 
 <p align="center">
-  <img src=".github/images/dashboard.png" alt="PraisonAI Dashboard" width="800" />
+  <img src=".github/images/ui/claw-desktop-light.webp" alt="PraisonAI Claw dashboard in the Chat + Canvas layout: the chat on the left with a comparison table and a Python script the agent wrote, and the canvas on the right showing the table above the script" width="800" />
 </p>
 
 <div align="center">
@@ -693,9 +694,9 @@ Start simple with the core SDK, or expand to full visual builders and dashboards
 
 *   **Core SDK (`praisonaiagents`)**: For pure Python development. `pip install praisonaiagents`
 *   💻 **PraisonAI CLI (`praisonai`)**: For terminal-based developers. `pip install praisonai`
-*   🦞 **Claw Dashboard**: Connect agents directly to Telegram, Slack, or Discord. `pip install "praisonai[claw]"`
+*   🦅 **PraisonAI Dashboard**: Chat, agents, memory and knowledge, and connect agents to Telegram, Slack, or Discord. `pip install "praisonai[dashboard]"`
 *   🔗 **Flow Visual Builder**: Drag-and-drop workflow creation. `pip install "praisonai[flow]"`
-*   🤖 **PraisonAI UI**: Clean chat interface. `pip install "praisonai[ui]"`
+*   🤖 **PraisonAI UI**: Chat with a canvas for the tables and code your agents write. `pip install "praisonai[ui]"`
 
 ### JavaScript SDK
 
@@ -942,13 +943,13 @@ agent.chat("Hello!")  # Auto-persists messages, runs, traces
 
 > 📖 [Full persistence docs](https://praison.ai/docs/databases/overview) — PostgreSQL, MySQL, SQLite, MongoDB, Redis, and 20+ more
 
-### 6. PraisonAI Claw 🦞 (Dashboard UI)
+### 6. PraisonAI Dashboard 🦅
 
 Connect your AI agents to **Telegram, Discord, Slack, WhatsApp** and more — all from a single command.
 
 ```bash
-pip install "praisonai[claw]"
-praisonai claw
+pip install "praisonai[dashboard]"   # or: "praisonai[claw]" (the same extra)
+praisonai dashboard                 # or: praisonai claw (the same app)
 ```
 
 #### Required Environment Variables
@@ -958,11 +959,11 @@ Copy `.env.example` to `.env` and configure the following variables:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OPENAI_API_KEY` | Yes | OpenAI API key for all LLM calls |
-| `TAVILY_API_KEY` | Yes (Claw) | Tavily key for the built-in web-search tool. Get one free at https://app.tavily.com |
+| `TAVILY_API_KEY` | Yes (Dashboard) | Tavily key for the built-in web-search tool. Get one free at https://app.tavily.com |
 
-Open **http://localhost:8082** — the dashboard comes with 13 built-in pages: Chat, Agents, Memory, Knowledge, Channels, Guardrails, Cron, and more. Add messaging channels directly from the UI.
+Open **http://localhost:8082** — the dashboard opens in **Chat + Canvas**: the chat on the left, and the tables, code and files your agents write on a canvas beside it (sort, copy, download, compare versions). Every other page (Agents, Memory, Knowledge, Channels, Guardrails, Cron, and more) is in the sidebar or the command palette (⌘K). Add messaging channels directly from the UI.
 
-> 📖 [Full Claw docs](https://praison.ai/docs/concepts/claw) — platform tokens, CLI options, Docker, and YAML agent mode
+> 📖 [Full Dashboard docs](https://praison.ai/docs/concepts/claw) — platform tokens, CLI options, Docker, and YAML agent mode
 
 ### 7. Langflow Integration 🔗 (Visual Flow Builder)
 
@@ -977,14 +978,30 @@ Open **http://localhost:7861** — use the **Agent** and **Agent Team** componen
 
 > 📖 [Full Flow docs](https://praison.ai/docs/concepts/agentflow) — visual agent building, component reference, and deployment
 
-### 8. PraisonAI UI 🤖 (Clean Chat)
+### 8. PraisonAI UI 🤖 (Chat + Canvas)
 
-Lightweight chat interface for your AI agents.
+Chat with your AI agents; the tables and code they write open on a canvas beside the chat.
 
 ```bash
 pip install "praisonai[ui]"
-praisonai ui
+praisonai ui            # chat           → http://localhost:8081
+praisonai ui agents     # YAML agents
+praisonai ui bot        # bot interface
+praisonai ui realtime   # realtime voice
 ```
+
+<p align="center">
+  <img src=".github/images/ui/ui-welcome-desktop-light.webp" alt="praisonai ui opening a new chat: the PraisonAI Chat title, the app's welcome greeting under it, four starter prompts and the message box" width="400" />
+  <img src=".github/images/ui/ui-desktop-dark.webp" alt="praisonai ui in dark mode: the chat on the left and the canvas with the comparison table and the benchmark script on the right" width="400" />
+</p>
+
+- **Welcome:** each app greets you in the new-chat hero, in every layout. Set the text with `UIPreset(welcome=...)` or your own `@aiui.welcome` handler.
+- **Layout:** Chat + Canvas by default. Pick another for one run with `AIUI_LAYOUT=chat` (no canvas), `workbench`, `command`, `guided` or `mission`, or switch from the command palette (⌘K).
+- **Look:** light and dark follow the toggle in the top bar; ⌘K → **Switch look: Pro** swaps the Paper look for the plain one.
+- **Stop:** the Stop button cancels the agent's reply. A reply that sends nothing for 10 minutes is cancelled too (`AIUI_REPLY_IDLE_TIMEOUT`, in seconds; `0` turns it off).
+- **Uploads:** request bodies are capped at 25 MiB (`AIUI_MAX_BODY_MB`; `0` turns it off).
+- **Data:** chat history is saved by PraisonAI under `~/.praisonai/sessions` (set `PRAISONAI_HOME` to move it); the UI's own settings live in `~/.praisonaiui` (set `AIUI_DATA_DIR` to move them). To keep both on a mounted volume, set both variables.
+- An existing `~/.praisonai/claw/app.py` from an older install keeps aiui's own default layout (Chat, no canvas) and has no welcome greeting; delete it to get the new default app, or add `layout="chat-canvas"` to its `configure_host(...)` call.
 
 </details>
 

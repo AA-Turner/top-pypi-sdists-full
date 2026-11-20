@@ -8,9 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_docstring_from_file(
-    file_path: Path,
-    class_name: str,
-    function_name: str,
+    file_path: Path, class_name: str, function_name: str
 ) -> str | None:
     """Extract the docstring for a specific function in a class without importing the module.
 
@@ -57,9 +55,7 @@ def load_module(file_path: Path, package_name: str) -> types.ModuleType | None:
 
 
 def fetch_environment_function_docstring(
-    environment_name: str,
-    directory: Path,
-    function_name: str,
+    environment_name: str, directory: Path, function_name: str
 ) -> str | None:
     """Retrieve the docstring for a specific function within a class, identified by an environment-style module path.
 
@@ -107,7 +103,7 @@ def fetch_environment_function_docstring(
     raise ValueError(
         f"Multiple classes named '{class_name}' found in:\n"
         + "\n".join(match_paths)
-        + "\nPlease specify a more explicit path or ensure unique class names.",
+        + "\nPlease specify a more explicit path or ensure unique class names."
     )
 
 

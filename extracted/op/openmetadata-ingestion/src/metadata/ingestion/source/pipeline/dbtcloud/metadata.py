@@ -13,11 +13,11 @@ DBTcloud source to extract metadata from OM UI
 """
 
 import traceback
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional  # noqa: UP035
+from typing import Any
 
 from cachetools import LRUCache
-from pydantic import AnyUrl
 
 from metadata.generated.schema.api.data.createPipeline import CreatePipelineRequest
 from metadata.generated.schema.api.lineage.addLineage import AddLineageRequest
@@ -49,10 +49,7 @@ from metadata.generated.schema.type.basic import (
 from metadata.generated.schema.type.entityLineage import EntitiesEdge, LineageDetails
 from metadata.generated.schema.type.entityLineage import Source as LineageSource
 from metadata.generated.schema.type.entityReference import EntityReference
-from metadata.generated.schema.type.pipelineObservability import (
-    LastRunStatus,
-    PipelineObservability,
-)
+from metadata.generated.schema.type.pipelineObservability import PipelineObservability
 from metadata.ingestion.api.models import Either
 from metadata.ingestion.api.steps import InvalidSourceException
 from metadata.ingestion.lineage.models import ConnectionTypeDialectMapper, Dialect
@@ -111,7 +108,7 @@ class DbtcloudSource(PipelineServiceSource):
     """
 
     @classmethod
-    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None):  # noqa: UP045
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: str | None = None):
         config: WorkflowSource = WorkflowSource.model_validate(config_dict)
         connection: DBTCloudConnection = config.serviceConnection.root.config
         if not isinstance(connection, DBTCloudConnection):
@@ -125,7 +122,7 @@ class DbtcloudSource(PipelineServiceSource):
         # Bounded cache for the exact-FQN table fallback, keyed by table FQN
         self._exact_fqn_cache: LRUCache = LRUCache(maxsize=EXACT_FQN_CACHE_SIZE)
 
-    def _resolve_table_entity(self, db_service_name: Optional[str], node: DBTModel) -> Optional[Table]:  # noqa: UP045
+    def _resolve_table_entity(self, db_service_name: str | None, node: DBTModel) -> Table | None:
         """
         Resolve the OpenMetadata table backing a dbt model, seed or source.
 
@@ -161,7 +158,7 @@ class DbtcloudSource(PipelineServiceSource):
         return table_entity
 
     @staticmethod
-    def _pick_matching_table(matches: List[Table], node: DBTModel) -> Optional[Table]:  # noqa: UP006, UP045
+    def _pick_matching_table(matches: list[Table], node: DBTModel) -> Table | None:
         """
         Pick one table out of a search page.
 
@@ -195,7 +192,7 @@ class DbtcloudSource(PipelineServiceSource):
         """FQN of a resolved table as a plain string."""
         return model_str(table.fullyQualifiedName) if table.fullyQualifiedName else ""
 
-    def _get_table_by_exact_fqn(self, db_service_name: str, node: DBTModel) -> Optional[Table]:  # noqa: UP045
+    def _get_table_by_exact_fqn(self, db_service_name: str, node: DBTModel) -> Table | None:
         """
         Look the table up by its deterministic FQN, bypassing the search index.
 
@@ -220,7 +217,7 @@ class DbtcloudSource(PipelineServiceSource):
             self._exact_fqn_cache[table_fqn] = self.metadata.get_by_name(entity=Table, fqn=table_fqn)
         return self._exact_fqn_cache[table_fqn]
 
-    def _fetch_runs(self, job_id: int) -> List[DBTRun]:  # noqa: UP006
+    def _fetch_runs(self, job_id: int) -> list[DBTRun]:
         """
         Runs backing the pipeline status time series.
 
@@ -265,7 +262,7 @@ class DbtcloudSource(PipelineServiceSource):
             logger.warning(f"Failed to get runs of job {job.name} due to : {exc}")
 
     @staticmethod
-    def _get_task_list(job_url: str) -> List[Task]:  # noqa: UP006
+    def _get_task_list(job_url: str) -> list[Task]:
         """
         The job's single task, carrying its whole run history.
 
@@ -315,12 +312,27 @@ class DbtcloudSource(PipelineServiceSource):
                 )
             )
 
+    def _reset_observability_context(self) -> None:
+        """
+        Blank what the observability stage reads. The topology context is shared across
+        sibling jobs while ``latest_run`` is refreshed for every job, so any path that
+        leaves this stage without repopulating the context would hand the previous job's
+        entity and tables to this job's run -- rewriting rows that were already correct.
+        """
+        ctx = self.context.get()
+        ctx.current_pipeline_entity = None  # pyright: ignore[reportAttributeAccessIssue]
+        ctx.current_table_fqns = set()  # pyright: ignore[reportAttributeAccessIssue]
+
     def yield_pipeline_lineage_details(self, pipeline_details: DBTJob) -> Iterable[Either[AddLineageRequest]]:
         """
         Get lineage between pipeline and data sources.
         Uses combined GraphQL call for models and seeds, with optimized caching.
         """
         try:
+            # Before anything that can return or raise: the early return below and the
+            # except branch both leave this stage without touching the context again.
+            self._reset_observability_context()
+
             pipeline_fqn = fqn.build(
                 metadata=self.metadata,
                 entity_type=Pipeline,
@@ -345,9 +357,10 @@ class DbtcloudSource(PipelineServiceSource):
             # Build parent lookup dict for O(1) access instead of O(n) list search
             parent_by_unique_id = {p.uniqueId: p for p in dbt_parents if p.uniqueId}
 
-            # Cache observability details - store in context for current job
+            # Cache observability details - store in context for current job.
+            # current_table_fqns was emptied by the reset above and fills up as
+            # _track_table_fqn resolves each table.
             self.context.get().current_pipeline_entity = pipeline_entity
-            self.context.get().current_table_fqns = set()
             # Store pipeline FQN from entity to ensure exact match for status updates
             self.context.get().pipeline_fqn = str(pipeline_entity.fullyQualifiedName.root)
 
@@ -464,7 +477,7 @@ class DbtcloudSource(PipelineServiceSource):
                 fromEntity=EntityReference(id=from_entity.id, type="table"),
                 toEntity=EntityReference(id=to_entity.id, type="table"),
                 lineageDetails=LineageDetails(
-                    pipeline=EntityReference(id=pipeline_entity.id, type="pipeline"),
+                    pipeline=EntityReference(id=pipeline_entity.id.root, type="pipeline"),
                     source=LineageSource.PipelineLineage,
                 ),
             )
@@ -544,7 +557,7 @@ class DbtcloudSource(PipelineServiceSource):
 
         return None
 
-    def _parse_timestamp(self, timestamp_str: str) -> Optional[Timestamp]:  # noqa: UP045
+    def _parse_timestamp(self, timestamp_str: str) -> Timestamp | None:
         """Parse ISO timestamp string to Timestamp."""
         try:
             # Try primary format
@@ -564,7 +577,7 @@ class DbtcloudSource(PipelineServiceSource):
         """Map dbt Cloud run status to OpenMetadata StatusType."""
         return STATUS_MAP.get(status, StatusType.Pending.value)
 
-    def _build_task_statuses(self, run: DBTRun) -> List[TaskStatus]:  # noqa: UP006
+    def _build_task_statuses(self, run: DBTRun) -> list[TaskStatus]:
         """
         The run's outcome, reported against the pipeline's single task.
 
@@ -576,10 +589,10 @@ class DbtcloudSource(PipelineServiceSource):
         return [
             TaskStatus(
                 name=DEFAULT_TASK_NAME,
-                executionStatus=StatusType(self._map_run_status(run.state or run.status)),
+                executionStatus=self._map_run_status(run.state or run.status),
                 startTime=self._parse_timestamp(run.started_at) if run.started_at else None,
                 endTime=self._parse_timestamp(run.finished_at) if run.finished_at else None,
-                logLink=AnyUrl(run.href) if run.href else None,
+                logLink=run.href,
             )
         ]
 
@@ -587,12 +600,12 @@ class DbtcloudSource(PipelineServiceSource):
         self,
         run,
         pipeline_entity: Pipeline,
-        schedule_interval: Optional[str] = None,  # noqa: UP045
+        schedule_interval: str | None = None,
     ) -> PipelineObservability:
         """Build PipelineObservability object from run data."""
         return PipelineObservability(
             pipeline=EntityReference(
-                id=pipeline_entity.id,
+                id=pipeline_entity.id.root if hasattr(pipeline_entity.id, "root") else pipeline_entity.id,
                 type="pipeline",
                 fullyQualifiedName=pipeline_entity.fullyQualifiedName.root
                 if hasattr(pipeline_entity.fullyQualifiedName, "root")
@@ -602,12 +615,12 @@ class DbtcloudSource(PipelineServiceSource):
             startTime=self._parse_timestamp(run.started_at) if run.started_at else None,
             endTime=self._parse_timestamp(run.finished_at) if run.finished_at else None,
             lastRunTime=self._parse_timestamp(run.finished_at) if run.finished_at else None,
-            lastRunStatus=LastRunStatus(self._map_run_status(run.state or run.status)),
+            lastRunStatus=self._map_run_status(run.state or run.status),
         )
 
     def get_table_pipeline_observability(
         self, pipeline_details: DBTJob
-    ) -> Iterable[Dict[str, List[PipelineObservability]]]:  # noqa: UP006
+    ) -> Iterable[dict[str, list[PipelineObservability]]]:
         """
         Build observability for the tables this job touches.
 
@@ -686,7 +699,7 @@ class DbtcloudSource(PipelineServiceSource):
                     continue
 
                 pipeline_status = PipelineStatus(
-                    executionStatus=StatusType(self._map_run_status(run.state or run.status)),
+                    executionStatus=self._map_run_status(run.state or run.status),
                     taskStatus=self._build_task_statuses(run),
                     timestamp=status_timestamp,
                 )

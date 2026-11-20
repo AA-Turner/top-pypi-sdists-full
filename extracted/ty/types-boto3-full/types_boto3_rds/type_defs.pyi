@@ -470,6 +470,7 @@ __all__ = (
     "PerformanceInsightsMetricDimensionGroupTypeDef",
     "PerformanceInsightsMetricQueryTypeDef",
     "PerformanceIssueDetailsTypeDef",
+    "PrimaryEndpointTypeDef",
     "ProcessorFeatureTypeDef",
     "PromoteReadReplicaDBClusterMessageTypeDef",
     "PromoteReadReplicaDBClusterResultTypeDef",
@@ -964,6 +965,10 @@ class EndpointTypeDef(TypedDict):
 class OptionGroupMembershipTypeDef(TypedDict):
     OptionGroupName: NotRequired[str]
     Status: NotRequired[str]
+
+class PrimaryEndpointTypeDef(TypedDict):
+    Address: NotRequired[str]
+    HostedZoneId: NotRequired[str]
 
 class SupportedEngineLifecycleTypeDef(TypedDict):
     LifecycleSupportName: LifecycleSupportNameType
@@ -1946,6 +1951,8 @@ class ClusterPendingModifiedValuesTypeDef(TypedDict):
     RdsCustomClusterConfiguration: NotRequired[RdsCustomClusterConfigurationTypeDef]
     Iops: NotRequired[int]
     CertificateDetails: NotRequired[CertificateDetailsTypeDef]
+    VPCNetworkingEnabled: NotRequired[bool]
+    InternetAccessGatewayEnabled: NotRequired[bool]
 
 class DBProxyTargetGroupTypeDef(TypedDict):
     DBProxyName: NotRequired[str]
@@ -2053,6 +2060,9 @@ class ModifyDBClusterMessageTypeDef(TypedDict):
     CACertificateIdentifier: NotRequired[str]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
     EngineLifecycleSupport: NotRequired[str]
+    EnableInternetAccessGateway: NotRequired[bool]
+    EnableVPCNetworking: NotRequired[bool]
+    DBSubnetGroupName: NotRequired[str]
 
 class DBSnapshotTypeDef(TypedDict):
     DBSnapshotIdentifier: NotRequired[str]
@@ -3425,7 +3435,9 @@ class CreateDBClusterMessageTypeDef(TypedDict):
     EngineLifecycleSupport: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
+    EnableVPCNetworking: NotRequired[bool]
     WithExpressConfiguration: NotRequired[bool]
+    EnableInternetAccessGateway: NotRequired[bool]
     AssociatedRoles: NotRequired[Sequence[DBClusterAssociatedRoleTypeDef]]
     SourceRegion: NotRequired[str]
 
@@ -4418,6 +4430,7 @@ class DBInstanceTypeDef(TypedDict):
     MasterUsername: NotRequired[str]
     DBName: NotRequired[str]
     Endpoint: NotRequired[EndpointTypeDef]
+    PrimaryEndpoint: NotRequired[PrimaryEndpointTypeDef]
     AllocatedStorage: NotRequired[int]
     InstanceCreateTime: NotRequired[datetime]
     PreferredBackupWindow: NotRequired[str]
@@ -4507,6 +4520,7 @@ class DBInstanceTypeDef(TypedDict):
     StorageOperationStatus: NotRequired[str]
     StorageOperationPercentProgress: NotRequired[int]
     DBCapacityReservationIdentifier: NotRequired[str]
+    VPCNetworkingEnabled: NotRequired[bool]
 
 class DBSubnetGroupMessageTypeDef(TypedDict):
     Marker: str

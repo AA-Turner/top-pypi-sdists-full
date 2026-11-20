@@ -6,16 +6,12 @@ import json
 import logging
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import httpx_aiohttp
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from pydantic import JsonValue
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 
 from edison_client.utils.general import retry_if_connection_error
 
@@ -49,13 +45,13 @@ def means_v0d2_routes_absent(response: httpx.Response) -> bool:
         body = response.json()
     except ValueError:
         return False
-    return isinstance(body, dict) and body.get("detail") == expected_detail
+    return bool(isinstance(body, dict) and body.get("detail") == expected_detail)
 
 
-def decode_state_blob(raw: bytes) -> Any:
+def decode_state_blob(raw: bytes) -> JsonValue:
     if raw.startswith(GZIP_MAGIC_HEADER):
         raw = gzip.decompress(raw)
-    return json.loads(raw)
+    return cast("JsonValue", json.loads(raw))
 
 
 def collect_state_rows(data: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -94,7 +90,7 @@ def _strip_v0d2_only_fields(rows: list[dict[str, Any]]) -> None:
     reraise=True,
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
-def _download_blob(client: httpx.Client, download_url: str) -> Any:
+def _download_blob(client: httpx.Client, download_url: str) -> JsonValue:
     response = client.get(download_url)
     response.raise_for_status()
     return decode_state_blob(response.content)
@@ -107,16 +103,14 @@ def _download_blob(client: httpx.Client, download_url: str) -> Any:
     reraise=True,
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
-async def _adownload_blob(client: httpx.AsyncClient, download_url: str) -> Any:
+async def _adownload_blob(client: httpx.AsyncClient, download_url: str) -> JsonValue:
     response = await client.get(download_url)
     response.raise_for_status()
     return await asyncio.to_thread(decode_state_blob, response.content)
 
 
 def _apply_states(
-    data: Mapping[str, Any],
-    pending: list[dict[str, Any]],
-    results: list[Any],
+    data: Mapping[str, Any], pending: list[dict[str, Any]], results: list[Any]
 ) -> None:
     for row, result in zip(pending, results, strict=True):
         if isinstance(result, BaseException):
@@ -135,8 +129,7 @@ def materialize_state_blobs(data: Mapping[str, Any]) -> None:
 
     with (
         httpx.Client(
-            timeout=DOWNLOAD_TIMEOUT_SECONDS,
-            follow_redirects=FOLLOW_BLOB_REDIRECTS,
+            timeout=DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=FOLLOW_BLOB_REDIRECTS
         ) as client,
         ThreadPoolExecutor(
             max_workers=min(MAX_CONCURRENT_BLOB_DOWNLOADS, len(pending))
@@ -162,12 +155,11 @@ async def amaterialize_state_blobs(data: Mapping[str, Any]) -> None:
         return
 
     async with httpx_aiohttp.HttpxAiohttpClient(
-        timeout=DOWNLOAD_TIMEOUT_SECONDS,
-        follow_redirects=FOLLOW_BLOB_REDIRECTS,
+        timeout=DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=FOLLOW_BLOB_REDIRECTS
     ) as client:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_BLOB_DOWNLOADS)
 
-        async def download(row: dict[str, Any]) -> Any:
+        async def download(row: dict[str, Any]) -> JsonValue:
             async with semaphore:
                 return await _adownload_blob(client, row["download_url"])
 

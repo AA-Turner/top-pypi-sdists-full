@@ -1,1 +1,0 @@
-export const GOING=new Set(["pending","queued","running"]);export const ENDED=new Set(["completed","failed","canceled"]);export const rowStatus=e=>{const s=String(e&&e.status||"");return s==="running"&&e.starting?"starting":s};

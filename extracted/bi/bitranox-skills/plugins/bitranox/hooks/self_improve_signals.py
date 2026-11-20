@@ -24,7 +24,7 @@ import re
 import subprocess
 import tempfile
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
 from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
@@ -33,6 +33,9 @@ from typing import NamedTuple
 import claude_paths
 import process_liveness
 import shell_text
+
+# A filesystem path as callers hand it in: a str from hook stdin or argv, or a Path built here.
+type _StrPath = str | os.PathLike[str]
 
 # ---- Audit-file location (shared by self-improve-audit.py writer + session-start reader) --
 
@@ -66,7 +69,7 @@ def proj_key(proj):
     return hashlib.sha1(normalized.encode("utf-8", "replace")).hexdigest()[:16]
 
 
-def audit_file(proj):
+def audit_file(proj: _StrPath | None) -> Path:
     """Where the SessionEnd audit writes candidate misses for the next SessionStart to read."""
     return claude_paths.audit_dir() / (proj_key(proj) + ".md")
 
@@ -173,7 +176,7 @@ def quoted_snippet(record):
 _SESSION_KEY_MAX = 64
 
 
-def session_key(session):
+def session_key(session: object) -> str:
     """`session` reduced to ONE safe filename component - the session-side twin of `proj_key`.
 
     `session_id` arrives on hook stdin and a dozen state files are named after it. A path built by
@@ -204,7 +207,7 @@ def session_key(session):
     return safe[:_SESSION_KEY_MAX - len(digest) - 1] + "-" + digest
 
 
-def session_state_path(session, suffix):
+def session_state_path(session: object, suffix: str) -> Path:
     """The audit-dir path of `session`'s `suffix` state file, confined to a single component.
 
     Hooks call THIS rather than joining `_audit_dir()` themselves: making the sink shared is what
@@ -218,7 +221,7 @@ def session_state_path(session, suffix):
 _DREAM_THRESHOLD_S = 24 * 3600  # do not nudge a fresh consolidation more often than this
 
 
-def project_slug(proj):
+def project_slug(proj: str) -> str:
     """Claude Code's ~/.claude/projects directory name for a project cwd.
 
     Transcribed from the CLI binary (2.1.240):
@@ -231,7 +234,7 @@ def project_slug(proj):
     return re.sub(r"[^a-zA-Z0-9]", "-", proj)
 
 
-def memory_dir(proj):
+def memory_dir(proj: str) -> Path:
     """The native Auto-memory dir for a project cwd."""
     return claude_paths.config_dir() / "projects" / project_slug(proj) / "memory"
 
@@ -262,19 +265,19 @@ CURATED_INDEX = "index.md"                    # named `index.md` (not `memory.md
                                               # confused with Claude Code's native `MEMORY.md` tier
 
 
-def claude_memory_dir(proj):
+def claude_memory_dir(proj: _StrPath) -> Path:
     """The project-local curated memory dir: `<proj>/.claude-bx-selflearning`.
     Holds `index.md` (the @imported index), `facts/<slug>.md` (lazy bodies), `state/`, `.archive/`."""
     return Path(proj) / CURATED_DIRNAME
 
 
-def claude_md_path(proj):
+def claude_md_path(proj: _StrPath) -> Path:
     """The project's TRACKED CLAUDE.md. Carries the `@import` of `index.md` only when `track_private`
     is on (memory committed with the repo); otherwise the import lives in `claude_local_md_path`."""
     return Path(proj) / "CLAUDE.md"
 
 
-def claude_local_md_path(proj):
+def claude_local_md_path(proj: _StrPath) -> Path:
     """The project's UNTRACKED `CLAUDE.local.md` - the DEFAULT home for the `@import` of `index.md`
     (track_private off). Symmetric with the gitignored store: the memory wiring never touches tracked
     git, a fresh clone has neither the wiring nor the store, and no commit is needed to set up memory."""
@@ -386,13 +389,14 @@ _LOCK_STALE_S = 120.0
 _WINDOWS = os.name == "nt"
 
 
-def is_transient_sharing_error(exc, windows=_WINDOWS):
+def is_transient_sharing_error(exc: BaseException, windows: bool = _WINDOWS) -> bool:
     """True when `exc` is Windows saying another open handle holds the name, which clears on its
     own; False on POSIX, where the same exception is a lasting permission problem."""
     return bool(windows) and isinstance(exc, PermissionError)
 
 
-def retry_while_shared(op, *args, timeout=1.0, poll=0.01, windows=_WINDOWS):
+def retry_while_shared[*Ts, T](op: Callable[[*Ts], T], *args: *Ts, timeout: float = 1.0,
+                               poll: float = 0.01, windows: bool = _WINDOWS) -> T:
     """Return `op(*args)`, retrying while Windows reports the file held by another handle.
 
     Re-raises the PermissionError once `timeout` passes, and at once on POSIX or for any other
@@ -409,7 +413,7 @@ def retry_while_shared(op, *args, timeout=1.0, poll=0.01, windows=_WINDOWS):
         time.sleep(poll)
 
 
-def _reclaim_stale_lock(lock, clock):
+def _reclaim_stale_lock(lock: Path, clock: Callable[[], float]) -> bool:
     """Delete a lock whose holder crashed; True when it was stale and is now gone."""
     try:
         if clock() - lock.stat().st_mtime > _LOCK_STALE_S:
@@ -421,7 +425,8 @@ def _reclaim_stale_lock(lock, clock):
 
 
 @contextlib.contextmanager
-def memory_lock(target_path, timeout=5.0, poll=0.05, now=None):
+def memory_lock(target_path: _StrPath, timeout: float = 5.0, poll: float = 0.05,
+                now: Callable[[], float] | None = None) -> Iterator[None]:
     """Advisory exclusive lock around a memory read-modify-write, via an atomic `<target>.lock`
     O_EXCL create (cross-platform, no fcntl/msvcrt). Raises TimeoutError on contention past `timeout`;
     reclaims a lock older than `_LOCK_STALE_S` (holder crashed). `now` injectable for tests.
@@ -436,7 +441,7 @@ def memory_lock(target_path, timeout=5.0, poll=0.05, now=None):
     except OSError:
         pass
     deadline = clock() + timeout
-    fd = None
+    fd: int | None = None
     while fd is None:
         try:
             fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -472,7 +477,8 @@ def last_dream_file(proj):
 
 def dream_mode(proj=None):
     """Dream mode (single source of truth = the machine-local config; see load_config):
-      off     -> no dream nudges; a manual dream consolidates memory only, no CLAUDE.md/skill proposals
+      off     -> no dream nudges; a manual dream (every skill of the family, the cross-tree ones
+                 included) consolidates private memory only: no CLAUDE.md edit, no skill change
       auto    -> dream applies CLAUDE.md edits and ships skill changes WITHOUT per-change prompts
       propose -> (default) dream applies CLAUDE.md edits too (backed up, reported per file, and
                  gated by the ancestor-reachability invariant) and routes skill changes to a self-PR
@@ -657,7 +663,7 @@ class MemoryWritesOff(RuntimeError):
     """
 
 
-def memory_writes_off(environ=None):
+def memory_writes_off(environ: Mapping[str, str] | None = None) -> bool:
     """True when the process runs with BITRANOX_MEMORY_WRITES=off (case-insensitive, trimmed).
 
     One spelling only: "0", "false" or a typo leave writes ON, because a switch that fails closed
@@ -667,7 +673,7 @@ def memory_writes_off(environ=None):
     return (env.get(MEMORY_WRITES_ENV) or "").strip().lower() == "off"
 
 
-def refuse_if_memory_writes_off():
+def refuse_if_memory_writes_off() -> None:
     """Raise MemoryWritesOff when the switch is set; the first statement of every write path."""
     if memory_writes_off():
         raise MemoryWritesOff(MEMORY_WRITES_OFF_LINE)
@@ -1715,7 +1721,7 @@ def discovery_roots():
     return sorted({p for p in roots if _is_dir(p)}, key=str)
 
 
-def _audit_dir():
+def _audit_dir() -> Path:
     """Machine-local scratch dir the recall/gather caches and the stores-generation marker share."""
     return claude_paths.audit_dir()
 

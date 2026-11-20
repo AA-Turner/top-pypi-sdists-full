@@ -34,6 +34,7 @@ import threading
 from typing import TYPE_CHECKING
 
 import contrast
+from contrast.agent import scope
 from contrast.agent.assess.rules.providers.enable import PROVIDERS_THREAD_NAME
 from contrast.agent.inventory.library_reader import LIBRARY_READER_THREAD_NAME
 from contrast.agent.policy import patch_manager
@@ -62,6 +63,7 @@ _SELF_TERMINATING_THREAD_NAMES = (
 )
 
 
+@scope.contrast_scope()
 @fail_loudly("Failed to stop agent background threads before forking")
 def stop_background_threads() -> None:
     """

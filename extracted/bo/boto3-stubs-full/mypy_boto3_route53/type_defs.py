@@ -29,7 +29,10 @@ from .literals import (
     CidrCollectionChangeActionType,
     CloudWatchRegionType,
     ComparisonOperatorType,
+    EndpointTypeType,
     HealthCheckRegionType,
+    HealthCheckSourceStatusReasonCodeType,
+    HealthCheckSourceStatusType,
     HealthCheckTypeType,
     HostedZoneLimitTypeType,
     InsufficientDataHealthStatusType,
@@ -75,6 +78,8 @@ __all__ = (
     "CreateCidrCollectionResponseTypeDef",
     "CreateHealthCheckRequestTypeDef",
     "CreateHealthCheckResponseTypeDef",
+    "CreateHealthCheckSourceRequestTypeDef",
+    "CreateHealthCheckSourceResponseTypeDef",
     "CreateHostedZoneRequestTypeDef",
     "CreateHostedZoneResponseTypeDef",
     "CreateKeySigningKeyRequestTypeDef",
@@ -98,6 +103,8 @@ __all__ = (
     "DelegationSetTypeDef",
     "DeleteCidrCollectionRequestTypeDef",
     "DeleteHealthCheckRequestTypeDef",
+    "DeleteHealthCheckSourceRequestTypeDef",
+    "DeleteHealthCheckSourceResponseTypeDef",
     "DeleteHostedZoneRequestTypeDef",
     "DeleteHostedZoneResponseTypeDef",
     "DeleteKeySigningKeyRequestTypeDef",
@@ -133,6 +140,10 @@ __all__ = (
     "GetHealthCheckLastFailureReasonResponseTypeDef",
     "GetHealthCheckRequestTypeDef",
     "GetHealthCheckResponseTypeDef",
+    "GetHealthCheckSourceRequestTypeDef",
+    "GetHealthCheckSourceRequestWaitExtraTypeDef",
+    "GetHealthCheckSourceRequestWaitTypeDef",
+    "GetHealthCheckSourceResponseTypeDef",
     "GetHealthCheckStatusRequestTypeDef",
     "GetHealthCheckStatusResponseTypeDef",
     "GetHostedZoneCountResponseTypeDef",
@@ -155,6 +166,10 @@ __all__ = (
     "HealthCheckConfigTypeDef",
     "HealthCheckConfigUnionTypeDef",
     "HealthCheckObservationTypeDef",
+    "HealthCheckSourceConfigOutputTypeDef",
+    "HealthCheckSourceConfigTypeDef",
+    "HealthCheckSourceConfigUnionTypeDef",
+    "HealthCheckSourceTypeDef",
     "HealthCheckTypeDef",
     "HostedZoneConfigTypeDef",
     "HostedZoneFailureReasonsTypeDef",
@@ -176,6 +191,12 @@ __all__ = (
     "ListCidrLocationsResponseTypeDef",
     "ListGeoLocationsRequestTypeDef",
     "ListGeoLocationsResponseTypeDef",
+    "ListHealthCheckSourcesRequestPaginateTypeDef",
+    "ListHealthCheckSourcesRequestTypeDef",
+    "ListHealthCheckSourcesResponseTypeDef",
+    "ListHealthChecksBySourceRequestPaginateTypeDef",
+    "ListHealthChecksBySourceRequestTypeDef",
+    "ListHealthChecksBySourceResponseTypeDef",
     "ListHealthChecksRequestPaginateTypeDef",
     "ListHealthChecksRequestTypeDef",
     "ListHealthChecksResponseTypeDef",
@@ -228,6 +249,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "ReusableDelegationSetLimitTypeDef",
     "StatusReportTypeDef",
+    "SubnetConfigurationOutputTypeDef",
+    "SubnetConfigurationTypeDef",
     "TagTypeDef",
     "TestDNSAnswerRequestTypeDef",
     "TestDNSAnswerResponseTypeDef",
@@ -465,6 +488,10 @@ class DeleteHealthCheckRequestTypeDef(TypedDict):
     HealthCheckId: str
 
 
+class DeleteHealthCheckSourceRequestTypeDef(TypedDict):
+    HealthCheckSourceId: str
+
+
 class DeleteHostedZoneRequestTypeDef(TypedDict):
     Id: str
 
@@ -554,6 +581,10 @@ class GetHealthCheckRequestTypeDef(TypedDict):
     HealthCheckId: str
 
 
+class GetHealthCheckSourceRequestTypeDef(TypedDict):
+    HealthCheckSourceId: str
+
+
 class GetHealthCheckStatusRequestTypeDef(TypedDict):
     HealthCheckId: str
 
@@ -616,6 +647,18 @@ class StatusReportTypeDef(TypedDict):
     CheckedTime: NotRequired[datetime]
 
 
+class SubnetConfigurationOutputTypeDef(TypedDict):
+    SubnetId: str
+    AvailabilityZoneId: str
+    SecurityGroupIdList: list[str]
+
+
+class SubnetConfigurationTypeDef(TypedDict):
+    SubnetId: str
+    AvailabilityZoneId: str
+    SecurityGroupIdList: Sequence[str]
+
+
 class LinkedServiceTypeDef(TypedDict):
     ServicePrincipal: NotRequired[str]
     Description: NotRequired[str]
@@ -662,6 +705,17 @@ class ListGeoLocationsRequestTypeDef(TypedDict):
     StartContinentCode: NotRequired[str]
     StartCountryCode: NotRequired[str]
     StartSubdivisionCode: NotRequired[str]
+    MaxItems: NotRequired[str]
+
+
+class ListHealthCheckSourcesRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[str]
+
+
+class ListHealthChecksBySourceRequestTypeDef(TypedDict):
+    HealthCheckSourceId: str
+    Marker: NotRequired[str]
     MaxItems: NotRequired[str]
 
 
@@ -841,8 +895,21 @@ class ChangeResourceRecordSetsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateHealthCheckSourceResponseTypeDef(TypedDict):
+    HealthCheckSourceId: str
+    HealthCheckSourceStatus: HealthCheckSourceStatusType
+    Location: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeactivateKeySigningKeyResponseTypeDef(TypedDict):
     ChangeInfo: ChangeInfoTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteHealthCheckSourceResponseTypeDef(TypedDict):
+    HealthCheckSourceId: str
+    HealthCheckSourceStatus: HealthCheckSourceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -935,6 +1002,8 @@ HealthCheckConfigOutputTypeDef = TypedDict(
         "AlarmIdentifier": NotRequired[AlarmIdentifierTypeDef],
         "InsufficientDataHealthStatus": NotRequired[InsufficientDataHealthStatusType],
         "RoutingControlArn": NotRequired[str],
+        "EndpointType": NotRequired[EndpointTypeType],
+        "HealthCheckSourceId": NotRequired[str],
     },
 )
 HealthCheckConfigTypeDef = TypedDict(
@@ -958,6 +1027,8 @@ HealthCheckConfigTypeDef = TypedDict(
         "AlarmIdentifier": NotRequired[AlarmIdentifierTypeDef],
         "InsufficientDataHealthStatus": NotRequired[InsufficientDataHealthStatusType],
         "RoutingControlArn": NotRequired[str],
+        "EndpointType": NotRequired[EndpointTypeType],
+        "HealthCheckSourceId": NotRequired[str],
     },
 )
 
@@ -980,6 +1051,7 @@ class UpdateHealthCheckRequestTypeDef(TypedDict):
     AlarmIdentifier: NotRequired[AlarmIdentifierTypeDef]
     InsufficientDataHealthStatus: NotRequired[InsufficientDataHealthStatusType]
     ResetElements: NotRequired[Sequence[ResettableElementNameType]]
+    HealthCheckSourceId: NotRequired[str]
 
 
 class AssociateVPCWithHostedZoneRequestTypeDef(TypedDict):
@@ -1239,6 +1311,16 @@ class GetChangeRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
+class GetHealthCheckSourceRequestWaitExtraTypeDef(TypedDict):
+    HealthCheckSourceId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetHealthCheckSourceRequestWaitTypeDef(TypedDict):
+    HealthCheckSourceId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 class GetHostedZoneLimitResponseTypeDef(TypedDict):
     Limit: HostedZoneLimitTypeDef
     Count: int
@@ -1255,6 +1337,16 @@ class HealthCheckObservationTypeDef(TypedDict):
     Region: NotRequired[HealthCheckRegionType]
     IPAddress: NotRequired[str]
     StatusReport: NotRequired[StatusReportTypeDef]
+
+
+class HealthCheckSourceConfigOutputTypeDef(TypedDict):
+    VpcId: str
+    SubnetConfigurationList: list[SubnetConfigurationOutputTypeDef]
+
+
+class HealthCheckSourceConfigTypeDef(TypedDict):
+    VpcId: str
+    SubnetConfigurationList: Sequence[SubnetConfigurationTypeDef]
 
 
 class HostedZoneFeaturesTypeDef(TypedDict):
@@ -1280,6 +1372,15 @@ class ListCidrCollectionsRequestPaginateTypeDef(TypedDict):
 
 class ListCidrLocationsRequestPaginateTypeDef(TypedDict):
     CollectionId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListHealthCheckSourcesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListHealthChecksBySourceRequestPaginateTypeDef(TypedDict):
+    HealthCheckSourceId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1410,6 +1511,19 @@ class GetHealthCheckStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class HealthCheckSourceTypeDef(TypedDict):
+    HealthCheckSourceId: str
+    HealthCheckSourceStatus: HealthCheckSourceStatusType
+    HealthCheckSourceConfig: HealthCheckSourceConfigOutputTypeDef
+    StatusReasonCode: NotRequired[HealthCheckSourceStatusReasonCodeType]
+    StatusReason: NotRequired[str]
+
+
+HealthCheckSourceConfigUnionTypeDef = Union[
+    HealthCheckSourceConfigTypeDef, HealthCheckSourceConfigOutputTypeDef
+]
+
+
 class HostedZoneTypeDef(TypedDict):
     Id: str
     Name: str
@@ -1443,6 +1557,15 @@ class GetHealthCheckResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListHealthChecksBySourceResponseTypeDef(TypedDict):
+    HealthChecks: list[HealthCheckTypeDef]
+    Marker: str
+    IsTruncated: bool
+    NextMarker: str
+    MaxItems: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListHealthChecksResponseTypeDef(TypedDict):
     HealthChecks: list[HealthCheckTypeDef]
     Marker: str
@@ -1468,6 +1591,23 @@ class ListResourceRecordSetsResponseTypeDef(TypedDict):
 
 
 ResourceRecordSetUnionTypeDef = Union[ResourceRecordSetTypeDef, ResourceRecordSetOutputTypeDef]
+
+
+class GetHealthCheckSourceResponseTypeDef(TypedDict):
+    HealthCheckSource: HealthCheckSourceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListHealthCheckSourcesResponseTypeDef(TypedDict):
+    HealthCheckSources: list[HealthCheckSourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateHealthCheckSourceRequestTypeDef(TypedDict):
+    HealthCheckSourceConfig: HealthCheckSourceConfigUnionTypeDef
+    CallerReference: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class CreateHostedZoneResponseTypeDef(TypedDict):

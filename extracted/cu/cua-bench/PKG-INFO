@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cua-bench
-Version: 0.4.11
+Version: 0.4.15
 Summary: Run computer-use benchmark datasets on sandboxes
 Project-URL: Homepage, https://github.com/trycua/cua
 Project-URL: Documentation, https://docs.trycua.com
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <3.14,>=3.12
-Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: aiohttp>=3.14.4
 Requires-Dist: beautifulsoup4>=4.14.2
 Requires-Dist: cua-agent
 Requires-Dist: cua-sandbox<0.12.0,>=0.8.0
@@ -66,7 +66,7 @@ Requires-Dist: pdfplumber>=0.11; extra == 'osworld'
 Requires-Dist: playwright>=1.40; extra == 'osworld'
 Requires-Dist: pymupdf>=1.24; extra == 'osworld'
 Requires-Dist: pypdf2>=3.0; extra == 'osworld'
-Requires-Dist: pypdf>=4.0; extra == 'osworld'
+Requires-Dist: pypdf>=6.21.4; extra == 'osworld'
 Requires-Dist: python-docx>=1.1; extra == 'osworld'
 Requires-Dist: python-dotenv>=1.0; extra == 'osworld'
 Requires-Dist: python-pptx>=1.0; extra == 'osworld'

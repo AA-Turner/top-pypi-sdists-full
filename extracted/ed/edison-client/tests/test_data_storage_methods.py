@@ -1,10 +1,13 @@
-# ruff: noqa: ARG001, RUF029
+# ruff: file-ignore[unused-function-argument, unused-async]
 import json
 import tempfile
 import zipfile
+from collections.abc import AsyncIterator, Iterator, Mapping
+from contextlib import AbstractAsyncContextManager
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import ANY, AsyncMock, Mock, patch
+from typing import Any, Protocol
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
 
 import httpx
@@ -40,36 +43,45 @@ from edison_client.models.data_storage_methods import (
 class MockDataStorageMethods(DataStorageMethods):
     """Mock implementation of DataStorageMethods for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._client = Mock()
         self._async_client = AsyncMock()
 
     @property
-    def client(self):
+    def client(self) -> Mock:
         return self._client
 
     @property
-    def async_client(self):
+    def async_client(self) -> AsyncMock:
         return self._async_client
+
+
+class _StreamResponse(Protocol):
+    status_code: int
+    headers: Mapping[str, str]
+
+    def raise_for_status(self) -> None: ...
+
+    def aiter_bytes(self, chunk_size: int = 8192) -> AsyncIterator[bytes]: ...
 
 
 class TestDataStorageMethods:
     """Test cases for DataStorageMethods class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
-        self.methods = MockDataStorageMethods()  # pylint: disable=attribute-defined-outside-init
-        self.test_uuid = uuid4()  # pylint: disable=attribute-defined-outside-init
-        self.test_project_id = uuid4()  # pylint: disable=attribute-defined-outside-init
+        self.methods = MockDataStorageMethods()
+        self.test_uuid = uuid4()
+        self.test_project_id = uuid4()
 
     def _create_mock_response(
         self,
-        storage_type="gcs",
-        signed_url="https://example.com/signed-url",
-        content=None,
-    ):
+        storage_type: str = "gcs",
+        signed_url: str | None = "https://example.com/signed-url",
+        content: str | None = None,
+    ) -> dict[str, Any]:
         """Create a complete mock response with all required fields."""
-        from datetime import datetime  # noqa: PLC0415
+        from datetime import datetime  # ruff: ignore[import-outside-top-level]
 
         now = datetime.now().isoformat() + "Z"
         user_id = str(uuid4())
@@ -100,7 +112,7 @@ class TestDataStorageMethods:
             ],
         }
 
-    def test_handle_http_errors_forbidden(self):
+    def test_handle_http_errors_forbidden(self) -> None:
         """Test handling of 403 Forbidden errors."""
         mock_response = Mock()
         mock_response.status_code = codes.FORBIDDEN
@@ -111,7 +123,7 @@ class TestDataStorageMethods:
         with pytest.raises(DataStorageError, match="not authorized"):
             self.methods._handle_http_errors(error, "creating")
 
-    def test_handle_http_errors_unprocessable_entity(self):
+    def test_handle_http_errors_unprocessable_entity(self) -> None:
         """Test handling of 422 Unprocessable Entity errors."""
         mock_response = Mock()
         mock_response.status_code = codes.UNPROCESSABLE_ENTITY
@@ -124,7 +136,7 @@ class TestDataStorageMethods:
         with pytest.raises(DataStorageError, match="Invalid request payload"):
             self.methods._handle_http_errors(error, "creating")
 
-    def test_handle_http_errors_generic(self):
+    def test_handle_http_errors_generic(self) -> None:
         """Test handling of generic HTTP errors."""
         mock_response = Mock()
         mock_response.status_code = 500
@@ -137,19 +149,19 @@ class TestDataStorageMethods:
         with pytest.raises(DataStorageError, match="500 - Internal server error"):
             self.methods._handle_http_errors(error, "creating")
 
-    def test_validate_file_path_exists(self):
+    def test_validate_file_path_exists(self) -> None:
         """Test file path validation with existing file."""
         with tempfile.NamedTemporaryFile() as temp_file:
             result = self.methods._validate_file_path(temp_file.name)
             assert isinstance(result, Path)
             assert result.exists()
 
-    def test_validate_file_path_not_exists(self):
+    def test_validate_file_path_not_exists(self) -> None:
         """Test file path validation with non-existent file."""
         with pytest.raises(DataStorageError, match="not found"):
             self.methods._validate_file_path("/nonexistent/file.txt")
 
-    def test_build_zip_path_with_path(self):
+    def test_build_zip_path_with_path(self) -> None:
         """Test building zip path with existing path."""
         result = self.methods._build_zip_path("test", "/some/path")
 
@@ -160,7 +172,7 @@ class TestDataStorageMethods:
         assert result.startswith("/some/path/")
         assert "test.zip" in result
 
-    def test_build_zip_path_without_path(self):
+    def test_build_zip_path_without_path(self) -> None:
         """Test building zip path without existing path."""
         result = self.methods._build_zip_path("test", None)
 
@@ -171,7 +183,7 @@ class TestDataStorageMethods:
         assert result.startswith("test")
         assert len(result) == 8  # "test.zip" is 8 characters
 
-    def test_build_zip_path_already_zip(self):
+    def test_build_zip_path_already_zip(self) -> None:
         """Test building zip path when name already has .zip extension."""
         result = self.methods._build_zip_path("test.zip", "/some/path")
 
@@ -183,7 +195,7 @@ class TestDataStorageMethods:
         assert "test.zip" in result
         assert result.count(".zip") == 1  # Should not duplicate .zip extension
 
-    def test_is_zip_file_true(self):
+    def test_is_zip_file_true(self) -> None:
         """Test zip file detection with actual zip file."""
         with tempfile.NamedTemporaryFile(suffix=".zip") as temp_file:
             with zipfile.ZipFile(temp_file.name, "w") as zipf:
@@ -196,7 +208,7 @@ class TestDataStorageMethods:
             assert temp_file.name.endswith(".zip")
             assert Path(temp_file.name).exists()
 
-    def test_is_zip_file_false(self):
+    def test_is_zip_file_false(self) -> None:
         """Test zip file detection with non-zip file."""
         with tempfile.NamedTemporaryFile(suffix=".txt") as temp_file:
             temp_file.write(b"not a zip file")
@@ -209,7 +221,7 @@ class TestDataStorageMethods:
             assert temp_file.name.endswith(".txt")
             assert Path(temp_file.name).exists()
 
-    def test_extract_zip_file(self):
+    def test_extract_zip_file(self) -> None:
         """Test zip file extraction."""
         with tempfile.TemporaryDirectory() as temp_dir:
             zip_path = Path(temp_dir) / "test.zip"
@@ -239,7 +251,7 @@ class TestDataStorageMethods:
             )  # Should have at least 2 items: test.txt and subdir
 
     @patch("edison_client.clients.data_storage_methods.requests_lib.get")
-    def test_download_from_gcs_success(self, mock_get):
+    def test_download_from_gcs_success(self, mock_get: MagicMock) -> None:
         """Test successful GCS download."""
         mock_response = Mock()
         mock_response.status_code = 200
@@ -258,7 +270,7 @@ class TestDataStorageMethods:
         assert result.stat().st_size > 0  # File should have content
 
     @patch("edison_client.clients.data_storage_methods.requests_lib.get")
-    def test_download_from_gcs_zip_file(self, mock_get):
+    def test_download_from_gcs_zip_file(self, mock_get: MagicMock) -> None:
         """Test GCS download of zip file with automatic extraction."""
         with tempfile.TemporaryDirectory() as temp_dir:
             zip_path = Path(temp_dir) / "test.zip"
@@ -293,8 +305,8 @@ class TestDataStorageMethods:
     @pytest.mark.parametrize("filename", ["study.prism", "study.phxproj"])
     @patch("edison_client.clients.data_storage_methods.requests_lib.get")
     def test_download_from_gcs_keeps_scientific_packages_packed(
-        self, mock_get, filename: str
-    ):
+        self, mock_get: MagicMock, filename: str
+    ) -> None:
         """Prism and Phoenix project files must stay packed after GCS download."""
         packed = BytesIO()
         with zipfile.ZipFile(packed, "w") as archive:
@@ -314,14 +326,16 @@ class TestDataStorageMethods:
         assert not (result.parent / "document.json").exists()
 
     @patch("edison_client.clients.data_storage_methods.requests_lib.get")
-    def test_download_from_gcs_resumes_after_connection_drop(self, mock_get):
+    def test_download_from_gcs_resumes_after_connection_drop(
+        self, mock_get: MagicMock
+    ) -> None:
         """Resume logic sends Range header and appends on retry."""
         content = b"hello world full content"
         drop_at = 10  # drop after 10 bytes on first attempt
 
         call_count = 0
 
-        def side_effect(url, **kwargs):
+        def side_effect(url: object, **kwargs: object) -> Mock:
             nonlocal call_count
             call_count += 1
             mock_response = Mock()
@@ -332,7 +346,7 @@ class TestDataStorageMethods:
                 # First attempt: drop mid-stream
                 mock_response.status_code = 200
 
-                def first_iter(chunk_size=8192):
+                def first_iter(chunk_size: object = 8192) -> Iterator[bytes]:
                     yield content[:drop_at]
                     raise requests_lib.exceptions.ChunkedEncodingError("dropped")
 
@@ -355,23 +369,30 @@ class TestDataStorageMethods:
         assert call_count == 2
 
     @pytest.mark.asyncio
-    async def test_adownload_from_gcs_resumes_after_connection_drop(self):
+    async def test_adownload_from_gcs_resumes_after_connection_drop(self) -> None:
         """Async resume logic retries and appends remaining bytes after a drop."""
         content = b"async full content here"
         drop_at = 10
 
         call_count = 0
 
-        def make_stream_ctx(status_code, headers, chunks, drop_after=None):
+        def make_stream_ctx(
+            status_code: int,
+            headers: Mapping[str, str],
+            chunks: list[bytes],
+            drop_after: int | None = None,
+        ) -> AbstractAsyncContextManager[_StreamResponse]:
             class FakeResponse:
-                def __init__(self):
+                def __init__(self) -> None:
                     self.status_code = status_code
                     self.headers = headers
 
-                def raise_for_status(self):
+                def raise_for_status(self) -> None:
                     pass
 
-                async def aiter_bytes(self, chunk_size=8192):
+                async def aiter_bytes(
+                    self, chunk_size: object = 8192
+                ) -> AsyncIterator[bytes]:
                     sent = 0
                     for chunk in chunks:
                         if drop_after is not None and sent >= drop_after:
@@ -380,15 +401,17 @@ class TestDataStorageMethods:
                         sent += len(chunk)
 
             class AsyncCtx:
-                async def __aenter__(self):
+                async def __aenter__(self) -> FakeResponse:
                     return FakeResponse()
 
-                async def __aexit__(self, *args):
+                async def __aexit__(self, *args: object) -> None:
                     pass
 
             return AsyncCtx()
 
-        def stream_side_effect(method, url, **kwargs):
+        def stream_side_effect(
+            method: object, url: object, **kwargs: object
+        ) -> AbstractAsyncContextManager[_StreamResponse]:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -414,7 +437,7 @@ class TestDataStorageMethods:
         assert result.read_bytes() == content
         assert call_count == 2
 
-    def test_prepare_single_file_upload_small_text(self):
+    def test_prepare_single_file_upload_small_text(self) -> None:
         """Test preparation of small text file for upload."""
         with tempfile.NamedTemporaryFile(
             encoding="utf-8", suffix=".txt", mode="w"
@@ -439,7 +462,7 @@ class TestDataStorageMethods:
             assert payload.content == "small text content"
             assert payload.name == "test.txt"
 
-    def test_prepare_single_file_upload_empty_text_file_inlines(self):
+    def test_prepare_single_file_upload_empty_text_file_inlines(self) -> None:
         """Zero-byte text files inline content='' (server assigns RAW_CONTENT)."""
         with tempfile.TemporaryDirectory() as tmp:
             empty_txt = Path(tmp) / "empty.txt"
@@ -459,9 +482,9 @@ class TestDataStorageMethods:
 
             assert file_size == 0
             assert payload is not None
-            assert payload.content == ""  # noqa: PLC1901
+            assert payload.content == ""  # ruff: ignore[compare-to-empty-string]
 
-    def test_prepare_single_file_upload_large_file(self):
+    def test_prepare_single_file_upload_large_file(self) -> None:
         """Test preparation of large file for upload."""
         with tempfile.NamedTemporaryFile(suffix=".bin") as temp_file:
             # Write enough data to exceed the small file threshold
@@ -483,7 +506,7 @@ class TestDataStorageMethods:
             assert file_size > 0
             assert payload is None  # Should not be sent as text content
 
-    def test_create_data_storage_entry_sync(self):
+    def test_create_data_storage_entry_sync(self) -> None:
         """Test synchronous data storage entry creation."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response()
@@ -504,7 +527,7 @@ class TestDataStorageMethods:
         )
 
     @pytest.mark.asyncio
-    async def test_acreate_data_storage_entry_async(self):
+    async def test_acreate_data_storage_entry_async(self) -> None:
         """Test asynchronous data storage entry creation."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response()
@@ -525,7 +548,7 @@ class TestDataStorageMethods:
             == "https://example.com/signed-url"
         )
 
-    def test_generate_folder_description_from_files(self):
+    def test_generate_folder_description_from_files(self) -> None:
         """Test folder description generation from files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -553,7 +576,7 @@ class TestDataStorageMethods:
                 len(result.split(", ")) == 2
             )  # Should have exactly 2 file descriptions
 
-    def test_load_manifest_json(self):
+    def test_load_manifest_json(self) -> None:
         """Test loading JSON manifest file."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -567,7 +590,7 @@ class TestDataStorageMethods:
                 }
             }
 
-            with open(manifest_path, "w", encoding="utf-8") as f:
+            with Path(manifest_path).open("w", encoding="utf-8") as f:
                 json.dump(manifest_data, f)
 
             result = self.methods._load_manifest(temp_path, "manifest.json")
@@ -579,10 +602,10 @@ class TestDataStorageMethods:
             assert test_dir_entry.description == "Test directory"
             assert len(result.entries) == 1  # Should have exactly one entry
 
-    def test_load_manifest_yaml(self):
+    def test_load_manifest_yaml(self) -> None:
         """Test loading YAML manifest file."""
         try:
-            import yaml  # noqa: PLC0415
+            import yaml  # ruff: ignore[import-outside-top-level]
         except ImportError:
             pytest.skip("PyYAML not available")
 
@@ -598,7 +621,7 @@ class TestDataStorageMethods:
                 }
             }
 
-            with open(manifest_path, "w", encoding="utf-8") as f:
+            with Path(manifest_path).open("w", encoding="utf-8") as f:
                 yaml.dump(manifest_data, f)
 
             result = self.methods._load_manifest(temp_path, "manifest.yaml")
@@ -610,7 +633,7 @@ class TestDataStorageMethods:
             assert test_dir_entry.description == "Test directory"
             assert len(result.entries) == 1  # Should have exactly one entry
 
-    def test_load_manifest_file_not_found(self):
+    def test_load_manifest_file_not_found(self) -> None:
         """Test loading manifest when file doesn't exist."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -620,7 +643,9 @@ class TestDataStorageMethods:
 
     @patch("edison_client.clients.data_storage_methods._create_directory_zip")
     @patch("edison_client.clients.data_storage_methods._upload_file_multipart")
-    def test_upload_data_directory(self, mock_upload, mock_create_zip):
+    def test_upload_data_directory(
+        self, mock_upload: MagicMock, mock_create_zip: MagicMock
+    ) -> None:
         """Test directory upload as zip collection."""
         mock_create_zip.return_value = 1024  # 1KB zip size
 
@@ -646,12 +671,7 @@ class TestDataStorageMethods:
             )
 
             assert result.data_storage.id == self.test_uuid
-            mock_create_zip.assert_called_once_with(
-                temp_path,
-                ANY,
-                None,
-                ".gitignore",
-            )
+            mock_create_zip.assert_called_once_with(temp_path, ANY, None, ".gitignore")
             # Multipart helper takes kwargs: client, entry_id, file_path,
             # file_size, progress_bar.
             mock_upload.assert_called_once_with(
@@ -670,15 +690,13 @@ class TestDataStorageMethods:
                     "description": "Test directory",
                     "file_path": "test_dir.zip",  # The actual path includes .zip extension
                     "is_collection": True,
-                    "metadata": {
-                        "size": 1024,
-                    },
+                    "metadata": {"size": 1024},
                 },
             )
 
     @patch("edison_client.clients.data_storage_methods._aupload_file_multipart")
     @pytest.mark.asyncio
-    async def test_aupload_data_directory(self, mock_upload):
+    async def test_aupload_data_directory(self, mock_upload: AsyncMock) -> None:
         """Test asynchronous directory upload as zip collection."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response()
@@ -720,12 +738,12 @@ class TestDataStorageMethods:
                     "file_path": "test_dir.zip",  # The actual path includes .zip extension
                     "is_collection": True,
                     "metadata": {
-                        "size": ANY,  # Zip file size may vary
+                        "size": ANY  # Zip file size may vary
                     },
                 },
             )
 
-    def test_store_text_content_success(self):
+    def test_store_text_content_success(self) -> None:
         """Test successful text content storage."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response(
@@ -753,7 +771,7 @@ class TestDataStorageMethods:
         assert json_data["is_collection"] is False
         assert json_data["project_id"] == str(self.test_project_id)
 
-    def test_store_text_content_http_error(self):
+    def test_store_text_content_http_error(self) -> None:
         """Test text content storage with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 403
@@ -766,7 +784,7 @@ class TestDataStorageMethods:
             self.methods.store_text_content("test", "test content")
 
     @pytest.mark.asyncio
-    async def test_astore_text_content_success(self):
+    async def test_astore_text_content_success(self) -> None:
         """Test successful asynchronous text content storage."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response(
@@ -796,7 +814,7 @@ class TestDataStorageMethods:
         assert json_data["project_id"] == str(self.test_project_id)
 
     @patch("edison_client.clients.data_storage_methods._upload_file_multipart")
-    def test_store_file_content_single_file(self, mock_upload):
+    def test_store_file_content_single_file(self, mock_upload: MagicMock) -> None:
         """Test single file content storage."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response()
@@ -837,14 +855,14 @@ class TestDataStorageMethods:
                     "file_path": ANY,  # Temporary file path varies
                     "is_collection": False,
                     "metadata": {
-                        "size": ANY,  # File size in bytes
+                        "size": ANY  # File size in bytes
                     },
                     "project_id": str(self.test_project_id),
                 },
             )
 
     @patch("edison_client.clients.data_storage_methods._upload_file_multipart")
-    def test_store_file_content_with_embedding(self, mock_upload):
+    def test_store_file_content_with_embedding(self, mock_upload: MagicMock) -> None:
         """Test file content storage with embedding vector."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response()
@@ -880,7 +898,9 @@ class TestDataStorageMethods:
             assert call_args[1]["json"]["embedding"] == test_embedding
 
     @patch("edison_client.clients.data_storage_methods._upload_file_multipart")
-    def test_store_file_content_directory_collection(self, mock_upload):
+    def test_store_file_content_directory_collection(
+        self, mock_upload: MagicMock
+    ) -> None:
         """Test directory content storage as collection."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response()
@@ -925,13 +945,13 @@ class TestDataStorageMethods:
                     "file_path": "test_dir.zip",
                     "is_collection": True,
                     "metadata": {
-                        "size": ANY,  # Zip file size may vary
+                        "size": ANY  # Zip file size may vary
                     },
                     "project_id": str(self.test_project_id),
                 },
             )
 
-    def test_register_existing_data_source_success(self):
+    def test_register_existing_data_source_success(self) -> None:
         """Test successful registration of existing data source."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response(signed_url=None)
@@ -967,7 +987,7 @@ class TestDataStorageMethods:
         assert json_data["existing_location"]["content_type"] == "bq_table"
 
     @pytest.mark.asyncio
-    async def test_aregister_existing_data_source_success(self):
+    async def test_aregister_existing_data_source_success(self) -> None:
         """Test successful asynchronous registration of existing data source."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response(signed_url=None)
@@ -1004,7 +1024,7 @@ class TestDataStorageMethods:
         assert json_data["existing_location"]["content_type"] == "bq_table"
 
     @patch("edison_client.clients.data_storage_methods.requests_lib.get")
-    def test_fetch_data_from_storage_gcs(self, mock_get):
+    def test_fetch_data_from_storage_gcs(self, mock_get: MagicMock) -> None:
         """Test fetching data from GCS storage."""
         mock_response = Mock()
         mock_response.status_code = 200
@@ -1027,7 +1047,7 @@ class TestDataStorageMethods:
         assert result.suffix == ".txt"
         assert result.exists()  # File should exist after download
 
-    def test_fetch_data_from_storage_raw_content(self):
+    def test_fetch_data_from_storage_raw_content(self) -> None:
         """Test fetching data from raw content storage."""
         api_response = Mock()
         api_response.json.return_value = self._create_mock_response(
@@ -1045,12 +1065,12 @@ class TestDataStorageMethods:
         assert result.entry_id == self.test_uuid
         assert result.entry_name == "test"
 
-    def test_fetch_data_from_storage_no_id(self):
+    def test_fetch_data_from_storage_no_id(self) -> None:
         """Test fetching data without providing storage ID."""
         with pytest.raises(DataStorageRetrievalError, match="must be provided"):
             self.methods.fetch_data_from_storage(None)
 
-    def test_fetch_data_from_storage_unsupported_type(self):
+    def test_fetch_data_from_storage_unsupported_type(self) -> None:
         """Test fetching data from unsupported storage type."""
         api_response = Mock()
         api_response.json.return_value = self._create_mock_response(
@@ -1064,10 +1084,12 @@ class TestDataStorageMethods:
             self.methods.fetch_data_from_storage(self.test_uuid)
 
     @pytest.mark.asyncio
-    async def test_afetch_data_from_storage_gcs(self, monkeypatch):
+    async def test_afetch_data_from_storage_gcs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test asynchronous fetching data from GCS storage."""
 
-        async def mock_download(*args, **kwargs):
+        async def mock_download(*args: object, **kwargs: object) -> Path:
             with tempfile.NamedTemporaryFile(suffix=".txt") as temp_file:
                 temp_file.write(b"test content")
                 temp_file.flush()
@@ -1092,13 +1114,10 @@ class TestDataStorageMethods:
         # Note: File existence check removed as it's a temporary file that may be cleaned up
 
     @pytest.mark.asyncio
-    async def test_aget_data_storage_status(self):
+    async def test_aget_data_storage_status(self) -> None:
         """Test asynchronously checking the status of a data storage entry."""
         api_response = Mock()
-        api_response.json.return_value = {
-            "id": str(self.test_uuid),
-            "status": "active",
-        }
+        api_response.json.return_value = {"id": str(self.test_uuid), "status": "active"}
         api_response.raise_for_status.return_value = None
         self.methods.async_client.get = AsyncMock(return_value=api_response)
 
@@ -1111,7 +1130,7 @@ class TestDataStorageMethods:
         )
 
     @pytest.mark.asyncio
-    async def test_aget_data_storage_status_http_error(self):
+    async def test_aget_data_storage_status_http_error(self) -> None:
         """Test that HTTP errors surface as DataStorageError."""
         mock_response = Mock()
         mock_response.status_code = 404
@@ -1125,7 +1144,7 @@ class TestDataStorageMethods:
         with pytest.raises(DataStorageError, match="checking status of"):
             await self.methods.aget_data_storage_status(self.test_uuid)
 
-    def test_upload_directory_hierarchically(self):
+    def test_upload_directory_hierarchically(self) -> None:
         """Test hierarchical directory upload."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response(signed_url=None)
@@ -1160,7 +1179,7 @@ class TestDataStorageMethods:
                 assert hasattr(response.data_storage, "id")
 
     @pytest.mark.asyncio
-    async def test_aupload_directory_hierarchically(self):
+    async def test_aupload_directory_hierarchically(self) -> None:
         """Test asynchronous hierarchical directory upload."""
         mock_response = Mock()
         mock_response.json.return_value = self._create_mock_response(signed_url=None)
@@ -1196,7 +1215,7 @@ class TestDataStorageMethods:
                 assert hasattr(response.data_storage, "id")
 
     @pytest.mark.asyncio
-    async def test_acreate_dataset_success(self):
+    async def test_acreate_dataset_success(self) -> None:
         """Test successful asynchronous dataset creation."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -1211,8 +1230,7 @@ class TestDataStorageMethods:
         self.methods.async_client.post = AsyncMock(return_value=mock_response)
 
         result = await self.methods.acreate_dataset(
-            name="test_dataset",
-            description="Test dataset description",
+            name="test_dataset", description="Test dataset description"
         )
 
         # Verify the result structure and content
@@ -1229,7 +1247,7 @@ class TestDataStorageMethods:
         assert "id" not in json_data  # Should not be included when None
 
     @pytest.mark.asyncio
-    async def test_acreate_dataset_with_id_success(self):
+    async def test_acreate_dataset_with_id_success(self) -> None:
         """Test successful asynchronous dataset creation with custom ID."""
         custom_dataset_id = uuid4()
         mock_response = Mock()
@@ -1264,7 +1282,7 @@ class TestDataStorageMethods:
         assert json_data["id"] == custom_dataset_id
 
     @pytest.mark.asyncio
-    async def test_acreate_dataset_http_error(self):
+    async def test_acreate_dataset_http_error(self) -> None:
         """Test dataset creation with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 403
@@ -1275,12 +1293,11 @@ class TestDataStorageMethods:
 
         with pytest.raises(DataStorageError, match="not authorized"):
             await self.methods.acreate_dataset(
-                name="test_dataset",
-                description="Test dataset description",
+                name="test_dataset", description="Test dataset description"
             )
 
     @pytest.mark.asyncio
-    async def test_acreate_dataset_unexpected_error(self):
+    async def test_acreate_dataset_unexpected_error(self) -> None:
         """Test dataset creation with unexpected error."""
         unexpected_error = ValueError("Unexpected error")
         self.methods.async_client.post = AsyncMock(side_effect=unexpected_error)
@@ -1289,12 +1306,11 @@ class TestDataStorageMethods:
             DataStorageCreationError, match="An unexpected error occurred"
         ):
             await self.methods.acreate_dataset(
-                name="test_dataset",
-                description="Test description",
+                name="test_dataset", description="Test description"
             )
 
     @pytest.mark.asyncio
-    async def test_adelete_dataset_success(self):
+    async def test_adelete_dataset_success(self) -> None:
         """Test successful asynchronous dataset deletion."""
         # Make the delete method return successfully
         self.methods.async_client.delete = AsyncMock()
@@ -1308,7 +1324,7 @@ class TestDataStorageMethods:
         )
 
     @pytest.mark.asyncio
-    async def test_adelete_dataset_http_error(self):
+    async def test_adelete_dataset_http_error(self) -> None:
         """Test dataset deletion with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 404
@@ -1322,7 +1338,7 @@ class TestDataStorageMethods:
             await self.methods.adelete_dataset(dataset_id)
 
     @pytest.mark.asyncio
-    async def test_adelete_dataset_unexpected_error(self):
+    async def test_adelete_dataset_unexpected_error(self) -> None:
         """Test dataset deletion with unexpected error."""
         unexpected_error = ValueError("Unexpected error")
         self.methods.async_client.delete = AsyncMock(side_effect=unexpected_error)
@@ -1332,7 +1348,7 @@ class TestDataStorageMethods:
             await self.methods.adelete_dataset(dataset_id)
 
     @pytest.mark.asyncio
-    async def test_aget_dataset_success(self):
+    async def test_aget_dataset_success(self) -> None:
         """Test successful asynchronous dataset retrieval."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -1394,7 +1410,7 @@ class TestDataStorageMethods:
         )
 
     @pytest.mark.asyncio
-    async def test_aget_dataset_http_error(self):
+    async def test_aget_dataset_http_error(self) -> None:
         """Test dataset retrieval with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 404
@@ -1408,7 +1424,7 @@ class TestDataStorageMethods:
             await self.methods.aget_dataset(dataset_id)
 
     @pytest.mark.asyncio
-    async def test_aget_dataset_unexpected_error(self):
+    async def test_aget_dataset_unexpected_error(self) -> None:
         """Test dataset retrieval with unexpected error."""
         unexpected_error = ValueError("Unexpected error")
         self.methods.async_client.get = AsyncMock(side_effect=unexpected_error)
@@ -1418,7 +1434,7 @@ class TestDataStorageMethods:
             await self.methods.aget_dataset(dataset_id)
 
     @pytest.mark.asyncio
-    async def test_adelete_data_storage_entry_success(self):
+    async def test_adelete_data_storage_entry_success(self) -> None:
         """Test successful asynchronous data storage entry deletion."""
         # Make the delete method return successfully
         self.methods.async_client.delete = AsyncMock()
@@ -1432,7 +1448,7 @@ class TestDataStorageMethods:
         )
 
     @pytest.mark.asyncio
-    async def test_adelete_data_storage_entry_http_error(self):
+    async def test_adelete_data_storage_entry_http_error(self) -> None:
         """Test data storage entry deletion with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 403
@@ -1446,7 +1462,7 @@ class TestDataStorageMethods:
             await self.methods.adelete_data_storage_entry(entry_id)
 
     @pytest.mark.asyncio
-    async def test_adelete_data_storage_entry_unexpected_error(self):
+    async def test_adelete_data_storage_entry_unexpected_error(self) -> None:
         """Test data storage entry deletion with unexpected error."""
         unexpected_error = ValueError("Unexpected error")
         self.methods.async_client.delete = AsyncMock(side_effect=unexpected_error)
@@ -1456,7 +1472,7 @@ class TestDataStorageMethods:
             await self.methods.adelete_data_storage_entry(entry_id)
 
     @pytest.mark.asyncio
-    async def test_acreate_dataset_minimal_payload(self):
+    async def test_acreate_dataset_minimal_payload(self) -> None:
         """Test dataset creation with minimal required fields."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -1485,7 +1501,7 @@ class TestDataStorageMethods:
         assert "id" not in json_data
 
     @pytest.mark.asyncio
-    async def test_acreate_dataset_validation_error(self):
+    async def test_acreate_dataset_validation_error(self) -> None:
         """Test dataset creation with validation error."""
         mock_response = Mock()
         mock_response.status_code = 422
@@ -1503,7 +1519,7 @@ class TestDataStorageMethods:
             )
 
     @pytest.mark.asyncio
-    async def test_adelete_dataset_not_found(self):
+    async def test_adelete_dataset_not_found(self) -> None:
         """Test dataset deletion when dataset doesn't exist."""
         mock_response = Mock()
         mock_response.status_code = 404
@@ -1517,7 +1533,7 @@ class TestDataStorageMethods:
             await self.methods.adelete_dataset(dataset_id)
 
     @pytest.mark.asyncio
-    async def test_adelete_data_storage_entry_not_found(self):
+    async def test_adelete_data_storage_entry_not_found(self) -> None:
         """Test data storage entry deletion when entry doesn't exist."""
         mock_response = Mock()
         mock_response.status_code = 404
@@ -1530,7 +1546,7 @@ class TestDataStorageMethods:
         with pytest.raises(DataStorageError, match="Data storage entry not found"):
             await self.methods.adelete_data_storage_entry(entry_id)
 
-    def test_get_dataset_success(self):
+    def test_get_dataset_success(self) -> None:
         """Test successful synchronous dataset retrieval."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -1591,7 +1607,7 @@ class TestDataStorageMethods:
             f"/v0.1/data-storage/datasets/{dataset_id}"
         )
 
-    def test_get_dataset_http_error(self):
+    def test_get_dataset_http_error(self) -> None:
         """Test synchronous dataset retrieval with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 404
@@ -1604,7 +1620,7 @@ class TestDataStorageMethods:
         with pytest.raises(DataStorageError, match="Dataset not found"):
             self.methods.get_dataset(dataset_id)
 
-    def test_get_dataset_unexpected_error(self):
+    def test_get_dataset_unexpected_error(self) -> None:
         """Test synchronous dataset retrieval with unexpected error."""
         unexpected_error = ValueError("Unexpected error")
         self.methods.client.get = Mock(side_effect=unexpected_error)
@@ -1613,7 +1629,7 @@ class TestDataStorageMethods:
         with pytest.raises(DataStorageError, match="An unexpected error occurred"):
             self.methods.get_dataset(dataset_id)
 
-    def test_get_dataset_empty_response(self):
+    def test_get_dataset_empty_response(self) -> None:
         """Test synchronous dataset retrieval with minimal response."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -1651,11 +1667,9 @@ class TestDataStorageMethods:
 class TestUtilityFunctions:
     """Test cases for utility functions."""
 
-    def test_should_ignore_file_no_patterns(self):
+    def test_should_ignore_file_no_patterns(self) -> None:
         """Test file ignoring when no patterns are provided."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _should_ignore_file,
-        )
+        from edison_client.clients.data_storage_methods import _should_ignore_file  # ruff: ignore[import-outside-top-level]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1665,11 +1679,9 @@ class TestUtilityFunctions:
             result = _should_ignore_file(test_file, temp_path, None)
             assert result is False
 
-    def test_should_ignore_file_with_patterns(self):
+    def test_should_ignore_file_with_patterns(self) -> None:
         """Test file ignoring with specific patterns."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _should_ignore_file,
-        )
+        from edison_client.clients.data_storage_methods import _should_ignore_file  # ruff: ignore[import-outside-top-level]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1684,11 +1696,9 @@ class TestUtilityFunctions:
             result = _should_ignore_file(test_file, temp_path, ["test.txt"])
             assert result is True
 
-    def test_read_ignore_file_exists(self):
+    def test_read_ignore_file_exists(self) -> None:
         """Test reading ignore file when it exists."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _read_ignore_file,
-        )
+        from edison_client.clients.data_storage_methods import _read_ignore_file  # ruff: ignore[import-outside-top-level]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1707,11 +1717,9 @@ class TestUtilityFunctions:
             assert all(pattern.strip() for pattern in result)
             assert not any(pattern.startswith("#") for pattern in result)
 
-    def test_read_ignore_file_not_exists(self):
+    def test_read_ignore_file_not_exists(self) -> None:
         """Test reading ignore file when it doesn't exist."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _read_ignore_file,
-        )
+        from edison_client.clients.data_storage_methods import _read_ignore_file  # ruff: ignore[import-outside-top-level]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1724,11 +1732,9 @@ class TestUtilityFunctions:
             assert len(result) == 0
             assert not result  # Should be falsy
 
-    def test_collect_ignore_patterns(self):
+    def test_collect_ignore_patterns(self) -> None:
         """Test collecting ignore patterns from multiple sources."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _collect_ignore_patterns,
-        )
+        from edison_client.clients.data_storage_methods import _collect_ignore_patterns  # ruff: ignore[import-outside-top-level]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1750,9 +1756,9 @@ class TestUtilityFunctions:
             assert len(result) == len(set(result))  # No duplicates
             assert all(isinstance(pattern, str) for pattern in result)
 
-    def test_should_send_as_text_content_small_file(self):
+    def test_should_send_as_text_content_small_file(self) -> None:
         """Test text content detection for small files."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
+        from edison_client.clients.data_storage_methods import (  # ruff: ignore[import-outside-top-level]
             _should_send_as_text_content,
         )
 
@@ -1778,9 +1784,9 @@ class TestUtilityFunctions:
                 ".yml",
             }
 
-    def test_should_send_as_text_content_large_file(self):
+    def test_should_send_as_text_content_large_file(self) -> None:
         """Test text content detection for large files."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
+        from edison_client.clients.data_storage_methods import (  # ruff: ignore[import-outside-top-level]
             _should_send_as_text_content,
         )
 
@@ -1800,9 +1806,9 @@ class TestUtilityFunctions:
             assert file_size > 10 * 1024 * 1024  # Should be over 10MB threshold
             assert file_size == 11 * 1024 * 1024  # Exactly 11MB as written
 
-    def test_should_send_as_text_content_unsupported_extension(self):
+    def test_should_send_as_text_content_unsupported_extension(self) -> None:
         """Test text content detection for unsupported file types."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
+        from edison_client.clients.data_storage_methods import (  # ruff: ignore[import-outside-top-level]
             _should_send_as_text_content,
         )
 
@@ -1828,11 +1834,9 @@ class TestUtilityFunctions:
             }
             assert file_path.suffix.lower() == ".bin"
 
-    def test_extract_text_from_file_success(self):
+    def test_extract_text_from_file_success(self) -> None:
         """Test successful text extraction from file."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _extract_text_from_file,
-        )
+        from edison_client.clients.data_storage_methods import _extract_text_from_file  # ruff: ignore[import-outside-top-level]
 
         with tempfile.NamedTemporaryFile(
             encoding="utf-8", suffix=".txt", mode="w"
@@ -1849,11 +1853,9 @@ class TestUtilityFunctions:
             assert len(result) == 12  # "test content" is 12 characters
             assert result.strip() == result  # No leading/trailing whitespace
 
-    def test_extract_text_from_file_unsupported_extension(self):
+    def test_extract_text_from_file_unsupported_extension(self) -> None:
         """Test text extraction from unsupported file type."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _extract_text_from_file,
-        )
+        from edison_client.clients.data_storage_methods import _extract_text_from_file  # ruff: ignore[import-outside-top-level]
 
         with tempfile.NamedTemporaryFile(suffix=".bin") as temp_file:
             temp_file.write(b"binary content")
@@ -1874,11 +1876,9 @@ class TestUtilityFunctions:
             }
             assert file_path.suffix.lower() == ".bin"
 
-    def test_extract_text_from_file_read_error(self):
+    def test_extract_text_from_file_read_error(self) -> None:
         """Test text extraction when file read fails."""
-        from edison_client.clients.data_storage_methods import (  # noqa: PLC0415
-            _extract_text_from_file,
-        )
+        from edison_client.clients.data_storage_methods import _extract_text_from_file  # ruff: ignore[import-outside-top-level]
 
         # Create a file path that will cause a read error
         file_path = Path("/nonexistent/file.txt")
@@ -1894,7 +1894,7 @@ class TestUtilityFunctions:
 class TestExceptions:
     """Test cases for custom exceptions."""
 
-    def test_exception_inheritance(self):
+    def test_exception_inheritance(self) -> None:
         """Test exception class inheritance hierarchy."""
         # Verify the exception class hierarchy is correct
         assert issubclass(DataStorageError, RestClientError)
@@ -1905,7 +1905,7 @@ class TestExceptions:
         )  # Should inherit from base Exception
         assert DataStorageError != RestClientError  # Should be different classes
 
-    def test_exception_creation(self):
+    def test_exception_creation(self) -> None:
         """Test exception creation and message."""
         error = DataStorageCreationError("Test error message")
 
@@ -1917,7 +1917,7 @@ class TestExceptions:
         assert len(str(error)) == 18  # "Test error message" is 18 characters
         assert "Test error message" in str(error)
 
-    def test_exception_with_cause(self):
+    def test_exception_with_cause(self) -> None:
         """Test exception creation with cause."""
         original_error = ValueError("Original error")
         error = DataStorageCreationError("Test error")
@@ -1945,17 +1945,17 @@ class TestMultipartUpload:
 
     # ----- _calculate_multipart_ranges -----
 
-    def test_calculate_multipart_ranges_zero_bytes(self):
+    def test_calculate_multipart_ranges_zero_bytes(self) -> None:
         assert _calculate_multipart_ranges(0) == [(0, 0)]
 
-    def test_calculate_multipart_ranges_small_file_one_part(self):
+    def test_calculate_multipart_ranges_small_file_one_part(self) -> None:
         """Files smaller than the preferred 10 MiB part fit in 1 part."""
         # 5 MiB -> 1 part (also covers the S3 minimum-part-size edge case for
         # single-part uploads where the only part is also the last part).
         ranges = _calculate_multipart_ranges(5 * 1024 * 1024)
         assert ranges == [(0, 5 * 1024 * 1024)]
 
-    def test_calculate_multipart_ranges_12mib_two_parts(self):
+    def test_calculate_multipart_ranges_12mib_two_parts(self) -> None:
         """12 MiB -> 2 parts of 6 MiB each (both above 5 MiB minimum)."""
         size = 12 * 1024 * 1024
         ranges = _calculate_multipart_ranges(size)
@@ -1964,7 +1964,7 @@ class TestMultipartUpload:
         assert ranges[0] == (0, 6 * 1024 * 1024)
         assert ranges[1] == (6 * 1024 * 1024, 12 * 1024 * 1024)
 
-    def test_calculate_multipart_ranges_medium_tier_at_1gib(self):
+    def test_calculate_multipart_ranges_medium_tier_at_1gib(self) -> None:
         """At 1 GiB exactly, switches to medium tier (50 MiB preferred)."""
         size = 1024 * 1024 * 1024  # 1 GiB
         ranges = _calculate_multipart_ranges(size)
@@ -1974,14 +1974,14 @@ class TestMultipartUpload:
         for s, e in ranges[:-1]:
             assert (e - s) >= 5 * 1024 * 1024
 
-    def test_calculate_multipart_ranges_large_tier_at_10gib(self):
+    def test_calculate_multipart_ranges_large_tier_at_10gib(self) -> None:
         """At 10 GiB, switches to large tier (100 MiB preferred)."""
         size = 10 * 1024 * 1024 * 1024  # 10 GiB
         ranges = _calculate_multipart_ranges(size)
         # ceil(10240 / 100) = 103 parts
         assert len(ranges) == 103
 
-    def test_calculate_multipart_ranges_covers_full_file(self):
+    def test_calculate_multipart_ranges_covers_full_file(self) -> None:
         """Concatenating all part ranges must equal the full file."""
         for size in [
             12 * 1024 * 1024,
@@ -1998,11 +1998,11 @@ class TestMultipartUpload:
 
     # ----- _b64_md5 -----
 
-    def test_b64_md5_empty(self):
+    def test_b64_md5_empty(self) -> None:
         """MD5 of empty bytes is the well-known constant 1B2M2Y8AsgTpgAmY7PhCfg==."""
         assert _b64_md5(b"") == "1B2M2Y8AsgTpgAmY7PhCfg=="
 
-    def test_b64_md5_known_value(self):
+    def test_b64_md5_known_value(self) -> None:
         """MD5("hello") in hex = 5d41402abc4b2a76b9719d911017c592."""
         # Verify it's exactly 24 chars (base64 of 16 raw bytes), not 44
         # (base64 of 32-char hex string).
@@ -2013,7 +2013,7 @@ class TestMultipartUpload:
     # ----- _aupload_file_multipart happy path -----
 
     @pytest.mark.asyncio
-    async def test_aupload_file_multipart_happy_path(self, tmp_path):
+    async def test_aupload_file_multipart_happy_path(self, tmp_path: Path) -> None:
         """End-to-end async happy path: small binary file, 1 part."""
         # Write a small 1 MiB file (-> 1 part, no minimum check).
         file_path = tmp_path / "test.bin"
@@ -2086,11 +2086,7 @@ class TestMultipartUpload:
         assert complete_call.kwargs["json"] == {
             "upload_id": "test-upload-id",
             "parts": [
-                {
-                    "part_number": 1,
-                    "etag": '"part-1-etag"',
-                    "checksum": expected_hash,
-                }
+                {"part_number": 1, "etag": '"part-1-etag"', "checksum": expected_hash}
             ],
         }
 
@@ -2098,7 +2094,7 @@ class TestMultipartUpload:
         progress_bar.update.assert_called_once_with(1024 * 1024)
 
     @pytest.mark.asyncio
-    async def test_aupload_file_multipart_multiple_parts(self, tmp_path):
+    async def test_aupload_file_multipart_multiple_parts(self, tmp_path: Path) -> None:
         """12 MiB file -> 2 parts; verifies parts come back in order."""
         file_path = tmp_path / "test.bin"
         file_size = 12 * 1024 * 1024
@@ -2123,13 +2119,13 @@ class TestMultipartUpload:
         part_client = AsyncMock()
 
         # Different ETags per part so we can verify they map correctly.
-        def make_put_resp(etag: str):
+        def make_put_resp(etag: str) -> Mock:
             r = Mock()
             r.raise_for_status.return_value = None
             r.headers = {"etag": etag}
             return r
 
-        async def fake_put(url, content, headers):
+        async def fake_put(url: str, content: object, headers: object) -> Mock:
             if url.endswith("/p1"):
                 return make_put_resp("etag-1")
             return make_put_resp("etag-2")
@@ -2165,7 +2161,9 @@ class TestMultipartUpload:
         assert parts[1]["checksum"] == _b64_md5(b"b" * (6 * 1024 * 1024))
 
     @pytest.mark.asyncio
-    async def test_aupload_file_multipart_part_url_count_mismatch(self, tmp_path):
+    async def test_aupload_file_multipart_part_url_count_mismatch(
+        self, tmp_path: Path
+    ) -> None:
         """If server returns wrong number of part URLs, raise."""
         file_path = tmp_path / "test.bin"
         file_path.write_bytes(b"x" * 1024)
@@ -2202,11 +2200,13 @@ class TestMultipartUpload:
     # ----- Retry semantics -----
 
     @pytest.mark.asyncio
-    async def test_aupload_one_part_retries_on_transport_error(self, monkeypatch):
+    async def test_aupload_one_part_retries_on_transport_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Transport errors trigger retry; HTTP errors do not."""
 
         # Skip the backoff sleeps so the test runs fast.
-        async def fake_sleep(_):
+        async def fake_sleep(_: object) -> None:
             return None
 
         monkeypatch.setattr(
@@ -2219,10 +2219,7 @@ class TestMultipartUpload:
         success_resp.headers = {"etag": "ok"}
 
         # First attempt: transport error. Second attempt: success.
-        part_client.put.side_effect = [
-            httpx.ConnectError("boom"),
-            success_resp,
-        ]
+        part_client.put.side_effect = [httpx.ConnectError("boom"), success_resp]
 
         etag = await _aupload_one_part(
             part_client=part_client,
@@ -2235,7 +2232,7 @@ class TestMultipartUpload:
         assert part_client.put.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_aupload_one_part_does_not_retry_on_4xx(self):
+    async def test_aupload_one_part_does_not_retry_on_4xx(self) -> None:
         """4xx (other than 429) propagates immediately.
 
         Bad signature / expired URL / wrong MD5 won't be fixed by retrying.
@@ -2260,10 +2257,12 @@ class TestMultipartUpload:
         assert part_client.put.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_aupload_one_part_retries_on_5xx(self, monkeypatch):
+    async def test_aupload_one_part_retries_on_5xx(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """503 (and other 5xx) triggers retry."""
 
-        async def fake_sleep(_):
+        async def fake_sleep(_: object) -> None:
             return None
 
         monkeypatch.setattr(
@@ -2292,10 +2291,12 @@ class TestMultipartUpload:
         assert part_client.put.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_aupload_one_part_exhausts_retries(self, monkeypatch):
+    async def test_aupload_one_part_exhausts_retries(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """All transport-error retries fail -> DataStorageCreationError."""
 
-        async def fake_sleep(_):
+        async def fake_sleep(_: object) -> None:
             return None
 
         monkeypatch.setattr(
@@ -2316,14 +2317,16 @@ class TestMultipartUpload:
         assert part_client.put.call_count == 3  # PART_UPLOAD_MAX_RETRIES
 
     @pytest.mark.asyncio
-    async def test_aupload_one_part_exhausts_retries_on_5xx(self, monkeypatch):
+    async def test_aupload_one_part_exhausts_retries_on_5xx(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Three consecutive 5xx -> DataStorageCreationError.
 
         Verifies the retry-on-5xx policy correctly exhausts and chains the
         last HTTPStatusError as the cause.
         """
 
-        async def fake_sleep(_):
+        async def fake_sleep(_: object) -> None:
             return None
 
         monkeypatch.setattr(
@@ -2353,7 +2356,7 @@ class TestMultipartUpload:
 
     # ----- Sync variant ----- (small smoke; sync mirrors async)
 
-    def test_upload_file_multipart_happy_path(self, tmp_path):
+    def test_upload_file_multipart_happy_path(self, tmp_path: Path) -> None:
         """End-to-end sync happy path: small file, 1 part."""
         file_path = tmp_path / "test.bin"
         file_path.write_bytes(b"y" * 4096)

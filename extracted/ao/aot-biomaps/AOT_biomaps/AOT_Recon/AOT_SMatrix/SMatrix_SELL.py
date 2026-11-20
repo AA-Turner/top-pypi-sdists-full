@@ -2179,19 +2179,23 @@ class SMatrix_SELL(SMatrix):
                 img = img.conj()
         else:
             # Energy over time: accumulate |A^H e_t|^2 for each t of this field
-            acc = xp.zeros(self.Z * self.X, dtype=xp.float32)
+            acc = None
             for tt in range(self.T):
                 e = xp.zeros(num_rows, dtype=xp.float32)
                 e[n * self.T + tt] = 1.0
                 f = self.backward_projection(e)
                 if self.isComplexSMatrix:
                     f = f.conj()
-                acc += xp.abs(f) ** 2
-            img = xp.sqrt(acc)  # amplitude envelope
+                
+                term = xp.abs(f) ** 2
+                if acc is None:
+                    acc = xp.zeros_like(term, dtype=xp.float32)
+                acc += term
+            img = xp.sqrt(acc) 
 
         if denormalize:
             img = img * getattr(self, "normalization_factor", 1.0)
 
         img_np = cp.asnumpy(img) if on_gpu else np.asarray(img)
         return img_np.reshape(self.Z, self.X)   # col index = z*X + x -> reshape (Z, X)
-            
+

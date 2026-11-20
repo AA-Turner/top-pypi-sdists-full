@@ -15,7 +15,6 @@ TEST-ONLY check, so a drift in either spelling fails CI rather than silently bre
 """
 from __future__ import annotations
 
-import re
 import uuid
 
 
@@ -23,12 +22,6 @@ import uuid
 
 
 HEADER = "X-Seq-Request-Id"
-
-
-
-
-
-_RID_RE = re.compile(r"^r-[0-9a-f]{8}$")
 
 
 def new_rid() -> str:
@@ -41,7 +34,3 @@ def new_rid() -> str:
     return "r-" + uuid.uuid4().hex[:8]
 
 
-def is_valid_rid(value: object) -> bool:
-    """True iff `value` is a string matching the rid convention. Used by the correlation check and
-    by the convention test; kept here so there is one definition of "a valid rid"."""
-    return isinstance(value, str) and _RID_RE.match(value) is not None

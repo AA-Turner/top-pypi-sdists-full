@@ -43,7 +43,6 @@ import threading
 import time
 import uuid
 import weakref
-from datetime import datetime, timezone
 from typing import Any, Callable, NamedTuple, Optional
 
 from ..errors import (
@@ -52,7 +51,6 @@ from ..errors import (
     Conflict,
     NewVersion,
     InternalError,
-    InvalidRequest,
     SequencesError,
     Unavailable,
 )
@@ -63,6 +61,7 @@ from .connect_trace import ConnectTrace
 from .reporting import error_of
 from . import marked_observe as _marked
 from . import observe_stream as _observe
+from .notice_words import _moving_words
 from .worker_transport import _RESENDS, _STILL_OPENING, _WorkerGone, _WorkerTransport, _wait_set
 from .direct_episode import _EPISODE_LOST, _STATE_GONE, _Episodes
 
@@ -125,75 +124,6 @@ _SAY_BUSY_AFTER_S = 5.0
 
 
 
-_SAY_BY_WITHIN_S = 2 * 3600.0
-
-
-_DATED_FROM_S = 24 * 3600.0
-
-
-def _now() -> datetime:
-    """This machine's clock, in UTC: the one every time said here is measured from."""
-    return datetime.now(timezone.utc)
-
-
-def _moving_words(notice: dict, *, moved: bool = False) -> str:
-    """Why a robot moves to another worker, as the platform said it at a renewal (`rotate`: its reason, and by when it
-    is moved whatever it is doing): its worker has served its hours - replaced by one started beside it, at a
-    deployment's cap too -, a newer version serves, or its worker cannot answer it
-    in time beside the robots nearer
-    it - and stays, for them. The latest it is moved by only when that is near.
-"""
-    reason = str(notice.get("reason"))
-
-    why = {"rotate": "its worker has served its hours and is being replaced",
-           "version": "the deployment now serves another version",
-           "over": "its worker cannot answer it in time beside the robots nearer it",
-
-           "more robots than seats": "its worker now seats fewer robots than it holds",
-
-
-
-           "credit": "its account has nothing left to spend"}.get(reason, "its worker is leaving")
-    if moved:
-        return why.replace("is being replaced", "was replaced") + ", and the robot had not reached an episode boundary"
-    by = notice.get("by")
-    latest = f", by {_clock_face(by)} at the latest" if by and _soon(by) else ""
-    if reason == "credit":
-        return f"{why}; the robot stops at the end of its episode{latest}"
-    to = "to it" if reason == "version" else "to a new worker"
-    return f"{why}; the robot moves {to} at an episode boundary{latest}"
-
-
-def _soon(stamp: Any) -> bool:
-    """Whether an instant the platform said is within _SAY_BY_WITHIN_S from now (False when it does not read as one)."""
-    try:
-        at = datetime.fromisoformat(str(stamp).strip().replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
-    return (at - _now()).total_seconds() <= _SAY_BY_WITHIN_S
-
-
-def _clock_face(stamp: Any) -> str:
-    """An instant the platform said (ISO; UTC when it has no offset) as this machine's clock shows it, to the minute -
-    "10:12 EDT", after its date only when it is a day or more from now (_DATED_FROM_S) - rounded down, so a deadline
-    said so is never later than the platform's. As said when it does not read as one."""
-    try:
-        at = datetime.fromisoformat(str(stamp).strip().replace("Z", "+00:00"))
-    except ValueError:
-        return str(stamp)
-    at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
-    local = at.astimezone()
-    face = local.strftime("%H:%M %Z").strip()
-    return face if abs((at - _now()).total_seconds()) < _DATED_FROM_S else f"{local:%Y-%m-%d} {face}"
-
-
-def _ready(notice: Optional[dict]) -> bool:
-    """Whether a move the robot asks for now would take it off the leaving worker, as the platform said it (`ready`)."""
-    return isinstance(notice, dict) and notice["ready"] is True
-
-
-
 
 
 _RENEW_AGAIN_S = 2.0
@@ -244,9 +174,17 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
 
     def __init__(self, gateway: Transport, model: str, *,
                  timeout_s: Optional[float] = None,
-                 max_reconnects: int = 5, teleop: Optional[Any] = None) -> None:
+                 max_reconnects: int = 5, teleop: Optional[Any] = None,
+                 lines: Optional[Any] = None, pictures: str = "keyframes") -> None:
         self._gateway = gateway
         self._model = model
+
+
+        self.pictures = pictures
+
+
+
+        self._lines = lines
 
 
         self.teleop = teleop
@@ -412,10 +350,6 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
 
 
 
-        if "inputs" in payload:
-            raise InvalidRequest("act() carries no data: on this policy's worker every input goes through observe(). "
-                                 "Hand it to policy.observe(x) first, then call policy.act() - the policy's act function "
-                                 "reads what its observations gave it")
         payload["call"] = "act"
 
         own = self._own_act(asked) if asked is not None else None
@@ -1024,7 +958,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             return
 
         new_worker = _WorkerTransport(worker_url, direct_secret, fingerprint, self._timeout_s, session=self._session,
-                                      teleop=self.teleop)
+                                      teleop=self.teleop, lines=self._lines,
+                                      on_line_reopen=getattr(self._gateway, "on_line_reopen", None))
         new_worker.connect_ms = connect_ms
 
         new_worker.prewarm()
@@ -1068,7 +1003,9 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
                 if old is not None and not old.gone and old.same(url, secret) and epoch == self._standby_epoch:
                     fresh = old
                 else:
-                    fresh = _WorkerTransport(url, secret, fingerprint, self._timeout_s, session=self._session)
+                    fresh = _WorkerTransport(url, secret, fingerprint, self._timeout_s, session=self._session,
+                                             lines=self._lines,
+                                             on_line_reopen=getattr(self._gateway, "on_line_reopen", None))
                     fresh.prewarm()
                     self._standby_seen = time.monotonic()
                 self._standby_epoch, self._standby_ttl_s = epoch, ttl_s

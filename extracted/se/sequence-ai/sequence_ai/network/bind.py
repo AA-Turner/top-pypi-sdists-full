@@ -2,11 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 A connection that leaves by one network interface: each socket it opens is bound to the interface before it connects,
-so its packets go out that way whatever this machine's default route - how network.lines sends each act over each of a
-robot's uplinks (a Starlink terminal's and a cellular modem's, say).
+so its packets go out that way whatever this machine's default route - how a robot's stream goes over each of its
+uplinks (a Starlink terminal's and a cellular modem's, say), and how each line is let into a GPU's allow list.
 
-    from sequence_ai.network import connect
-    link = connect("http://your-gpu:8000", bind="wwan0")    # this connection by the modem alone
+    import sequence_ai
+    policy = sequence_ai.connect("http://your-gpu:8000", lines=["eth0", "wwan0"])   # a stream by each
+
+    from sequence_ai.network import bind
+    transport = bind.transport(httpx, "wwan0")       # an httpx transport whose connections leave by the modem alone
 
 In one sentence: an interface's name → the socket option that binds a socket to it, for the socket's address family
 (Linux: SO_BINDTODEVICE, by name; macOS: IP_BOUND_IF or IPV6_BOUND_IF, by index) → set on each socket the connection

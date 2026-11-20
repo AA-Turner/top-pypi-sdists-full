@@ -156,7 +156,7 @@ class TableBindingResolution:
                 or ()
                 if table is not None
             )
-        from metadata.entity_resolution.table import table_lookup_tiers  # noqa: PLC0415
+        from metadata.entity_resolution.table import table_lookup_tiers
 
         engine = self.engine or EntityResolver(self.metadata)
         try:

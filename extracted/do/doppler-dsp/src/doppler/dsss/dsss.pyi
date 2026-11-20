@@ -45,7 +45,7 @@ class ReceiverStatus(tuple[int, float, float, float, float, int, int, float, flo
     doppler_hz : float
         Where the emitter is NOW: the whole carrier estimate, Hz -- loop 1's plus what loop 2 has taken up beyond it (the seed while refining, 0 while searching, frozen where it was when lost). Only as good as `locked`: with the carrier unlocked, loop 1 free-runs and this wanders.
     chip_phase : float
-        Code phase, chips: the live Dll's; while refining, the seed's advanced by the clock dilation since (what the hand-over starts from), so a refining receiver's signal can be excluded too.
+        Code phase, chips, at the sample after the last one fed: the live Dll's, carried over the partial period the chain holds; while refining, the seed's advanced by the clock dilation since (what the hand-over starts from), so a refining receiver's signal can be excluded too.
     code_rate : float
         The Dll's code rate, chips per nominal chip (~1.0 at lock), without the carrier aid; a coasting Dll's is its held rate.
     cn0_dbhz_est : float
@@ -85,9 +85,10 @@ class ReceiverStatus(tuple[int, float, float, float, float, int, int, float, flo
 
     @property
     def chip_phase(self) -> float:
-        """Code phase, chips: the live Dll's; while refining, the seed's
-        advanced by the clock dilation since (what the hand-over starts from),
-        so a refining receiver's signal can be excluded too.
+        """Code phase, chips, at the sample after the last one fed: the live
+        Dll's, carried over the partial period the chain holds; while refining,
+        the seed's advanced by the clock dilation since (what the hand-over
+        starts from), so a refining receiver's signal can be excluded too.
         """
 
     @property
@@ -156,7 +157,7 @@ class PoolReceiverStatus(tuple[int, float, float, float, float, int, int, float,
     doppler_hz : float
         Where the emitter is NOW: the whole carrier estimate, Hz -- loop 1's plus what loop 2 has taken up beyond it (the seed while refining, 0 while searching, frozen where it was when lost). Only as good as `locked`: with the carrier unlocked, loop 1 free-runs and this wanders.
     chip_phase : float
-        Code phase, chips: the live Dll's; while refining, the seed's advanced by the clock dilation since (what the hand-over starts from), so a refining receiver's signal can be excluded too.
+        Code phase, chips, at the sample after the last one fed: the live Dll's, carried over the partial period the chain holds; while refining, the seed's advanced by the clock dilation since (what the hand-over starts from), so a refining receiver's signal can be excluded too.
     code_rate : float
         The Dll's code rate, chips per nominal chip (~1.0 at lock), without the carrier aid; a coasting Dll's is its held rate.
     cn0_dbhz_est : float
@@ -196,9 +197,10 @@ class PoolReceiverStatus(tuple[int, float, float, float, float, int, int, float,
 
     @property
     def chip_phase(self) -> float:
-        """Code phase, chips: the live Dll's; while refining, the seed's
-        advanced by the clock dilation since (what the hand-over starts from),
-        so a refining receiver's signal can be excluded too.
+        """Code phase, chips, at the sample after the last one fed: the live
+        Dll's, carried over the partial period the chain holds; while refining,
+        the seed's advanced by the clock dilation since (what the hand-over
+        starts from), so a refining receiver's signal can be excluded too.
         """
 
     @property
@@ -392,15 +394,16 @@ class Despreader:
         """Attach (or detach) a telemetry context across the despreader. Pure
         forwarder — the despreader registers no probes of its own: the carrier
         loop registers "<prefix>.car.lock" / ".e" / ".freq" / ".locked" /
-        ".nco" and the code loop registers "<prefix>.code.e" / ".rate" /
-        ".lock" / ".locked" / ".nco" (the ".locked" pair are the loops'
-        verify-counted lockdet decisions, 0/1; ".freq" / ".rate" the filters'
-        integrators and ".nco" their complete commands, see
-        dp_costas_set_telemetry() and dp_dll_set_telemetry()) — ten probes, all
-        thinned by decim and emitted once per code period (the despreader
-        flushes both loops at its per-period update). Passing NULL detaches
-        both loops. Setup path, never hot; the context is borrowed and must
-        outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
+        ".nco" / ".freq_rate" / ".order" and the code loop registers
+        "<prefix>.code.e" / ".rate" / ".lock" / ".locked" / ".nco" (the
+        ".locked" pair are the loops' verify-counted lockdet decisions, 0/1;
+        ".freq" / ".rate" the filters' integrators and ".nco" their complete
+        commands, see dp_costas_set_telemetry() and dp_dll_set_telemetry()) —
+        twelve probes, all thinned by decim and emitted once per code period
+        (the despreader flushes both loops at its per-period update). Passing
+        NULL detaches both loops. Setup path, never hot; the context is
+        borrowed and must outlive the attachment (SPSC rules in
+        dp_tlm/dp_tlm_core.h).
 
         Parameters
         ----------
@@ -427,15 +430,15 @@ class Despreader:
         >>> ch = Despreader(code=code, sps=4)
         >>> ch.set_telemetry(tlm, "ch0")
         >>> names = sorted(tlm.probe_names)
-        >>> names[:5]
-        ['ch0.car.e', 'ch0.car.freq', 'ch0.car.lock', 'ch0.car.locked', 'ch0.car.nco']
-        >>> names[5:]
+        >>> names[:7]
+        ['ch0.car.e', 'ch0.car.freq', 'ch0.car.freq_rate', 'ch0.car.lock', 'ch0.car.locked', 'ch0.car.nco', 'ch0.car.order']
+        >>> names[7:]
         ['ch0.code.e', 'ch0.code.lock', 'ch0.code.locked', 'ch0.code.nco', 'ch0.code.rate']
         >>> chips = 1.0 - 2.0 * (np.arange(31) % 2)
         >>> x = np.tile(np.repeat(chips, 4), 40).astype(np.complex64)
         >>> _ = ch.steps(x)
-        >>> recs = tlm.read()   # ten records per code period
-        >>> len(recs) > 0 and len(recs) % 10 == 0
+        >>> recs = tlm.read()   # twelve records per code period
+        >>> len(recs) > 0 and len(recs) % 12 == 0
         True
 
         """
@@ -2938,8 +2941,8 @@ class AsyncDsssReceiver:
 
         - "<prefix>.car" -- the chip-domain carrier loop
           (dp_costas_set_telemetry(): ".lock", ".e", ".freq", ".locked",
-          ".nco"), once per carrier update: once a code period, except while it
-          coasts, when loop 1 is held;
+          ".nco", ".freq_rate", ".order"), once per carrier update: once a code
+          period, except while it coasts, when loop 1 is held;
         - "<prefix>.code" -- the code loop (dp_dll_set_telemetry(): ".e",
           ".rate", ".lock", ".locked", ".nco"), once per discriminator update;
         - "<prefix>.demod" -- the symbol-domain demodulator
@@ -3006,7 +3009,7 @@ class AsyncDsssReceiver:
         >>> tlm = Telemetry(1 << 12)
         >>> rx.set_telemetry(tlm, "rx")
         >>> sorted(p for p in tlm.probe_names if p.startswith("rx.c"))
-        ['rx.car.e', 'rx.car.freq', 'rx.car.lock', 'rx.car.locked', 'rx.car.nco', 'rx.code.e', 'rx.code.lock', 'rx.code.locked', 'rx.code.nco', 'rx.code.rate']
+        ['rx.car.e', 'rx.car.freq', 'rx.car.freq_rate', 'rx.car.lock', 'rx.car.locked', 'rx.car.nco', 'rx.car.order', 'rx.code.e', 'rx.code.lock', 'rx.code.locked', 'rx.code.nco', 'rx.code.rate']
         >>> sorted(p for p in tlm.probe_names if p.startswith(("rx.s", "rx.h",
         ...                                                    "rx.r")))
         ['rx.handover_hz', 'rx.refused', 'rx.state', 'rx.sym.lock', 'rx.sym.locked']
@@ -3023,10 +3026,10 @@ class AsyncDsssReceiver:
         receivers in parallel sets each one to 1. A mutator's value, so it
         travels in the state blob (#2022). The blob carries the count that RAN,
         not the request: set_threads(0) on a writer restores as the count the
-        writer ran (its online cores, at most one worker a tile) on any reader,
-        by design -- a resumed receiver runs as the one that was checkpointed,
-        and a pool's 1 is 1 everywhere. Setup path; not while another thread is
-        inside steps().
+        writer ran (its online cores, capped at the tiles at D = 1) on any
+        reader, by design -- a resumed receiver runs as the one that was
+        checkpointed, and a pool's 1 is 1 everywhere. Setup path; not while
+        another thread is inside steps().
 
         Parameters
         ----------
@@ -3301,12 +3304,15 @@ class AsyncDsssReceiver:
 
     @property
     def chip_phase(self) -> float:
-        """The live Dll's code phase, chips, in the Dll's instantaneous
-        convention -- the mirror of dp_correlator_hit_t::code_phase's
-        correlation-lag convention (dp_correlator_build_handoff()). While
-        refining there is no live Dll: it is the seed's phase advanced by the
-        clock dilation since, the phase the hand-over starts the live chain
-        from.
+        """The code phase, chips, at the sample after the last one fed, in the
+        Dll's instantaneous convention -- the mirror of
+        dp_correlator_hit_t::code_phase's correlation-lag convention
+        (dp_correlator_build_handoff()). Tracking, it is the live Dll's phase
+        carried over the partial period the chain holds (it runs whole
+        periods), so it names the same sample a search's picks are carried to
+        at any sample rate (#3063). While refining there is no live Dll: it is
+        the seed's phase advanced by the clock dilation since, the phase the
+        hand-over starts the live chain from.
         """
 
     @property

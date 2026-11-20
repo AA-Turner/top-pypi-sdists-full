@@ -15,6 +15,7 @@ from langsmith.types.annotation_queues import (
     ItemListResponse,
     ItemCreateResponse,
     ItemUpdateResponse,
+    ItemSetFinalResponse,
     ItemDeleteAllResponse,
     ItemCreateStatusResponse,
     ItemRetrieveCountResponse,
@@ -169,8 +170,10 @@ class TestItems:
         item = client.annotation_queues.items.list(
             queue_id="queue_id",
             status="needs_my_review",
+            agreement="disagreed",
             cursor="cursor",
             direction="forward",
+            has_unresolved_keys=True,
             item_type="RUN",
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -214,6 +217,71 @@ class TestItems:
             client.annotation_queues.items.with_raw_response.list(
                 queue_id="",
                 status="needs_my_review",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_clear_final(self, client: Langsmith) -> None:
+        item = client.annotation_queues.items.clear_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+        assert item is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_clear_final(self, client: Langsmith) -> None:
+
+        response = client.annotation_queues.items.with_raw_response.clear_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = response.parse()
+        assert item is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_clear_final(self, client: Langsmith) -> None:
+        with client.annotation_queues.items.with_streaming_response.clear_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = response.parse()
+            assert item is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_clear_final(self, client: Langsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.clear_final(
+                key="key",
+                queue_id="",
+                item_id="item_id",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.clear_final(
+                key="key",
+                queue_id="queue_id",
+                item_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
+            client.annotation_queues.items.with_raw_response.clear_final(
+                key="",
+                queue_id="queue_id",
+                item_id="item_id",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -336,7 +404,9 @@ class TestItems:
         item = client.annotation_queues.items.retrieve_count(
             queue_id="queue_id",
             status="status",
+            agreement="disagreed",
             end_time="end_time",
+            has_unresolved_keys=True,
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             start_time="start_time",
@@ -432,6 +502,84 @@ class TestItems:
             client.annotation_queues.items.with_raw_response.retrieve_placement(
                 item_id="",
                 queue_id="queue_id",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_set_final(self, client: Langsmith) -> None:
+        item = client.annotation_queues.items.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+        assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_set_final_with_all_params(self, client: Langsmith) -> None:
+        item = client.annotation_queues.items.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+            score=0,
+            value="value",
+            values=["string"],
+        )
+        assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_set_final(self, client: Langsmith) -> None:
+
+        response = client.annotation_queues.items.with_raw_response.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = response.parse()
+        assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_set_final(self, client: Langsmith) -> None:
+        with client.annotation_queues.items.with_streaming_response.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = response.parse()
+            assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_set_final(self, client: Langsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.set_final(
+                key="key",
+                queue_id="",
+                item_id="item_id",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.set_final(
+                key="key",
+                queue_id="queue_id",
+                item_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
+            client.annotation_queues.items.with_raw_response.set_final(
+                key="",
+                queue_id="queue_id",
+                item_id="item_id",
             )
 
 
@@ -582,8 +730,10 @@ class TestAsyncItems:
         item = await async_client.annotation_queues.items.list(
             queue_id="queue_id",
             status="needs_my_review",
+            agreement="disagreed",
             cursor="cursor",
             direction="forward",
+            has_unresolved_keys=True,
             item_type="RUN",
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -627,6 +777,71 @@ class TestAsyncItems:
             await async_client.annotation_queues.items.with_raw_response.list(
                 queue_id="",
                 status="needs_my_review",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_clear_final(self, async_client: AsyncLangsmith) -> None:
+        item = await async_client.annotation_queues.items.clear_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+        assert item is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_clear_final(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.annotation_queues.items.with_raw_response.clear_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = await response.parse()
+        assert item is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_clear_final(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.annotation_queues.items.with_streaming_response.clear_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = await response.parse()
+            assert item is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_clear_final(self, async_client: AsyncLangsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.clear_final(
+                key="key",
+                queue_id="",
+                item_id="item_id",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.clear_final(
+                key="key",
+                queue_id="queue_id",
+                item_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.clear_final(
+                key="",
+                queue_id="queue_id",
+                item_id="item_id",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -749,7 +964,9 @@ class TestAsyncItems:
         item = await async_client.annotation_queues.items.retrieve_count(
             queue_id="queue_id",
             status="status",
+            agreement="disagreed",
             end_time="end_time",
+            has_unresolved_keys=True,
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             start_time="start_time",
@@ -845,4 +1062,82 @@ class TestAsyncItems:
             await async_client.annotation_queues.items.with_raw_response.retrieve_placement(
                 item_id="",
                 queue_id="queue_id",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_set_final(self, async_client: AsyncLangsmith) -> None:
+        item = await async_client.annotation_queues.items.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+        assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_set_final_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        item = await async_client.annotation_queues.items.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+            score=0,
+            value="value",
+            values=["string"],
+        )
+        assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_set_final(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.annotation_queues.items.with_raw_response.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = await response.parse()
+        assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_set_final(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.annotation_queues.items.with_streaming_response.set_final(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = await response.parse()
+            assert_matches_type(ItemSetFinalResponse, item, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_set_final(self, async_client: AsyncLangsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.set_final(
+                key="key",
+                queue_id="",
+                item_id="item_id",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.set_final(
+                key="key",
+                queue_id="queue_id",
+                item_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.set_final(
+                key="",
+                queue_id="queue_id",
+                item_id="item_id",
             )

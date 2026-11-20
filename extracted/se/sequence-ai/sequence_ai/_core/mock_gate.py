@@ -1,8 +1,8 @@
 """
 Whether a base URL asks for the mock tier, and whether it may have it - the SDK's own tests alone, from its source tree.
 
-The mock tier (mock_direct.py and its _mock_assets/, seq/_mock.py) is the SDK's internal test fixture: the wheel and the
-sdist leave it out (pyproject.toml), and it answers only with SEQ_INTERNAL_MOCK=1, as tests/conftest.py sets. This is
+The mock tier (sequence-cloud's _core/mock_direct.py and its _mock_assets/, and its seq/_mock.py) is the SDK's internal
+test fixture: sequence-cloud's wheel and sdist leave it out (its pyproject.toml), and it answers only with SEQ_INTERNAL_MOCK=1, as tests/conftest.py sets. This is
 what every shipped caller asks first, so none imports the fixture before it is allowed; asked for anywhere else - no
 SEQ_INTERNAL_MOCK, or an installed package that has no fixture to start - InvalidRequest says it is not for users.
 
@@ -18,7 +18,7 @@ INTERNAL = "SEQ_INTERNAL_MOCK"
 NOT_FOR_USERS = ("the base URL 'mock' is not available: the mock tier is sequence-ai's internal test fixture, not for "
                  "users. Leave the base URL unset to use the platform, with your API key (SEQUENCES_API_KEY).")
 
-FIXTURE = "sequence_ai._core.mock_direct"
+FIXTURE = "sequence_cloud._core.mock_direct"
 
 
 def is_mock(base_url: Optional[str]) -> bool:

@@ -14,6 +14,8 @@ Usage::
     from mypy_boto3_cognito_idp.paginator import (
         AdminListGroupsForUserPaginator,
         AdminListUserAuthEventsPaginator,
+        ListCIMDPoliciesPaginator,
+        ListClientMetadataURLsPaginator,
         ListGroupsPaginator,
         ListIdentityProvidersPaginator,
         ListResourceServersPaginator,
@@ -28,6 +30,8 @@ Usage::
 
     admin_list_groups_for_user_paginator: AdminListGroupsForUserPaginator = client.get_paginator("admin_list_groups_for_user")
     admin_list_user_auth_events_paginator: AdminListUserAuthEventsPaginator = client.get_paginator("admin_list_user_auth_events")
+    list_cimd_policies_paginator: ListCIMDPoliciesPaginator = client.get_paginator("list_cimd_policies")
+    list_client_metadata_urls_paginator: ListClientMetadataURLsPaginator = client.get_paginator("list_client_metadata_urls")
     list_groups_paginator: ListGroupsPaginator = client.get_paginator("list_groups")
     list_identity_providers_paginator: ListIdentityProvidersPaginator = client.get_paginator("list_identity_providers")
     list_resource_servers_paginator: ListResourceServersPaginator = client.get_paginator("list_resource_servers")
@@ -50,6 +54,10 @@ from .type_defs import (
     AdminListGroupsForUserResponseTypeDef,
     AdminListUserAuthEventsRequestPaginateTypeDef,
     AdminListUserAuthEventsResponseTypeDef,
+    ListCIMDPoliciesRequestPaginateTypeDef,
+    ListCIMDPoliciesResponseTypeDef,
+    ListClientMetadataURLsRequestPaginateTypeDef,
+    ListClientMetadataURLsResponseTypeDef,
     ListGroupsRequestPaginateTypeDef,
     ListGroupsResponseTypeDef,
     ListIdentityProvidersRequestPaginateTypeDef,
@@ -74,6 +82,8 @@ else:
 __all__ = (
     "AdminListGroupsForUserPaginator",
     "AdminListUserAuthEventsPaginator",
+    "ListCIMDPoliciesPaginator",
+    "ListClientMetadataURLsPaginator",
     "ListGroupsPaginator",
     "ListIdentityProvidersPaginator",
     "ListResourceServersPaginator",
@@ -117,6 +127,42 @@ class AdminListUserAuthEventsPaginator(_AdminListUserAuthEventsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/paginator/AdminListUserAuthEvents.html#CognitoIdentityProvider.Paginator.AdminListUserAuthEvents.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/paginators/#adminlistuserautheventspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListCIMDPoliciesPaginatorBase = Paginator[ListCIMDPoliciesResponseTypeDef]
+else:
+    _ListCIMDPoliciesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListCIMDPoliciesPaginator(_ListCIMDPoliciesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/paginator/ListCIMDPolicies.html#CognitoIdentityProvider.Paginator.ListCIMDPolicies)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/paginators/#listcimdpoliciespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCIMDPoliciesRequestPaginateTypeDef]
+    ) -> PageIterator[ListCIMDPoliciesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/paginator/ListCIMDPolicies.html#CognitoIdentityProvider.Paginator.ListCIMDPolicies.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/paginators/#listcimdpoliciespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListClientMetadataURLsPaginatorBase = Paginator[ListClientMetadataURLsResponseTypeDef]
+else:
+    _ListClientMetadataURLsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListClientMetadataURLsPaginator(_ListClientMetadataURLsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/paginator/ListClientMetadataURLs.html#CognitoIdentityProvider.Paginator.ListClientMetadataURLs)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/paginators/#listclientmetadataurlspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListClientMetadataURLsRequestPaginateTypeDef]
+    ) -> PageIterator[ListClientMetadataURLsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/paginator/ListClientMetadataURLs.html#CognitoIdentityProvider.Paginator.ListClientMetadataURLs.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/paginators/#listclientmetadataurlspaginator)
         """
 
 if TYPE_CHECKING:

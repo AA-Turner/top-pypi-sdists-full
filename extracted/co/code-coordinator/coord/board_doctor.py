@@ -526,6 +526,203 @@ def stranded_prereq_rows(entries: Sequence[Any], *, config: Any) -> list[StuckRo
     return rows
 
 
+# ── Next-action-unperformed (#4045) ──────────────────────────────────────────
+#
+# A row whose LIVE gates already name a dispatchable `next_action`
+# (`coord.entry_truth.reconcile_entry`, via `coord.queue_diagnose.
+# live_entry_truth`) and nothing has performed it is a stall this doctor can
+# name AND fix mechanically, through the normal gated commands every other
+# consumer of `next_action` already uses (`coord.review.dispatch_review`,
+# `coord.merge_queue.process`, ...). The motivating incident (quadraui#2744,
+# 2026-11-19): a fix leg's smoke passed; its review ran and requested
+# changes, but the verdict bound to the chain root rather than the fix leg
+# itself (claude-coordinator#4029/#4044) — so the fix leg's OWN gates kept
+# reading `next_action=dispatch_review` for ~50 minutes with no leg in
+# flight and nothing performing it, while this sweep's existing
+# `stranded_prereq_rows` walk reported the unrelated, alert-only
+# `CAUSE_STRANDED_PREREQ_BLOCKED` instead — the row's `after=` text was
+# stale, not its actual blocker.
+
+#: #4045: the one cause :func:`next_action_unperformed_rows` ever mints.
+CAUSE_NEXT_ACTION_UNPERFORMED = "next-action-unperformed"
+
+#: How long a row may sit with a live, dispatchable `next_action` and no leg
+#: in flight before this sweep acts on it (#4045) — a much tighter floor
+#: than :attr:`coord.config.BoardDoctorConfig.no_progress_minutes`'s
+#: hour-scale default: `coord.entry_truth.reconcile_entry` is a sharp,
+#: direct read of "what should happen next", not the coarser no-progress
+#: shapes that threshold also gates.
+NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS = 20 * 60.0
+
+#: Live `gh`/gate probes :func:`next_action_unperformed_rows` may spend per
+#: sweep — the same cost-containment :data:`_NO_PROGRESS_PROBE_CAP` applies
+#: to its own walk, for the identical reason: fanning out one
+#: `reconcile_entry` call per aged-out row all at once is the synchronized-
+#: poll shape #3536/#3888 already had to guard against elsewhere in this
+#: module.
+_NEXT_ACTION_UNPERFORMED_PROBE_CAP = 25
+
+
+def next_action_unperformed_rows(
+    entries: Sequence[Any],
+    *,
+    covered_keys: Collection[str],
+    truth_of: Callable[[Any], "EntryTruth | None"],
+    board_view: Any = None,
+    stale_after_seconds: float = NEXT_ACTION_UNPERFORMED_STALE_AFTER_SECONDS,
+    probe_cap: int = _NEXT_ACTION_UNPERFORMED_PROBE_CAP,
+    now: float | None = None,
+) -> list[StuckRow]:
+    """One :class:`StuckRow` per row whose live gates already name a
+    dispatchable ``next_action`` that nothing has performed (#4045).
+
+    *truth_of* is the ONE live read this classifier trusts — production
+    wiring binds it to `coord.queue_diagnose.live_entry_truth` against the
+    real board/config/``gh_ops``; a test can inject a canned
+    :class:`~coord.entry_truth.EntryTruth` directly, never paying for a real
+    `gh` round trip. Its exceptions are caught here (a probe failure must
+    never crash the sweep, the same posture :func:`no_progress_rows` takes
+    for its own probe) and a ``None`` return (no probe asked, or one that
+    failed) reads as "nothing to say", never "nothing to do".
+
+    Eligible rows: every *entries* row not already in *covered_keys*
+    (another pass already explained it) and not in a terminal
+    (:data:`coord.drive_queue.STATE_DONE_LIKE`) state. A ``waiting`` row is
+    additionally required to have EVERY ``after=`` pre-req already landed —
+    the same board-level check :func:`_no_progress_shape`'s own ``waiting``
+    branch makes, via *board_view*. This is the one case this cause can
+    collide with :data:`CAUSE_STRANDED_PREREQ_BLOCKED`'s own classification
+    of the SAME row (a stale, textual "waiting on X (open, not queued)"
+    reading that live reality has already moved past) and this cause must
+    win it — see :func:`_collect_rows_with_board`'s own ordering, which runs
+    this pass strictly before :func:`stranded_prereq_rows`. *board_view*
+    being unavailable (the caller's own live-board-view read failed, or
+    nothing was supplied) fails CLOSED for a ``waiting`` row specifically —
+    never promoted without a confirmed "every pre-req landed" reading —
+    while every other state is unaffected by it.
+
+    Age uses the SAME :func:`_no_progress_age_seconds` anchor every other
+    no-progress shape in this module reads (``launched_at`` for ``running``,
+    ``reason_at`` otherwise) — one "how long has this sat here" clock, never
+    a second one this cause invents for itself.
+
+    Only :data:`~coord.entry_truth.NEXT_ACTION_DISPATCH_REVIEW`/
+    :data:`~coord.entry_truth.NEXT_ACTION_MERGE`/:data:`~coord.entry_truth.
+    NEXT_ACTION_MARK_DONE` are "dispatchable" here.
+    :data:`~coord.entry_truth.NEXT_ACTION_DISPATCH_CI_FIX` and
+    :data:`~coord.entry_truth.NEXT_ACTION_CONFLICT_FIX` are deliberately
+    excluded: each already has its own dedicated detection/dispatch path in
+    this module (`queue_diagnose.CAUSE_MERGE_CONFLICT`,
+    :data:`CAUSE_CONFLICT_FIX_HEAD_UNMOVED`), and no safe-tier mechanical
+    primitive exists yet for an unattended CI-fix dispatch FROM this cause —
+    adding one is follow-up work, not a silent extension of this one.
+    :data:`~coord.entry_truth.NEXT_ACTION_DISPATCH_TEST` is ALSO excluded,
+    for a sharper reason than the other two: `reconcile_entry`'s
+    ``latest_worker_status`` check (what makes a leg genuinely in flight
+    read as :data:`~coord.entry_truth.NEXT_ACTION_WAIT` instead of
+    dispatchable) comes from `coord.gates.gate_columns_for_issue`, which
+    is scoped to `coord.models.WORK_LIKE_TYPES` — a `smoke` leg in flight
+    is invisible to it. The restage this action would otherwise trigger
+    (`coord.board_doctor_permissions.sweep_restage` with ``stage="test"``,
+    i.e. `sweep_smoke_requeue`) clears a `test_state="running"` marker
+    unconditionally, with none of the liveness check
+    `coord.merge_queue._abandoned_running_marker`/
+    `RUNNING_MARKER_STALE_AFTER` requires before treating that SAME marker
+    as abandoned elsewhere in this codebase — so without this exclusion, a
+    row whose smoke leg is still genuinely running would read as stale
+    here well before an hour, get its in-flight marker wiped, and get a
+    SECOND smoke leg dispatched on top of the first. No safe-tier
+    mechanical primitive exists yet that reuses that liveness check FROM
+    this cause — adding one is follow-up work, not a silent extension of
+    this one.
+    :data:`~coord.entry_truth.NEXT_ACTION_ESCALATE`/:data:`~coord.
+    entry_truth.NEXT_ACTION_WAIT`/:data:`~coord.entry_truth.
+    NEXT_ACTION_UNKNOWN` all mean either "a human already owns this" or "a
+    WORK_LIKE_TYPES leg is in flight" (`reconcile_entry`'s own worker-status
+    check resolves to ``WAIT`` whenever one of THOSE is, so it is never read
+    as dispatchable here) — never this cause's concern. A `review` leg in
+    flight is likewise invisible to that check, but the surviving
+    ``dispatch_review`` action is still safe against it: the primitive it
+    reaches (`coord.review.dispatch_review`/
+    `dispatch_scoped_reviews_for_queue`, via `sweep_restage`'s own
+    ``stage="review"`` branch) refuses outright when a review is already in
+    flight for the same work — the #4002 per-item gate every OTHER review
+    dispatch path already goes through, not a check this cause invents.
+    """
+    from coord.drive_queue import STATE_DONE_LIKE, STATE_WAITING  # noqa: PLC0415
+    from coord.entry_truth import (  # noqa: PLC0415
+        NEXT_ACTION_DISPATCH_REVIEW,
+        NEXT_ACTION_MARK_DONE,
+        NEXT_ACTION_MERGE,
+    )
+
+    dispatchable = frozenset(
+        {
+            NEXT_ACTION_DISPATCH_REVIEW,
+            NEXT_ACTION_MERGE,
+            NEXT_ACTION_MARK_DONE,
+        }
+    )
+    stamp = _utcnow().timestamp() if now is None else now
+    dep_states = {e.key: e.state for e in entries}
+
+    def _after_prereqs_landed(entry: Any) -> bool:
+        if board_view is None:
+            return False
+        facts_of = board_view.facts
+        for dep in entry.after:
+            facts = facts_of(dep)
+            if facts.landed or (facts.already_done and not facts.reopened):
+                continue
+            if dep_states.get(dep) in STATE_DONE_LIKE:
+                continue
+            return False
+        return True
+
+    rows: list[StuckRow] = []
+    probes_spent = 0
+    for entry in entries:
+        if entry.key in covered_keys:
+            continue
+        if entry.state in STATE_DONE_LIKE:
+            continue
+        if entry.state == STATE_WAITING and not _after_prereqs_landed(entry):
+            continue
+        age = _no_progress_age_seconds(entry, now=stamp)
+        if age is None or age < stale_after_seconds:
+            continue
+        if probes_spent >= probe_cap:
+            continue
+        probes_spent += 1
+        try:
+            truth = truth_of(entry)
+        except Exception:  # noqa: BLE001 — a probe failure must never crash the sweep
+            _log.debug(
+                "board-doctor: next-action-unperformed probe failed for %s",
+                entry.key, exc_info=True,
+            )
+            continue
+        if truth is None or truth.next_action not in dispatchable:
+            continue
+        rows.append(
+            StuckRow(
+                queue="drive-queue",
+                key=entry.key,
+                state=entry.state,
+                cause=CAUSE_NEXT_ACTION_UNPERFORMED,
+                confidence=queue_diagnose.CONFIDENCE_HIGH,
+                evidence=(
+                    f"coord.entry_truth: live gates read "
+                    f"next_action={truth.next_action!r} "
+                    f"({truth.next_action_reason}) for over {age / 60.0:g}m "
+                    "with no leg in flight — nothing has performed it",
+                ),
+                fresh=True,
+            )
+        )
+    return rows
+
+
 # ── Merged-partial follow-through (#3945) ───────────────────────────────────
 #
 # The disposition itself — plan-leg prompt/parse/validate, write/record
@@ -548,6 +745,18 @@ def stranded_prereq_rows(entries: Sequence[Any], *, config: Any) -> list[StuckRo
 #: not a `queue_diagnose` cause: no block_log episode or merge-queue entry
 #: is involved, so there is nothing for that classifier to diagnose).
 CAUSE_MERGED_PARTIAL = "merged-partial"
+
+#: The one cause :func:`branch_merged_guard_rows` ever mints (#4038) — an
+#: OPEN drive-queue row the #3376 structural dispatch-liveness gate refused
+#: permanently because one of the issue's own ``issue-{N}-*`` branches
+#: already merged (`coord.dispatch_liveness.
+#: is_branch_merged_guard_refusal_reason`). Distinct from
+#: :data:`CAUSE_MERGED_PARTIAL`: that row's worker actually ran and
+#: declared ``ISSUE_RESOLUTION: partial``; THIS row's worker never ran at
+#: all — the guard refused the dispatch before any assignment existed —
+#: so there is no PR, review, or diff to build a plan leg prompt from,
+#: only the issue's own body.
+CAUSE_BRANCH_MERGED_GUARD = "branch-merged-guard"
 
 #: How long :func:`dispatch_plan_leg` waits for the follow-through's
 #: read-only plan leg to finish before giving up. A `claude -p` session
@@ -594,6 +803,48 @@ def merged_partial_rows(entries: Sequence[Any]) -> list[StuckRow]:
                 key=entry.key,
                 state=entry.state,
                 cause=CAUSE_MERGED_PARTIAL,
+                confidence=queue_diagnose.CONFIDENCE_HIGH,
+                evidence=evidence,
+                fresh=True,
+            )
+        )
+    return rows
+
+
+def branch_merged_guard_rows(entries: Sequence[Any]) -> list[StuckRow]:
+    """One :class:`StuckRow` per `blocked` drive-queue row the #3376 guard
+    refused permanently because its own branch already merged (#4038) —
+    the feed :func:`run_refile_sweep` resolves.
+
+    Pure, like :func:`merged_partial_rows`: whether the issue is STILL open
+    is checked live, right before anything is dispatched
+    (:func:`run_refile_sweep`), not here. Marker-based
+    (`coord.dispatch_liveness.is_branch_merged_guard_refusal_reason`), the
+    SAME recognition :func:`coord.drive_queue._reconcile_running` already
+    uses to route this one `(#1844)`-shaped refusal to `blocked` rather
+    than treat it as a transient death — one question ("is this row stuck
+    on the #3376 branch-merged guard specifically"), one answer (#2096).
+    """
+    from coord.dispatch_liveness import (  # noqa: PLC0415
+        is_branch_merged_guard_refusal_reason,
+    )
+    from coord.drive_queue import STATE_BLOCKED  # noqa: PLC0415
+
+    rows: list[StuckRow] = []
+    for entry in entries:
+        if entry.state != STATE_BLOCKED:
+            continue
+        if not is_branch_merged_guard_refusal_reason(entry.last_reason):
+            continue
+        evidence = (f"drive_queue.state={entry.state}",)
+        if entry.last_reason:
+            evidence += (f"last_reason={entry.last_reason}",)
+        rows.append(
+            StuckRow(
+                queue="drive-queue",
+                key=entry.key,
+                state=entry.state,
+                cause=CAUSE_BRANCH_MERGED_GUARD,
                 confidence=queue_diagnose.CONFIDENCE_HIGH,
                 evidence=evidence,
                 fresh=True,
@@ -717,10 +968,230 @@ def build_partial_merge(
     )
 
 
+def build_refile_candidate(
+    repo_name: str, issue_number: int, *, config: Any, entry: Any,
+) -> board_doctor_followthrough.RefileCandidate:
+    """Real (best-effort) :class:`~coord.board_doctor_followthrough.
+    RefileCandidate` builder for a live `branch-merged-guard` row (#4038).
+
+    *entry* is the row's own :class:`~coord.drive_queue.QueueEntry` — the
+    snapshot :func:`~coord.board_doctor_followthrough._requeue_refile`
+    needs to move the drive-queue row onto the new issue number unchanged
+    (same position, same ``after=`` edges, same machine pin/hold gate).
+    Unlike :func:`build_partial_merge`, there is no completed `work`
+    assignment to pull an ``ISSUE_RESOLUTION`` from — the #3376 guard
+    refused the dispatch before one ever ran — so only the issue's own
+    body feeds the plan leg.
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    github_repo = _github_slug(repo_name, config)
+
+    issue = github_ops.get_issue(github_repo, issue_number)
+    milestone = issue.get("milestone") or {}
+    labels = tuple(
+        name for label in (issue.get("labels") or [])
+        if (name := label.get("name"))
+    )
+    parent = github_ops.get_issue_parent(github_repo, issue_number)
+    epic_number = parent.get("number") if parent else None
+
+    return board_doctor_followthrough.RefileCandidate(
+        repo_name=repo_name,
+        github_repo=github_repo,
+        issue_number=issue_number,
+        title=issue.get("title") or "",
+        body=issue.get("body") or "",
+        labels=labels,
+        milestone=milestone.get("title"),
+        epic_number=epic_number,
+        queue_position=int(getattr(entry, "position", 0) or 0),
+        queue_after=tuple(getattr(entry, "after", ()) or ()),
+        queue_machine=str(getattr(entry, "machine", "") or ""),
+        queue_hold_after=bool(getattr(entry, "hold_after", False)),
+        queue_hold_reason=str(getattr(entry, "hold_reason", "") or ""),
+        queue_resume_when=str(getattr(entry, "resume_when", "") or ""),
+        queue_hold_scope=str(getattr(entry, "hold_scope", "entry") or "entry"),
+        queue_max_fix_rounds=getattr(entry, "max_fix_rounds", None),
+        queue_no_acceptance=bool(getattr(entry, "no_acceptance", False)),
+        queue_plan_destructive=bool(getattr(entry, "plan_destructive", False)),
+    )
+
+
+def build_auto_split_candidate(
+    repo_name: str, issue_number: int, *, config: Any, entry: Any,
+    findings: Sequence[str],
+) -> board_doctor_followthrough.AutoSplitCandidate:
+    """Real :class:`~coord.board_doctor_followthrough.AutoSplitCandidate`
+    builder for a live ceiling-blocked row (#4034) — mirrors
+    :func:`build_refile_candidate` exactly, except *findings* (the latest
+    review's already-classified missing-scope blocking findings — see
+    :func:`latest_review_blocking_findings`) is supplied by the caller
+    rather than read here, since fetching and classifying is a separate,
+    independently testable step.
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    github_repo = _github_slug(repo_name, config)
+
+    issue = github_ops.get_issue(github_repo, issue_number)
+    milestone = issue.get("milestone") or {}
+    labels = tuple(
+        name for label in (issue.get("labels") or [])
+        if (name := label.get("name"))
+    )
+    parent = github_ops.get_issue_parent(github_repo, issue_number)
+    epic_number = parent.get("number") if parent else None
+
+    return board_doctor_followthrough.AutoSplitCandidate(
+        repo_name=repo_name,
+        github_repo=github_repo,
+        issue_number=issue_number,
+        title=issue.get("title") or "",
+        body=issue.get("body") or "",
+        findings=tuple(findings),
+        labels=labels,
+        milestone=milestone.get("title"),
+        epic_number=epic_number,
+        queue_position=int(getattr(entry, "position", 0) or 0),
+        queue_after=tuple(getattr(entry, "after", ()) or ()),
+        queue_machine=str(getattr(entry, "machine", "") or ""),
+        queue_hold_after=bool(getattr(entry, "hold_after", False)),
+        queue_hold_reason=str(getattr(entry, "hold_reason", "") or ""),
+        queue_resume_when=str(getattr(entry, "resume_when", "") or ""),
+        queue_hold_scope=str(getattr(entry, "hold_scope", "entry") or "entry"),
+        queue_max_fix_rounds=getattr(entry, "max_fix_rounds", None),
+        queue_no_acceptance=bool(getattr(entry, "no_acceptance", False)),
+        queue_plan_destructive=bool(getattr(entry, "plan_destructive", False)),
+    )
+
+
+def latest_review_blocking_findings(
+    repo_name: str, issue_number: int, *, board: Board, config: Any,
+) -> list[str]:
+    """The live, remaining blocking findings off the ISSUE's most recently
+    dispatched review assignment, split one-per-bullet (#4034 point 1's own
+    data source).
+
+    Walks :func:`coord.diagnose.stage_assignments` for ``stage="review"``
+    (the same newest-first list the TUI's own `assignments_for_stage`
+    mirrors) to find the latest review's ``assignment_id``, recovers its
+    findings off the GitHub message bus
+    (:func:`coord.review.fetch_review_findings_from_github` — interactive
+    reviews never land a parseable local log, so GitHub is the one store
+    every machine already reaches), extracts the "## Blocking findings"
+    section (:func:`coord.review.extract_blocking_section`) and splits it
+    (:func:`coord.board_doctor_followthrough.split_blocking_findings`).
+
+    Returns ``[]`` on any failure to resolve a review, an assignment id, or
+    a findings body — the fail-safe "nothing to classify" answer
+    :func:`coord.board_doctor_followthrough.classify_split_findings` already
+    reads as ineligible, never a crash.
+    """
+    from coord.diagnose import stage_assignments  # noqa: PLC0415
+    from coord.review import extract_blocking_section, fetch_review_findings_from_github  # noqa: PLC0415
+
+    reviews = stage_assignments(board, repo_name, issue_number, "review")
+    if not reviews:
+        return []
+    latest = reviews[0]
+    if not latest.assignment_id:
+        return []
+    github_repo = _github_slug(repo_name, config)
+    try:
+        findings = fetch_review_findings_from_github(
+            github_repo, issue_number, latest.assignment_id,
+        )
+    except Exception:  # noqa: BLE001 — a flaky/unreachable fetch reads as "nothing to classify"
+        return []
+    if findings is None:
+        return []
+    blocking = extract_blocking_section(findings.body)
+    if not blocking:
+        return []
+    return board_doctor_followthrough.split_blocking_findings(blocking)
+
+
+def run_auto_split_for_row(
+    repo_name: str, issue_number: int, *, config: Any, board: Board,
+    dry_run: bool = False,
+    findings_fetcher: Callable[..., list[str]] = latest_review_blocking_findings,
+    writer: board_doctor_followthrough.FollowThroughWriter | None = None,
+    reset_review: Callable[[str, int], None] | None = None,
+) -> board_doctor_followthrough.Disposition | None:
+    """Production entry point :func:`coord.board_doctor_policy._investigate`
+    calls, instead of its own :func:`_alert_fallback`, for a row that has
+    given up on the #2972 fix-round ceiling (#4034).
+
+    Returns ``None`` — never a disposition — for every reason the caller
+    must fall back to its own alert path: the repo hasn't opted in
+    (:func:`~coord.board_doctor_followthrough.auto_split_enabled`), there is
+    no live drive-queue row for ``(repo_name, issue_number)`` any more, or
+    the latest review's remaining blocking findings don't classify as
+    missing-scope-only (:func:`~coord.board_doctor_followthrough.
+    classify_split_findings`). A real :class:`~coord.board_doctor_
+    followthrough.Disposition` is returned only once a split has actually
+    been attempted — the caller still must check ``disposition.action``
+    before treating this as handled (#2096: returning a disposition at all
+    is not the same as confirming it filed).
+    """
+    if not board_doctor_followthrough.auto_split_enabled(repo_name, config):
+        return None
+
+    from coord.drive_queue import QueueEntry  # noqa: PLC0415
+    from coord.state import get_drive_queue_entry  # noqa: PLC0415
+
+    row = get_drive_queue_entry(repo_name, issue_number)
+    if row is None:
+        return None
+    entry = QueueEntry.from_row(row)
+
+    findings = findings_fetcher(repo_name, issue_number, board=board, config=config)
+    classification = board_doctor_followthrough.classify_split_findings(findings)
+    if not classification.eligible:
+        return None
+
+    candidate = build_auto_split_candidate(
+        repo_name, issue_number, config=config, entry=entry,
+        findings=classification.findings,
+    )
+    row_writer = writer or board_doctor_followthrough.GitHubFollowThroughWriter()
+
+    def _default_reset_review(_repo: str, _issue: int) -> None:
+        from coord.diagnose import diagnose_stage  # noqa: PLC0415
+
+        res = diagnose_stage(board, config, _repo, _issue, "review", reset=True, dry_run=dry_run)
+        # #2096: `diagnose_stage(reset=True)` has non-raising failure paths
+        # (`_reset_review_stage` can neither stop the live session nor
+        # confirm the row delete persisted) that leave the review stage
+        # untouched while returning normally — the mere absence of an
+        # exception is not proof the reset happened. Derive the verdict
+        # from the result instead of the call succeeding, and raise so
+        # `run_auto_split`'s own try/except records
+        # `ACTION_AUTO_SPLIT_WRITE_FAILED` rather than requeuing the
+        # original with its `request-changes` review still in place.
+        if not dry_run and (res.needs_reset or not res.recovered):
+            raise RuntimeError(
+                f"review-stage reset for {_repo}#{_issue} did not complete: "
+                + ("; ".join(res.findings) or "reset reported not recovered")
+            )
+
+    return board_doctor_followthrough.run_auto_split(
+        candidate,
+        writer=row_writer,
+        alert=lambda subject, body, _r=repo_name, _n=issue_number: _followthrough_notify(
+            _r, _n, "board-doctor:auto-split-alert", subject, body,
+        ),
+        dry_run=dry_run,
+        reset_review=reset_review or _default_reset_review,
+    )
+
+
 def dispatch_plan_leg(
     prompt: str,
     *,
-    partial: board_doctor_followthrough.PartialMerge,
+    partial: board_doctor_followthrough.PartialMerge
+    | board_doctor_followthrough.RefileCandidate,
     config: Any,
     status_fetcher: Callable[..., Any] | None = None,
     text_fetcher: Callable[[str, str], str | None] | None = None,
@@ -730,7 +1201,13 @@ def dispatch_plan_leg(
     poll_interval_seconds: float = PLAN_LEG_POLL_INTERVAL_SECONDS,
 ) -> board_doctor_followthrough.PlanLegResult:
     """Real ``plan_leg`` seam for :func:`coord.board_doctor_followthrough.
-    run_followthrough` (#3945).
+    run_followthrough` (#3945) AND :func:`coord.board_doctor_followthrough.
+    run_refile` (#4038) — both pass only the four attributes this function
+    actually reads (``repo_name``/``issue_number``/``title``/
+    ``github_slug``), which :class:`~coord.board_doctor_followthrough.
+    PartialMerge` and :class:`~coord.board_doctor_followthrough.
+    RefileCandidate` both carry, so one dispatcher serves both rather than
+    two near-duplicates that could silently drift (#2096).
 
     Dispatches an ordinary ``type="plan"`` headless leg through the agent
     (:func:`coord.dispatch.dispatch`, never an in-process call) with a
@@ -796,7 +1273,7 @@ def dispatch_plan_leg(
         repo_name=partial.repo_name,
         issue_number=partial.issue_number,
         issue_title=partial.title,
-        rationale="board-doctor merged-partial follow-through plan leg",
+        rationale="board-doctor follow-through/refile plan leg",
         briefing="Begin.",
         type="plan",
         system_prompt=prompt,
@@ -1013,6 +1490,194 @@ def _load_pending_followthrough(
             plan=plan, follow_up_keys=follow_up_keys,
         )
     return None
+
+
+#: Default ceiling on how many eligible ``branch-merged-guard`` rows
+#: :func:`run_refile_sweep` will actually dispatch a plan leg for in ONE
+#: call — same rationale as :data:`DEFAULT_FOLLOWTHROUGH_ROWS_PER_SWEEP`.
+DEFAULT_REFILE_ROWS_PER_SWEEP = 3
+
+
+def run_refile_sweep(
+    rows: Sequence[StuckRow],
+    *,
+    config: Any,
+    board: Board | None = None,
+    dry_run: bool = False,
+    plan_leg_dispatcher: Callable[..., board_doctor_followthrough.PlanLegResult] = (
+        dispatch_plan_leg
+    ),
+    writer: board_doctor_followthrough.FollowThroughWriter | None = None,
+    issue_open: Callable[[str, int], bool] | None = None,
+    max_rows: int = DEFAULT_REFILE_ROWS_PER_SWEEP,
+) -> list[board_doctor_followthrough.Disposition]:
+    """Resolve every eligible ``branch-merged-guard`` row in *rows*, up to
+    *max_rows* of them (#4038). Mirrors :func:`run_followthrough_sweep`'s
+    own shape — see its docstring for the parts duplicated verbatim here
+    (*board*'s lazy build, *writer*'s real default, the open-check
+    fail-closed-by-skip posture).
+
+    A row whose key no longer resolves to a real
+    :class:`~coord.drive_queue.QueueEntry` is skipped rather than acted
+    on: :func:`~coord.board_doctor_followthrough.run_refile`'s own write
+    path dequeues the original row the moment it successfully files a
+    replacement, so a row that is STILL in *rows* (collected earlier this
+    same sweep) but already gone from a FRESH queue read means a previous
+    iteration of this very loop — or a concurrent writer — already
+    resolved it; retrying would refile it a second time.
+    """
+    from coord.drive_queue import entries_from_rows  # noqa: PLC0415
+    from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
+    from coord.state import list_drive_queue  # noqa: PLC0415
+
+    if board is None:
+        from coord.state import build_board  # noqa: PLC0415
+
+        board = build_board()
+
+    is_open = issue_open or _issue_open
+    row_writer = writer or board_doctor_followthrough.GitHubFollowThroughWriter()
+    entries_by_key = {e.key: e for e in entries_from_rows(list_drive_queue())}
+
+    dispositions: list[board_doctor_followthrough.Disposition] = []
+    dispatched = 0
+    for row in rows:
+        if dispatched >= max_rows:
+            break
+        if row.cause != CAUSE_BRANCH_MERGED_GUARD or row.suppressed:
+            continue
+        parsed = _parse_row_key(row.key)
+        if parsed is None:
+            continue
+        repo_name, issue_number = parsed
+        if not board_doctor_followthrough.auto_refile_enabled(repo_name, config):
+            continue
+        github_repo = _github_slug(repo_name, config)
+        try:
+            if not is_open(github_repo, issue_number):
+                continue
+        except Exception:  # noqa: BLE001 — a flaky open-check must not sink the sweep
+            continue
+
+        entry = entries_by_key.get(row.key)
+        if entry is None:
+            continue
+
+        candidate = build_refile_candidate(
+            repo_name, issue_number, config=config, entry=entry,
+        )
+        disposition = board_doctor_followthrough.run_refile(
+            candidate,
+            plan_leg=lambda prompt, _c=candidate: plan_leg_dispatcher(
+                prompt, partial=_c, config=config,
+            ),
+            writer=row_writer,
+            alert=lambda subject, body, _r=repo_name, _n=issue_number: _followthrough_notify(
+                _r, _n, "board-doctor:refile-alert", subject, body,
+            ),
+            dry_run=dry_run,
+        )
+        dispositions.append(disposition)
+        dispatched += 1
+    return dispositions
+
+
+def _issue_closed_default(repo_name: str, issue_number: int) -> bool:
+    from coord import github_ops  # noqa: PLC0415
+
+    return github_ops.issue_is_closed(repo_name, issue_number)
+
+
+def run_pending_refile_close_sweep(
+    *,
+    config: Any,
+    dry_run: bool = False,
+    issue_closed: Callable[[str, int], bool] | None = None,
+    writer: board_doctor_followthrough.FollowThroughWriter | None = None,
+    decisions: Sequence[Mapping[str, Any]] | None = None,
+    record: Callable[[dict], None] | None = None,
+) -> list[dict]:
+    """Close every original issue a previous #4038 refile pointed away
+    from, the first round this sweep observes its own replacement issue
+    closed — step 4 of #4038's refile: "comment the pointer on #N. Once
+    the refile merges, close #N as superseded. Don't leave that close for
+    an operator."
+
+    Independent of :func:`run_refile_sweep` and of *rows*/`collect_rows`
+    entirely: the drive-queue row for the ORIGINAL issue is gone the
+    moment a refile files successfully (:func:`~coord.board_doctor_
+    followthrough._requeue_refile` dequeues it), so nothing about this
+    issue is visible to the ordinary row walk any more — the only durable
+    trace is the decision log entry :func:`~coord.board_doctor_
+    followthrough.run_refile` wrote, which
+    :func:`~coord.board_doctor_followthrough.pending_refiles` reads back.
+
+    *decisions*, when given, is the FULL decision log to scan (tests pass
+    a fixed list); the default reads it fresh via :func:`coord.state.
+    board_doctor_decisions` with no filter, since a pending refile can be
+    for ANY repo/issue, not one this call already knows about.
+    """
+    from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
+    from coord.state import (  # noqa: PLC0415
+        board_doctor_decisions,
+        record_board_doctor_decision,
+    )
+
+    is_closed = issue_closed or _issue_closed_default
+    row_writer = writer or board_doctor_followthrough.GitHubFollowThroughWriter()
+    do_record = record or record_board_doctor_decision
+    all_decisions = decisions if decisions is not None else board_doctor_decisions()
+
+    results: list[dict] = []
+    for key, refile_issue in board_doctor_followthrough.pending_refiles(
+        all_decisions
+    ).items():
+        parsed = _parse_row_key(key)
+        if parsed is None:
+            continue
+        repo_name, issue_number = parsed
+        github_repo = _github_slug(repo_name, config)
+        try:
+            closed = is_closed(github_repo, refile_issue)
+        except Exception:  # noqa: BLE001 — a flaky read must not sink this pass
+            continue
+        if not closed:
+            continue
+        outcome: dict[str, Any] = {"key": key, "refile_issue": refile_issue}
+        if dry_run:
+            outcome["action"] = "would-close"
+            results.append(outcome)
+            continue
+        try:
+            row_writer.close_issue(
+                github_repo, issue_number,
+                comment=(
+                    f"Superseded by #{refile_issue} — refiled for execution "
+                    "and the replacement has merged."
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 — recorded, not raised; a flaky close retries next sweep
+            outcome["action"] = "close-failed"
+            outcome["error"] = str(exc)
+            results.append(outcome)
+            continue
+        outcome["action"] = board_doctor_followthrough.ACTION_REFILE_SUPERSEDED
+        do_record({
+            "queue": "drive-queue",
+            "key": key,
+            "cause": CAUSE_BRANCH_MERGED_GUARD,
+            "action": board_doctor_followthrough.ACTION_REFILE_SUPERSEDED,
+            "dry_run": False,
+            "plan_leg_assignment_id": None,
+            "follow_ups": [refile_issue],
+            "follow_up_keys": {"refile": refile_issue},
+            "deduped": {},
+            "queued": {},
+            "reasons": [],
+            "evidence": [],
+        })
+        results.append(outcome)
+    return results
 
 
 #: Default ceiling on how many eligible ``merged-partial`` rows
@@ -1240,7 +1905,7 @@ _CAPACITY_CHECK_UNSET = _CapacityCheckUnset()
 class StuckRow:
     """One drive-queue or merge-queue row this sweep looked at."""
 
-    queue: str  # "drive-queue", "merge-queue", "baseline-red", or "smoke-no-verdict"
+    queue: str  # "drive-queue", "merge-queue", "baseline-red", "smoke-no-verdict", or "idle-fleet-root"
     key: str
     state: str
     cause: str
@@ -1313,6 +1978,51 @@ class SweepReport:
     followthrough: list[board_doctor_followthrough.Disposition] = field(
         default_factory=list,
     )
+    #: #4037: one note per PREDICTED ``after=`` edge
+    #: :func:`drop_stale_predicted_after_edges` dropped this round, via
+    #: :func:`sweep_predicted_after_edges`. Separate from *decisions* for
+    #: the same reason *followthrough* is: dropping a stale edge is not a
+    #: tier/auto_dispatchers/convergence decision over a :class:`StuckRow`
+    #: at all — it runs over the raw queue, independent of `collect_rows`'
+    #: own classification walk.
+    dropped_predicted_after_edges: list[str] = field(default_factory=list)
+    #: #4038: one :class:`~coord.board_doctor_followthrough.Disposition`
+    #: per ``branch-merged-guard`` row :func:`run_refile_sweep` acted on
+    #: this round — same "not a tier/auto_dispatchers/convergence decision"
+    #: shape as *followthrough* above, kept in its own list rather than
+    #: folded into it since the two causes resolve differently (step 4's
+    #: deferred close has no `merged-partial` analogue) and a CLI reader
+    #: must be able to label each correctly rather than guess from
+    #: `action` strings.
+    refile: list[board_doctor_followthrough.Disposition] = field(default_factory=list)
+    #: #4038: one dict per previously-filed refile
+    #: :func:`run_pending_refile_close_sweep` closed as superseded this
+    #: round, because its own replacement issue was observed closed.
+    refile_closed: list[dict] = field(default_factory=list)
+    #: #4036: one dict per ceiling-blocked, ``CAUSE_CI_PENDING``
+    #: drive-queue row :func:`run_conflict_fix_ceiling_pending_sweep`
+    #: evaluated this round — ``{"repo", "issue", "requeued", "detail"}``.
+    #: Same "not a tier/auto_dispatchers/convergence decision" shape as
+    #: *followthrough*/*refile* above: waiting for (or acting on) live CI
+    #: is not a cause this sweep converges or alerts on.
+    conflict_fix_ceiling_pending: list[dict] = field(default_factory=list)
+    #: #4048: one dict per :class:`ConfigDriftCandidate`
+    #: :func:`run_config_drift_fix_sweep` attempted this round —
+    #: ``{"repo", "issue", "applied", "requeued", "refunded", "detail"}``.
+    #: Same "not a tier/auto_dispatchers/convergence decision" shape as
+    #: *conflict_fix_ceiling_pending* above.
+    config_drift_fix: list[dict] = field(default_factory=list)
+    #: #4050: one dict per ceiling-blocked, ``CAUSE_INTEGRATION_RED``
+    #: drive-queue row :func:`run_base_sync_fix_ceiling_sweep` evaluated
+    #: this round — ``{"repo", "issue", "dispatched", "detail"}``. Same
+    #: "not a tier/auto_dispatchers/convergence decision" shape as
+    #: *conflict_fix_ceiling_pending*/*config_drift_fix* above: this cause
+    #: has a positively-confirmed, budget-free remedy the moment the row
+    #: is ceiling-blocked, so it is never handed to the generic
+    #: investigate-tier fix-it-leg dispatcher (which WOULD refuse — see
+    #: #3454 — since that dispatcher's budget is exactly what this row
+    #: already exhausted).
+    base_sync_fix_ceiling_dispatch: list[dict] = field(default_factory=list)
 
 
 def merge_queue_rows(
@@ -1521,6 +2231,156 @@ def baseline_red_rows(blocked_streaks: Mapping[str, int]) -> list[StuckRow]:
     ]
 
 
+#: Synthetic queue for the one-row-per-root alert a repo idling entirely
+#: behind one or more blocked/parked roots gets — distinct from the root's
+#: own ordinary ``queue="drive-queue"`` row so the two keep separate
+#: convergence/backoff counters (`sweep`'s ``touched`` set is keyed on
+#: ``(queue, key)``, never ``key`` alone) and so `run_sweep` can route it to
+#: its own delivery path (:func:`coord.notify.post_idle_fleet_root_alert`)
+#: instead of the ordinary per-row escalation.
+IDLE_FLEET_ROOT_QUEUE = "idle-fleet-root"
+
+
+def _transitive_dependent_count(key: str, dependents_of: Mapping[str, Sequence[str]]) -> int:
+    """How many entries, at any chain depth, have *key* somewhere in their
+    ``after=`` ancestry — walks *dependents_of* (``dep -> [keys naming it]``)
+    rather than counting only direct edges, so a root's evidence line names
+    the full chain behind it, not just its immediate dependents.
+    """
+    seen: set[str] = set()
+    stack = list(dependents_of.get(key, ()))
+    while stack:
+        current = stack.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        stack.extend(dependents_of.get(current, ()))
+    return len(seen)
+
+
+def idle_fleet_root_rows(
+    entries: Sequence[Any],
+    rows: Sequence[StuckRow] = (),
+    *,
+    blocked_streaks: Mapping[str, int] | None = None,
+) -> list[StuckRow]:
+    """One :class:`StuckRow` per root a whole repo sits idle behind.
+
+    A repo is idle when none of its drive-queue entries is ``running`` —
+    a ``waiting`` entry counts for nothing here: once its own ``after=``
+    chain bottoms out on a terminal park, `_resolve_prereqs` leaves it
+    `waiting` forever rather than ever reaching `blocked` (see
+    :func:`coord.notifier.collect.halted_drives`'s own docstring for the
+    identical shape), so treating `waiting` as "still making progress"
+    is exactly how a repo can sit idle behind a parked root with nothing
+    ever firing.
+
+    A root is a `blocked`/`parked` entry whose own ``last_reason`` is NOT
+    one of `_resolve_prereqs`'s after-chain cascade verdicts
+    (:func:`coord.drive_queue.is_unsatisfiable_prereq_reason`) — i.e. it
+    is stuck for its OWN reason, not because a pre-req of its own is.
+    Every other entry chained behind it inherits that cascade verdict as
+    its own ``last_reason`` and is excluded, leaving exactly the root(s) —
+    regardless of ``attempts`` or which specific marker its reason
+    carries, so a confirmed-shut-gate/exhausted-budget block and a
+    #1844/#2019/#2972/#3522 permanent block both qualify as roots just
+    like a terminal park does.
+
+    *rows* is this same sweep's already-classified rows
+    (:func:`_collect_rows_with_board`'s own accumulator at the point this
+    is called) — reused for a root's cause/confidence/evidence rather than
+    re-deriving a second, narrower classification here: a root's cause is
+    whatever `coord.queue_diagnose.run_pass` (or the stored episode it
+    settled from) already concluded for that exact key, which covers the
+    full cause vocabulary, not just a handful of labels invented for this
+    check. A root with no matching row (no episode ever opened for it, or
+    one suppressed by a baseline-red streak) falls back to
+    :func:`coord.drive_queue.classify_unreachable_wait_cause`.
+
+    *blocked_streaks* (repos already past the baseline-red merge-block
+    threshold) are skipped outright — :func:`baseline_red_rows` already
+    files the one repo-wide alert those need; a root's own drive-queue row
+    is `suppressed` for exactly this reason and must not also page here
+    under a fallback classification.
+
+    Only emits a root whose cause :func:`default_tier_of` says is
+    alert-tier — a cause this epic already auto-fixes needs no second,
+    redundant page; its own handler already acts on the root directly.
+    EXCEPT a root whose own ``last_reason`` carries a
+    #1844/#2019/#2972/#3522 permanent-block marker
+    (:func:`coord.drive_queue.is_permanent_block_reason`): that marker is
+    written only once a handler has already tried and given up (e.g. the
+    #2972 fix-round ceiling text an exhausted CI-red/gate-blocked
+    investigate-tier retry stream stamps into ``last_reason`` once its own
+    budget is spent — `coord.drive_queue.is_fix_round_ceiling_reason`),
+    so the cause's normally-auto tier no longer describes this instance;
+    this always alerts for it, unconditionally.
+    """
+    from coord.drive_queue import (  # noqa: PLC0415
+        STATE_BLOCKED,
+        STATE_PARKED,
+        STATE_RUNNING,
+        classify_unreachable_wait_cause,
+        is_permanent_block_reason,
+        is_unsatisfiable_prereq_reason,
+    )
+
+    rows_by_key: dict[str, StuckRow] = {}
+    for row in rows:
+        if row.queue == "drive-queue" and not row.suppressed:
+            rows_by_key.setdefault(row.key, row)
+
+    by_repo: dict[str, list[Any]] = {}
+    for entry in entries:
+        by_repo.setdefault(entry.repo, []).append(entry)
+
+    out: list[StuckRow] = []
+    for repo_name, repo_entries in by_repo.items():
+        if blocked_streaks and repo_name in blocked_streaks:
+            continue
+        if any(e.state == STATE_RUNNING for e in repo_entries):
+            continue
+        dependents_of: dict[str, list[str]] = {}
+        for e in repo_entries:
+            for dep in e.after:
+                dependents_of.setdefault(dep, []).append(e.key)
+        for entry in repo_entries:
+            if entry.state not in (STATE_BLOCKED, STATE_PARKED):
+                continue
+            if is_unsatisfiable_prereq_reason(entry.last_reason):
+                continue
+            root_row = rows_by_key.get(entry.key)
+            cause = root_row.cause if root_row is not None else classify_unreachable_wait_cause(entry)
+            if (
+                default_tier_of(cause) != TIER_ALERT
+                and not is_permanent_block_reason(entry.last_reason)
+            ):
+                continue
+            confidence = (
+                root_row.confidence if root_row is not None else queue_diagnose.CONFIDENCE_HIGH
+            )
+            own_evidence = (
+                root_row.evidence if root_row is not None else (f"last_reason: {entry.last_reason}",)
+            )
+            out.append(
+                StuckRow(
+                    queue=IDLE_FLEET_ROOT_QUEUE,
+                    key=entry.key,
+                    state=entry.state,
+                    cause=cause,
+                    confidence=confidence,
+                    evidence=(
+                        f"{repo_name}: 0 running drive-queue rows",
+                        f"{_transitive_dependent_count(entry.key, dependents_of)} "
+                        "row(s) queued behind this root",
+                        *own_evidence,
+                    ),
+                    fresh=root_row.fresh if root_row is not None else True,
+                )
+            )
+    return out
+
+
 #: Assignment types `coord.state.reset_work_test_state`/`test_reset_candidates`
 #: can clear with no `assignment_id` (`coord.state._test_reset_where`). A
 #: `test-author`/`mock-author` row parked on the same mute-leg tally needs
@@ -1598,6 +2458,588 @@ def smoke_no_verdict_rows(board: Board) -> list[StuckRow]:
             fresh=True,
         )
     return list(seen.values())
+
+
+@dataclass(frozen=True)
+class ConfigDriftCandidate:
+    """One #4035/#4048 config-drift classification — everything both the
+    Detect-step row (:func:`config_drift_rows`) and the Apply-step sweep
+    (:func:`run_config_drift_fix_sweep`) need, built exactly once per
+    (repo, issue) so the two never re-derive (and risk disagreeing on) the
+    same (kind, name)/token/command/plan from two independent parses
+    (#2096, "one question, one answer")."""
+
+    repo_name: str
+    issue_number: int
+    kind: str
+    name: str
+    token: str
+    command: str
+    source: str
+    plan: Any  # coord.board_doctor_policy.ConfigDriftFix
+    #: #4048: how many WORK-LIKE legs for this issue failed/blocked on this
+    #: EXACT (kind, name) signature — "the work legs whose only failure
+    #: was the drift signature" the issue's own Refund step gives back via
+    #: :func:`coord.board_doctor_permissions.sweep_raise_fixit_budget`'s
+    #: *increment*. Counts every matching leg, including the issue's
+    #: unconditional initial one — #3998's own documented direction for
+    #: this kind of imprecision ("harmless... it can only hand out a few
+    #: EXTRA rounds... never fewer") applies here too: refunding one round
+    #: more than `coord.drive_queue.remaining_fix_rounds`'s own
+    #: ``fix_rounds_spent`` formula would count is the safe side to err on.
+    rounds_consumed: int
+
+
+def config_drift_candidates(
+    board: Board,
+    config: Any,
+    *,
+    diff_lookup: Callable[[str, str], list[str]] | None = None,
+) -> list[ConfigDriftCandidate]:
+    """One :class:`ConfigDriftCandidate` per issue whose Test-stage verdict
+    names a cargo target this branch's OWN diff deletes entirely (#4035's
+    Detect step) — quadraui#2695's shape: the fleet config still runs a
+    command naming a target the branch legitimately removed, so the
+    identical failure repeats every round no matter what a worker does to
+    the branch's own code.
+
+    *diff_lookup* defaults to :func:`coord.smoke._fetch_deleted_files` —
+    injectable so a test never needs a live ``gh`` call. Mirrors
+    :func:`smoke_no_verdict_rows`'s own shape: walks ``board.active +
+    board.completed`` directly (never a second ``build_board`` call),
+    reads ``assignment.test_reason``/``.branch`` straight off the row the
+    normal Test-stage write already populated, and dedupes to ONE
+    candidate per issue.
+
+    Classification is :func:`coord.queue_diagnose.classify_config_drift` —
+    the SAME function :mod:`coord.smoke`'s own pre-smoke gate
+    (``_gate_config_drift_target_deleted``) ultimately answers to via the
+    shared ``coord.smoke.cargo_target_touches_path`` primitive (#2096,
+    "one question, one answer") — never a second, independently-tuned
+    copy of "does this look like config drift" living in this module.
+    A deleted-paths lookup that comes back empty (no PR found, a transient
+    `gh` failure) never manufactures a hit — it just finds nothing, the
+    same fail-open posture every other probe in this module takes.
+
+    The row's cause must stay FALSIFIABLE by the thing it accuses
+    (#4035 review): ``assignment.test_reason`` is a stored snapshot from
+    whatever round wrote it, so confirming only against that snapshot and
+    the diff would keep minting the same row every sweep even after an
+    operator (or the autofix path) removes the token from
+    ``coordinator.yml`` — the exact "a snapshot too stale to contradict
+    anything" shape epic #2096 names. So a candidate is minted ONLY when
+    the repo's TODAY-resolved command (:func:`coord.smoke.
+    resolve_smoke_command`) still carries the matching token; once it
+    does, ``plan`` (:func:`coord.board_doctor_policy.
+    plan_config_drift_fix`) carries both the alert message a human (or,
+    opted in, the doctor itself) would apply AND the opt-in/patch
+    decision :func:`run_config_drift_fix_sweep` acts on.
+    """
+    from coord.board_doctor_policy import plan_config_drift_fix  # noqa: PLC0415
+    from coord.models import WORK_LIKE_TYPES  # noqa: PLC0415
+    from coord.queue_diagnose import (  # noqa: PLC0415
+        classify_config_drift,
+        extract_dangling_cargo_target,
+    )
+    from coord.smoke import (  # noqa: PLC0415
+        SmokeTestsConfig,
+        TEST_STATE_BLOCKED,
+        _fetch_deleted_files,
+        cargo_target_flags_in_command,
+        resolve_smoke_command,
+    )
+
+    lookup = diff_lookup if diff_lookup is not None else _fetch_deleted_files
+
+    seen: dict[str, ConfigDriftCandidate] = {}
+    for assignment in (*board.active, *board.completed):
+        if assignment.type not in WORK_LIKE_TYPES:
+            continue
+        if assignment.test_state not in ("failed", TEST_STATE_BLOCKED):
+            continue
+        if not assignment.test_reason or not assignment.branch:
+            continue
+        key = f"{assignment.repo_name}#{assignment.issue_number}"
+        if key in seen:
+            continue
+        # Cheap, local filter FIRST (#4035 review): most failures don't
+        # even name a dangling cargo target, so rule those out before
+        # spending a `gh` round-trip on `lookup` below.
+        if extract_dangling_cargo_target(assignment.test_reason) is None:
+            continue
+        repo = config.repo(assignment.repo_name)
+        if repo is None:
+            continue
+        deleted = lookup(repo.github, assignment.branch)
+        if not deleted:
+            continue
+        found = classify_config_drift(assignment.test_reason, deleted)
+        if found is None:
+            continue
+        kind, name = found
+
+        smoke_cfg = getattr(config, "smoke_tests", SmokeTestsConfig())
+        command_obj = resolve_smoke_command(repo, smoke_cfg, deleted)
+        if not command_obj.command:
+            continue
+        token = next(
+            (
+                tok for k, n, tok in cargo_target_flags_in_command(
+                    command_obj.command,
+                )
+                if k == kind and n == name
+            ),
+            None,
+        )
+        if token is None:
+            # The command resolved TODAY no longer carries the token the
+            # stored `test_reason` complained about — the config may
+            # already have moved on since that snapshot was written, so
+            # this cause can no longer be confirmed against it.
+            continue
+
+        plan = plan_config_drift_fix(
+            assignment.repo_name, command=command_obj.command,
+            source=command_obj.source, token=token, config=config,
+        )
+        rounds_consumed = sum(
+            1
+            for other in (*board.active, *board.completed)
+            if other.repo_name == assignment.repo_name
+            and other.issue_number == assignment.issue_number
+            and other.type in WORK_LIKE_TYPES
+            and other.test_state in ("failed", TEST_STATE_BLOCKED)
+            and extract_dangling_cargo_target(other.test_reason or "")
+            == (kind, name)
+        )
+        seen[key] = ConfigDriftCandidate(
+            repo_name=assignment.repo_name,
+            issue_number=assignment.issue_number,
+            kind=kind,
+            name=name,
+            token=token,
+            command=command_obj.command,
+            source=command_obj.source,
+            plan=plan,
+            rounds_consumed=rounds_consumed,
+        )
+    return list(seen.values())
+
+
+def config_drift_rows(
+    board: Board,
+    config: Any,
+    *,
+    diff_lookup: Callable[[str, str], list[str]] | None = None,
+) -> list[StuckRow]:
+    """One :class:`StuckRow` per :class:`ConfigDriftCandidate`
+    (:func:`config_drift_candidates`) — the Detect-step sweep source
+    feeding :data:`queue_diagnose.CAUSE_CONFIG_DRIFT` into the board
+    doctor. ``evidence`` is always the candidate's own ``plan.
+    alert_message`` — the exact one-line coordinator.yml patch — whether
+    or not this repo has opted into the #4048 Apply step
+    (:func:`run_config_drift_fix_sweep`): an opted-out repo's row rides
+    the ordinary alert tier straight to a human with that same message;
+    an opted-in repo's row is pulled out of the alert tier entirely once
+    (and only once) :func:`run_sweep` confirms the Apply step actually
+    landed this round.
+    """
+    return [
+        StuckRow(
+            queue="config-drift",
+            key=f"{candidate.repo_name}#{candidate.issue_number}",
+            state="blocked",
+            cause=queue_diagnose.CAUSE_CONFIG_DRIFT,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            evidence=(candidate.plan.alert_message,),
+            fresh=True,
+        )
+        for candidate in config_drift_candidates(
+            board, config, diff_lookup=diff_lookup,
+        )
+    ]
+
+
+@dataclass(frozen=True)
+class ConfigDriftApplyResult:
+    """:func:`apply_config_drift_fix_to_coord_settings`'s return shape."""
+
+    applied: bool
+    detail: str
+
+
+def _config_drift_git(repo_dir: Any, *args: str) -> tuple[bool, str]:
+    """One read/write ``git`` invocation against *repo_dir*, never raising.
+
+    Local to this module rather than imported from
+    :mod:`coord.health.checks.config_drift` (that module's own ``_git`` is
+    private, and deliberately read-only — see its docstring, "Report
+    only — never ``git push``" — the opposite contract this function
+    exists for), so this module's entire mutating git surface stays
+    visible in one place.
+    """
+    import subprocess  # noqa: PLC0415
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_dir), *args],
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout or "").strip()
+    return True, result.stdout
+
+
+def apply_config_drift_fix_to_coord_settings(
+    *,
+    config_path: Any,
+    command: str,
+    token: str,
+    patched_command: str,
+    repo_name: str,
+    issue_number: int,
+) -> ConfigDriftApplyResult:
+    """#4048: remove *token* from *command* in the live, symlinked
+    ``coordinator.yml`` *config_path* resolves to, and commit that one-line
+    removal in its ``coord-settings`` checkout.
+
+    *config_path* is resolved the same way :func:`coord.health.checks.
+    config_drift.probe_config_drift` resolves it — ``Path.resolve()``,
+    never a bare ``Path.exists()`` on the symlink itself, since the
+    canonical config path has flipped between a plain file and a symlink
+    before (that check's own docstring) and this must survive either
+    shape.
+
+    Edits ONLY the matched *token*, and only when both it and the exact
+    *command* text that names it appear in the file EXACTLY once —
+    mirroring :func:`coord.smoke.remove_dangling_target_token`'s own
+    refusal discipline one level up, at the file-text level rather than
+    the in-memory command string: a *token* already cleared by an earlier
+    round (or a human), or one ambiguous because some OTHER repo's command
+    in the same file happens to name it too, is left for a human rather
+    than guessed at. Writes nothing at all when either check refuses.
+
+    Two more guards run BEFORE any of that, both refusing rather than
+    writing — a write that lands on either is exactly the live-incident
+    shape #2096/#2861 already name for this checkout:
+
+    * **Dirty.** ``git status --porcelain -- <real_path>`` must be empty
+      first. An operator mid-edit of the live
+      ``~/.coord/coordinator.yml`` symlink already has an uncommitted
+      change sitting in this exact file; overwriting it with
+      ``read_text()``/``write_text()`` would silently fold that
+      in-progress (possibly broken) edit into this function's own
+      one-token commit. Refuses rather than guessing which lines are
+      "theirs".
+    * **Stale.** The checkout must not be behind its ``@{upstream}``,
+      checked the same way :func:`coord.commands.repo._guard_settings_fresh`
+      guards a config WRITE (best-effort ``git fetch`` first, then
+      ``git rev-list --left-right --count``) — never trusting the
+      existing remote-tracking ref alone, since the whole point is "the
+      remote moved and nobody here noticed". Unlike that CLI guard this
+      never raises: no upstream configured, or the fetch itself failing,
+      is reported as unknown and left to proceed (an offline daemon host
+      must not wedge), but a confirmed nonzero `behind` count refuses —
+      committing onto a stale base would land a push failure that
+      silently refunds a fix round while the fleet's canonical config
+      has already diverged.
+
+    The commit itself is pathspec-limited to *real_path* (``git commit
+    -- <real_path>``, not a bare ``git commit``), so even if something
+    else were staged in the checkout, only this one file's change is
+    swept into the commit this function makes.
+
+    Editing and committing directly in the checkout `~/.coord/
+    coordinator.yml` resolves into already IS "fast-forwarding the daemon
+    host's checkout" (#4048's own wording for this step): there is no
+    second, separate checkout to advance — the resolved path already
+    belongs to the one checkout this very daemon's ``coord serve`` reads
+    on every reload, so the commit this function makes takes effect
+    immediately with no further step. ``git push`` is best-effort only:
+    :func:`coord.health.checks.config_drift.probe_config_drift` (#3120)
+    already monitors "committed but unpushed" as its own standing health
+    signal, so a push failure here (no network, no configured upstream)
+    never undoes the commit that already cleared the live config this
+    host reads, and is reported in ``detail`` rather than flipping
+    ``applied`` to ``False``.
+
+    Never raises: every refusal — an unresolvable path, an ambiguous or
+    already-cleared token/command, a failed ``git add``/``commit`` — comes
+    back as ``applied=False`` with an explanatory ``detail``, the same
+    "report, never crash the caller" posture every other sweep write in
+    this module takes.
+    """
+    from pathlib import Path  # noqa: PLC0415
+
+    try:
+        real_path = Path(config_path).expanduser().resolve()
+    except OSError as exc:
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=f"could not resolve {config_path!r}: {type(exc).__name__}: {exc}",
+        )
+    if not real_path.exists():
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=f"{config_path} does not resolve to an existing file — nothing to patch",
+        )
+
+    repo_dir = real_path.parent
+
+    # ── Guard: refuse onto an already-dirty tracked file (#4048 review) ──
+    # A human mid-edit of the live symlink has an uncommitted change
+    # sitting in exactly this file; `read_text()`/`write_text()` below
+    # would silently fold that in-progress edit into this function's own
+    # commit. Check BEFORE reading/writing anything.
+    dirty_ok, dirty_out = _config_drift_git(
+        repo_dir, "status", "--porcelain", "--", str(real_path),
+    )
+    if not dirty_ok:
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=(
+                f"{repo_name}#{issue_number}: could not check whether "
+                f"{real_path} is already dirty: {dirty_out}"
+            ),
+        )
+    if dirty_out.strip():
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=(
+                f"{repo_name}#{issue_number}: refusing — {real_path} "
+                f"already has an uncommitted change ({dirty_out.strip()!r}); "
+                "a human may be mid-edit and this would overwrite it rather "
+                "than commit a clean one-token removal"
+            ),
+        )
+
+    # ── Guard: refuse onto a checkout behind its upstream (#4048 review) ─
+    # Mirrors `coord.commands.repo._guard_settings_fresh`: fetch first
+    # (the failure mode is "the remote moved and nobody here noticed"),
+    # then compare HEAD to `@{upstream}`. Unknown (no upstream, no
+    # network) is never a refusal — only a CONFIRMED nonzero `behind`
+    # count is, since committing onto that base makes the later `git
+    # push` fail non-fast-forward while this function still reports
+    # `applied=True`.
+    _config_drift_git(repo_dir, "fetch", "--quiet")
+    upstream_ok, upstream_out = _config_drift_git(
+        repo_dir, "rev-parse", "--abbrev-ref", "@{upstream}",
+    )
+    if upstream_ok and upstream_out.strip():
+        upstream = upstream_out.strip()
+        counts_ok, counts_out = _config_drift_git(
+            repo_dir, "rev-list", "--left-right", "--count", f"{upstream}...HEAD",
+        )
+        if counts_ok:
+            parts = counts_out.split()
+            if len(parts) == 2:
+                try:
+                    behind = int(parts[0])
+                except ValueError:
+                    behind = 0
+                if behind:
+                    return ConfigDriftApplyResult(
+                        applied=False,
+                        detail=(
+                            f"{repo_name}#{issue_number}: refusing — "
+                            f"{repo_dir} is {behind} commit(s) behind "
+                            f"{upstream}; committing onto a stale checkout "
+                            "would diverge from the fleet's canonical "
+                            f"config. Run `git -C {repo_dir} pull --ff-only` "
+                            "first."
+                        ),
+                    )
+
+    text = real_path.read_text()
+    token_count = text.count(token)
+    if token_count != 1:
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=(
+                f"{repo_name}#{issue_number}: `{token}` appears "
+                f"{token_count} time(s) in {real_path} — refusing an "
+                "ambiguous or already-cleared edit"
+            ),
+        )
+    command_count = text.count(command)
+    if command_count != 1:
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=(
+                f"{repo_name}#{issue_number}: the command naming `{token}` "
+                f"does not appear exactly once in {real_path} "
+                f"({command_count} match(es)) — refusing to guess which "
+                "occurrence to edit"
+            ),
+        )
+
+    new_text = text.replace(command, patched_command, 1)
+    real_path.write_text(new_text)
+
+    ok, detail = _config_drift_git(repo_dir, "add", "--", str(real_path))
+    if not ok:
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=(
+                f"{repo_name}#{issue_number}: edited {real_path} but "
+                f"`git add` failed: {detail} — the working tree is left "
+                "modified for a human to commit or revert by hand"
+            ),
+        )
+    commit_message = (
+        f"board-doctor: clear config drift for {repo_name}#{issue_number} "
+        f"(remove dangling `{token}`)"
+    )
+    ok, detail = _config_drift_git(
+        repo_dir, "commit", "-m", commit_message, "--", str(real_path),
+    )
+    if not ok:
+        return ConfigDriftApplyResult(
+            applied=False,
+            detail=(
+                f"{repo_name}#{issue_number}: edited {real_path} but "
+                f"`git commit` failed: {detail} — the working tree is "
+                "left modified for a human to commit or revert by hand"
+            ),
+        )
+
+    push_ok, push_detail = _config_drift_git(repo_dir, "push")
+    result_detail = (
+        f"{repo_name}#{issue_number}: committed the removal of `{token}` "
+        f"in {real_path} ({commit_message!r})"
+    )
+    if not push_ok:
+        result_detail += (
+            f"; push failed, left for a human or the #3120 config_drift "
+            f"health check to flag: {push_detail}"
+        )
+    return ConfigDriftApplyResult(applied=True, detail=result_detail)
+
+
+def run_config_drift_fix_sweep(
+    candidates: Sequence[ConfigDriftCandidate],
+    *,
+    config: Any,
+    config_path: Any = None,
+    apply_fn: Callable[..., ConfigDriftApplyResult] | None = None,
+) -> list[dict]:
+    """#4048: for every *candidates* entry whose repo has opted into
+    ``board_doctor.config_drift_autofix`` AND whose command resolved a
+    *patched_command* (``candidate.plan.enabled and candidate.plan.
+    patched_command is not None`` — :func:`coord.board_doctor_policy.
+    plan_config_drift_fix`'s own decision, never re-derived here):
+
+    1. **Apply** (:func:`apply_config_drift_fix_to_coord_settings`, or
+       *apply_fn* in a test) — edit the ONE matched *token* out of the
+       live, symlinked ``coordinator.yml`` and commit (push best-effort).
+    2. **Refund + requeue**, only once the Apply step above actually
+       landed: reset the row's Test-stage verdict
+       (:func:`coord.state.reset_work_test_state`, confirmed against a
+       fresh :func:`coord.state.test_reset_candidates` re-read — #2096,
+       never trusting the write call's own row-matched count — the same
+       pattern :func:`coord.drive_queue.requeue_after_conflict_fix` uses
+       for the identical "the prior verdict no longer covers what's on the
+       branch now" reason), then give back *candidate.rounds_consumed*
+       fix rounds (:func:`coord.board_doctor_permissions.
+       sweep_raise_fixit_budget`), whose own remove-then-re-add puts the
+       row back at its ORIGINAL position with its ORIGINAL ``after=``/
+       machine/hold edges intact — #4048's "requeue the row at its
+       position with its edges".
+
+    A refused/failed Apply (an ambiguous or already-cleared token, a
+    failed ``git`` call) or an unconfirmed Test-stage reset stops here
+    with NO refund/requeue — :func:`run_sweep` only withdraws a row from
+    the ordinary alert path once THIS function reports it fully
+    ``requeued``, so a failed attempt leaves the row's convergence
+    counter and any live escalation untouched rather than silently
+    dismissing them (#4036 review: "pulling these rows out... makes their
+    escalation vanish").
+
+    Every candidate *candidates* names whose opt-in/patch precondition
+    does not hold (``plan.enabled`` is ``False``, or no *patched_command*
+    was computed) is skipped entirely — no dict reported for it, no call
+    made — so this function only ever reports on the subset it actually
+    attempted.
+
+    Returns one dict per candidate attempted — ``{"repo", "issue",
+    "applied", "requeued", "refunded", "detail"}`` — reported onto
+    :attr:`SweepReport.config_drift_fix` rather than :attr:`SweepReport.
+    decisions`, the same "not a tier/auto_dispatchers/convergence
+    decision" shape *followthrough*/*refile*/*conflict_fix_ceiling_pending*
+    already use.
+    """
+    from coord.board_doctor_permissions import (  # noqa: PLC0415
+        sweep_raise_fixit_budget,
+    )
+    from coord.config import resolve_config_path  # noqa: PLC0415
+    from coord.state import (  # noqa: PLC0415
+        reset_work_test_state,
+        test_reset_candidates,
+    )
+
+    apply_impl = apply_fn or apply_config_drift_fix_to_coord_settings
+    resolved_config_path = (
+        config_path if config_path is not None else resolve_config_path()
+    )
+
+    results: list[dict] = []
+    for candidate in candidates:
+        if not (candidate.plan.enabled and candidate.plan.patched_command is not None):
+            continue
+        repo_name = candidate.repo_name
+        issue_number = candidate.issue_number
+
+        outcome = apply_impl(
+            config_path=resolved_config_path,
+            command=candidate.command,
+            token=candidate.token,
+            patched_command=candidate.plan.patched_command,
+            repo_name=repo_name,
+            issue_number=issue_number,
+        )
+        requeued = False
+        refunded = False
+        detail = outcome.detail
+        if outcome.applied:
+            reset_work_test_state(repo_name, issue_number)
+            still_set = [
+                f"{aid} ({typ})"
+                for aid, typ, test_state in test_reset_candidates(
+                    repo_name, issue_number,
+                )
+                if test_state is not None
+            ]
+            if still_set:
+                detail = (
+                    f"{outcome.detail}; the pre-fix Test-stage verdict "
+                    "could not be confirmed cleared on re-read for "
+                    f"{', '.join(still_set)} — leaving the fix-round "
+                    "budget and the queue row untouched for a later sweep"
+                )
+            else:
+                budget_outcome = sweep_raise_fixit_budget(
+                    repo_name, issue_number, config,
+                    increment=max(candidate.rounds_consumed, 1),
+                )
+                requeued = bool(budget_outcome.get("raised"))
+                refunded = requeued
+                detail = (
+                    f"{outcome.detail}; Test-stage verdict cleared; "
+                    f"{budget_outcome.get('detail', '')}"
+                )
+        results.append({
+            "repo": repo_name,
+            "issue": issue_number,
+            "applied": bool(outcome.applied),
+            "requeued": requeued,
+            "refunded": refunded,
+            "detail": detail,
+        })
+    return results
 
 
 def drive_queue_rows(diagnoses: Sequence[queue_diagnose.Diagnosis]) -> list[StuckRow]:
@@ -2211,6 +3653,275 @@ def _reclassify_blocked_on_prereq(
                 )
         reclassified.append(row)
     return reclassified
+
+
+def _reclassify_branch_merged_guard(
+    rows: list[StuckRow], entries_by_key: Mapping[str, Any],
+) -> list[StuckRow]:
+    """Relabel ANY `blocked` drive-queue row whose entry's own
+    `last_reason` names the #3376 branch-merged guard specifically (#4038),
+    regardless of what cause the episode walk above already settled on.
+
+    Unlike every other `_reclassify_*` pass in this module, this does not
+    restrict itself to a narrow "safe" incoming cause set and does not
+    require `row.fresh`: `coord.dispatch_liveness.
+    is_branch_merged_guard_refusal_reason`'s marker is a deterministic,
+    permanent fact about the row (the guard refuses the exact same
+    dispatch again on every retry — see the marker's own docstring), not a
+    live probe reading that can go stale between when an episode settled
+    and now — `entries_by_key` is this sweep's own fresh
+    `list_drive_queue()` read, not the row's possibly-stale stored
+    evidence — so there is no narrower cause set to protect and no
+    freshness bar to clear: whatever the episode walk concluded, THIS
+    marker always wins.
+    """
+    from coord.dispatch_liveness import (  # noqa: PLC0415
+        is_branch_merged_guard_refusal_reason,
+    )
+
+    reclassified: list[StuckRow] = []
+    for row in rows:
+        if row.queue == "drive-queue" and row.cause != CAUSE_BRANCH_MERGED_GUARD:
+            entry = entries_by_key.get(row.key)
+            if entry is not None and is_branch_merged_guard_refusal_reason(
+                entry.last_reason
+            ):
+                row = replace(
+                    row,
+                    cause=CAUSE_BRANCH_MERGED_GUARD,
+                    evidence=row.evidence + (
+                        "drive_queue: last_reason names the #3376 "
+                        f"branch-merged guard specifically (#4038) — "
+                        f"{entry.last_reason}",
+                    ),
+                )
+        reclassified.append(row)
+    return reclassified
+
+
+# ── #4037: drop stale predicted `after=` edges ──────────────────────────────
+#
+# #2247's predictor chains a newcomer `--after` any in-flight work it
+# collides with on files — correct the moment it is written, but the edge is
+# never revisited once the target stops being reachable soon: deferred and
+# dequeued (#2537's shape — the target's own row is simply gone), or stuck
+# itself behind something else entirely unrelated to the newcomer (#2534's
+# shape — a whole CellGrid/MCP chain sitting behind one blocked root). Both
+# left the newcomer waiting on `coord drive-queue list`'s "(open, not
+# queued)" or `cause=blocked-on-prereq tier=alert` forever, with nothing
+# auto-acting on either. This sweep is the fix: drop a PREDICTED edge (never
+# an operator's `--after` or an epic's `{after:}` — see
+# :func:`coord.overlap_predict.predicted_after_targets`, the provenance
+# seam) whose target cannot land soon. Self-correction needs no new code
+# here: the moment the dropped target re-enters the queue (or anything else
+# does, on top of it), the SAME predictor chains against its then-current
+# footprint — a real branch diff once it has launched — exactly as every
+# other `add` call already does.
+
+
+def _after_chain_hits_blocked_or_parked(
+    entry: Any, entries_by_key: Mapping[str, Any], *, _seen: set[str] | None = None,
+) -> bool:
+    """Does *entry*'s OWN ``after=`` graph transitively reach a row sitting
+    `blocked`/`parked` right now (#2534's shape) — never *entry* itself,
+    only what it is chained behind. ``_seen`` guards a cycle (malformed data;
+    `coord.drive_queue.find_cycle` already refuses to write one, but this
+    walk must still terminate against a row some other path let through).
+    """
+    from coord.drive_queue import STATE_BLOCKED, STATE_PARKED  # noqa: PLC0415
+
+    seen = _seen if _seen is not None else set()
+    for dep_key in entry.after:
+        if dep_key in seen:
+            continue
+        seen.add(dep_key)
+        dep = entries_by_key.get(dep_key)
+        if dep is None:
+            continue
+        if dep.state in (STATE_BLOCKED, STATE_PARKED):
+            return True
+        if _after_chain_hits_blocked_or_parked(dep, entries_by_key, _seen=seen):
+            return True
+    return False
+
+
+def predicted_after_target_drop_reason(
+    target_key: str,
+    entries_by_key: Mapping[str, Any],
+    *,
+    config: Any = None,
+    issue_open: Callable[[str, int], bool] | None = None,
+) -> str:
+    """Why a PREDICTED ``after=`` edge pointed at *target_key* should be
+    dropped, or ``""`` when the target still looks reachable soon enough
+    that the edge is worth keeping (#4037).
+
+    Only ever called for an edge :func:`drop_stale_predicted_after_edges`
+    has already confirmed came from the predictor, never an operator's own
+    ``--after`` or an epic's ``{after:}`` — this predicate has no opinion on
+    provenance, only on the target's own reachability. Four shapes qualify,
+    the exact set the issue's own evidence (#2537, #2534) landed in:
+
+    * the target left the queue entirely — ``entries_by_key`` has no row
+      for it — while its issue is STILL OPEN on GitHub: dequeued, or never
+      queued at all (#2537's "waiting on #N (open, not queued)" shape). A
+      target that is instead closed/merged is `_resolve_prereqs`'s own
+      satisfied case, not a stale edge — left alone here on purpose, so
+      this sweep never races the ordinary tick's own resume of it;
+    * the target itself reads ``blocked``;
+    * the target itself reads ``parked``;
+    * the target is ``waiting``/``running`` right now, but its OWN
+      ``after=`` graph transitively reaches a `blocked`/`parked` row
+      (#2534's shape — the dependent is fine, everything IT depends on is
+      not).
+
+    Deliberately NOT a fifth, standalone shape for "the target has simply
+    never launched yet": the predictor's own declared-vs-declared half
+    (``coord.overlap_predict.declared_footprints``) exists precisely for
+    two rows that both have no branch yet and share declared files —
+    dropping on launch status alone would delete that exact edge before
+    either row starts, which is the one case the predictor exists to
+    serialize. An unlaunched target is only droppable through the
+    blocked-chain shape above: an unstarted target chained behind a
+    blocked/parked root is genuinely stuck; an unstarted target with
+    nothing blocking it may simply be next in line.
+
+    *config*, when given, resolves *target_key*'s repo to the GitHub
+    ``owner/repo`` slug (:func:`_github_slug`) before calling *issue_open*
+    for the dequeued-and-open check — the local `coordinator.yml` repo
+    name is not a slug `gh` accepts. ``None`` (a bare test double, or a
+    repo whose local name already IS its slug) leaves the name unresolved.
+
+    *issue_open* defaults to :func:`_issue_open` (a live `gh` read); tests
+    inject a stub so this stays a pure-logic call over hand-built entries.
+    """
+    from coord.drive_queue import STATE_BLOCKED, STATE_PARKED  # noqa: PLC0415
+    from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
+
+    target = entries_by_key.get(target_key)
+    if target is None:
+        parsed = _parse_row_key(target_key)
+        opener = issue_open or _issue_open
+        if parsed is not None:
+            repo_name, issue_number = parsed
+            if opener(_github_slug(repo_name, config), issue_number):
+                return "dequeued"
+        return ""
+    if target.state == STATE_BLOCKED:
+        return "blocked"
+    if target.state == STATE_PARKED:
+        return "parked"
+    if _after_chain_hits_blocked_or_parked(target, entries_by_key):
+        return "blocked chain"
+    return ""
+
+
+def drop_stale_predicted_after_edges(
+    entries: Sequence[Any],
+    *,
+    predicted_keys_for: Callable[[Any], frozenset[str]],
+    config: Any = None,
+    issue_open: Callable[[str, int], bool] | None = None,
+    write_after: Callable[[Any, Sequence[str]], None] | None = None,
+    record_drop: Callable[[Any, Sequence[tuple[str, str]]], None] | None = None,
+) -> list[str]:
+    """Drop every PREDICTED ``after=`` edge pointed at a row
+    :func:`predicted_after_target_drop_reason` says cannot land soon (#4037).
+
+    *predicted_keys_for* is the provenance seam: ``entry ->`` the subset of
+    *entry*'s OWN ``after=`` the predictor actually wrote (see
+    :func:`coord.overlap_predict.predicted_after_targets`). An edge not in
+    that set is operator- or epic-declared and is NEVER a candidate here,
+    whatever its target looks like — this sweep only ever touches edges
+    #2247 itself produced.
+
+    *config* is forwarded to :func:`predicted_after_target_drop_reason` to
+    resolve the GitHub slug for the dequeued-and-open check.
+
+    *write_after*, when given, is called once per CHANGED entry with its
+    surviving ``after=`` tuple (``coord.drive_queue.write_queue_after`` in
+    production). *record_drop*, when given, is called once per CHANGED
+    entry with its ``(dep_key, reason)`` drops, so the drop lands somewhere
+    durable on the row itself rather than only in this call's own return
+    value (``coord.drive_queue.record_predicted_after_drop`` in
+    production). Both default to ``None``, which computes the drop set
+    without writing or recording anything — the shape a dry run, or a test
+    asserting only on the returned notes, wants.
+
+    Returns one note per dropped edge — ``"{entry.key}: edge dropped:
+    {dep} (predicted, target {reason})"``, the issue's own acceptance text
+    — in entry/edge order, so a caller can log or alert on them directly.
+    """
+    entries_by_key = {e.key: e for e in entries}
+    notes: list[str] = []
+    for entry in entries:
+        if not entry.after:
+            continue
+        predicted = predicted_keys_for(entry)
+        if not predicted:
+            continue
+        keep: list[str] = []
+        drops: list[tuple[str, str]] = []
+        for dep_key in entry.after:
+            reason = (
+                predicted_after_target_drop_reason(
+                    dep_key, entries_by_key, config=config, issue_open=issue_open,
+                )
+                if dep_key in predicted
+                else ""
+            )
+            if reason:
+                drops.append((dep_key, reason))
+            else:
+                keep.append(dep_key)
+        if not drops:
+            continue
+        if write_after is not None:
+            write_after(entry, keep)
+        if record_drop is not None:
+            record_drop(entry, drops)
+        for dep_key, reason in drops:
+            notes.append(
+                f"{entry.key}: edge dropped: {dep_key} (predicted, target {reason})"
+            )
+    return notes
+
+
+def sweep_predicted_after_edges(
+    *, dry_run: bool = False, config: Any = None,
+) -> list[str]:
+    """Production entry point for :func:`drop_stale_predicted_after_edges`
+    (#4037): read the live drive queue, drop every stale predicted
+    ``after=`` edge, and report what changed.
+
+    *config* resolves the GitHub slug for each target's dequeued-and-open
+    check (see :func:`predicted_after_target_drop_reason`) — forwarded
+    from :func:`run_sweep`'s own *config*, never defaulted to a live read
+    here, since there is no board-doctor-wide config to fall back to
+    outside a caller that already has one.
+
+    *dry_run* computes the drop set without writing it back — the same
+    "classify, never mutate" contract :func:`sweep`'s own *dry_run* keeps.
+    Advisory the same way every other optional pass in :func:`run_sweep` is:
+    a caller that cannot reach the queue or the audit log this round skips
+    this sweep, not the rest of the report.
+    """
+    from coord.drive_queue import (  # noqa: PLC0415
+        entries_from_rows,
+        record_predicted_after_drop,
+        write_queue_after,
+    )
+    from coord.overlap_predict import predicted_after_targets  # noqa: PLC0415
+    from coord.state import list_drive_queue  # noqa: PLC0415
+
+    entries = entries_from_rows(list_drive_queue())
+    return drop_stale_predicted_after_edges(
+        entries,
+        predicted_keys_for=lambda e: predicted_after_targets(e.repo, e.issue),
+        config=config,
+        write_after=None if dry_run else write_queue_after,
+        record_drop=None if dry_run else record_predicted_after_drop,
+    )
 
 
 #: #3929 (#3918 gap 1, second half): a merge-queue entry that has NEVER been
@@ -3139,9 +4850,29 @@ def _collect_rows_with_board(
     refreshed_rows, settled_episodes = _refresh_ceiling_blocked_settled_rows(
         settled_episodes, entries_by_key=entries_by_key, probe=probe, trigger=trigger
     )
+    # #4039: `_episode_stuck_row` rebuilds a row from `block_log`'s stored
+    # diagnosis alone — it has no way to tell a row still open on the live
+    # queue from one an operator (or an auto-dispatcher) has since removed,
+    # because nothing here ever writes an `EVENT_RESOLVE` record back to
+    # `block_log` when a row leaves the queue by any path other than the
+    # queue's own resolution bookkeeping. Gate it on the SAME live
+    # `entries_by_key` read `run_pass` already uses to drop a diagnosed-
+    # episode-with-no-live-row (`queue_diagnose.run_pass`'s own "left the
+    # queue" branch) and `_refresh_ceiling_blocked_settled_rows` above
+    # already uses for its own ceiling check — one live-presence check,
+    # not three independent ones that could disagree. Without this, a
+    # removed row's episode never sees `resolved` and keeps producing the
+    # exact same `StuckRow` every sweep, so `sweep`'s `clear_absent_rows`
+    # never observes it absent and its convergence counter/alert back-off
+    # runs forever against a row that no longer exists.
+    live_settled_episodes = [
+        ep for ep in settled_episodes if str(ep.get("key") or "") in entries_by_key
+    ]
     rows = drive_queue_rows(diagnoses)
     rows.extend(refreshed_rows)
-    rows.extend(row for ep in settled_episodes if (row := _episode_stuck_row(ep)) is not None)
+    rows.extend(
+        row for ep in live_settled_episodes if (row := _episode_stuck_row(ep)) is not None
+    )
     merge_entries = load_merge_queue()
     rows.extend(
         merge_queue_rows(
@@ -3159,6 +4890,18 @@ def _collect_rows_with_board(
     covered_keys = frozenset(row.key for row in rows)
     rows.extend(
         row for row in merged_partial_rows(entries) if row.key not in covered_keys
+    )
+
+    # #4038: belt-and-braces alongside `_reclassify_branch_merged_guard`
+    # above — a row whose `blocked` transition never opened a `block_log`
+    # episode at all (or whose episode was marked resolved while the row
+    # itself stayed blocked) never reaches the reclassifier, since that
+    # pass only relabels a row the episode walk already produced. This
+    # catches exactly that orphan, the same way `merged_partial_rows`
+    # above catches its own orphan shape.
+    covered_keys = frozenset(row.key for row in rows)
+    rows.extend(
+        row for row in branch_merged_guard_rows(entries) if row.key not in covered_keys
     )
 
     # #3888: the episode/merge-queue walk above only ever covers a
@@ -3211,12 +4954,49 @@ def _collect_rows_with_board(
         rows, entries_by_key, board=board, board_view=board_view,
     )
     rows = _reclassify_blocked_on_prereq(rows, entries_by_key)
+    rows = _reclassify_branch_merged_guard(rows, entries_by_key)
     rows = _confirm_merge_pending_stuck(rows, merge_entries, board=board, config=config)
     rows = _reclassify_merge_never_attempted(
         rows, merge_entries, board=board, config=config,
         stale_after_seconds=merge_pending_stale_after_seconds,
     )
     rows.extend(smoke_no_verdict_rows(board))
+
+    # #4035: a row whose Test-stage verdict names a cargo target this
+    # branch's own diff deletes outright — covered_keys guards against
+    # double-classifying a key `smoke_no_verdict_rows` just above (or any
+    # earlier pass) already explained, same discipline as every other
+    # additive pass in this function.
+    covered_keys = frozenset(row.key for row in rows)
+    rows.extend(
+        row for row in config_drift_rows(board, config) if row.key not in covered_keys
+    )
+
+    # #4045: a row whose LIVE gates already name a dispatchable
+    # `next_action` that nothing has performed — run strictly BEFORE
+    # `stranded_prereq_rows` below, so `covered_keys` gives this cause
+    # precedence over `CAUSE_STRANDED_PREREQ_BLOCKED` for the one row shape
+    # the two can collide on (see `next_action_unperformed_rows`'s own
+    # docstring): a `waiting` row whose stored "waiting on X (open, not
+    # queued)" text is stale because every named pre-req has since landed,
+    # while this row's OWN gates read a live, dispatchable `next_action`.
+    covered_keys = frozenset(row.key for row in rows)
+
+    def _next_action_truth_of(entry: Any) -> "EntryTruth | None":
+        from coord import github_ops  # noqa: PLC0415
+
+        return queue_diagnose.live_entry_truth(
+            entry, board, config, gh_ops=github_ops,
+        )
+
+    rows.extend(
+        next_action_unperformed_rows(
+            entries,
+            covered_keys=covered_keys,
+            truth_of=_next_action_truth_of,
+            board_view=board_view,
+        )
+    )
 
     # #3944: a `waiting` row stranded on an open, unqueued `after=` pre-req
     # carries neither a `block_log` episode nor merge-queue evidence, so
@@ -3267,6 +5047,11 @@ def _collect_rows_with_board(
 
         rows = [_suppress_if_blocked(row) for row in rows]
         rows.extend(baseline_red_rows(blocked_streaks))
+
+    # A live read over *entries*, cross-referenced against every row this
+    # walk has classified so far — independent of where in the walk it
+    # lands, since it only reads *rows*, never mutates an existing one.
+    rows.extend(idle_fleet_root_rows(entries, rows, blocked_streaks=blocked_streaks))
     return rows, board
 
 
@@ -4047,6 +5832,510 @@ def sweep(
     return report
 
 
+def _branch_merged_guard_row_opted_in(row: StuckRow, config: Any) -> bool:
+    """Whether *row* (cause :data:`CAUSE_BRANCH_MERGED_GUARD`) may be
+    pulled out of the ordinary alert/mechanical path for refiling.
+
+    Parses the row's drive-queue key for its repo and defers to
+    :func:`coord.board_doctor_followthrough.auto_refile_enabled`. An
+    unparseable key reads as "not opted in" — the row then stays in
+    :func:`run_sweep`'s *other_rows*, the same fail-safe posture as a repo
+    that never set ``board_doctor.auto_refile: true``.
+    """
+    from coord.drive_queue import parse_key  # noqa: PLC0415
+
+    parsed = parse_key(row.key)
+    if parsed is None:
+        return False
+    repo_name, _issue_number = parsed
+    return board_doctor_followthrough.auto_refile_enabled(repo_name, config)
+
+
+def _ceiling_blocked_ci_pending_candidates(
+    rows: Sequence[StuckRow],
+) -> list[tuple[str, int]]:
+    """``(repo_name, issue_number)`` for every FRESH drive-queue row in
+    *rows* that is both ceiling-blocked (#2972) and currently diagnosed
+    :data:`queue_diagnose.CAUSE_CI_PENDING` — the one shape neither
+    :func:`_reclassify_ceiling_blocked` (which only promotes
+    :data:`CAUSE_NOTHING_BLOCKING`) nor the ordinary mechanical
+    ``CAUSE_MERGE_CONFLICT`` dispatch covers (#4036): a conflict-fix leg
+    already pushed a resolution, GitHub is still running checks on the
+    new head, and nothing else in this sweep is watching for them to
+    settle.
+
+    ``fresh`` is required for the same reason :func:`_reclassify_ceiling_
+    blocked` requires it: a :class:`StuckRow` :func:`_episode_stuck_row`
+    rebuilt from a settled ``block_log`` episode can be arbitrarily old,
+    and this must act only on a live probe THIS sweep just took.
+
+    Also requires :data:`coord.queue_diagnose.CONFIDENCE_LOW` be absent —
+    the same guard :func:`_reclassify_ceiling_blocked` applies to its own
+    live-clear reclassification: a low-confidence verdict means the live
+    probe that produced it was itself incomplete (``live.probe_errors``
+    downgraded it), so "this row is CI-pending" has not actually been
+    established. :func:`run_conflict_fix_ceiling_pending_sweep`'s own
+    *evidence_fetcher* re-probe softens, but does not replace, this.
+
+    Deduped — a (repo, issue) can legitimately appear more than once if
+    an earlier pass in :func:`_collect_rows_with_board` also produced a
+    row for it, but this candidate list feeds exactly one requeue attempt
+    per issue per sweep.
+    """
+    from coord.drive_queue import (  # noqa: PLC0415
+        fix_round_ceiling_blocked_for_issue,
+        parse_key as _parse_row_key,
+    )
+
+    seen: set[tuple[str, int]] = set()
+    candidates: list[tuple[str, int]] = []
+    for row in rows:
+        if (
+            row.queue != "drive-queue"
+            or not row.fresh
+            or row.cause != queue_diagnose.CAUSE_CI_PENDING
+            or row.confidence == queue_diagnose.CONFIDENCE_LOW
+        ):
+            continue
+        parsed = _parse_row_key(row.key)
+        if parsed is None or parsed in seen:
+            continue
+        if not fix_round_ceiling_blocked_for_issue(*parsed):
+            continue
+        seen.add(parsed)
+        candidates.append(parsed)
+    return candidates
+
+
+def _live_conflict_fix_evidence(
+    repo_name: str, issue_number: int, *, config: Any,
+) -> tuple[tuple[str, ...] | None, bool]:
+    """A fresh, single-entry live read for *repo_name*#*issue_number*, via
+    the SAME :class:`coord.queue_diagnose.GhLiveProbe` the main sweep walk
+    uses (#2096: one question, one answer — never a second,
+    independently-shaped `gh` call).
+
+    Returns ``(checks, branch_moved)``:
+
+    * *checks* — each check's bare ``conclusion`` string, for
+      :func:`coord.drive_queue.conflict_fix_push_ci_verdict`'s own
+      three-way classification. ``None`` on any read failure, an unqueued
+      entry, or a probe that could not confirm the checks at all — the
+      fail-closed "we could not tell" reading that function already treats
+      as "still pending", never as green.
+    * *branch_moved* — #4036 review (blocking finding #5): ``True`` only
+      when the SAME probe's :attr:`~coord.queue_diagnose.LiveState.
+      review_stale`/:attr:`~coord.queue_diagnose.LiveState.test_stale`
+      confirms a recorded review/test verdict no longer covers the
+      branch's CURRENT head — live evidence that something has actually
+      been pushed since this row's ceiling-blocking verdict was recorded,
+      never merely that its checks happen to be in flight for an unrelated
+      reason (nobody has pushed anything new at all). ``False`` on a read
+      failure or an unqueued entry too — "could not tell" must never read
+      as "yes, it moved". The caller (:func:`run_conflict_fix_ceiling_
+      pending_sweep`) must not reset the stage or re-stamp a fresh
+      #2972 fix-round budget without this confirmed ``True`` — pending
+      checks with no confirmed push behind them are exactly the
+      CAUSE_NOTHING_BLOCKING/#3760-Action-1 shape, not this one.
+    """
+    from coord.commands.drive_queue import _local_host_id  # noqa: PLC0415
+    from coord.drive import list_drive_sessions  # noqa: PLC0415
+    from coord.drive_queue import QueueEntry  # noqa: PLC0415
+    from coord.health.aggregate import local_fleet_health_block  # noqa: PLC0415
+    from coord.state import build_board, get_drive_queue_entry  # noqa: PLC0415
+
+    row = get_drive_queue_entry(repo_name, issue_number)
+    if row is None:
+        return None, False
+    entry = QueueEntry.from_row(row)
+
+    try:
+        board = build_board()
+        local_host = _local_host_id()
+        live_sessions = frozenset(
+            str(r["session_name"]) for r in list_drive_sessions() if r.get("session_name")
+        )
+        fleet_health = local_fleet_health_block([m.name for m in config.machines])
+        probe = queue_diagnose.GhLiveProbe(
+            config=config, board=board, fleet_health=fleet_health,
+            live_sessions=live_sessions, local_host=local_host,
+        )
+        live = probe.probe(entry)
+    except Exception:  # noqa: BLE001 — a failed re-probe reads as "still pending"
+        _log.debug(
+            "board-doctor: live-check re-probe failed for %s#%s",
+            repo_name, issue_number, exc_info=True,
+        )
+        return None, False
+    checks = None if live.checks is None else tuple(c.conclusion for c in live.checks)
+    branch_moved = live.review_stale is True or live.test_stale is True
+    return checks, branch_moved
+
+
+def run_conflict_fix_ceiling_pending_sweep(
+    rows: Sequence[StuckRow],
+    *,
+    config: Any,
+    evidence_fetcher: Callable[[str, int], tuple[tuple[str, ...] | None, bool]] | None = None,
+    requeuer: Callable[..., Any] | None = None,
+) -> list[dict]:
+    """#4036: for every ceiling-blocked drive-queue row this sweep just
+    diagnosed :data:`queue_diagnose.CAUSE_CI_PENDING` (see
+    :func:`_ceiling_blocked_ci_pending_candidates`), re-probe its live
+    evidence and hand the verdict to :func:`coord.drive_queue.
+    requeue_after_conflict_fix` — the one place that decides whether to
+    wait, alert, or actually requeue the row.
+
+    #4036 review (blocking finding #5): a candidate's premise — that a
+    conflict-fix leg actually pushed something — is never ASSUMED from
+    "ceiling-blocked and CI pending" alone; that shape also matches an
+    ordinary row whose checks are simply still running for an unrelated
+    reason. Before *requeuer* is ever called, *evidence_fetcher*'s own
+    ``branch_moved`` reading (:func:`_live_conflict_fix_evidence`'s
+    ``review_stale``/``test_stale``-backed confirmation that the live head
+    has actually moved past the recorded verdict) must read ``True`` — a
+    candidate whose evidence does not confirm this is reported
+    ``requeued=False`` with NO call to *requeuer* at all, so neither the
+    stage reset nor a fresh #2972 fix-round budget is ever granted off a
+    checks-only reading.
+
+    *evidence_fetcher* defaults to :func:`_live_conflict_fix_evidence`;
+    *requeuer* defaults to :func:`coord.drive_queue.requeue_after_conflict_fix`
+    — both injectable so a test never needs a live `gh` call or a real
+    drive-queue/board DB.
+
+    Returns one dict per candidate — ``{"repo", "issue", "requeued",
+    "detail"}`` — mirroring :func:`coord.drive_queue.
+    ConflictFixRequeueResult`'s own shape, reported onto :attr:`SweepReport.
+    conflict_fix_ceiling_pending` rather than :attr:`SweepReport.decisions`:
+    like *followthrough*/*refile*, this is not a tier/auto_dispatchers/
+    convergence decision over the row at all.
+    """
+    from coord.drive_queue import conflict_fix_push_ci_verdict  # noqa: PLC0415
+    from coord.drive_queue import requeue_after_conflict_fix as _default_requeuer  # noqa: PLC0415
+
+    fetch_evidence = evidence_fetcher or (
+        lambda repo_name, issue_number: _live_conflict_fix_evidence(
+            repo_name, issue_number, config=config,
+        )
+    )
+    requeue = requeuer or _default_requeuer
+
+    results: list[dict] = []
+    for repo_name, issue_number in _ceiling_blocked_ci_pending_candidates(rows):
+        checks, branch_moved = fetch_evidence(repo_name, issue_number)
+        if not branch_moved:
+            outcome: dict[str, Any] = {
+                "requeued": False,
+                "detail": (
+                    f"{repo_name}#{issue_number}: no live evidence yet that "
+                    "a conflict-fix push moved this branch past its "
+                    "recorded review/test verdict — waiting for that "
+                    "confirmation before resetting the stage or spending a "
+                    "fresh fix-round budget"
+                ),
+            }
+        else:
+            ci_verdict = conflict_fix_push_ci_verdict(checks or ())
+            outcome = requeue(repo_name, issue_number, ci_verdict=ci_verdict)
+        results.append({
+            "repo": repo_name,
+            "issue": issue_number,
+            "requeued": bool(outcome.get("requeued")),
+            "detail": outcome.get("detail", ""),
+        })
+    return results
+
+
+def _ceiling_blocked_integration_red_candidates(
+    rows: Sequence[StuckRow],
+) -> list[tuple[str, int]]:
+    """``(repo_name, issue_number)`` for every FRESH drive-queue row in
+    *rows* that is both ceiling-blocked (#2972) and currently diagnosed
+    :data:`queue_diagnose.CAUSE_INTEGRATION_RED` (#4050) — the quadraui#2726
+    shape: no textual conflict, a branch Test verdict that already read
+    green, and a required CI check failing on the PR's merge ref anyway
+    because the target branch moved under it. The ordinary investigate-
+    tier dispatcher for this cause (``coord.ci_fix.dispatch_ci_fix`` via
+    ``coord.board_doctor_policy``'s ``sweep_dispatch_fixit_leg``) is a
+    ``type="work"`` leg and so is exactly what #3454 refuses once this
+    budget is spent — this is the narrow carve-out :func:`run_base_sync_
+    fix_ceiling_sweep` acts on instead, mirroring :func:`_ceiling_blocked_
+    ci_pending_candidates`'s own shape (#4036) exactly.
+
+    ``fresh`` is required for the same reason as that sibling filter: a
+    :class:`StuckRow` :func:`_episode_stuck_row` rebuilt from a settled
+    ``block_log`` episode can be arbitrarily old, and this must act only
+    on a live probe THIS sweep just took.
+
+    Also requires :data:`coord.queue_diagnose.CONFIDENCE_LOW` be absent —
+    a low-confidence verdict means the live probe that produced it was
+    itself incomplete (``live.probe_errors`` downgraded it), so
+    "this row is integration-red" has not actually been established.
+    :func:`run_base_sync_fix_ceiling_sweep`'s own *evidence_fetcher*
+    re-probe softens, but does not replace, this.
+
+    Deduped — a (repo, issue) can legitimately appear more than once if
+    an earlier pass in :func:`_collect_rows_with_board` also produced a
+    row for it, but this candidate list feeds exactly one dispatch attempt
+    per issue per sweep.
+    """
+    from coord.drive_queue import (  # noqa: PLC0415
+        fix_round_ceiling_blocked_for_issue,
+        parse_key as _parse_row_key,
+    )
+
+    seen: set[tuple[str, int]] = set()
+    candidates: list[tuple[str, int]] = []
+    for row in rows:
+        if (
+            row.queue != "drive-queue"
+            or not row.fresh
+            or row.cause != queue_diagnose.CAUSE_INTEGRATION_RED
+            or row.confidence == queue_diagnose.CONFIDENCE_LOW
+        ):
+            continue
+        parsed = _parse_row_key(row.key)
+        if parsed is None or parsed in seen:
+            continue
+        if not fix_round_ceiling_blocked_for_issue(*parsed):
+            continue
+        seen.add(parsed)
+        candidates.append(parsed)
+    return candidates
+
+
+def _live_base_sync_fix_evidence(
+    repo_name: str, issue_number: int, *, config: Any,
+) -> tuple[bool, str]:
+    """A fresh, single-entry live re-probe for *repo_name*#*issue_number*
+    (#4050), via the SAME :class:`coord.queue_diagnose.GhLiveProbe` the
+    main sweep walk uses (#2096: one question, one answer — never a
+    second, independently-shaped `gh` call).
+
+    This spends a fresh probe and runs it back through :func:`coord.
+    queue_diagnose.diagnose` (the same pure classifier, on the SAME
+    ceiling-blocked rule table :func:`_refresh_ceiling_blocked_settled_
+    rows` already re-probes through) rather than reading raw fields the
+    way :func:`_live_conflict_fix_evidence` does — unlike that sibling,
+    which only needs checks/staleness booleans, #4050's premise is the
+    CAUSE itself, not just one field of it, so confirming the cause is
+    the question that actually needs asking immediately before a dispatch
+    that bypasses #3454's ceiling.
+
+    Returns ``(confirmed, detail)``:
+
+    * ``confirmed=True`` only when the fresh probe's diagnosis STILL
+      reads :data:`queue_diagnose.CAUSE_INTEGRATION_RED` at a confidence
+      better than :data:`queue_diagnose.CONFIDENCE_LOW` AND the
+      SAME probe's :attr:`~coord.queue_diagnose.LiveState.base_moved_note`
+      is populated — ``coord gates`` itself positively confirming the
+      quadraui#2726 divergence, not merely "a check happens to be red
+      while the branch test happens to read green" (the #4036 review's
+      "never assume the premise" rule, applied to this cause).
+    * ``confirmed=False`` for every other outcome — no drive-queue row,
+      a failed probe, a diagnosis that no longer names this cause, or one
+      that does but with no confirmed ``base_moved_note`` — with a
+      *detail* string explaining which. The caller must never dispatch
+      the budget-free base-sync-fix leg on anything less than a fresh
+      ``True`` here.
+    """
+    from coord.commands.drive_queue import _local_host_id  # noqa: PLC0415
+    from coord.drive import list_drive_sessions  # noqa: PLC0415
+    from coord.drive_queue import QueueEntry  # noqa: PLC0415
+    from coord.health.aggregate import local_fleet_health_block  # noqa: PLC0415
+    from coord.state import build_board, get_drive_queue_entry  # noqa: PLC0415
+
+    row = get_drive_queue_entry(repo_name, issue_number)
+    if row is None:
+        return False, f"{repo_name}#{issue_number}: no drive-queue row to confirm against"
+    entry = QueueEntry.from_row(row)
+
+    try:
+        board = build_board()
+        local_host = _local_host_id()
+        live_sessions = frozenset(
+            str(r["session_name"]) for r in list_drive_sessions() if r.get("session_name")
+        )
+        fleet_health = local_fleet_health_block([m.name for m in config.machines])
+        probe = queue_diagnose.GhLiveProbe(
+            config=config, board=board, fleet_health=fleet_health,
+            live_sessions=live_sessions, local_host=local_host,
+        )
+        live = probe.probe(entry)
+    except Exception:  # noqa: BLE001 — a failed re-probe reads as "not confirmed"
+        _log.debug(
+            "board-doctor: live-check re-probe failed for %s#%s",
+            repo_name, issue_number, exc_info=True,
+        )
+        return False, f"{repo_name}#{issue_number}: live re-probe failed"
+
+    diagnosis = queue_diagnose.diagnose(entry, live, trigger="board-doctor-sweep")
+    if diagnosis.cause != queue_diagnose.CAUSE_INTEGRATION_RED:
+        return False, (
+            f"{repo_name}#{issue_number}: live re-probe no longer confirms "
+            f"integration-red (now {diagnosis.cause!r}) — not dispatching a "
+            "base-sync fix on a stale reading"
+        )
+    if diagnosis.confidence == queue_diagnose.CONFIDENCE_LOW:
+        return False, (
+            f"{repo_name}#{issue_number}: live re-probe confidence is too "
+            "low to confirm the cause"
+        )
+    if not live.base_moved_note:
+        return False, (
+            f"{repo_name}#{issue_number}: coord gates does not confirm a "
+            "BASE MOVED divergence on this live read — refusing to spend a "
+            "budget-free fix on an unconfirmed premise"
+        )
+    return True, f"{repo_name}#{issue_number}: confirmed — {live.base_moved_note}"
+
+
+def _dispatch_base_sync_fix(
+    repo_name: str, issue_number: int, *, config: Any,
+) -> dict:
+    """Dispatch the #4050 base-sync-fix conflict-fix leg for *repo_name*
+    #*issue_number*'s live merge-queue entry.
+
+    Mirrors ``coord.board_doctor_permissions.sweep_dispatch_conflict_fix``'s
+    own shape (the mechanical, budget-free dispatcher #3918 already
+    registered for a standing ``CAUSE_MERGE_CONFLICT`` row) but stays
+    inside this module rather than extending that one: this reuses the
+    SAME already-allowlisted ``"conflict_fix_dispatch"``
+    :func:`coord.board_doctor_permissions.authorize_sweep_action` entry —
+    the permission being granted ("this sweep may dispatch a
+    ``type="conflict-fix"`` leg") does not change just because the cause
+    that qualifies the row for it is different, and :data:`coord.
+    board_doctor_permissions.SAFE_TIER_ACTIONS` is a fixed allow-list
+    extended by deliberate edit, not by a second name meaning the same
+    thing. :func:`coord.conflict_fix.dispatch_conflict_fix` itself already
+    enforces the one-mechanical-attempt-then-human retry cap via
+    ``has_prior_conflict_fix`` — this function never re-derives that.
+
+    Returns ``{"dispatched": bool, "detail": str}`` for every outcome this
+    function itself decides: no merge-queue entry, no capable machine, an
+    already-active conflict-fix, or a spent retry cap are all confirmed
+    no-ops reported as ``dispatched=False`` rather than raised. This does
+    NOT mean the function can never raise at all — ``authorize_sweep_
+    action`` raises :class:`coord.board_doctor_permissions.
+    SweepPermissionError` by design, and ``load_queue``/``build_board``/
+    ``write_board`` can all raise their own I/O errors; callers already
+    expect that (:func:`run_base_sync_fix_ceiling_sweep` has no `try` of
+    its own, and :func:`run_sweep` wraps its whole call in one). The
+    caller withdraws a row from the tier path only on ``dispatched=True``
+    (:func:`run_sweep`'s own ``base_sync_fix_keys``) — every ``False``
+    outcome here is left for the row's own convergence counter to
+    escalate if it recurs.
+    """
+    from coord.board_doctor_permissions import authorize_sweep_action  # noqa: PLC0415
+    from coord.board_service import write_board  # noqa: PLC0415
+    from coord.conflict_fix import dispatch_conflict_fix  # noqa: PLC0415
+    from coord.merge_queue import load_queue  # noqa: PLC0415
+    from coord.network import fetch_status  # noqa: PLC0415
+    from coord.state import build_board  # noqa: PLC0415
+
+    authorize_sweep_action("conflict_fix_dispatch")
+
+    entry = next(
+        (
+            e for e in load_queue()
+            if e.repo_name == repo_name and e.issue_number == issue_number
+        ),
+        None,
+    )
+    if entry is None:
+        return {
+            "dispatched": False,
+            "detail": f"{repo_name}#{issue_number} has no merge-queue entry",
+        }
+
+    board = build_board()
+    fix = dispatch_conflict_fix(
+        entry, board, config, base_sync_fix=True, status_fetcher=fetch_status,
+    )
+    if fix is None:
+        return {
+            "dispatched": False,
+            "detail": (
+                f"{repo_name}#{issue_number}: a base-sync fix could not be "
+                "dispatched (no capable machine, one already active, or "
+                "the retry cap is already spent)"
+            ),
+        }
+    write_board(board)
+    return {
+        "dispatched": True,
+        "detail": (
+            f"{repo_name}#{issue_number}: dispatched base-sync-fix "
+            f"{fix.assignment_id} on {fix.machine_name}"
+        ),
+    }
+
+
+def run_base_sync_fix_ceiling_sweep(
+    rows: Sequence[StuckRow],
+    *,
+    config: Any,
+    evidence_fetcher: Callable[[str, int], tuple[bool, str]] | None = None,
+    dispatcher: Callable[[str, int], dict] | None = None,
+) -> list[dict]:
+    """#4050: for every ceiling-blocked drive-queue row this sweep just
+    diagnosed :data:`queue_diagnose.CAUSE_INTEGRATION_RED` (see
+    :func:`_ceiling_blocked_integration_red_candidates`), re-confirm the
+    cause live and, only on a confirmed premise, dispatch the budget-free
+    base-sync-fix conflict-fix leg (:func:`_dispatch_base_sync_fix`) —
+    never the generic investigate-tier fix-it leg, which #3454 already
+    refuses for a row this ceiling-blocked.
+
+    A candidate's premise is never assumed from the cause label alone:
+    before *dispatcher* is ever called, *evidence_fetcher*'s fresh
+    re-confirmation (:func:`_live_base_sync_fix_evidence` by default) must
+    read ``True`` — a candidate whose evidence does not confirm this is
+    reported ``dispatched=False`` with NO call to *dispatcher* at all, the
+    same "never act on an unconfirmed premise" posture :func:`run_
+    conflict_fix_ceiling_pending_sweep` already applies to its own
+    ``branch_moved`` reading.
+
+    *evidence_fetcher*/*dispatcher* default to :func:`_live_base_sync_fix_
+    evidence`/:func:`_dispatch_base_sync_fix`; both injectable so a test
+    never needs a live `gh` call, a real merge queue, or an HTTP POST.
+
+    Returns one dict per candidate — ``{"repo", "issue", "dispatched",
+    "detail"}`` — reported onto :attr:`SweepReport.
+    base_sync_fix_ceiling_dispatch` rather than :attr:`SweepReport.
+    decisions`: like *conflict_fix_ceiling_pending*, this is not a
+    tier/auto_dispatchers/convergence decision over the row at all.
+    """
+    fetch_evidence = evidence_fetcher or (
+        lambda repo_name, issue_number: _live_base_sync_fix_evidence(
+            repo_name, issue_number, config=config,
+        )
+    )
+    dispatch = dispatcher or (
+        lambda repo_name, issue_number: _dispatch_base_sync_fix(
+            repo_name, issue_number, config=config,
+        )
+    )
+
+    results: list[dict] = []
+    for repo_name, issue_number in _ceiling_blocked_integration_red_candidates(rows):
+        confirmed, detail = fetch_evidence(repo_name, issue_number)
+        if not confirmed:
+            results.append({
+                "repo": repo_name, "issue": issue_number,
+                "dispatched": False, "detail": detail,
+            })
+            continue
+        outcome = dispatch(repo_name, issue_number)
+        results.append({
+            "repo": repo_name,
+            "issue": issue_number,
+            "dispatched": bool(outcome.get("dispatched")),
+            "detail": outcome.get("detail", ""),
+        })
+    return results
+
+
 def run_sweep(
     *,
     config,
@@ -4064,6 +6353,23 @@ def run_sweep(
         run_followthrough_sweep
     ),
     mechanical_causes: frozenset[str] | None = None,
+    drop_predicted_after_edges: bool = True,
+    predicted_after_edges_sweep: Callable[..., list[str]] = sweep_predicted_after_edges,
+    auto_refile: bool = True,
+    refile_sweep: Callable[..., list[board_doctor_followthrough.Disposition]] = (
+        run_refile_sweep
+    ),
+    refile_close_sweep: Callable[..., list[dict]] = run_pending_refile_close_sweep,
+    conflict_fix_ceiling_requeue: bool = True,
+    conflict_fix_ceiling_sweep: Callable[..., list[dict]] = (
+        run_conflict_fix_ceiling_pending_sweep
+    ),
+    config_drift_autofix_apply: bool = True,
+    config_drift_fix_sweep: Callable[..., list[dict]] = run_config_drift_fix_sweep,
+    base_sync_fix_ceiling_dispatch: bool = True,
+    base_sync_fix_ceiling_sweep: Callable[..., list[dict]] = (
+        run_base_sync_fix_ceiling_sweep
+    ),
 ) -> SweepReport:
     """Production entry point: :func:`collect_rows` then :func:`sweep` (#3758).
 
@@ -4135,6 +6441,79 @@ def run_sweep(
     invisible to THIS call for up to 30 minutes regardless of how often the
     tight cadence fires, since both causes are minted off that same floor.
     The plain (unfiltered) call keeps the 30-minute floor unchanged.
+
+    #4037: *predicted_after_edges_sweep* (default
+    :func:`sweep_predicted_after_edges`) runs once per call and reports onto
+    :attr:`SweepReport.dropped_predicted_after_edges` — gated on
+    *drop_predicted_after_edges* (the same kind of fleet-wide kill switch
+    *followthrough* already is) AND ``mechanical_causes is None``, so the
+    tight-cadence call does not pay for an extra queue read plus one audit
+    query per `after=`-bearing entry every minute or two; the hourly plain
+    call still catches it well inside #2534's "every hour and did nothing"
+    window. A failure here is advisory-only, same posture as the
+    no-progress pass in :func:`_collect_rows_with_board`: it never takes
+    the rest of this report down.
+
+    #4038: ``branch-merged-guard`` rows are pulled out of *rows* the same
+    way ``merged-partial`` rows are, and resolved by *refile_sweep*
+    (default :func:`run_refile_sweep`) onto :attr:`SweepReport.refile`,
+    gated by *auto_refile* — the same kind of fleet-wide kill switch
+    *followthrough* is (:func:`coord.board_doctor_followthrough.
+    auto_refile_enabled` is still consulted per-row on top of this).
+    *refile_close_sweep* (default :func:`run_pending_refile_close_sweep`)
+    additionally runs every plain (non-mechanical) call regardless of
+    whether THIS round observed any ``branch-merged-guard`` row at all —
+    step 4 of a refile already filed in some EARLIER round has no row of
+    its own left to be driven by (the original's drive-queue row is gone
+    the moment the refile files successfully), so it reports onto
+    :attr:`SweepReport.refile_closed` independently of *rows*/*refile_rows*.
+
+    #4048: *config_drift_fix_sweep* (default :func:`run_config_drift_fix_sweep`)
+    attempts the #4048 Apply+Refund+requeue steps for every
+    :data:`queue_diagnose.CAUSE_CONFIG_DRIFT` candidate whose repo has
+    opted into ``board_doctor.config_drift_autofix`` — gated by
+    *config_drift_autofix_apply*, the same kind of fleet-wide kill switch
+    *auto_refile*/*followthrough* are, AND a hard ``dry_run`` skip (never
+    ``config_drift_fix_sweep(..., dry_run=...)``, mirroring
+    *conflict_fix_ceiling_sweep*'s own posture): unlike every other pass
+    here, this one commits to a SEPARATE git checkout
+    (``coord-settings``), which has no dry-run mode of its own to thread
+    through, so a dry-run caller must see zero mutation there, not a
+    best-effort one. Runs BEFORE :func:`sweep` (not after, unlike
+    *conflict_fix_ceiling_sweep*): a :class:`StuckRow` this round's own
+    attempt just resolved (``requeued=True``) is withdrawn from *rows*
+    before it ever reaches the tier/alert path, exactly the way
+    ``merged-partial``/``branch-merged-guard`` rows are withdrawn above —
+    but, per :func:`run_config_drift_fix_sweep`'s own docstring, ONLY the
+    keys this round confirms resolved, never every opted-in candidate
+    regardless of outcome: a failed attempt leaves its row's convergence
+    counter and any live escalation untouched instead of silently
+    dismissing them.
+
+    #4050: *base_sync_fix_ceiling_sweep* (default :func:`run_base_sync_fix_
+    ceiling_sweep`) is the twin of *conflict_fix_ceiling_sweep* for a
+    DIFFERENT budget-free shape — a ceiling-blocked row diagnosed
+    :data:`queue_diagnose.CAUSE_INTEGRATION_RED` (no textual conflict, a
+    branch Test verdict that already read green, CI red only because the
+    target branch moved under it) gets a fresh, confirmed-live dispatch of
+    the base-sync-fix conflict-fix leg instead of the generic investigate-
+    tier fix-it leg #3454 already refuses it.
+
+    Unlike *conflict_fix_ceiling_sweep*'s ``CAUSE_CI_PENDING`` rows (which
+    self-resolve the moment checks settle, so suppressing every opted-in
+    candidate regardless of outcome just costs a sweep or two), a row
+    diagnosed ``CAUSE_INTEGRATION_RED`` does not self-clear — it stays red
+    until something pushes a new head. So this pass runs BEFORE the row
+    loop below (not after :func:`sweep`, hard ``dry_run`` skip, failure is
+    advisory-only — otherwise the same posture), and only the keys it
+    actually confirmed ``dispatched=True`` (``base_sync_fix_keys``, mirroring
+    *config_drift_resolved_keys* a few lines down) are withdrawn from the
+    tier/alert path as ``suppressed=True``. A candidate whose premise never
+    reconfirms, or whose dispatch finds the retry cap already spent, is
+    left in the ordinary row walk so its convergence counter keeps
+    advancing and still escalates to a human at *convergence_limit* —
+    gated by *base_sync_fix_ceiling_dispatch*, the same kind of fleet-wide
+    kill switch *conflict_fix_ceiling_requeue* is.
     """
     board_doctor_cfg = getattr(config, "board_doctor", None)
     rows, board = _collect_rows_with_board(
@@ -4146,20 +6525,186 @@ def run_sweep(
         ),
     )
     followthrough_rows = [r for r in rows if r.cause == CAUSE_MERGED_PARTIAL]
-    other_rows = [r for r in rows if r.cause != CAUSE_MERGED_PARTIAL]
+    # A `branch-merged-guard` row is pulled out of *other_rows* ONLY when
+    # it is actually going to be refiled this call (the fleet-wide
+    # *auto_refile* switch AND the row's own repo opted in via
+    # `board_doctor.auto_refile: true`) — a repo that has not opted in
+    # (the fleet default) keeps seeing this row on the ordinary
+    # alert/mechanical path instead, so it neither vanishes from the
+    # report nor has `clear_absent_rows` read the vanishing as "resolved"
+    # and dismiss its live escalation.
+    refile_rows: list[StuckRow] = []
+    other_rows: list[StuckRow] = []
+    # #4036: a ceiling-blocked drive-queue row diagnosed `CAUSE_CI_PENDING`
+    # is resolved by *conflict_fix_ceiling_sweep* onto its own report field
+    # below, never by the generic tier/auto_dispatchers path. That path DOES
+    # have a dispatcher registered for `CAUSE_CI_PENDING`
+    # (`coord.board_doctor_policy`'s investigate tier, `sweep_dispatch_fixit_leg`)
+    # — the exclusion is not "there is nothing to call", it is that this row
+    # is already KNOWN not to need a worker: a conflict-fix leg already
+    # pushed a resolution, so dispatching a fresh investigate-tier fix-it
+    # leg here would spend that per-repo budget "fixing" a row that is not
+    # broken, just waiting on CI to settle. Unlike `merged-partial`/`branch-merged-guard`,
+    # this row is NOT dropped from *other_rows* — it is marked
+    # `suppressed=True` instead (the same #3761 baseline-red carve-out
+    # `sweep()` already honours): it stays `touched`, its convergence
+    # counter is left exactly where it was, and `clear_absent_rows` is NOT
+    # told it disappeared, so a live escalation from an EARLIER cause (the
+    # row may have escalated before this sweep ever reclassified it
+    # CI_PENDING) is never silently dismissed as resolved just because a
+    # conflict-fix push happens to be in flight. Requeuing can take more
+    # than one sweep (pending checks, a re-probe that fails) and this
+    # exclusion must not read as "resolved" on any of those intermediate
+    # rounds.
+    ceiling_pending_keys = (
+        frozenset(_ceiling_blocked_ci_pending_candidates(rows))
+        if conflict_fix_ceiling_requeue and mechanical_causes is None
+        else frozenset()
+    )
+    # #4050 review: unlike *ceiling_pending_keys* above, `CAUSE_INTEGRATION_
+    # RED` does not self-clear — a required check red only because the base
+    # moved stays red until something pushes a new head, so a row withdrawn
+    # from the tier/alert path on the cheap candidate filter alone (the
+    # pre-review shape of this block) would be suppressed forever on an
+    # unconfirmed premise or a spent retry cap, with its convergence counter
+    # frozen and no escalation ever reaching a human. `base_sync_fix_keys`
+    # is therefore computed from this pass's own `dispatched=True` outcomes
+    # ONLY, run here BEFORE the row loop below — the same "withdraw only
+    # what this round confirmed" rule `config_drift_resolved_keys` already
+    # applies a few lines down. A candidate whose premise never confirms,
+    # or whose dispatch finds the retry cap already spent, is left in
+    # `other_rows` so its convergence counter keeps advancing and still
+    # escalates at `convergence_limit`.
+    base_sync_fix_results: list[dict] = []
+    if base_sync_fix_ceiling_dispatch and mechanical_causes is None and not dry_run:
+        # Hard `dry_run` skip, same posture as *config_drift_fix_sweep* just
+        # below: this pass always probes live and, on a confirmed premise,
+        # always dispatches a leg, so a dry-run caller must see zero
+        # dispatch and zero suppression from this lane, not a best-effort
+        # one.
+        try:
+            base_sync_fix_results = base_sync_fix_ceiling_sweep(rows, config=config)
+        except Exception:  # noqa: BLE001 — advisory, same posture as the
+            # other best-effort passes in this function: a failed attempt
+            # this round never takes the rest of this report down, and
+            # every candidate stays exactly where `rows` found it for the
+            # next sweep to retry.
+            _log.warning(
+                "board-doctor: base-sync-fix ceiling-blocked dispatch sweep "
+                "failed this round",
+                exc_info=True,
+            )
+    base_sync_fix_keys = frozenset(
+        (outcome["repo"], outcome["issue"])
+        for outcome in base_sync_fix_results
+        if outcome.get("dispatched")
+    )
+    # #4048: run the Apply+Refund+requeue attempt BEFORE `sweep()` sees
+    # *rows* at all — never after, unlike *conflict_fix_ceiling_sweep*
+    # (which only ever waits on live CI, never mutates a second git
+    # checkout) — a hard `dry_run` skip, same reasoning as that pass's own
+    # posture but one notch stricter: this one commits outside the board
+    # entirely, so a dry-run caller must see zero mutation there.
+    config_drift_fix_results: list[dict] = []
+    if config_drift_autofix_apply and mechanical_causes is None and not dry_run:
+        try:
+            config_drift_fix_results = config_drift_fix_sweep(
+                config_drift_candidates(board, config), config=config,
+            )
+        except Exception:  # noqa: BLE001 — advisory, same posture as the
+            # other best-effort passes in this function: a failed attempt
+            # this round never takes the rest of this report down, and the
+            # row stays exactly as `config_drift_rows` found it for the
+            # next sweep to retry.
+            _log.warning(
+                "board-doctor: config-drift autofix sweep failed this round",
+                exc_info=True,
+            )
+    # Only a key THIS round's attempt actually confirmed `requeued=True`
+    # is withdrawn from the ordinary alert path below — never every
+    # opted-in candidate regardless of outcome (#4036 review: pulling a
+    # row out on a merely-attempted, not confirmed-resolved, action makes
+    # its escalation vanish and dismisses any live one). A failed/refused
+    # attempt leaves its row exactly where `config_drift_rows` put it, so
+    # the alert tier's one-line-patch message still reaches a human.
+    config_drift_resolved_keys = frozenset(
+        f"{outcome['repo']}#{outcome['issue']}"
+        for outcome in config_drift_fix_results
+        if outcome.get("requeued")
+    )
+    for r in rows:
+        if r.cause == CAUSE_MERGED_PARTIAL:
+            continue
+        if (
+            r.cause == CAUSE_BRANCH_MERGED_GUARD
+            and auto_refile
+            and _branch_merged_guard_row_opted_in(r, config)
+        ):
+            refile_rows.append(r)
+            continue
+        if (
+            r.cause == queue_diagnose.CAUSE_CONFIG_DRIFT
+            and r.key in config_drift_resolved_keys
+        ):
+            continue
+        if r.cause == queue_diagnose.CAUSE_CI_PENDING and r.queue == "drive-queue":
+            from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
+
+            parsed = _parse_row_key(r.key)
+            if parsed is not None and parsed in ceiling_pending_keys:
+                other_rows.append(replace(r, suppressed=True))
+                continue
+        if r.cause == queue_diagnose.CAUSE_INTEGRATION_RED and r.queue == "drive-queue":
+            from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
+
+            parsed = _parse_row_key(r.key)
+            if parsed is not None and parsed in base_sync_fix_keys:
+                other_rows.append(replace(r, suppressed=True))
+                continue
+        other_rows.append(r)
     if mechanical_causes is not None:
         other_rows = [r for r in other_rows if r.cause in mechanical_causes]
         followthrough_rows = []
+        refile_rows = []
     resolved_capacity_check = (
         default_investigate_capacity(config)
         if capacity_check is _CAPACITY_CHECK_UNSET
         else capacity_check
     )
+
+    routed_alert_dispatcher = alert_dispatcher
+    if alert_dispatcher is not None:
+
+        def _route_alert(row: StuckRow) -> bool | str:
+            """#4039: an :data:`IDLE_FLEET_ROOT_QUEUE` row never goes
+            through *alert_dispatcher* (``board_doctor_policy.
+            escalation_alert_dispatcher`` in production) — that writer
+            keys `drive_escalations` on ``(repo, issue)`` alone, and the
+            root's OWN ordinary ``queue="drive-queue"`` row already owns
+            that exact slot for the SAME cause, so a second writer there
+            would almost always find itself "covered" and skip —
+            precisely the quiet window this cause exists to page
+            through. :func:`coord.notify.post_idle_fleet_root_alert`
+            posts to the root issue directly instead, an independent
+            channel with no such collision. Every other queue keeps
+            going through *alert_dispatcher* exactly as before — and
+            *alert_dispatcher* being ``None`` (the no-op default) is left
+            completely untouched above, so `sweep`'s own ``"no-dispatcher"``
+            bookkeeping for that case is unaffected by this routing.
+            """
+            if row.queue == IDLE_FLEET_ROOT_QUEUE:
+                from coord import notify  # noqa: PLC0415
+
+                return notify.post_idle_fleet_root_alert(row)
+            return alert_dispatcher(row)
+
+        routed_alert_dispatcher = _route_alert
+
     report = sweep(
         other_rows,
         tier_of=tier_of,
         auto_dispatchers=auto_dispatchers,
-        alert_dispatcher=alert_dispatcher,
+        alert_dispatcher=routed_alert_dispatcher,
         dry_run=dry_run,
         convergence_limit=convergence_limit,
         escalation_resolver=escalation_resolver,
@@ -4180,10 +6725,60 @@ def run_sweep(
     # meaning the whole board, not just this call's own narrowed subset.
     if mechanical_causes is None:
         report.rows_observed = len(rows)
+    report.config_drift_fix = config_drift_fix_results
+    report.base_sync_fix_ceiling_dispatch = base_sync_fix_results
     if followthrough and followthrough_rows:
         report.followthrough = followthrough_sweep(
             followthrough_rows, config=config, board=board, dry_run=dry_run,
         )
+    if auto_refile and refile_rows:
+        report.refile = refile_sweep(
+            refile_rows, config=config, board=board, dry_run=dry_run,
+        )
+    if conflict_fix_ceiling_requeue and ceiling_pending_keys and not dry_run:
+        # #4036: `dry_run` is a hard skip (never `conflict_fix_ceiling_
+        # sweep(..., dry_run=...)`) because, unlike *followthrough_sweep*/
+        # *refile_sweep*, this pass has no dry-run mode of its own — it
+        # always probes live and, on a confirmed-green verdict, always
+        # mutates the drive queue. A dry-run caller (`coord board-doctor
+        # sweep --dry-run`) must see zero mutation, not a best-effort one.
+        try:
+            report.conflict_fix_ceiling_pending = conflict_fix_ceiling_sweep(
+                rows, config=config,
+            )
+        except Exception:  # noqa: BLE001 — advisory, same posture as the
+            # refile-close/predicted-after-edges passes just below: a
+            # failed requeue attempt this round never takes the rest of
+            # this report down, and the row stays ceiling-blocked
+            # (unchanged) for the next sweep to retry.
+            _log.warning(
+                "board-doctor: conflict-fix ceiling-pending requeue sweep "
+                "failed this round",
+                exc_info=True,
+            )
+    if auto_refile and mechanical_causes is None:
+        try:
+            report.refile_closed = refile_close_sweep(config=config, dry_run=dry_run)
+        except Exception:  # noqa: BLE001 — advisory only
+            # Same posture as *predicted_after_edges_sweep* just below: a
+            # failed pending-close check never takes the rest of this
+            # report down, and the pending state it reads is durable (the
+            # decision log), so a skipped round just means the close
+            # happens next sweep.
+            _log.warning(
+                "board-doctor: pending refile-close sweep failed this round",
+                exc_info=True,
+            )
+    if drop_predicted_after_edges and mechanical_causes is None:
+        try:
+            report.dropped_predicted_after_edges = predicted_after_edges_sweep(
+                dry_run=dry_run, config=config,
+            )
+        except Exception:  # noqa: BLE001 — advisory, see docstring
+            _log.warning(
+                "board-doctor: predicted after= edge sweep failed this round",
+                exc_info=True,
+            )
     return report
 
 

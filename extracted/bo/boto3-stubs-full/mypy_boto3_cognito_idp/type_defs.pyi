@@ -36,6 +36,7 @@ from .literals import (
     ChallengeNameType,
     ChallengeNameTypeType,
     ChallengeResponseType,
+    CIMDCacheActionTypeType,
     ClientTypeTypeType,
     ColorSchemeModeTypeType,
     CompromisedCredentialsEventActionTypeType,
@@ -159,11 +160,14 @@ __all__ = (
     "AuthEventTypeTypeDef",
     "AuthenticationResultTypeTypeDef",
     "BlobTypeDef",
+    "CIMDPolicySummaryTypeTypeDef",
+    "CIMDPolicyTypeTypeDef",
     "CancelPointInTimeRecoveryRequestTypeDef",
     "CancelPointInTimeRecoveryResponseTypeDef",
     "ChallengeResponseTypeTypeDef",
     "ChangePasswordRequestTypeDef",
     "ClientAuthenticationResultTypeTypeDef",
+    "ClientMetadataURLTypeTypeDef",
     "ClientSSOSessionConfigTypeTypeDef",
     "ClientSecretDescriptorTypeTypeDef",
     "CloudWatchLogsConfigurationTypeTypeDef",
@@ -179,6 +183,8 @@ __all__ = (
     "ConfirmSignUpRequestTypeDef",
     "ConfirmSignUpResponseTypeDef",
     "ContextDataTypeTypeDef",
+    "CreateCIMDPolicyRequestTypeDef",
+    "CreateCIMDPolicyResponseTypeDef",
     "CreateGroupRequestTypeDef",
     "CreateGroupResponseTypeDef",
     "CreateIdentityProviderRequestTypeDef",
@@ -205,6 +211,7 @@ __all__ = (
     "DcrConfigurationTypeOutputTypeDef",
     "DcrConfigurationTypeTypeDef",
     "DcrConfigurationTypeUnionTypeDef",
+    "DeleteCIMDPolicyRequestTypeDef",
     "DeleteGroupRequestTypeDef",
     "DeleteIdentityProviderRequestTypeDef",
     "DeleteManagedLoginBrandingRequestTypeDef",
@@ -219,6 +226,8 @@ __all__ = (
     "DeleteUserPoolRequestTypeDef",
     "DeleteUserRequestTypeDef",
     "DeleteWebAuthnCredentialRequestTypeDef",
+    "DescribeCIMDPolicyRequestTypeDef",
+    "DescribeCIMDPolicyResponseTypeDef",
     "DescribeIdentityProviderRequestTypeDef",
     "DescribeIdentityProviderResponseTypeDef",
     "DescribeManagedLoginBrandingByClientRequestTypeDef",
@@ -310,6 +319,12 @@ __all__ = (
     "LimitDefinitionTypeTypeDef",
     "LimitDefinitionTypeUnionTypeDef",
     "LimitTypeTypeDef",
+    "ListCIMDPoliciesRequestPaginateTypeDef",
+    "ListCIMDPoliciesRequestTypeDef",
+    "ListCIMDPoliciesResponseTypeDef",
+    "ListClientMetadataURLsRequestPaginateTypeDef",
+    "ListClientMetadataURLsRequestTypeDef",
+    "ListClientMetadataURLsResponseTypeDef",
     "ListDevicesRequestTypeDef",
     "ListDevicesResponseTypeDef",
     "ListGroupsRequestPaginateTypeDef",
@@ -426,6 +441,9 @@ __all__ = (
     "UICustomizationTypeTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAuthEventFeedbackRequestTypeDef",
+    "UpdateCIMDPolicyRequestTypeDef",
+    "UpdateCIMDPolicyResponseTypeDef",
+    "UpdateClientMetadataURLStateRequestTypeDef",
     "UpdateDeviceStatusRequestTypeDef",
     "UpdateGroupRequestTypeDef",
     "UpdateGroupResponseTypeDef",
@@ -710,6 +728,24 @@ class NewDeviceMetadataTypeTypeDef(TypedDict):
     DeviceKey: NotRequired[str]
     DeviceGroupKey: NotRequired[str]
 
+class CIMDPolicySummaryTypeTypeDef(TypedDict):
+    CIMDPolicyId: str
+    PolicyName: str
+    ClientId: NotRequired[str]
+    CacheDuration: NotRequired[int]
+    CreationDate: NotRequired[datetime]
+    LastModifiedDate: NotRequired[datetime]
+
+class CIMDPolicyTypeTypeDef(TypedDict):
+    UserPoolId: str
+    CIMDPolicyId: str
+    PolicyName: str
+    ClientId: NotRequired[str]
+    CacheDuration: NotRequired[int]
+    URLPatterns: NotRequired[list[str]]
+    CreationDate: NotRequired[datetime]
+    LastModifiedDate: NotRequired[datetime]
+
 class CancelPointInTimeRecoveryRequestTypeDef(TypedDict):
     UserPoolId: str
     RestoreId: str
@@ -723,6 +759,11 @@ class ClientAuthenticationResultTypeTypeDef(TypedDict):
     AccessToken: NotRequired[str]
     ExpiresIn: NotRequired[int]
     TokenType: NotRequired[str]
+
+class ClientMetadataURLTypeTypeDef(TypedDict):
+    URL: str
+    CachedDate: NotRequired[datetime]
+    ExpirationDate: NotRequired[datetime]
 
 class ClientSSOSessionConfigTypeTypeDef(TypedDict):
     MaxValidityMinutes: int
@@ -753,6 +794,13 @@ class UserContextDataTypeTypeDef(TypedDict):
 class HttpHeaderTypeDef(TypedDict):
     headerName: NotRequired[str]
     headerValue: NotRequired[str]
+
+class CreateCIMDPolicyRequestTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+    PolicyName: str
+    URLPatterns: Sequence[str]
+    CacheDuration: NotRequired[int]
 
 class CreateGroupRequestTypeDef(TypedDict):
     GroupName: str
@@ -912,6 +960,10 @@ class DcrConfigurationTypeTypeDef(TypedDict):
     OpenDcrGrantTypes: NotRequired[Sequence[OAuthFlowTypeType]]
     AllowedScopes: NotRequired[Sequence[str]]
 
+class DeleteCIMDPolicyRequestTypeDef(TypedDict):
+    UserPoolId: str
+    CIMDPolicyId: str
+
 class DeleteGroupRequestTypeDef(TypedDict):
     GroupName: str
     UserPoolId: str
@@ -966,6 +1018,10 @@ class DeleteUserRequestTypeDef(TypedDict):
 class DeleteWebAuthnCredentialRequestTypeDef(TypedDict):
     AccessToken: str
     CredentialId: str
+
+class DescribeCIMDPolicyRequestTypeDef(TypedDict):
+    UserPoolId: str
+    CIMDPolicyId: str
 
 class DescribeIdentityProviderRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -1153,6 +1209,17 @@ class LimitDefinitionTypeOutputTypeDef(TypedDict):
 class LimitDefinitionTypeTypeDef(TypedDict):
     LimitClass: Literal["API_CATEGORY"]
     Attributes: Mapping[str, str]
+
+class ListCIMDPoliciesRequestTypeDef(TypedDict):
+    UserPoolId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListClientMetadataURLsRequestTypeDef(TypedDict):
+    UserPoolId: str
+    CIMDPolicyId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListDevicesRequestTypeDef(TypedDict):
     AccessToken: str
@@ -1353,6 +1420,20 @@ class UpdateAuthEventFeedbackRequestTypeDef(TypedDict):
     EventId: str
     FeedbackToken: str
     FeedbackValue: FeedbackValueTypeType
+
+class UpdateCIMDPolicyRequestTypeDef(TypedDict):
+    UserPoolId: str
+    CIMDPolicyId: str
+    ClientId: str
+    URLPatterns: Sequence[str]
+    PolicyName: NotRequired[str]
+    CacheDuration: NotRequired[int]
+
+class UpdateClientMetadataURLStateRequestTypeDef(TypedDict):
+    UserPoolId: str
+    CIMDPolicyId: str
+    URL: str
+    Action: CIMDCacheActionTypeType
 
 class UpdateDeviceStatusRequestTypeDef(TypedDict):
     AccessToken: str
@@ -1579,6 +1660,15 @@ class AdminListUserAuthEventsRequestPaginateTypeDef(TypedDict):
     Username: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListCIMDPoliciesRequestPaginateTypeDef(TypedDict):
+    UserPoolId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListClientMetadataURLsRequestPaginateTypeDef(TypedDict):
+    UserPoolId: str
+    CIMDPolicyId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListGroupsRequestPaginateTypeDef(TypedDict):
     UserPoolId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1691,9 +1781,31 @@ class AuthenticationResultTypeTypeDef(TypedDict):
     IdToken: NotRequired[str]
     NewDeviceMetadata: NotRequired[NewDeviceMetadataTypeTypeDef]
 
+class ListCIMDPoliciesResponseTypeDef(TypedDict):
+    CIMDPolicies: list[CIMDPolicySummaryTypeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class CreateCIMDPolicyResponseTypeDef(TypedDict):
+    CIMDPolicy: CIMDPolicyTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCIMDPolicyResponseTypeDef(TypedDict):
+    CIMDPolicy: CIMDPolicyTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateCIMDPolicyResponseTypeDef(TypedDict):
+    CIMDPolicy: CIMDPolicyTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetClientTokenResponseTypeDef(TypedDict):
     ClientAuthenticationResult: ClientAuthenticationResultTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListClientMetadataURLsResponseTypeDef(TypedDict):
+    ClientMetadataURLs: list[ClientMetadataURLTypeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class GetUserPoolClientSessionConfigurationResponseTypeDef(TypedDict):
     UserPoolId: str
@@ -1919,6 +2031,7 @@ class CreateUserPoolClientRequestTypeDef(TypedDict):
     EnablePropagateAdditionalUserContextData: NotRequired[bool]
     AuthSessionValidity: NotRequired[int]
     RefreshTokenRotation: NotRequired[RefreshTokenRotationTypeTypeDef]
+    PublishSecretsInAWSSecretsManager: NotRequired[bool]
 
 class UpdateUserPoolClientRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -1944,12 +2057,14 @@ class UpdateUserPoolClientRequestTypeDef(TypedDict):
     EnablePropagateAdditionalUserContextData: NotRequired[bool]
     AuthSessionValidity: NotRequired[int]
     RefreshTokenRotation: NotRequired[RefreshTokenRotationTypeTypeDef]
+    PublishSecretsInAWSSecretsManager: NotRequired[bool]
 
 class UserPoolClientTypeTypeDef(TypedDict):
     UserPoolId: NotRequired[str]
     ClientName: NotRequired[str]
     ClientId: NotRequired[str]
     ClientSecret: NotRequired[str]
+    ClientSecretArn: NotRequired[str]
     LastModifiedDate: NotRequired[datetime]
     CreationDate: NotRequired[datetime]
     RefreshTokenValidity: NotRequired[int]

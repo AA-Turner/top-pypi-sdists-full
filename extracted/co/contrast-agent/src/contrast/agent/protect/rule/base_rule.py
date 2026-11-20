@@ -166,6 +166,7 @@ class BaseRule:
             raise contrast.AttackBlockedException(rule_name=self.name)
 
     @fail_loudly("Failed to run protect rule")
+    @scope.contrast_scope()
     def protect(
         self,
         patch_policy: PatchLocationPolicy,
@@ -179,14 +180,13 @@ class BaseRule:
         if self.skip_protect_analysis(user_input, args, kwargs):
             return
 
-        with scope.contrast_scope():
-            user_input = self.convert_input(user_input)
-            if not user_input:
-                return
+        user_input = self.convert_input(user_input)
+        if not user_input:
+            return
 
-            self.log_safely(patch_policy.method_name, user_input)
+        self.log_safely(patch_policy.method_name, user_input)
 
-            self._infilter(user_input, **self.infilter_kwargs(user_input, patch_policy))
+        self._infilter(user_input, **self.infilter_kwargs(user_input, patch_policy))
 
     def infilter_kwargs(self, user_input: str, patch_policy: PatchLocationPolicy):
         return {}

@@ -167,8 +167,9 @@ def check(size: int = BIG_UPLOAD + 1) -> bool:
 class Warm:
     """Keeps a connection warm while its robot runs (the module's docstring): after every `every_s` in which nothing was
     sent on it, within `for_s` of the last send, it calls `ping()` (the connection's own: a WebSocket ping or a small
-    request), until close(). used() records that something was sent. A ping that raises stops the pings: its connection
-    is dead, and the next send will find that.
+    request), until close(). used() records that something was sent. A ping that raises ends the warm thread (the
+    connection looked dead) and is counted in pings_failed; the next used() - a send that got through, so the connection
+    is alive again - starts a fresh thread, rather than leaving a connection that recovered never pinged again.
 
     The thread starts at the first used(), so a connection that was never sent on is never pinged."""
 
@@ -181,6 +182,7 @@ class Warm:
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
         self.pings = 0
+        self.pings_failed = 0          # pings that raised (the connection looked dead): the warm thread ended on each
 
     def used(self) -> None:
         """Record that something was just sent on the connection: no ping is due for `every_s`, and it is kept warm for
@@ -207,7 +209,8 @@ class Warm:
             return True
         try:
             sent = self._ping()
-        except Exception:  # noqa: BLE001 (whatever the caller's connection raises: it is dead)
+        except Exception:  # noqa: BLE001 (whatever the caller's connection raises: it looks dead)
+            self.pings_failed += 1
             return False
         if sent is not False:
             self.pings += 1
@@ -228,6 +231,13 @@ class Warm:
     def _run(self) -> None:
         while not self._stop.wait(self._wait()):
             if not self.tick():
+                # the ping raised: this connection looked dead, so the thread ends - but it forgets itself, so a later
+                # used() (a send that got through: the connection is alive again) starts a fresh thread, rather than
+                # finding a dead one here and never pinging again. close() leaves _thread set (a stopped Warm never
+                # restarts - used() checks _stop - and callers read _thread after close()).
+                with self._lock:
+                    if self._thread is threading.current_thread():
+                        self._thread = None
                 return
 
     def close(self, wait_s: float = 2.0) -> None:

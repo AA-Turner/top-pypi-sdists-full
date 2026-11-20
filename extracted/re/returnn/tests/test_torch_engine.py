@@ -2584,6 +2584,10 @@ def _torch_distributed_param_sync_optimizer_state_worker(
         optimizer.step()  # an extra update on one rank, as after an epoch with more batches on it
     # nested state with a Python value, as a custom optimizer might keep it: taken from rank 0
     optimizer.state[next(module.parameters())]["extra"] = {"nested": [f"rank {rank}"]}
+    # Python values per param: a count which differs on one rank only, and a value which differs only in its type
+    for param in module.parameters():
+        optimizer.state[param]["py_step"] = 2 if rank == 1 else 1
+        optimizer.state[param]["scale"] = 1.0 if rank == 0 else 1
     ctx = DistributedContext(
         {
             "backend": "gloo",
@@ -2605,6 +2609,9 @@ def _torch_distributed_param_sync_optimizer_state_worker(
         ],
         "steps": [float(optimizer.state[param]["step"]) for param in module.parameters()],
         "extra": optimizer.state[next(module.parameters())]["extra"],
+        "py_values": [
+            [optimizer.state[param]["py_step"], repr(optimizer.state[param]["scale"])] for param in module.parameters()
+        ],
     }
     torch.save(results, f"{tmp_dir}/rank{rank}.pt")
     ctx.destroy_process_groups()
@@ -2641,11 +2648,14 @@ def _check_torch_distributed_param_sync_optimizer_state(sync_optimizer_state: bo
             numpy.testing.assert_allclose(res_rank["state"], mean_state, rtol=1e-5)
             assert res_rank["steps"] == [2.0, 2.0], (rank, res_rank["steps"])  # the max, not the mean 1.25
             assert res_rank["extra"] == {"nested": ["rank 0"]}, (rank, res_rank["extra"])
+            assert res_rank["py_values"] == [[1, "1.0"]] * 2, (rank, res_rank["py_values"])  # of rank 0
     else:  # each rank keeps its own
         for rank, res_rank in enumerate(res):
             numpy.testing.assert_allclose(res_rank["state"], own_state[rank], rtol=1e-5)
             assert res_rank["steps"] == [float(n) for n in [[1, 2, 1, 1][rank]] * 2], (rank, res_rank["steps"])
             assert res_rank["extra"] == {"nested": [f"rank {rank}"]}, (rank, res_rank["extra"])
+            py_values = [[2 if rank == 1 else 1, "1.0" if rank == 0 else "1"]] * 2
+            assert res_rank["py_values"] == py_values, (rank, res_rank["py_values"])
 
 
 def test_torch_distributed_param_sync_optimizer_state_cpu():
@@ -2657,20 +2667,40 @@ def test_torch_distributed_param_sync_no_optimizer_state_cpu():
 
 
 def _torch_distributed_sync_at_epoch_end_worker(
-    rank: int, world_size: int, port: int, tmp_dir: str, sync_at_epoch_end: bool
+    rank: int, world_size: int, port: int, tmp_dir: str, sync_at_epoch_end: bool, device: str
 ):
+    import torch.distributed.distributed_c10d
+
     os.environ.update(
         MASTER_ADDR="127.0.0.1",
         MASTER_PORT=str(port),
         RANK=str(rank),
         WORLD_SIZE=str(world_size),
-        LOCAL_RANK=str(rank),
-        LOCAL_WORLD_SIZE=str(world_size),
+        # on CUDA: both ranks on one GPU, gloo also for the CUDA tensors
+        LOCAL_RANK=str(rank) if device == "cpu" else "0",
+        LOCAL_WORLD_SIZE=str(world_size) if device == "cpu" else "1",
     )
+    sync_devices = []  # of every collective
+    orig_all_reduce = torch.distributed.all_reduce
+    orig_broadcast = torch.distributed.broadcast
+
+    def _all_reduce(tensor: torch.Tensor, *args, **kwargs):
+        sync_devices.append(("all_reduce", tensor.dtype, tensor.device.type))
+        return orig_all_reduce(tensor, *args, **kwargs)
+
+    def _broadcast(tensor: torch.Tensor, *args, **kwargs):
+        if tensor.ndim > 0:  # not the seed which the torch DataLoader shares per iterator, a CPU scalar
+            sync_devices.append(("broadcast", tensor.dtype, tensor.device.type))
+        return orig_broadcast(tensor, *args, **kwargs)
+
+    torch.distributed.all_reduce = _all_reduce
+    torch.distributed.broadcast = _broadcast
+    torch.distributed.distributed_c10d.broadcast = _broadcast  # used by broadcast_object_list
+
     config = Config(
         dict(
             task="train",
-            device="cpu",
+            device=device,
             extern_data={"data": {"dim": 9}, "classes": {"dim": 2, "sparse": True}},
             get_model=TrainTestModel,
             train_step=TrainTestModel.train_step,
@@ -2694,11 +2724,15 @@ def _torch_distributed_sync_at_epoch_end_worker(
         # Rank 0 runs out after 7 steps, rank 1 then stops at its next sync, after 8 steps: different step counts.
         dataset = init_dataset({"class": "Task12AXDataset", "num_seqs": 7 if rank == 0 else 9})
         dataset.init_seq_order(epoch=1)
+        dev_dataset = init_dataset({"class": "Task12AXDataset", "num_seqs": 3})
         engine = Engine(config=config)
-        engine.init_train_from_config(train_data=dataset)
+        engine.init_train_from_config(train_data=dataset, dev_data=dev_dataset)
         # buffers as a batch norm has them: running stats (float, the mean) and a count (int, the max)
-        engine._pt_model.register_buffer("stat", torch.full((2,), float(rank)))
-        engine._pt_model.register_buffer("count", torch.tensor(rank, dtype=torch.int64))
+        engine._pt_model.register_buffer("stat", torch.full((2,), float(rank), device=device))
+        engine._pt_model.register_buffer("count", torch.tensor(rank, dtype=torch.int64, device=device))
+        engine._pt_model.register_buffer(
+            "counts", torch.tensor([[rank, 5 - rank], [7, -rank]], dtype=torch.int32, device=device)
+        )
         # nested optimizer state as a custom optimizer might keep it: a tensor (mean) and a Python value (from rank 0),
         # added before epoch 2, when the lazy Adam state exists (Adam creates it only when the state is empty)
         optimizer = engine._updater.get_optimizer()
@@ -2707,7 +2741,7 @@ def _torch_distributed_sync_at_epoch_end_worker(
         def _train_epoch(self):
             if self.epoch == 2:
                 optimizer.state[next(self._pt_model.parameters())]["extra"] = {
-                    "nested": [torch.full((3,), float(rank)), {"note": f"rank {rank}"}]
+                    "nested": [torch.full((3,), float(rank), device=device), {"note": f"rank {rank}"}]
                 }
             return orig_train_epoch(self)
 
@@ -2720,6 +2754,13 @@ def _torch_distributed_sync_at_epoch_end_worker(
         ]
         extra = optimizer.state[next(engine._pt_model.parameters())]["extra"]
         buffers = {name: buf.clone() for name, buf in engine._pt_model.named_buffers()}
+    # All collectives run on the train device, so on one backend, also for what lives on the CPU:
+    # the train step, the ``step`` tensors of Adam, the Python values, the eval control broadcast, the eval scores.
+    kinds = {(kind, dtype) for kind, dtype, _ in sync_devices}
+    assert ("broadcast", torch.int8) in kinds, kinds  # eval
+    if sync_at_epoch_end:
+        assert {("all_reduce", torch.int64), ("all_reduce", torch.int32), ("broadcast", torch.uint8)} <= kinds, kinds
+    assert all(dev == torch.device(device).type for _, _, dev in sync_devices), sync_devices
     torch.save(
         {
             "params": params,
@@ -2733,7 +2774,7 @@ def _torch_distributed_sync_at_epoch_end_worker(
     engine._torch_distributed_ctx.destroy_process_groups()
 
 
-def _check_torch_distributed_sync_at_epoch_end(sync_at_epoch_end: bool):
+def _check_torch_distributed_sync_at_epoch_end(sync_at_epoch_end: bool, device: str = "cpu"):
     import socket
     import torch.multiprocessing
 
@@ -2744,11 +2785,11 @@ def _check_torch_distributed_sync_at_epoch_end(sync_at_epoch_end: bool):
     with tempfile.TemporaryDirectory(prefix="returnn_test_torch_distributed_sync_at_epoch_end") as tmp_dir:
         torch.multiprocessing.spawn(
             _torch_distributed_sync_at_epoch_end_worker,
-            args=(world_size, port, tmp_dir, sync_at_epoch_end),
+            args=(world_size, port, tmp_dir, sync_at_epoch_end, device),
             nprocs=world_size,
         )
-        res = [torch.load(f"{tmp_dir}/rank{rank}.pt") for rank in range(world_size)]
-        saved_opt = torch.load(f"{tmp_dir}/model.002.opt.pt")  # written by rank 0
+        res = [torch.load(f"{tmp_dir}/rank{rank}.pt", map_location="cpu") for rank in range(world_size)]
+        saved_opt = torch.load(f"{tmp_dir}/model.002.opt.pt", map_location="cpu")  # written by rank 0
     params_equal = all(torch.equal(p0, p1) for p0, p1 in zip(res[0]["params"], res[1]["params"]))
     state_keys = sorted(res[0]["state"][0].keys())
     assert "exp_avg" in state_keys and "exp_avg_sq" in state_keys, state_keys
@@ -2770,6 +2811,8 @@ def _check_torch_distributed_sync_at_epoch_end(sync_at_epoch_end: bool):
             buffers,
         )
         assert int(buffers["count"]) == (1 if sync_at_epoch_end else rank), (rank, buffers)
+        counts = [[1, 5], [7, 0]] if sync_at_epoch_end else [[rank, 5 - rank], [7, -rank]]
+        assert buffers["counts"].dtype == torch.int32 and buffers["counts"].tolist() == counts, (rank, buffers)
         extra = res[rank]["extra"]["nested"]
         assert torch.equal(extra[0], torch.full((3,), 0.5 if sync_at_epoch_end else float(rank))), (rank, extra)
         assert extra[1] == {"note": "rank 0" if sync_at_epoch_end else f"rank {rank}"}, (rank, extra)
@@ -2793,40 +2836,47 @@ def test_torch_engine_distributed_param_no_sync_at_epoch_end_cpu():
     _check_torch_distributed_sync_at_epoch_end(sync_at_epoch_end=False)
 
 
+def test_torch_engine_distributed_param_sync_at_epoch_end_cuda():
+    if not torch.cuda.is_available():
+        raise unittest.SkipTest("CUDA not available")
+    _check_torch_distributed_sync_at_epoch_end(sync_at_epoch_end=True, device="cuda")
+
+
 def _torch_distributed_all_reduce_avg_flat_worker(rank: int, world_size: int, port: int, tmp_dir: str):
     import returnn.torch.distributed as torch_distributed
-    from returnn.torch.distributed import _all_reduce_avg_flat, _destroy_process_groups
+    from returnn.torch.distributed import _all_reduce_flat, _destroy_process_groups
 
     os.environ.update(MASTER_ADDR="127.0.0.1", MASTER_PORT=str(port), RANK=str(rank), WORLD_SIZE=str(world_size))
     torch.distributed.init_process_group(backend="gloo")
     # 5 float32 tensors of 3, 7, 2, 11 and 5 elements; 8 bytes per bucket: a tensor of 2 fills one,
     # every other tensor is larger than a bucket and gets its own
     tensors = [torch.full((n,), float(100 * rank + i)) for i, n in enumerate([3, 7, 2, 11, 5])]
-    _all_reduce_avg_flat(tensors, bucket_bytes=8)
+    _all_reduce_flat(tensors, op="avg", bucket_bytes=8)
     results = [[float(tensor[0]), float(tensor[-1])] for tensor in tensors]
     tensors = [torch.full((n,), float(100 * rank + i)) for i, n in enumerate([3, 7, 2, 11, 5])]
-    _all_reduce_avg_flat(tensors, sync_on_cpu=True, bucket_bytes=8)  # on CPU tensors: the same path, no copy
+    # on CPU tensors: the same path, no copy
+    _all_reduce_flat(tensors, op="avg", sync_device=torch.device("cpu"), bucket_bytes=8)
     assert [[float(tensor[0]), float(tensor[-1])] for tensor in tensors] == results
     # mixed dtypes: one bucket per dtype, no promotion
     tensors = [
         torch.full((n,), float(100 * rank + i), dtype=[torch.float32, torch.float64][i % 2])
         for i, n in enumerate([3, 7, 2, 11, 5])
     ]
-    _all_reduce_avg_flat(tensors, bucket_bytes=8)
+    _all_reduce_flat(tensors, op="avg", bucket_bytes=8)
     assert [[float(tensor[0]), float(tensor[-1])] for tensor in tensors] == results
     assert [tensor.dtype for tensor in tensors] == [[torch.float32, torch.float64][i % 2] for i in range(5)]
     # several tensors per bucket: 32 bytes hold 8 float32 or 4 float64 elements
     bucket_sizes = []
-    orig_all_reduce_avg_bucket = torch_distributed._all_reduce_avg_bucket
+    orig_all_reduce_bucket = torch_distributed._all_reduce_bucket
 
-    def _all_reduce_avg_bucket(bucket, **kwargs):
+    def _all_reduce_bucket(bucket, **kwargs):
         bucket_sizes.append([tensor.numel() for tensor in bucket])
-        return orig_all_reduce_avg_bucket(bucket, **kwargs)
+        return orig_all_reduce_bucket(bucket, **kwargs)
 
-    torch_distributed._all_reduce_avg_bucket = _all_reduce_avg_bucket
+    torch_distributed._all_reduce_bucket = _all_reduce_bucket
     dtypes = [torch.float32, torch.float32, torch.float64, torch.float32, torch.float64, torch.float32, torch.float32]
     tensors = [torch.full((n,), float(100 * rank + i), dtype=dtypes[i]) for i, n in enumerate([3, 4, 2, 1, 2, 2, 9])]
-    _all_reduce_avg_flat(tensors, bucket_bytes=32)
+    _all_reduce_flat(tensors, op="avg", bucket_bytes=32)
     assert bucket_sizes == [[3, 4, 1], [2], [9], [2, 2]], bucket_sizes
     assert [float(tensor[-1]) for tensor in tensors] == [100.0 + i for i in range(7)]
     with open(f"{tmp_dir}/rank{rank}.txt", "w") as f:

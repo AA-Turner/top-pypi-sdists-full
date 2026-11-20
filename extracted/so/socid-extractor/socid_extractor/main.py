@@ -7,14 +7,20 @@ from .postprocessor import POSTPROCESSORS
 from .utils import parse_cookies
 
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.3729.169 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36',
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
 }
 
-PROCESS_ERRORS = (AttributeError, KeyError, IndexError, TypeError)
+# Transforms and field lambdas run over untrusted page content, so these all
+# mean "this scheme does not fit this page" — never "abandon the page".
+# ValueError is in here for json.loads on a capture that is not JSON (its
+# JSONDecodeError subclasses it), for parse_datetime on a value whose length
+# matches a timestamp but whose content does not, and for helpers that raise
+# it deliberately.
+PROCESS_ERRORS = (AttributeError, KeyError, IndexError, TypeError, ValueError)
 
 
-def parse(url, cookies_str='', timeout=3, headers={}):
+def parse(url, cookies_str='', timeout=10, headers={}):
     cookies = parse_cookies(cookies_str)
     req_headers = dict(HEADERS)
     req_headers.update(headers)
@@ -46,17 +52,16 @@ def mutate_url(url):
     return mutate_results
 
 
-def transform(scheme_data, extracted_data):
-    transforms = scheme_data.get('transforms', [])
-    if transforms:
-        for t in transforms:
-            logging.debug(t)
-            try:
+def transform(scheme_data, extracted_data, request_url=None):
+    for t in scheme_data.get('transforms', []):
+        try:
+            if scheme_data.get('transform_needs_url'):
+                extracted_data = t(extracted_data, request_url)
+            else:
                 extracted_data = t(extracted_data)
-            except PROCESS_ERRORS as e:
-                logging.debug(f'Transform error: {e}')
-                extracted_data = {}
-            logging.debug(extracted_data)
+        except PROCESS_ERRORS as e:
+            logging.debug(f'Transform error: {e}')
+            extracted_data = {}
     return extracted_data
 
 
@@ -71,7 +76,7 @@ def map_fields(scheme_data, transformed_data):
     return values
 
 
-def extract(page):
+def _extract_by_schemes(page, request_url=None):
     for scheme_name, scheme_data in schemes.items():
         flags = scheme_data['flags']
         found = all([flag in page for flag in flags])
@@ -102,7 +107,13 @@ def extract(page):
                 extracted = regexp_group.group(1)
                 logging.debug('Extracted: %s', extracted)
 
-                transformed = transform(scheme_data, extracted)
+                transformed = transform(scheme_data, extracted, request_url=request_url)
+
+                if not isinstance(transformed, str):
+                    # a transform hit PROCESS_ERRORS and gave up; that is this
+                    # scheme's problem, not a reason to fail the whole page
+                    logging.debug('Transform did not produce JSON, skipping scheme')
+                    continue
 
                 json_data = json.loads(transformed)
 
@@ -134,7 +145,7 @@ def extract(page):
                     extracted = regexp_group.group(1)
                     logging.debug('Extracted: %s', extracted)
 
-                    transformed_data = transform(scheme_data, extracted)
+                    transformed_data = transform(scheme_data, extracted, request_url=request_url)
                     values = map_fields(scheme_data, transformed_data)
 
         if use_html_parser:
@@ -162,3 +173,13 @@ def extract(page):
 
     # all schemes have been checked
     return {}
+
+
+def extract(page, use_ai_fallback=False, request_url=None):
+    result = _extract_by_schemes(page, request_url=request_url)
+    # A falsy result means no scheme matched, or one matched but extracted
+    # nothing (main.py's in-loop empty return) — both are fallback triggers.
+    if result or not use_ai_fallback:
+        return result
+    from .ai_fallback import extract_with_ai  # lazy: `openai` is an optional [ai] extra
+    return extract_with_ai(page)

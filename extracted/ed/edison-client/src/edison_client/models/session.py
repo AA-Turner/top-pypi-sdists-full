@@ -24,6 +24,9 @@ class Session(BaseModel):
     job_name: str | None = Field(
         default=None, description="Job name associated with the session, if any"
     )
+    source: str = Field(
+        default="web", description="Originating surface, such as web or Slack"
+    )
     created_at: datetime | None = Field(
         default=None, description="Timestamp when the session was created"
     )

@@ -217,8 +217,6 @@ class DecisionExecutor:
             if node.unique_id in self.dev_cloned_nodes:
                 status, message = self.clone_status_and_message(is_stale)
                 return RunResult.from_node(node, status, message)
-            # SkipExecutionResponse is only produced for models/snapshots/tests,
-            # not seeds — narrow the type for resolve_freshness_tolerance.
             status, message = self.no_op_status_and_message(
                 is_stale,
                 t.cast("t.Union[ModelConfig, SnapshotConfig, TestConfig]", node.config),

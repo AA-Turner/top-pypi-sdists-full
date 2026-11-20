@@ -1696,6 +1696,9 @@ __all__ = (
     "VoiceCallEntryPointParametersTypeDef",
     "VoiceEnhancementConfigTypeDef",
     "VoiceRecordingConfigurationTypeDef",
+    "VoicemailAnalysisReferenceTypeDef",
+    "VoicemailInfoTypeDef",
+    "VoicemailRecordingReferenceTypeDef",
     "WebNotificationContentTypeDef",
     "WebNotificationSourceTypeDef",
     "WebsocketTypeDef",
@@ -2470,6 +2473,9 @@ class RecordingInfoTypeDef(TypedDict):
 class TaskTemplateInfoV2TypeDef(TypedDict):
     Arn: NotRequired[str]
     Name: NotRequired[str]
+
+class VoicemailInfoTypeDef(TypedDict):
+    NumberOfVoicemails: NotRequired[int]
 
 class RecommenderConfigTypeDef(TypedDict):
     DomainName: str
@@ -4556,6 +4562,18 @@ class StringReferenceTypeDef(TypedDict):
 class UrlReferenceTypeDef(TypedDict):
     Name: NotRequired[str]
     Value: NotRequired[str]
+
+class VoicemailAnalysisReferenceTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Value: NotRequired[str]
+    Status: NotRequired[ReferenceStatusType]
+    Arn: NotRequired[str]
+
+class VoicemailRecordingReferenceTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Value: NotRequired[str]
+    Status: NotRequired[ReferenceStatusType]
+    Arn: NotRequired[str]
 
 class ReleasePhoneNumberRequestTypeDef(TypedDict):
     PhoneNumberId: str
@@ -7600,6 +7618,10 @@ class ReferenceSummaryTypeDef(TypedDict):
     Date: NotRequired[DateReferenceTypeDef]
     Email: NotRequired[EmailReferenceTypeDef]
     ContactAnalysis: NotRequired[ContactAnalysisReferenceTypeDef]
+    VoicemailRecording: NotRequired[VoicemailRecordingReferenceTypeDef]
+    VoicemailRecordingRedacted: NotRequired[VoicemailRecordingReferenceTypeDef]
+    VoicemailAnalysis: NotRequired[VoicemailAnalysisReferenceTypeDef]
+    VoicemailAnalysisRedacted: NotRequired[VoicemailAnalysisReferenceTypeDef]
 
 class ReplicationConfigurationTypeDef(TypedDict):
     ReplicationStatusSummaryList: NotRequired[list[ReplicationStatusSummaryTypeDef]]
@@ -10088,6 +10110,7 @@ class ContactTypeDef(TypedDict):
     NextContacts: NotRequired[list[NextContactEntryTypeDef]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
     ContactLens: NotRequired[ContactLensTypeDef]
+    VoicemailInfo: NotRequired[VoicemailInfoTypeDef]
 
 class ContactSearchSummaryPaginatorTypeDef(TypedDict):
     Arn: NotRequired[str]

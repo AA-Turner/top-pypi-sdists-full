@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: singlestoredb
-Version: 1.19.0
+Version: 1.20.0
 Summary: Interface to the SingleStoreDB database and workspace management APIs
 Author-email: SingleStore <support@singlestore.com>
 License-Expression: Apache-2.0
@@ -64,6 +64,7 @@ Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Provides-Extra: build
 Requires-Dist: build; extra == "build"
 Requires-Dist: setuptools>=77.0; extra == "build"
+Requires-Dist: setuptools>=84.2.0; python_version >= "3.15" and extra == "build"
 Requires-Dist: wheel; extra == "build"
 Provides-Extra: dev
 Requires-Dist: singlestoredb[build,docs,test]; extra == "dev"

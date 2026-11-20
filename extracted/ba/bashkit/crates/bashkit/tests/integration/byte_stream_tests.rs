@@ -118,6 +118,7 @@ async fn command_substitution_drops_nuls_at_text_boundary() {
 }
 
 #[tokio::test]
+#[cfg_attr(not(unix), ignore = "compares against host Unix bash/tools")]
 async fn binary_pipeline_matches_real_bash_byte_for_byte() {
     let script = "printf 'AAHDqf/+QgB/' | base64 -d | head -c 8 | cat";
     let expected = Command::new("bash").args(["-c", script]).output().unwrap();
@@ -160,4 +161,156 @@ async fn select_consumes_binary_pipeline_lines_by_raw_byte_offset() {
         result.exit_code
     );
     assert_eq!(result.exit_code, 0);
+}
+
+#[tokio::test]
+async fn iconv_repairs_cp_export_and_writes_real_bytes() {
+    // Latin-1 export in, UTF-8 for text tools, then Latin-1 / UTF-16 bytes out.
+    let mut bash = Bash::new();
+    let result = bash
+        .exec(
+            "printf 'K\\366ln;1\\n' > /e.csv
+             iconv -f latin1 -t utf-8 -o /e.csv /e.csv
+             cut -d';' -f1 /e.csv | iconv -f utf-8 -t latin1 | od -An -tx1
+             printf 'K\\303\\203\\302\\266ln' | iconv -f utf-8 -t latin1 | iconv -f utf-8 -t utf-16le | od -An -tx1",
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stdout.text().unwrap(),
+        " 4b f6 6c 6e 0a\n 4b 00 f6 00 6c 00 6e 00\n"
+    );
+    assert_eq!(
+        bash.fs()
+            .read_file(std::path::Path::new("/e.csv"))
+            .await
+            .unwrap(),
+        "Köln;1\n".as_bytes()
+    );
+}
+
+#[tokio::test]
+#[cfg_attr(not(unix), ignore = "compares against host Unix bash/tools")]
+async fn iconv_matches_real_iconv_byte_for_byte() {
+    // Skip where the host has no iconv; CI runners ship glibc's.
+    if Command::new("iconv").arg("-l").output().is_err() {
+        return;
+    }
+    for script in [
+        "printf 'K\\303\\266ln \\342\\202\\254\\n' | iconv -f utf-8 -t utf-16",
+        "printf 'K\\303\\266ln\\n' | iconv -f utf-8 -t utf-16be",
+        "printf 'K\\303\\266ln\\n' | iconv -f utf-8 -t latin1",
+        "printf 'K\\366ln\\n' | iconv -f iso-8859-1 -t utf-8",
+        "printf '\\377\\376a\\000\\330\\075\\336\\000' | iconv -f utf-16 -t utf-8",
+        // -c exit status differs on purpose (L-ICONV-001); bytes must match.
+        "printf 'a\\377b\\n' | iconv -c -f utf-8 -t utf-8; true",
+        "printf 'ab\\303' | iconv -f utf-8 -t latin1",
+    ] {
+        let expected = Command::new("bash").args(["-c", script]).output().unwrap();
+        let mut bash = Bash::new();
+        let actual = bash.exec(script).await.unwrap();
+        assert_eq!(actual.stdout.as_bytes(), expected.stdout, "{script}");
+        assert_eq!(
+            actual.exit_code,
+            expected.status.code().unwrap(),
+            "{script}"
+        );
+    }
+}
+
+#[cfg(feature = "iconv_charsets")]
+#[tokio::test]
+#[cfg_attr(not(unix), ignore = "compares against host Unix bash/tools")]
+async fn iconv_code_pages_match_real_iconv() {
+    if Command::new("iconv").arg("-l").output().is_err() {
+        return;
+    }
+    for script in [
+        "printf 'K\\366ln \\226 5\\200\\n' | iconv -f cp1252 -t utf-8",
+        "printf '\\212\\350\\n' | iconv -f CP1250 -t UTF-8",
+        "printf '\\305\\240\\304\\215 \\342\\202\\254\\n' | iconv -f utf-8 -t windows-1250",
+        "printf '\\244\\n' | iconv -f ISO-8859-15 -t UTF-8",
+        "printf '\\344\\270\\255\\346\\226\\207\\n' | iconv -f utf-8 -t gbk",
+        "printf '\\344\\270\\255\\346\\226\\207\\n' | iconv -f utf-8 -t shift_jis | iconv -f shift_jis -t utf-8",
+    ] {
+        let expected = Command::new("bash").args(["-c", script]).output().unwrap();
+        let mut bash = Bash::new();
+        let actual = bash.exec(script).await.unwrap();
+        assert_eq!(actual.stdout.as_bytes(), expected.stdout, "{script}");
+        assert_eq!(
+            actual.exit_code,
+            expected.status.code().unwrap(),
+            "{script}"
+        );
+    }
+}
+
+#[tokio::test]
+#[cfg_attr(not(unix), ignore = "compares against host Unix bash/tools")]
+async fn byte_tools_match_real_bash_on_non_utf8_input() {
+    // tee, split and cut pass bytes through; text tools would print U+FFFD.
+    let setup = "cd \"$(mktemp -d)\" && printf 'K\\366ln,\\377\\376\\000z\\nb,K\\303\\266ln\\200\\r\\n' > in.bin && ";
+    for case in [
+        "tee o.bin < in.bin && cat o.bin",
+        "split -b 4 in.bin p_ && cat p_*",
+        "split -l 1 in.bin q_ && cat q_ab",
+        "cut -b1-3 in.bin",
+        "cut -b2- --complement in.bin",
+        "cut -c1-3 in.bin",
+        "cut -d, -f2 in.bin",
+    ] {
+        let script = format!("{setup}{case}");
+        let expected = Command::new("bash").args(["-c", &script]).output().unwrap();
+        assert!(expected.status.success(), "{case}");
+        let mut bash = Bash::new();
+        let actual = bash.exec(&script).await.unwrap();
+        assert_eq!(actual.stdout.as_bytes(), expected.stdout, "{case}");
+        assert_eq!(actual.exit_code, 0, "{case}");
+    }
+}
+
+#[tokio::test]
+async fn xxd_reverse_rebuilds_exact_bytes() {
+    let mut bash = Bash::new();
+    let result = bash
+        .exec("printf 'K\\366\\377\\000\\n' | xxd | xxd -r | od -An -tx1; printf '4bf6ff' | xxd -r -p | od -An -tx1")
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stdout.text().unwrap(),
+        " 4b f6 ff 00 0a\n 4b f6 ff\n"
+    );
+}
+
+#[tokio::test]
+async fn sort_refuses_to_rewrite_non_utf8_file_in_place() {
+    let mut bash = Bash::new();
+    let result = bash
+        .exec("printf 'b\\n\\366\\na\\n' > /f; sort -o /f /f; echo rc=$?; od -An -tx1 /f; sort -o /g /f; echo rc=$?")
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stdout.text().unwrap(),
+        "rc=2\n 62 0a f6 0a 61 0a\nrc=0\n"
+    );
+    assert!(
+        result
+            .stderr
+            .text()
+            .unwrap()
+            .contains("not a valid UTF-8 text file")
+    );
+}
+
+#[tokio::test]
+async fn sort_in_place_guard_sees_through_path_aliases() {
+    let mut bash = Bash::new();
+    let result = bash
+        .exec("mkdir -p /d/s && cd /d && printf 'b\\n\\366\\n' > f; ln -s f link; for o in ./f s/../f /d/f link; do sort -o \"$o\" f; echo rc=$?; done; sort -o f link; echo rc=$?; od -An -tx1 f")
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stdout.text().unwrap(),
+        "rc=2\nrc=2\nrc=2\nrc=2\nrc=2\n 62 0a f6 0a\n"
+    );
 }

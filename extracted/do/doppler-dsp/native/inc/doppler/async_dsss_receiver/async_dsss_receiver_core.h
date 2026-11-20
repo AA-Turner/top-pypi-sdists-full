@@ -799,7 +799,8 @@ typedef enum
    * Each loop reports under the prefix, at its own update rate:
    * - "<prefix>.car" -- the chip-domain carrier loop
    *   (dp_costas_set_telemetry(): ".lock", ".e", ".freq", ".locked",
-   *   ".nco"), once per carrier update: once a code period, except while it
+   *   ".nco", ".freq_rate", ".order"), once per carrier update: once a code
+   *   period, except while it
    *   coasts, when loop 1 is held;
    * - "<prefix>.code" -- the code loop (dp_dll_set_telemetry(): ".e",
    *   ".rate", ".lock", ".locked", ".nco"), once per discriminator update;
@@ -859,7 +860,7 @@ typedef enum
    * >>> tlm = Telemetry(1 << 12)
    * >>> rx.set_telemetry(tlm, "rx")
    * >>> sorted(p for p in tlm.probe_names if p.startswith("rx.c"))
-   * ['rx.car.e', 'rx.car.freq', 'rx.car.lock', 'rx.car.locked', 'rx.car.nco', 'rx.code.e', 'rx.code.lock', 'rx.code.locked', 'rx.code.nco', 'rx.code.rate']
+   * ['rx.car.e', 'rx.car.freq', 'rx.car.freq_rate', 'rx.car.lock', 'rx.car.locked', 'rx.car.nco', 'rx.car.order', 'rx.code.e', 'rx.code.lock', 'rx.code.locked', 'rx.code.nco', 'rx.code.rate']
    * >>> sorted(p for p in tlm.probe_names if p.startswith(("rx.s", "rx.h",
    * ...                                                    "rx.r")))
    * ['rx.handover_hz', 'rx.refused', 'rx.state', 'rx.sym.lock', 'rx.sym.locked']
@@ -1088,7 +1089,9 @@ typedef enum
                             lost).
                             Only as good as `locked`: with the carrier
                             unlocked, loop 1 free-runs and this wanders. */
-    double chip_phase; /**< Code phase, chips: the live Dll's; while
+    double chip_phase; /**< Code phase, chips, at the sample after the
+                            last one fed: the live Dll's, carried over
+                            the partial period the chain holds; while
                             refining, the seed's advanced by the clock
                             dilation since (what the hand-over starts
                             from), so a refining receiver's signal can be
@@ -1245,7 +1248,7 @@ typedef enum
    * receivers in parallel sets each one to 1. A mutator's value, so it
    * travels in the state blob (#2022). The blob carries the count that
    * RAN, not the request: set_threads(0) on a writer restores as the count
-   * the writer ran (its online cores, at most one worker a tile) on any
+   * the writer ran (its online cores, capped at the tiles at D = 1) on any
    * reader, by design -- a resumed receiver runs as the one that was
    * checkpointed, and a pool's 1 is 1 everywhere. Setup path;
    * not while another thread is inside steps().
@@ -1545,11 +1548,15 @@ typedef enum
    *  @return Outputs per symbol; set at create or by
    *          configure_chain_raw(). */
   int    dp_async_dsss_receiver_get_n (const dp_async_dsss_receiver_state_t *state);
-  /** @brief The live Dll's code phase, chips, in the Dll's instantaneous
-   *  convention -- the mirror of dp_correlator_hit_t::code_phase's correlation-lag
-   *  convention (dp_correlator_build_handoff()). While refining there is no live
-   *  Dll: it is the seed's phase advanced by the clock dilation since, the
-   *  phase the hand-over starts the live chain from.
+  /** @brief The code phase, chips, at the sample after the last one fed,
+   *  in the Dll's instantaneous convention -- the mirror of
+   *  dp_correlator_hit_t::code_phase's correlation-lag convention
+   *  (dp_correlator_build_handoff()). Tracking, it is the live Dll's phase
+   *  carried over the partial period the chain holds (it runs whole
+   *  periods), so it names the same sample a search's picks are carried to
+   *  at any sample rate (#3063). While refining there is no live Dll: it is
+   *  the seed's phase advanced by the clock dilation since, the phase the
+   *  hand-over starts the live chain from.
    *  @param state  Must be non-NULL.
    *  @return Code phase, chips. */
   double dp_async_dsss_receiver_get_chip_phase (

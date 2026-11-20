@@ -36,6 +36,8 @@ from .literals import (
     QueryStateStringType,
     ResourceShareTypeType,
     ResourceTypeType,
+    RLSPolicyStatusReasonType,
+    RLSPolicyStatusType,
     ServiceAuthorizationType,
     TransactionStatusFilterType,
     TransactionStatusType,
@@ -751,6 +753,8 @@ class RLSPolicyTypeDef(TypedDict):
     Name: NotRequired[str]
     AttachmentColumns: NotRequired[list[ColumnTypeDef]]
     FilterExpression: NotRequired[str]
+    Status: NotRequired[RLSPolicyStatusType]
+    StatusReason: NotRequired[RLSPolicyStatusReasonType]
 
 class TableWithColumnsResourceOutputTypeDef(TypedDict):
     DatabaseName: str

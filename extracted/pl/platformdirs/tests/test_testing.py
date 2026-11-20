@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
+from multiprocessing import get_context
 from pathlib import Path
+from subprocess import check_output  # ruff:ignore[suspicious-subprocess-import]  # bound the deadlock regression
+from threading import Event
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
 import pytest
+from coverage import Coverage
 
 import platformdirs
 from platformdirs.android import Android
@@ -18,6 +24,8 @@ if TYPE_CHECKING:
     from typing import Any
 
     from pytest_mock import MockerFixture
+
+    from platformdirs.api import PlatformDirsABC
 
 
 def _resolve_all() -> dict[str, list[str]]:
@@ -79,6 +87,19 @@ def _outside(root: Path) -> dict[str, list[str]]:
 def test_isolated_dirs_redirects_every_accessor(tmp_path: Path) -> None:
     with isolated_dirs(tmp_path):
         assert _outside(tmp_path) == {}
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="XDG runtime paths are POSIX paths")
+def test_isolated_dirs_find_runtime_file_bypasses_xdg_runtime_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    mocker.patch("platformdirs.PlatformDirs", Unix)
+    with isolated_dirs(tmp_path):
+        dirs = platformdirs.PlatformDirs("app")
+        marker = dirs.place_runtime_file("ready")
+        marker.touch()
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(marker))
+        assert dirs.find_runtime_files("ready") == [marker]
 
 
 def test_isolated_dirs_redirects_android(tmp_path: Path, mocker: MockerFixture) -> None:
@@ -166,6 +187,116 @@ def test_isolated_dirs_nested_restores_outer(tmp_path: Path) -> None:
         with isolated_dirs(tmp_path / "inner"):
             pass
         assert platformdirs.user_data_path("app") == tmp_path / "outer" / "user_data" / "app"
+
+
+def test_isolated_dirs_reentrant_exit(tmp_path: Path) -> None:
+    code = """
+from abc import ABCMeta
+from contextlib import ExitStack
+from pathlib import Path
+from sys import argv
+import platformdirs
+from platformdirs.testing import isolated_dirs
+
+with ExitStack() as older:
+    class CloseOlder(ABCMeta):
+        def __setattr__(cls, name: str, value: property) -> None:
+            older.close()
+            super().__setattr__(name, value)
+
+    class Dirs(platformdirs.PlatformDirs, metaclass=CloseOlder):
+        pass
+
+    platformdirs.PlatformDirs = Dirs
+    original = vars(Dirs).copy()
+    older.enter_context(isolated_dirs(Path(argv[1]) / "older"))
+    with isolated_dirs(Path(argv[1]) / "newer"):
+        assert platformdirs.user_cache_path() == Path(argv[1]) / "newer/user_cache"
+print(vars(Dirs) == original)
+"""
+    assert check_output([sys.executable, "-c", code, str(tmp_path)], text=True, timeout=10).strip() == "True"
+
+
+def test_isolated_dirs_restores_intervening_patch(tmp_path: Path) -> None:
+    with isolated_dirs(tmp_path / "outer"), pytest.MonkeyPatch.context() as patch:
+        patch.setattr(platformdirs.PlatformDirs, "user_cache_dir", property(lambda _: str(tmp_path)))
+        with isolated_dirs(tmp_path / "inner"):
+            assert platformdirs.user_cache_path() == tmp_path / "inner" / "user_cache"
+        assert platformdirs.user_cache_path() == tmp_path
+    assert _resolve_all() == _ORIGINAL
+
+
+def test_isolated_dirs_overlapping_restores_active_context(tmp_path: Path) -> None:
+    with ExitStack() as first, ExitStack() as second:
+        first.enter_context(isolated_dirs(tmp_path / "first"))
+        second.enter_context(isolated_dirs(tmp_path / "second"))
+        first.close()
+        assert platformdirs.user_config_path("app") == tmp_path / "second" / "user_config" / "app"
+    assert _resolve_all() == _ORIGINAL
+
+
+def test_isolated_dirs_rolls_back_interrupted_entry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    interrupted = False
+
+    def interrupt(cls: type[PlatformDirsABC], name: str, value: property) -> None:
+        nonlocal interrupted
+        setattr(cls, name, value)
+        if not interrupted:
+            interrupted = True
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("platformdirs.testing.setattr", interrupt, raising=False)
+    with ExitStack() as scope, pytest.raises(KeyboardInterrupt):
+        scope.enter_context(isolated_dirs(tmp_path / "interrupted"))
+    assert _resolve_all() == _ORIGINAL
+    with isolated_dirs(tmp_path / "active"):
+        assert platformdirs.user_config_path("app") == tmp_path / "active" / "user_config" / "app"
+    assert _resolve_all() == _ORIGINAL
+
+
+if sys.platform != "win32":
+
+    @pytest.mark.skipif(not hasattr(os, "fork"), reason="requires fork")
+    @pytest.mark.filterwarnings("ignore:This process .* is multi-threaded.*:DeprecationWarning")
+    def test_isolated_dirs_fork_inherits_thread_root(tmp_path: Path) -> None:
+        installed, release = Event(), Event()
+
+        def isolate_thread() -> None:
+            with isolated_dirs(tmp_path / "worker"):
+                installed.set()
+                assert release.wait(10)
+
+        with isolated_dirs(tmp_path / "parent"), ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(isolate_thread)
+            try:
+                assert installed.wait(10)
+                assert _fork_check(tmp_path / "worker") == 0
+            finally:
+                release.set()
+            pending.result(timeout=10)
+            assert _outside(tmp_path / "parent") == {}
+
+    def _enter_isolation(root: Path) -> None:
+        with isolated_dirs(root):
+            assert platformdirs.user_config_path("app") == root / "user_config" / "app"
+
+    def _fork_check(root: Path) -> int | None:
+        process = get_context("fork").Process(target=_check_child_root, args=(root,))
+        process.start()
+        try:
+            process.join(timeout=5)
+            return process.exitcode
+        finally:
+            process.kill()
+            process.join()
+            process.close()
+
+    def _check_child_root(root: Path) -> None:
+        assert platformdirs.user_config_path("app") == root / "user_config" / "app"
+        _enter_isolation(root / "child")
+        assert platformdirs.user_config_path("app") == root / "user_config" / "app"
+        if (coverage := Coverage.current()) is not None:
+            coverage.save()
 
 
 @pytest.mark.usefixtures("_unix_root")

@@ -1,4 +1,4 @@
-# ruff: noqa: ARG001
+# ruff: file-ignore[unused-function-argument]
 """Tests for the warm pool sizing methods on RestClient."""
 
 import json
@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 import pytest
+from pydantic import JsonValue
 
 from edison_client.clients.rest_client import RestClient
 from edison_client.models.app import Stage
@@ -31,7 +32,7 @@ class _Recorder:
         self.status_code = code
 
 
-def _body(**overrides: Any) -> dict[str, Any]:
+def _body(**overrides: JsonValue) -> dict[str, Any]:
     return {
         "crow_key": CROW_KEY,
         "node_pool": "agent-sandbox-small",
@@ -48,7 +49,9 @@ def fixture_rest_client() -> RestClient:
 
 
 @pytest.fixture(name="recorder")
-def fixture_recorder(rest_client: RestClient, monkeypatch) -> _Recorder:
+def fixture_recorder(
+    rest_client: RestClient, monkeypatch: pytest.MonkeyPatch
+) -> _Recorder:
     """Route the client at a mock transport and record the timeout it asked for."""
     recorder = _Recorder()
 
@@ -73,8 +76,7 @@ def fixture_recorder(rest_client: RestClient, monkeypatch) -> _Recorder:
         recorder.timeouts.append(timeout)
         if async_client:
             return httpx.AsyncClient(
-                base_url=Stage.LOCAL.value,
-                transport=httpx.MockTransport(async_handler),
+                base_url=Stage.LOCAL.value, transport=httpx.MockTransport(async_handler)
             )
         return httpx.Client(
             base_url=Stage.LOCAL.value, transport=httpx.MockTransport(sync_handler)
@@ -86,7 +88,7 @@ def fixture_recorder(rest_client: RestClient, monkeypatch) -> _Recorder:
 
 def test_set_crow_warmpool_posts_the_target_and_parses_the_response(
     rest_client: RestClient, recorder: _Recorder
-):
+) -> None:
     result = rest_client.set_crow_warmpool(CROW_KEY, replicas=5)
 
     assert isinstance(result, SetWarmPoolResponse)
@@ -100,7 +102,7 @@ def test_set_crow_warmpool_posts_the_target_and_parses_the_response(
 
 def test_waiting_raises_the_client_timeout_above_the_server_budget(
     rest_client: RestClient, recorder: _Recorder
-):
+) -> None:
     """The whole point of the override: REQUEST_TIMEOUT cannot outlast a wait."""
     rest_client.set_crow_warmpool(CROW_KEY, replicas=5, wait=True)
 
@@ -111,7 +113,7 @@ def test_waiting_raises_the_client_timeout_above_the_server_budget(
 
 def test_not_waiting_keeps_the_general_request_timeout(
     rest_client: RestClient, recorder: _Recorder
-):
+) -> None:
     rest_client.set_crow_warmpool(CROW_KEY, replicas=5)
 
     assert recorder.timeouts == [RestClient.REQUEST_TIMEOUT]
@@ -119,7 +121,7 @@ def test_not_waiting_keeps_the_general_request_timeout(
 
 def test_an_explicit_timeout_wins_over_both_defaults(
     rest_client: RestClient, recorder: _Recorder
-):
+) -> None:
     rest_client.set_crow_warmpool(CROW_KEY, replicas=5, wait=True, timeout=42.0)
 
     assert recorder.timeouts == [42.0]
@@ -127,7 +129,7 @@ def test_an_explicit_timeout_wins_over_both_defaults(
 
 def test_a_wait_that_timed_out_is_not_an_error(
     rest_client: RestClient, recorder: _Recorder
-):
+) -> None:
     """A partial wait carries the ready count; it must not raise and lose it."""
     recorder.set_response(_body(ready_replicas=3, waited=True, timed_out=True))
 
@@ -140,7 +142,7 @@ def test_a_wait_that_timed_out_is_not_an_error(
 
 async def test_aset_crow_warmpool_matches_the_sync_method(
     rest_client: RestClient, recorder: _Recorder
-):
+) -> None:
     result = await rest_client.aset_crow_warmpool(CROW_KEY, replicas=5, wait=True)
 
     assert result.replicas == 5

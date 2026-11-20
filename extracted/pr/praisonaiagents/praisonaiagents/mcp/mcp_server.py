@@ -287,6 +287,20 @@ class ToolsMCPServer:
         if host is None:
             host = resolved_config.get_bind_address()
 
+        # A non-loopback bind is never keyless: the shared guard mints, exports
+        # and prints a token when none is configured.
+        from praisonaiagents.agent.launch_security import require_bind_token
+
+        token = require_bind_token(
+            host, resolved_token, server="MCP SSE server",
+            hint="Set MCP_SSE_AUTH_TOKEN", generate_into="MCP_SSE_AUTH_TOKEN",
+        )
+        if token != resolved_token:
+            from dataclasses import replace
+
+            resolved_token = token
+            resolved_config = security = replace(resolved_config, require_auth=True)
+
         # Refuse to start an unauthenticated server when auth was requested but
         # no token is available (env var unset/typo'd). Previously the
         # request-time guard `require_auth and self._token` evaluated False and
@@ -324,7 +338,9 @@ class ToolsMCPServer:
             ]
         )
 
-        app = build_sse_security_app(app, security)
+        from praisonaiagents.agent.origin_guard import guard_loopback_requests
+
+        app = guard_loopback_requests(build_sse_security_app(app, security), host)
         print(f"🚀 Starting MCP server '{self.name}' with SSE transport")
         print(f"📡 SSE endpoint: http://{host}:{port}{sse_path}")
         print(f"🛠️  Available tools: {', '.join(self.get_tool_names())}")
@@ -336,7 +352,7 @@ def launch_tools_mcp_server(
     tool_names: Optional[List[str]] = None,
     name: str = "praisonai-tools",
     transport: str = "stdio",
-    host: str = "0.0.0.0",
+    host: Optional[str] = None,
     port: int = 8080,
     debug: bool = False
 ) -> None:
@@ -347,7 +363,7 @@ def launch_tools_mcp_server(
         tool_names: List of tool names to load from praisonaiagents.tools
         name: Name of the MCP server
         transport: Transport type - "stdio" or "sse"
-        host: Host for SSE transport
+        host: Host for SSE transport (default: 127.0.0.1 via SecurityConfig)
         port: Port for SSE transport
         debug: Enable debug logging
     

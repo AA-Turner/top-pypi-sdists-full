@@ -138,12 +138,28 @@ class AccountSignal:
         return summary
 
 
+class Restriction(BaseModel, frozen=True):
+    """One restriction of Meta (`restriction_info[].restriction_type`) and when it ends. Data only: which ones stop
+    messages and what lifts them are rules of api-chatty (`application/whatsapp/connection/rules/restrictions.py`)."""
+
+    type: str
+    until: Optional[datetime] = None
+
+    @field_validator("until", mode="after")
+    @classmethod
+    def _to_utc(cls, value: Optional[datetime]) -> Optional[datetime]:
+        return as_utc(value)
+
+
 class ConnectionIssue(BaseModel):
     code: IssueCode
     since: datetime
     until: Optional[datetime] = None
     source: SignalSource
     meta: dict[str, Any] = Field(default_factory=dict)
+    #: The restriction types of the notice that a later delivery proved are no longer in force (Meta does not say when
+    #: it lifts one early). Empty for every other issue.
+    lifted: list[str] = Field(default_factory=list)
 
     @field_validator("since", "until", mode="after")
     @classmethod
@@ -169,6 +185,9 @@ class ConnectionState(BaseModel):
     last_signal_at: Optional[datetime] = None
     banner_notification_id: Optional[str] = None
     updated_at: Optional[datetime] = None
+    #: What is left of a restriction lifted by deliveries that stops no message (adding numbers): the number is
+    #: connected and this is shown on the Connection card until it ends.
+    lingering_restrictions: list[Restriction] = Field(default_factory=list)
 
     @field_validator("last_signal_at", "updated_at", mode="after")
     @classmethod

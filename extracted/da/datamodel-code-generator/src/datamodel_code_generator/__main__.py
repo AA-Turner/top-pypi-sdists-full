@@ -43,7 +43,7 @@ match sys.argv:
         sys.stdout.write(f"datamodel-codegen {get_version()}\n")
         sys.exit(0)
     # Fast path for --help (avoid importing heavy modules)
-    case [_, "--help" | "-h"]:  # pragma: no cover
+    case [_, "--help" | "-h"]:
         from datamodel_code_generator.arguments import arg_parser
 
         arg_parser.print_help()
@@ -62,7 +62,7 @@ match sys.argv:
 # fast paths step aside
 if not any(arg.startswith("--rec") for arg in sys.argv[1:]) and any(
     arg == "--install-skill" or arg.startswith("--install-skill=") for arg in sys.argv[1:]
-):  # pragma: no cover
+):
     from datamodel_code_generator._agent_skill_cli import run_agent_skill_installer
 
     sys.exit(run_agent_skill_installer(sys.argv[1:]))
@@ -109,6 +109,7 @@ from datamodel_code_generator import (
     InputFileType,
     InvalidClassNameError,
     NamingHintWarning,
+    _lazy_exports,
     _run_option_stages,
     _validate_generation_path_conflicts,
     enable_debug_message,
@@ -172,13 +173,8 @@ from datamodel_code_generator.arguments import _reset_namespace, arg_parser, nam
 from datamodel_code_generator.deprecations import render_deprecations, warn_deprecated
 from datamodel_code_generator.enums import _PYDANTIC_MODEL_TYPES, _ExitCode
 
-
-def __getattr__(name: str) -> Any:
-    """Load the deferred config model without adding it to no-lock imports."""
-    if name == "Config":
-        return _get_config_class()
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
+_LAZY_EXPORTS = {"Config": _get_config_class}
+__getattr__, __dir__ = _lazy_exports.module_hooks(__name__, _LAZY_EXPORTS)
 
 
 if TYPE_CHECKING:
@@ -241,7 +237,7 @@ class Exit(IntEnum):
     KeyboardInterrupt = _ExitCode.INTERRUPTED
 
 
-def sig_int_handler(_: int, __: Any) -> None:  # pragma: no cover
+def sig_int_handler(_: int, __: Any) -> None:
     """Handle SIGINT signal gracefully."""
     sys.exit(Exit.OK)
 
@@ -1730,7 +1726,7 @@ def _apply_model_run_options(config: Config) -> Exit | None:
         print(_unsupported_black_message(config.target_python_version), file=sys.stderr)  # noqa: T201
         return Exit.ERROR
 
-    if config.debug:  # pragma: no cover
+    if config.debug:
         enable_debug_message()
 
     if config.disable_warnings:
@@ -2421,7 +2417,7 @@ def _main(
 
         argcomplete.autocomplete(arg_parser)
 
-    if args is None:  # pragma: no cover
+    if args is None:
         args = sys.argv[1:]
 
     arg_parser.parse_args(args, namespace=namespace)

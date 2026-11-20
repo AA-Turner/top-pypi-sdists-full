@@ -5,16 +5,17 @@ build-backend = "pbr.build"
 [project]
 name = "oslo.messaging"
 description = "Oslo Messaging API"
-readme = "README.rst"
 authors = [
     {name = "OpenStack", email = "openstack-discuss@lists.openstack.org"},
 ]
+readme = {file = "README.rst", content-type = "text/x-rst"}
+license = "Apache-2.0"
+dynamic = ["version", "dependencies"]
 requires-python = ">=3.11"
 classifiers = [
     "Environment :: OpenStack",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -22,16 +23,20 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-dynamic = ["version", "dependencies"]
 
 [project.urls]
 Homepage = "https://docs.openstack.org/oslo.messaging"
 Repository = "https://opendev.org/openstack/oslo.messaging"
 
 [project.optional-dependencies]
+eventlet = [
+    "eventlet>=0.23.0", # MIT
+    "greenlet>=0.4.15", # MIT
+]
 # package dependencies for optional (non-rabbitmq) messaging drivers.
 # projects can test-depend on oslo.messaging[<drivers>]
 # e.g.: oslo.messaging[kafka]
@@ -49,6 +54,7 @@ tracing-grpc = [
 
 [project.scripts]
 oslo-messaging-send-notification = "oslo_messaging.notify.notifier:_send_notification"
+oslo-messaging-listen-notification = "oslo_messaging.notify.listener:_listen_notification"
 
 [project.entry-points."oslo.messaging.drivers"]
 rabbit = "oslo_messaging._drivers.impl_rabbit:RabbitDriver"
@@ -71,5 +77,41 @@ routing = "oslo_messaging.notify._impl_routing:RoutingDriver"
 [project.entry-points."oslo.config.opts"]
 "oslo.messaging" = "oslo_messaging.opts:list_opts"
 
-[tool.setuptools]
-packages = ["oslo_messaging"]
+[tool.setuptools.packages.find]
+include = ["oslo_messaging*"]
+
+[tool.coverage.run]
+source = [
+    "oslo_messaging"
+]
+branch = true
+parallel = true
+omit = [
+    "oslo_messaging/tests/*"
+]
+
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.format]
+quote-style = "preserve"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["E", "F", "G", "LOG", "S", "UP"]
+external = ["H"]
+ignore = [
+    "S101",  # asserts are only used for type narrowing
+]
+
+[tool.ruff.lint.per-file-ignores]
+"oslo_messaging/__init__.py" = ["F403"]
+"oslo_messaging/_metrics/__init__.py" = ["F403", "F405"]
+"oslo_messaging/notify/__init__.py" = ["F403", "F405"]
+"oslo_messaging/rpc/__init__.py" = ["F403", "F405"]
+"oslo_messaging/tests/*" = ["S"]
+"tools/*" = ["G003", "S"]

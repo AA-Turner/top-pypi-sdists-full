@@ -11,6 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License governing permissions and limitations under the License.
 
+import inspect
+
 import pytest
 import torch
 from transformers import AutoModelForSequenceClassification
@@ -34,6 +36,7 @@ from peft import (
     LoraConfig,
     MissConfig,
     OFTConfig,
+    PacaConfig,
     PeanutConfig,
     PrefixTuningConfig,
     PromptEncoderConfig,
@@ -51,6 +54,7 @@ from peft import (
     WaveFTConfig,
     get_peft_model,
 )
+from peft.import_utils import get_transformers_cache_name
 from peft.utils.other import ModulesToSaveWrapper
 
 from .testing_common import PeftCommonTester
@@ -61,7 +65,7 @@ from .testing_utils import hub_online_once, set_init_weights_false
 PEFT_SEQ_CLS_MODELS_TO_TEST = [
     "peft-internal-testing/tiny-random-BertForSequenceClassification",
     "peft-internal-testing/tiny-random-RobertaForSequenceClassification",
-    "trl-internal-testing/tiny-LlamaForSequenceClassification-3.2",
+    "peft-internal-testing/tiny-LlamaForSequenceClassification-3.2",
 ]
 
 
@@ -263,6 +267,14 @@ ALL_CONFIGS = [
         },
     ),
     (
+        PacaConfig,
+        {
+            "r": 2,
+            "task_type": "SEQ_CLS",
+            "target_modules": None,
+        },
+    ),
+    (
         ShiraConfig,
         {
             "r": 1,
@@ -409,6 +421,13 @@ class TestSequenceClassificationModels(PeftCommonTester):
 
     @pytest.mark.parametrize("model_id", PEFT_SEQ_CLS_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
+    def test_load_adapter_no_warning(self, model_id, config_cls, config_kwargs, recwarn, tmp_path):
+        _skip_encoder_models(model_id, config_cls)
+        config_kwargs = set_init_weights_false(config_cls, config_kwargs)
+        self._test_load_no_warning(model_id, config_cls, config_kwargs.copy(), recwarn, tmp_path)
+
+    @pytest.mark.parametrize("model_id", PEFT_SEQ_CLS_MODELS_TO_TEST)
+    @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_save_pretrained_pickle(self, model_id, config_cls, config_kwargs):
         _skip_encoder_models(model_id, config_cls)
         config_kwargs = set_init_weights_false(config_cls, config_kwargs)
@@ -460,10 +479,12 @@ class TestSequenceClassificationModels(PeftCommonTester):
     def test_forward_with_labels(self, model_id, config_cls, config_kwargs):
         # Check the full forward pass including the loss computation. This is especially relevant for prompt learning
         # methods, whose sequence classification forward (including the _prefix_tuning_forward fallback for models whose
-        # forward does not accept past_key_values) is implemented in PeftModelForSequenceClassification itself.
+        # forward does not explicitly accept a cache) is implemented in PeftModelForSequenceClassification itself.
         _skip_encoder_models(model_id, config_cls)
         with hub_online_once(model_id):
-            model = self.transformers_class.from_pretrained(model_id)
+            # MPS can abort when MSE mixes bfloat16 predictions with float32 targets. Match the float32 regression
+            # labels and expected-loss calculation by explicitly loading the model in float32.
+            model = self.transformers_class.from_pretrained(model_id, dtype=torch.float32)
 
             if getattr(model.config, "pad_token_id", None) is None:
                 # needed for a batched forward pass with sequence classification models like Llama
@@ -532,3 +553,60 @@ class TestSequenceClassificationModels(PeftCommonTester):
                 inputs_embeds = model.get_input_embeddings()(input_ids)
                 output_embeds = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
             assert torch.allclose(output_ids.logits, output_embeds.logits, atol=1e-5, rtol=1e-5)
+
+    @pytest.mark.parametrize(
+        "problem_type", ["regression", "single_label_classification", "multi_label_classification"]
+    )
+    def test_prefix_tuning_legacy_forward_loss_branches(self, problem_type):
+        # BertForSequenceClassification.forward does not explicitly accept a cache, so prefix tuning takes the legacy
+        # code path in PeftModelForSequenceClassification._prefix_tuning_forward, which calls the transformer backbone
+        # directly and computes the loss inline. Check that inline loss computation for all problem types.
+        model_id = "peft-internal-testing/tiny-random-BertForSequenceClassification"
+        num_labels = 1 if problem_type == "regression" else 3
+        with hub_online_once(model_id):
+            base_model = AutoModelForSequenceClassification.from_pretrained(
+                model_id, num_labels=num_labels, problem_type=problem_type, ignore_mismatched_sizes=True
+            )
+        # ensure that this test actually covers the legacy code path
+        assert get_transformers_cache_name() not in inspect.signature(base_model.forward).parameters
+
+        config = PrefixTuningConfig(task_type="SEQ_CLS", num_virtual_tokens=4)
+        model = get_peft_model(base_model, config).to(self.torch_device)
+        model.eval()
+
+        inputs = self.prepare_inputs_for_testing()
+        if problem_type == "regression":
+            labels = torch.tensor([0.5, -0.5]).to(self.torch_device)
+        elif problem_type == "single_label_classification":
+            labels = torch.tensor([0, 2]).to(self.torch_device)
+        else:
+            labels = torch.tensor([[1.0, 0.0, 1.0], [0.0, 1.0, 0.0]]).to(self.torch_device)
+
+        with torch.no_grad():
+            output = model(**inputs, labels=labels)
+
+        if problem_type == "regression":
+            expected_loss = torch.nn.functional.mse_loss(output.logits.squeeze(), labels.squeeze())
+        elif problem_type == "single_label_classification":
+            expected_loss = torch.nn.functional.cross_entropy(output.logits.view(-1, num_labels), labels.view(-1))
+        else:
+            expected_loss = torch.nn.functional.binary_cross_entropy_with_logits(output.logits, labels)
+        assert torch.isfinite(output.loss)
+        assert torch.allclose(output.loss, expected_loss, atol=1e-4, rtol=1e-4)
+
+    def test_prompt_learning_with_token_type_ids(self):
+        # Sequence classification keeps token_type_ids and prefixes them with zeros to account for the virtual tokens.
+        # Since zeros are also the default token type, passing them explicitly must not change the result (a wrong
+        # prefix length would raise a shape error inside the model).
+        model_id = PEFT_SEQ_CLS_MODELS_TO_TEST[0]
+        with hub_online_once(model_id):
+            base_model = AutoModelForSequenceClassification.from_pretrained(model_id)
+        config = PromptTuningConfig(task_type="SEQ_CLS", num_virtual_tokens=4)
+        model = get_peft_model(base_model, config).to(self.torch_device)
+        model.eval()
+
+        inputs = self.prepare_inputs_for_testing()
+        with torch.no_grad():
+            output_without = model(**inputs)
+            output_with = model(**inputs, token_type_ids=torch.zeros_like(inputs["input_ids"]))
+        assert torch.allclose(output_without.logits, output_with.logits, atol=1e-6, rtol=1e-6)

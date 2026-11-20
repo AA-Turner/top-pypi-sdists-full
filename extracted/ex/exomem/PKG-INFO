@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: exomem
-Version: 0.188.0
+Version: 0.191.0
 Summary: Local knowledge substrate for owned markdown/Obsidian vaults, exposed through MCP, REST, and CLI with multimodal OCR/ASR/CLIP search
 Project-URL: Homepage, https://substratesystems.io/exomem
 Project-URL: Documentation, https://github.com/Artexis10/exomem/blob/main/QUICKSTART.md
@@ -75,6 +75,7 @@ Requires-Dist: rawpy<0.29,>=0.28; (sys_platform != 'darwin' or platform_machine 
 Provides-Extra: media
 Requires-Dist: av<19,>=11; extra == 'media'
 Requires-Dist: ctranslate2<5,>=4.6.3; extra == 'media'
+Requires-Dist: defusedxml>=0.7.1; extra == 'media'
 Requires-Dist: faster-whisper>=1.1; extra == 'media'
 Requires-Dist: markitdown[docx,pptx,xlsx]>=0.1.1; extra == 'media'
 Requires-Dist: nvidia-cublas-cu12<13,>=12.8.4.1; (sys_platform == 'linux' or sys_platform == 'win32') and extra == 'media'
@@ -89,6 +90,7 @@ Requires-Dist: rawpy<0.29,>=0.28; (sys_platform != 'darwin' or platform_machine 
 Requires-Dist: striprtf>=0.0.33; extra == 'media'
 Provides-Extra: media-cpu
 Requires-Dist: av<19,>=11; extra == 'media-cpu'
+Requires-Dist: defusedxml>=0.7.1; extra == 'media-cpu'
 Requires-Dist: markitdown[docx,pptx,xlsx]>=0.1.1; extra == 'media-cpu'
 Requires-Dist: odfdo>=3.26; extra == 'media-cpu'
 Requires-Dist: onnx-asr[cpu]==0.12.0; extra == 'media-cpu'

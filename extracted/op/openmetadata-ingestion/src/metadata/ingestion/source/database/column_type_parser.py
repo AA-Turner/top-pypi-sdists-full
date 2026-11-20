@@ -13,7 +13,7 @@ Generic Column Type Parser.
 """
 
 import re
-from typing import Any, Dict, List, Optional, Tuple, Type, Union  # noqa: UP035
+from typing import Any
 
 from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy.sql import sqltypes as types
@@ -50,7 +50,7 @@ class ColumnTypeParser:
 
     _BRACKETS = {"(": ")", "[": "]", "{": "}", "<": ">"}  # noqa: RUF012
 
-    _COLUMN_TYPE_MAPPING: Dict[Type[types.TypeEngine], str] = {  # noqa: RUF012, UP006
+    _COLUMN_TYPE_MAPPING: dict[type[types.TypeEngine], str] = {  # noqa: RUF012
         types.ARRAY: "ARRAY",
         types.Boolean: "BOOLEAN",
         types.CHAR: "CHAR",
@@ -100,7 +100,9 @@ class ColumnTypeParser:
         "BINARY VARYING": "VARBINARY",
         "CURSOR": "BINARY",
         "DATE": "DATE",
+        "DATEV2": "DATE",
         "DATETIME": "DATETIME",
+        "DATETIMEV2": "DATETIME",
         "DATETIME2": "DATETIME",
         "DATETIMEOFFSET": "DATETIME",
         "DECIMAL": "DECIMAL",
@@ -141,6 +143,7 @@ class ColumnTypeParser:
         "INTERVAL DAY TO SECOND": "INTERVAL",
         "INTERVAL YEAR TO MONTH": "INTERVAL",
         "INTERVAL": "INTERVAL",
+        "LARGEINT": "LARGEINT",
         "LONG RAW": "BINARY",
         "LONG VARCHAR": "VARCHAR",
         "LONGBLOB": "LONGBLOB",
@@ -314,7 +317,7 @@ class ColumnTypeParser:
 
     try:
         # pylint: disable=import-outside-toplevel
-        from teradatasqlalchemy import BYTE, VARBYTE  # noqa: PLC0415
+        from teradatasqlalchemy import BYTE, VARBYTE
 
         _COLUMN_TYPE_MAPPING[BYTE] = "BINARY"
         _SOURCE_TYPE_TO_OM_TYPE["BYTE"] = "BINARY"
@@ -353,7 +356,7 @@ class ColumnTypeParser:
     def _parse_datatype_string(
         data_type: str,
         **kwargs: Any,  # pylint: disable=unused-argument
-    ) -> Union[object, Dict[str, object]]:  # noqa: UP006, UP007
+    ) -> object | dict[str, object]:
         data_type = data_type.lower().strip()
         data_type = data_type.replace(" ", "")
         if data_type.startswith("array<"):
@@ -395,7 +398,7 @@ class ColumnTypeParser:
         return ColumnTypeParser._parse_primitive_datatype_string(data_type)
 
     @staticmethod
-    def _parse_struct_fields_string(stuct_type: str) -> Dict[str, object]:  # noqa: UP006
+    def _parse_struct_fields_string(stuct_type: str) -> dict[str, object]:
         parts = ColumnTypeParser._ignore_brackets_split(stuct_type, ",", skip_no_child_validation=True)
         columns = []
         for part in parts:
@@ -425,7 +428,7 @@ class ColumnTypeParser:
     @staticmethod
     def _parse_primitive_datatype_string(  # pylint: disable=too-many-return-statements
         dtype: str,
-    ) -> Dict[str, object]:  # noqa: UP006
+    ) -> dict[str, object]:
         if dtype.upper() in ColumnTypeParser._SOURCE_TYPE_TO_OM_TYPE:
             return {
                 "dataType": ColumnTypeParser._SOURCE_TYPE_TO_OM_TYPE[dtype.upper()],
@@ -467,7 +470,7 @@ class ColumnTypeParser:
         }
 
     @staticmethod
-    def _ignore_brackets_split(string: str, separator: str, skip_no_child_validation: bool = False) -> List[str]:  # noqa: UP006
+    def _ignore_brackets_split(string: str, separator: str, skip_no_child_validation: bool = False) -> list[str]:
         parts = []
         buf = ""
         level = 0
@@ -495,7 +498,7 @@ class ColumnTypeParser:
         return parts
 
     @staticmethod
-    def check_col_precision(datatype: str, col_raw_type: object) -> Optional[Tuple[str, str]]:  # noqa: UP006, UP045
+    def check_col_precision(datatype: str, col_raw_type: object) -> tuple[str, str] | None:
         """
         Method retuerns the precision details of column if available
         """

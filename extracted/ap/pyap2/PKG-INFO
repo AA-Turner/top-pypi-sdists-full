@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyap2
-Version: 0.3.2
+Version: 0.3.3
 Summary: A maintained, typed fork of pyap for parsing US, CA, and UK addresses
 Project-URL: Documentation, https://github.com/argyle-engineering/pyap
 Project-URL: Homepage, https://github.com/argyle-engineering/pyap

@@ -155,6 +155,14 @@ impl MixintGpMixtureParams {
         self
     }
 
+    /// Sets a request to stop the training early: once cancelled, the training fails with
+    /// [`GpError::Interrupted`](egobox_gp::GpError::Interrupted) (wrapped in
+    /// [`MoeError::GpError`](crate::MoeError::GpError))
+    pub fn cancellation(mut self, cancellation: egobox_gp::Cancellation) -> Self {
+        self.0.gpmix_params = self.0.gpmix_params.cancellation(cancellation);
+        self
+    }
+
     /// Sets the noise-to-signal ratio tuning of full GP experts
     pub fn noise_ratio(mut self, noise_ratio: ParamTuning<f64>) -> Self {
         self.0.gpmix_params = self.0.gpmix_params.noise_ratio(noise_ratio);
@@ -174,7 +182,10 @@ impl MixintGpMixtureValidParams {
     /// If xtypes is None, returns the input as-is without any transformation.
     /// If working in folded space, unfolds enum dimensions to one-hot masks.
     /// Then projects continuous values to valid discrete values.
-    fn cast_to_model_space<'a>(&self, x: &'a CowArray<'a, f64, Ix2>) -> CowArray<'a, f64, Ix2> {
+    fn cast_to_model_space<'a>(
+        &self,
+        x: &'a CowArray<'a, f64, Ix2>,
+    ) -> Result<CowArray<'a, f64, Ix2>> {
         cast_to_model_space(
             self.xtypes.as_deref(),
             self.work_in_folded_space,
@@ -188,7 +199,7 @@ impl MixintGpMixtureValidParams {
         yt: &ArrayBase<impl Data<Elem = f64>, Ix1>,
     ) -> Result<MixintGpMixture> {
         let cow_xt = CowArray::from(xt);
-        let xcast = self.cast_to_model_space(&cow_xt);
+        let xcast = self.cast_to_model_space(&cow_xt)?;
         let mixmoe = MixintGpMixture {
             moe: self
                 .gpmix_params
@@ -210,7 +221,7 @@ impl MixintGpMixtureValidParams {
         clustering: &Clustering,
     ) -> Result<MixintGpMixture> {
         let cow_xt = CowArray::from(xt);
-        let xcast = self.cast_to_model_space(&cow_xt);
+        let xcast = self.cast_to_model_space(&cow_xt)?;
         let mixmoe = MixintGpMixture {
             moe: self.gpmix_params.clone().check_ref()?.train_on_clusters(
                 &xcast,
@@ -272,6 +283,11 @@ impl SurrogateBuilder for MixintGpMixtureParams {
     /// Sets the random generator used during training (e.g. clustering)
     fn set_rng(&mut self, rng: Xoshiro256Plus) {
         self.0.gpmix_params.set_rng(rng);
+    }
+
+    /// Sets a request to stop the training early
+    fn set_cancellation(&mut self, cancellation: egobox_gp::Cancellation) {
+        self.0.gpmix_params.set_cancellation(cancellation);
     }
 
     fn train(
@@ -400,24 +416,6 @@ mod tests {
         let xtest = array![[0.25, 0.0]];
         let ytest = model.predict(&xtest.view()).expect("Prediction failed");
         assert!(ytest[0] >= 0.0 && ytest[0] <= 1.0);
-    }
-
-    #[test]
-    fn test_params_continuous_helper() {
-        // Test the params_continuous() helper method
-        let builder = MoeBuilder::new();
-        let params = MixintGpMixtureParams::new_continuous(&builder);
-        assert!(params.xtypes().is_none());
-
-        // Should be able to train and predict
-        let xt = array![[0.0], [1.0], [2.0]];
-        let yt = array![0.0, 1.0, 2.0];
-        let ds = Dataset::new(xt, yt);
-        let model = params.fit(&ds).expect("Training failed");
-
-        let xtest = array![[1.5]];
-        let ytest = model.predict(&xtest.view()).expect("Prediction failed");
-        assert!((ytest[0] - 1.5).abs() < 0.5);
     }
 
     #[test]

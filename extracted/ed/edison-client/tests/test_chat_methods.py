@@ -1,6 +1,6 @@
 import asyncio
 import time
-from collections.abc import Generator
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
@@ -35,7 +35,7 @@ WAIT_FOR_CONVERSATION_VISIBLE_TIME = 180
 
 
 @pytest.fixture(name="chat_project_id")
-def fixture_chat_project_id(admin_client: RestClient) -> Generator[UUID, None, None]:
+def fixture_chat_project_id(admin_client: RestClient) -> Iterator[UUID]:
     """Create a fresh project for chat tests, clean up afterwards."""
     project_id = admin_client.create_project(f"chat-e2e-{uuid4()}")
     workspace_id = admin_client.create_workspace(
@@ -49,7 +49,7 @@ def fixture_chat_project_id(admin_client: RestClient) -> Generator[UUID, None, N
 class TestConversationDetailMultimodal:
     """ConversationDetail must accept multimodal content from the server."""
 
-    def test_multimodal_content_validates(self):
+    def test_multimodal_content_validates(self) -> None:
         """Server returns content as list of blocks for multimodal messages."""
         created_at = "2026-01-01T00:00:00+00:00"
         raw = {
@@ -80,7 +80,7 @@ class TestConversationDetailMultimodal:
         assert detail.messages[1].content[0]["type"] == "image_url"
         assert isinstance(detail.messages[2].content, str)
 
-    def test_conversation_message_accepts_string(self):
+    def test_conversation_message_accepts_string(self) -> None:
         msg = ConversationMessage.model_validate({
             "role": "user",
             "content": "hello",
@@ -88,7 +88,7 @@ class TestConversationDetailMultimodal:
         })
         assert msg.content == "hello"
 
-    def test_conversation_message_accepts_content_blocks(self):
+    def test_conversation_message_accepts_content_blocks(self) -> None:
         msg = ConversationMessage.model_validate({
             "role": "user",
             "content": [{"type": "text", "text": "See images below."}],
@@ -109,7 +109,7 @@ def _conversation_response(payload: dict) -> MagicMock:
 
 
 class _ChatMethodsStub(ChatMethods):
-    def __init__(self, *responses: dict):
+    def __init__(self, *responses: dict) -> None:
         mocked_responses = [_conversation_response(payload) for payload in responses]
         self._client = MagicMock()
         self._client.get.side_effect = mocked_responses
@@ -117,18 +117,18 @@ class _ChatMethodsStub(ChatMethods):
         self._async_client.get = AsyncMock(side_effect=mocked_responses)
 
     @property
-    def client(self):
+    def client(self) -> MagicMock:
         return self._client
 
     @property
-    def async_client(self):
+    def async_client(self) -> MagicMock:
         return self._async_client
 
 
 class TestConversationPagination:
     @pytest.mark.parametrize("mode", ["sync", "async"])
     @pytest.mark.asyncio
-    async def test_limit_none_fetches_all_message_pages(self, mode: str):
+    async def test_limit_none_fetches_all_message_pages(self, mode: str) -> None:
         session_id = uuid4()
         methods = _ChatMethodsStub(
             {
@@ -174,7 +174,7 @@ class TestConversationPagination:
 
     @pytest.mark.parametrize("mode", ["sync", "async"])
     @pytest.mark.asyncio
-    async def test_fetch_reassembles_content_continuation(self, mode: str):
+    async def test_fetch_reassembles_content_continuation(self, mode: str) -> None:
         session_id = uuid4()
         message_id = uuid4()
         older_block = {"type": "text", "text": "older"}
@@ -234,7 +234,7 @@ class TestConversationPagination:
             "continuation_block_index": 1,
         }
 
-    def test_fetch_all_completes_continuation_before_loading_next_page(self):
+    def test_fetch_all_completes_continuation_before_loading_next_page(self) -> None:
         session_id = uuid4()
         message_id = uuid4()
         older_block = {"type": "text", "text": "older"}
@@ -291,14 +291,11 @@ class TestConversationPagination:
             call.kwargs["params"] for call in methods.client.get.call_args_list
         ] == [
             {"limit": 1000},
-            {
-                "continuation_message_id": str(message_id),
-                "continuation_block_index": 1,
-            },
+            {"continuation_message_id": str(message_id), "continuation_block_index": 1},
             {"limit": 1000, "offset": 1},
         ]
 
-    def test_fetch_all_preserves_has_more_across_continuation(self):
+    def test_fetch_all_preserves_has_more_across_continuation(self) -> None:
         session_id = uuid4()
         message_id = uuid4()
         older_block = {"type": "text", "text": "older"}
@@ -360,7 +357,9 @@ class TestSyncChatLifecycle:
     @pytest.mark.live_agent
     @pytest.mark.timeout(TEST_TIMEOUT)
     @pytest.mark.flaky(reruns=RETRY_ATTEMPTS)
-    def test_e2e_sync_chat_flow(self, admin_client: RestClient, chat_project_id: UUID):
+    def test_e2e_sync_chat_flow(
+        self, admin_client: RestClient, chat_project_id: UUID
+    ) -> None:
         """Full sync lifecycle against the real API."""
         # 1. Send a chat message — creates a new session
         send_result = admin_client.send_chat_message(
@@ -419,13 +418,11 @@ class TestSyncChatLifecycle:
     @pytest.mark.flaky(reruns=RETRY_ATTEMPTS)
     def test_send_chat_message_follow_up(
         self, admin_client: RestClient, chat_project_id: UUID
-    ):
+    ) -> None:
         """Send a follow-up message to an existing session (sync)."""
         # Create session
         first = admin_client.send_chat_message(
-            project_id=chat_project_id,
-            message="First message",
-            job_name=CHAT_JOB_NAME,
+            project_id=chat_project_id, message="First message", job_name=CHAT_JOB_NAME
         )
         session_id = first.session_id
 
@@ -438,53 +435,48 @@ class TestSyncChatLifecycle:
         )
         assert second.session_id == session_id
 
-    def test_send_chat_message_bad_project(self, admin_client: RestClient):
+    def test_send_chat_message_bad_project(self, admin_client: RestClient) -> None:
         """Sending a message with a non-existent project_id returns 404."""
         fake_project_id = uuid4()
-        with pytest.raises(
-            ChatError,
-            match=r"404.*project_not_found_or_unauthorized",
-        ):
+        with pytest.raises(ChatError, match=r"404.*project_not_found_or_unauthorized"):
             admin_client.send_chat_message(
-                project_id=fake_project_id,
-                message="Should fail",
+                project_id=fake_project_id, message="Should fail"
             )
 
-    def test_get_conversations_empty(self, admin_client: RestClient):
+    def test_get_conversations_empty(self, admin_client: RestClient) -> None:
         """Listing conversations with no filter returns without error."""
         convos = admin_client.get_conversations(limit=5)
         assert isinstance(convos, ChatConversationList)
         assert isinstance(convos.conversations, list)
 
-    def test_get_conversation_not_found(self, admin_client: RestClient):
+    def test_get_conversation_not_found(self, admin_client: RestClient) -> None:
         """Fetching a non-existent session returns 404."""
         with pytest.raises(ChatFetchError, match="404") as exc_info:
             admin_client.get_conversation(uuid4())
         assert "not found" in str(exc_info.value).lower()
 
-    def test_store_message_bad_session(self, admin_client: RestClient):
+    def test_store_message_bad_session(self, admin_client: RestClient) -> None:
         """Storing a message to a non-existent session returns 404."""
         with pytest.raises(ChatError, match="404") as exc_info:
             admin_client.store_conversation_message(
-                session_id=uuid4(),
-                message={"role": "user", "content": "orphan"},
+                session_id=uuid4(), message={"role": "user", "content": "orphan"}
             )
         assert "not found" in str(exc_info.value).lower()
 
-    def test_queue_chat_message_bad_project(self, admin_client: RestClient):
+    def test_queue_chat_message_bad_project(self, admin_client: RestClient) -> None:
         """Queueing a message with a non-existent project_id returns 404."""
         with pytest.raises(ChatError, match="404") as exc_info:
             admin_client.queue_chat_message(
-                session_id=uuid4(),
-                project_id=uuid4(),
-                message="Should fail",
+                session_id=uuid4(), project_id=uuid4(), message="Should fail"
             )
         assert "not found" in str(exc_info.value).lower()
 
     @pytest.mark.live_agent
     @pytest.mark.timeout(TEST_TIMEOUT)
     @pytest.mark.flaky(reruns=RETRY_ATTEMPTS)
-    def test_queue_chat_message(self, admin_client: RestClient, chat_project_id: UUID):
+    def test_queue_chat_message(
+        self, admin_client: RestClient, chat_project_id: UUID
+    ) -> None:
         """Queue a message into a running chat session (sync)."""
         send_result = admin_client.send_chat_message(
             project_id=chat_project_id,
@@ -512,7 +504,7 @@ class TestAsyncChatLifecycle:
     @pytest.mark.asyncio
     async def test_e2e_async_chat_flow(
         self, admin_client: RestClient, chat_project_id: UUID
-    ):
+    ) -> None:
         """Full async lifecycle against the real API."""
         # 1. Send a chat message — creates a new session
         send_result = await admin_client.asend_chat_message(
@@ -572,7 +564,7 @@ class TestAsyncChatLifecycle:
     @pytest.mark.asyncio
     async def test_asend_chat_message_follow_up(
         self, admin_client: RestClient, chat_project_id: UUID
-    ):
+    ) -> None:
         """Send a follow-up message to an existing session (async)."""
         first = await admin_client.asend_chat_message(
             project_id=chat_project_id,
@@ -590,49 +582,46 @@ class TestAsyncChatLifecycle:
         assert second.session_id == session_id
 
     @pytest.mark.asyncio
-    async def test_asend_chat_message_bad_project(self, admin_client: RestClient):
+    async def test_asend_chat_message_bad_project(
+        self, admin_client: RestClient
+    ) -> None:
         """Sending a message with a non-existent project_id returns 404 (async)."""
-        with pytest.raises(
-            ChatError,
-            match=r"404.*project_not_found_or_unauthorized",
-        ):
+        with pytest.raises(ChatError, match=r"404.*project_not_found_or_unauthorized"):
             await admin_client.asend_chat_message(
-                project_id=uuid4(),
-                message="Should fail",
+                project_id=uuid4(), message="Should fail"
             )
 
     @pytest.mark.asyncio
-    async def test_aget_conversations_empty(self, admin_client: RestClient):
+    async def test_aget_conversations_empty(self, admin_client: RestClient) -> None:
         """Listing conversations with no filter returns without error (async)."""
         convos = await admin_client.aget_conversations(limit=5)
         assert isinstance(convos, ChatConversationList)
         assert isinstance(convos.conversations, list)
 
     @pytest.mark.asyncio
-    async def test_aget_conversation_not_found(self, admin_client: RestClient):
+    async def test_aget_conversation_not_found(self, admin_client: RestClient) -> None:
         """Fetching a non-existent session returns 404 (async)."""
         with pytest.raises(ChatFetchError, match="404") as exc_info:
             await admin_client.aget_conversation(uuid4())
         assert "not found" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_astore_message_bad_session(self, admin_client: RestClient):
+    async def test_astore_message_bad_session(self, admin_client: RestClient) -> None:
         """Storing a message to a non-existent session returns 404 (async)."""
         with pytest.raises(ChatError, match="404") as exc_info:
             await admin_client.astore_conversation_message(
-                session_id=uuid4(),
-                message={"role": "user", "content": "orphan"},
+                session_id=uuid4(), message={"role": "user", "content": "orphan"}
             )
         assert "not found" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_aqueue_chat_message_bad_project(self, admin_client: RestClient):
+    async def test_aqueue_chat_message_bad_project(
+        self, admin_client: RestClient
+    ) -> None:
         """Queueing a message with a non-existent project_id returns 404 (async)."""
         with pytest.raises(ChatError, match="404") as exc_info:
             await admin_client.aqueue_chat_message(
-                session_id=uuid4(),
-                project_id=uuid4(),
-                message="Should fail",
+                session_id=uuid4(), project_id=uuid4(), message="Should fail"
             )
         assert "not found" in str(exc_info.value).lower()
 
@@ -642,7 +631,7 @@ class TestAsyncChatLifecycle:
     @pytest.mark.asyncio
     async def test_aqueue_chat_message(
         self, admin_client: RestClient, chat_project_id: UUID
-    ):
+    ) -> None:
         """Queue a message into a running chat session (async)."""
         send_result = await admin_client.asend_chat_message(
             project_id=chat_project_id,

@@ -1,16 +1,29 @@
 Metadata-Version: 2.4
 Name: pyaga8
-Version: 0.1.18
+Version: 0.2.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: sphinx>=7.3 ; extra == 'docs'
+Requires-Dist: myst-parser>=4.0 ; extra == 'docs'
+Requires-Dist: furo>=2024.1.29 ; extra == 'docs'
+Requires-Dist: pytest>=7.0 ; extra == 'test'
+Provides-Extra: docs
+Provides-Extra: test
 License-File: LICENSE
 Summary: Python package for calculating gas properties using the AGA8 equations GERG-2008 and DETAIL
 Keywords: AGA8,gas properties,GERG-2008,DETAIL
 Author: Roy Vegard Ovesen, Christian Hågenvik
-License-Expression: MIT License
-Requires-Python: >=3.8
+License-Expression: MIT
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://equinor.github.io/pyaga8/
 Project-URL: homepage, https://github.com/equinor/pyaga8
 
 # pyaga8
@@ -24,13 +37,30 @@ GitHub: https://github.com/equinor/pyaga8
 `pyaga8` is a low-level Python interface to the AGA8 calculations. It exposes the underlying GERG-2008 and DETAIL state objects and methods directly, with Rust used for performance via `pyo3`.
 
 Higher-level libraries such as [`pvtlib`](https://pypi.org/project/pvtlib/) build on top of `pyaga8` to provide workflows such as PT, PH, PS and rhoT calculations:
-https://github.com/equinor/pvtlib/blob/main/examples/gas_properties_from_aga8.py
+https://github.com/equinor/pvtlib/tree/main/examples/01%20Gas%20Properties%20from%20AGA8
+
+Documentation: https://equinor.github.io/pyaga8/
+
+## Units
+
+`pyaga8` does no unit conversion. Inputs and outputs use the units of the Rust
+[`aga8`](https://docs.rs/aga8/0.6.1/aga8/) crate 0.6.1: temperature in K, pressure in kPa,
+molar concentration (`d`) in mol/l, molar mass in g/mol, internal energy, enthalpy and Gibbs
+energy in J/mol, entropy and heat capacities in J/(mol-K), speed of sound in m/s and
+Joule-Thomson coefficient in K/kPa. Compositions are mole fractions. The docstrings
+(`help(pyaga8.Gerg2008)`) list the unit of every property.
 
 ## Installation
 
 ```sh
 pip install pyaga8
 ```
+
+Wheels are published for CPython 3.10-3.14 on Linux x86_64 and aarch64 (manylinux2014),
+Windows x64 and macOS arm64. The installed version is `pyaga8.__version__`. Each release has a
+git tag and a [GitHub release](https://github.com/equinor/pyaga8/releases) with the same version,
+for example `0.2.0`; how releases are made is described in
+[docs/releasing.md](https://github.com/equinor/pyaga8/blob/main/docs/releasing.md).
 
 ## Minimal usage
 

@@ -628,6 +628,9 @@ class WatchConfig:
     #: Hosted: called with the journal folder the loop holds the session's live
     #: claim in once it takes it, and with None when it lets go (`hosted.Controls.claim`).
     claimed: object = None
+    #: Hosted: called with why the loop holds no claim (`hosted.Controls.set_waiting`), and with
+    #: None once it takes one or ends. None (an older service): nothing is published.
+    waiting: object = None
     #: Hosted: called on every pass and every second the loop waits between
     #: them (`hosted.Controls.beat`): the service sees a recorder that stopped
     #: making progress while its agent runs. None in a `tap watch` process.

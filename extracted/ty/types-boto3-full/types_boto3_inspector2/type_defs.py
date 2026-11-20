@@ -232,6 +232,9 @@ __all__ = (
     "CodeRepositoryMetadataTypeDef",
     "CodeRepositoryOnDemandScanTypeDef",
     "CodeSecurityIntegrationSummaryTypeDef",
+    "CodeSecurityIntegrationVpcConfigurationOutputTypeDef",
+    "CodeSecurityIntegrationVpcConfigurationTypeDef",
+    "CodeSecurityIntegrationVpcConfigurationUnionTypeDef",
     "CodeSecurityResourceTypeDef",
     "CodeSecurityScanConfigurationAssociationSummaryTypeDef",
     "CodeSecurityScanConfigurationOutputTypeDef",
@@ -277,6 +280,7 @@ __all__ = (
     "CreateFilterResponseTypeDef",
     "CreateFindingsReportRequestTypeDef",
     "CreateFindingsReportResponseTypeDef",
+    "CreateGitHubEnterpriseIntegrationDetailTypeDef",
     "CreateGitLabSelfManagedIntegrationDetailTypeDef",
     "CreateIntegrationDetailTypeDef",
     "CreateSbomExportRequestTypeDef",
@@ -380,6 +384,7 @@ __all__ = (
     "GetOnDemandScanStatusResponseTypeDef",
     "GetSbomExportRequestTypeDef",
     "GetSbomExportResponseTypeDef",
+    "GitHubEnterpriseServerAppRegistrationDetailTypeDef",
     "ImageLayerAggregationResponseTypeDef",
     "ImageLayerAggregationTypeDef",
     "ImageTypeDef",
@@ -551,6 +556,8 @@ __all__ = (
     "UpdateEncryptionKeyRequestTypeDef",
     "UpdateFilterRequestTypeDef",
     "UpdateFilterResponseTypeDef",
+    "UpdateGitHubEnterpriseServerAppInstallationDetailTypeDef",
+    "UpdateGitHubEnterpriseServerIntegrationDetailTypeDef",
     "UpdateGitHubIntegrationDetailTypeDef",
     "UpdateGitLabSelfManagedIntegrationDetailTypeDef",
     "UpdateIntegrationDetailsTypeDef",
@@ -924,6 +931,24 @@ CodeSecurityIntegrationSummaryTypeDef = TypedDict(
 )
 
 
+class CodeSecurityIntegrationVpcConfigurationOutputTypeDef(TypedDict):
+    vpcId: str
+    vpcEndpointId: str
+    codeConnectionsHostArn: NotRequired[str]
+    subnetIds: NotRequired[list[str]]
+    securityGroups: NotRequired[list[str]]
+    tlsCertificate: NotRequired[str]
+
+
+class CodeSecurityIntegrationVpcConfigurationTypeDef(TypedDict):
+    vpcId: str
+    vpcEndpointId: str
+    codeConnectionsHostArn: NotRequired[str]
+    subnetIds: NotRequired[Sequence[str]]
+    securityGroups: NotRequired[Sequence[str]]
+    tlsCertificate: NotRequired[str]
+
+
 class ContinuousIntegrationScanConfigurationOutputTypeDef(TypedDict):
     supportedEvents: list[ContinuousIntegrationScanEventType]
 
@@ -1025,11 +1050,6 @@ class DestinationTypeDef(TypedDict):
     kmsKeyArn: str
     keyPrefix: NotRequired[str]
     expectedBucketOwner: NotRequired[str]
-
-
-class CreateGitLabSelfManagedIntegrationDetailTypeDef(TypedDict):
-    instanceUrl: str
-    accessToken: str
 
 
 class Cvss2TypeDef(TypedDict):
@@ -1282,6 +1302,10 @@ class GetOnDemandScanStatusRequestTypeDef(TypedDict):
 
 class GetSbomExportRequestTypeDef(TypedDict):
     reportId: str
+
+
+class GitHubEnterpriseServerAppRegistrationDetailTypeDef(TypedDict):
+    manifestCode: str
 
 
 class ImageTypeDef(TypedDict):
@@ -1576,13 +1600,21 @@ class UpdateEncryptionKeyRequestTypeDef(TypedDict):
     resourceType: ResourceTypeType
 
 
+class UpdateGitHubEnterpriseServerAppInstallationDetailTypeDef(TypedDict):
+    code: str
+    installationId: str
+    stateToken: NotRequired[str]
+
+
 class UpdateGitHubIntegrationDetailTypeDef(TypedDict):
     code: str
     installationId: str
+    stateToken: NotRequired[str]
 
 
 class UpdateGitLabSelfManagedIntegrationDetailTypeDef(TypedDict):
     authCode: str
+    stateToken: NotRequired[str]
 
 
 class UpdateOrgEc2DeepInspectionConfigurationRequestTypeDef(TypedDict):
@@ -2002,23 +2034,6 @@ class GetCisScanReportResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-GetCodeSecurityIntegrationResponseTypeDef = TypedDict(
-    "GetCodeSecurityIntegrationResponseTypeDef",
-    {
-        "integrationArn": str,
-        "name": str,
-        "type": IntegrationTypeType,
-        "status": IntegrationStatusType,
-        "statusReason": str,
-        "createdOn": datetime,
-        "lastUpdateOn": datetime,
-        "authorizationUrl": str,
-        "tags": dict[str, str],
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-
-
 class GetCodeSecurityScanResponseTypeDef(TypedDict):
     scanId: str
     resource: CodeSecurityResourceTypeDef
@@ -2307,6 +2322,29 @@ class ListCodeSecurityIntegrationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+GetCodeSecurityIntegrationResponseTypeDef = TypedDict(
+    "GetCodeSecurityIntegrationResponseTypeDef",
+    {
+        "integrationArn": str,
+        "name": str,
+        "type": IntegrationTypeType,
+        "status": IntegrationStatusType,
+        "statusReason": str,
+        "createdOn": datetime,
+        "lastUpdateOn": datetime,
+        "authorizationUrl": str,
+        "vpcConfiguration": CodeSecurityIntegrationVpcConfigurationOutputTypeDef,
+        "instanceUrl": str,
+        "tags": dict[str, str],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+CodeSecurityIntegrationVpcConfigurationUnionTypeDef = Union[
+    CodeSecurityIntegrationVpcConfigurationTypeDef,
+    CodeSecurityIntegrationVpcConfigurationOutputTypeDef,
+]
+
+
 class CodeSecurityScanConfigurationOutputTypeDef(TypedDict):
     ruleSetCategories: list[RuleSetCategoryType]
     periodicScanConfiguration: NotRequired[PeriodicScanConfigurationTypeDef]
@@ -2359,10 +2397,6 @@ class ListCoverageStatisticsResponseTypeDef(TypedDict):
     totalCounts: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-
-class CreateIntegrationDetailTypeDef(TypedDict):
-    gitlabSelfManaged: NotRequired[CreateGitLabSelfManagedIntegrationDetailTypeDef]
 
 
 class CvssScoreDetailsTypeDef(TypedDict):
@@ -2678,9 +2712,9 @@ class StopCisSessionMessageTypeDef(TypedDict):
     benchmarkProfile: NotRequired[str]
 
 
-class UpdateIntegrationDetailsTypeDef(TypedDict):
-    gitlabSelfManaged: NotRequired[UpdateGitLabSelfManagedIntegrationDetailTypeDef]
-    github: NotRequired[UpdateGitHubIntegrationDetailTypeDef]
+class UpdateGitHubEnterpriseServerIntegrationDetailTypeDef(TypedDict):
+    appInstallation: NotRequired[UpdateGitHubEnterpriseServerAppInstallationDetailTypeDef]
+    appRegistration: NotRequired[GitHubEnterpriseServerAppRegistrationDetailTypeDef]
 
 
 class UsageTotalTypeDef(TypedDict):
@@ -3094,6 +3128,17 @@ class ListCisScanConfigurationsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class CreateGitHubEnterpriseIntegrationDetailTypeDef(TypedDict):
+    instanceUrl: str
+    vpcConfiguration: NotRequired[CodeSecurityIntegrationVpcConfigurationUnionTypeDef]
+
+
+class CreateGitLabSelfManagedIntegrationDetailTypeDef(TypedDict):
+    instanceUrl: str
+    accessToken: str
+    vpcConfiguration: NotRequired[CodeSecurityIntegrationVpcConfigurationUnionTypeDef]
+
+
 class GetCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
     scanConfigurationArn: str
     name: str
@@ -3164,17 +3209,6 @@ class ListConnectorsRequestWaitTypeDef(TypedDict):
     nextToken: NotRequired[str]
     filterCriteria: NotRequired[ConnectorFilterCriteriaTypeDef]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
-
-
-CreateCodeSecurityIntegrationRequestTypeDef = TypedDict(
-    "CreateCodeSecurityIntegrationRequestTypeDef",
-    {
-        "name": str,
-        "type": IntegrationTypeType,
-        "details": NotRequired[CreateIntegrationDetailTypeDef],
-        "tags": NotRequired[Mapping[str, str]],
-    },
-)
 
 
 class InspectorScoreDetailsTypeDef(TypedDict):
@@ -3285,9 +3319,10 @@ class StopCisSessionRequestTypeDef(TypedDict):
     message: StopCisSessionMessageTypeDef
 
 
-class UpdateCodeSecurityIntegrationRequestTypeDef(TypedDict):
-    integrationArn: str
-    details: UpdateIntegrationDetailsTypeDef
+class UpdateIntegrationDetailsTypeDef(TypedDict):
+    gitlabSelfManaged: NotRequired[UpdateGitLabSelfManagedIntegrationDetailTypeDef]
+    github: NotRequired[UpdateGitHubIntegrationDetailTypeDef]
+    githubEnterpriseServer: NotRequired[UpdateGitHubEnterpriseServerIntegrationDetailTypeDef]
 
 
 class ListUsageTotalsResponseTypeDef(TypedDict):
@@ -3429,6 +3464,11 @@ class ContainerImageAggregationTypeDef(TypedDict):
 FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTypeDef]
 
 
+class CreateIntegrationDetailTypeDef(TypedDict):
+    gitlabSelfManaged: NotRequired[CreateGitLabSelfManagedIntegrationDetailTypeDef]
+    githubEnterprise: NotRequired[CreateGitHubEnterpriseIntegrationDetailTypeDef]
+
+
 class CreateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
     name: str
     level: ConfigurationLevelType
@@ -3495,6 +3535,11 @@ class CreateSbomExportRequestTypeDef(TypedDict):
     reportFormat: SbomReportFormatType
     s3Destination: DestinationTypeDef
     resourceFilterCriteria: NotRequired[ResourceFilterCriteriaUnionTypeDef]
+
+
+class UpdateCodeSecurityIntegrationRequestTypeDef(TypedDict):
+    integrationArn: str
+    details: UpdateIntegrationDetailsTypeDef
 
 
 class UpdateConfigurationRequestTypeDef(TypedDict):
@@ -3597,6 +3642,17 @@ class UpdateFilterRequestTypeDef(TypedDict):
     filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
     name: NotRequired[str]
     reason: NotRequired[str]
+
+
+CreateCodeSecurityIntegrationRequestTypeDef = TypedDict(
+    "CreateCodeSecurityIntegrationRequestTypeDef",
+    {
+        "name": str,
+        "type": IntegrationTypeType,
+        "details": NotRequired[CreateIntegrationDetailTypeDef],
+        "tags": NotRequired[Mapping[str, str]],
+    },
+)
 
 
 class ListCisScanConfigurationsResponseTypeDef(TypedDict):

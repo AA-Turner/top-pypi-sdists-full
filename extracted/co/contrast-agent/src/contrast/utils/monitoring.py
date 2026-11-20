@@ -10,7 +10,7 @@ try:
 except ImportError:
     viztracer = None
 
-from contrast.agent import request_state
+from contrast.agent import request_state, scope
 from contrast.utils.decorators import fail_loudly
 from contrast_vendor import structlog as logging
 
@@ -97,6 +97,7 @@ def _save_trace_data(request_tracer, path: str):
     ).start()
 
 
+@scope.contrast_scope()
 def _do_save(request_tracer, filename: str):
     request_tracer.save(output_file=filename)
     logger.debug("wrote viztracer data", output_file=filename)

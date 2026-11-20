@@ -2128,6 +2128,10 @@ class CreateInvoiceInvoiceTypedDict(TypedDict):
     r"""URL to the Stripe-hosted invoice page"""
     items: NotRequired[List[CreateInvoiceInvoiceItemTypedDict]]
     r"""Line items on the invoice, one per line as shown in Stripe. Capped at 100. Empty for invoices recorded before line item storage."""
+    discount_total: NotRequired[float]
+    r"""Total discounts on the invoice, worked out from its stored line items. Absent when the invoice has none stored."""
+    tax: NotRequired[float]
+    r"""Tax added on top of the discounted line items (total less the lines after discounts). Absent when the invoice has no stored line items."""
 
 
 class CreateInvoiceInvoice(BaseModel):
@@ -2173,9 +2177,17 @@ class CreateInvoiceInvoice(BaseModel):
     items: Optional[List[CreateInvoiceInvoiceItem]] = None
     r"""Line items on the invoice, one per line as shown in Stripe. Capped at 100. Empty for invoices recorded before line item storage."""
 
+    discount_total: Optional[float] = None
+    r"""Total discounts on the invoice, worked out from its stored line items. Absent when the invoice has none stored."""
+
+    tax: Optional[float] = None
+    r"""Tax added on top of the discounted line items (total less the lines after discounts). Absent when the invoice has no stored line items."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["processor_type", "hosted_invoice_url", "items"])
+        optional_fields = set(
+            ["processor_type", "hosted_invoice_url", "items", "discount_total", "tax"]
+        )
         nullable_fields = set(
             ["amount_paid", "hosted_invoice_url", "customer_id", "entity_id"]
         )

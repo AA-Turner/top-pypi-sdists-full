@@ -9,6 +9,7 @@ from time import sleep
 from unittest import mock
 
 import pytest
+from pypdf import PdfReader
 
 from md2pdf.cli import cli, parse_config
 from md2pdf.exceptions import ValidationError
@@ -92,7 +93,7 @@ def test_command_version(cli_runner):
 def test_command_raise_error_when_markdown_input_file_does_not_exists(cli_runner):
     """Raise an I/O error when markdown input file does not exist."""
     result = cli_runner.invoke(cli, ["-i", "input.md"])
-    expected = "Invalid value for '--input' / '-i': Path 'input.md' does not exist."
+    expected = "Invalid value for '--input' / '-i': path 'input.md' does not exist."
     assert result.exit_code == 2
     assert expected in result.output
 
@@ -102,7 +103,7 @@ def test_command_raise_error_when_stylesheet_does_not_exists(cli_runner):
     result = cli_runner.invoke(
         cli, ["-c", "styles.css", "-i", str(INPUT_MD), "-o", str(OUTPUT_PDF)]
     )
-    expected = "Invalid value for '--css' / '-c': Path 'styles.css' does not exist."
+    expected = "Invalid value for '--css' / '-c': path 'styles.css' does not exist."
     assert result.exit_code == 2
     assert expected in result.output
 
@@ -186,6 +187,61 @@ def test_generate_pdf_with_a_configured_extension(cli_runner):
         ],
     )
     assert OUTPUT_PDF.exists()
+
+
+def test_generate_pdf_with_template_enabled(cli_runner):
+    """Generate a PDF with template rendering enabled via the CLI flag."""
+    assert not OUTPUT_PDF.exists()
+
+    with NamedTemporaryFile(suffix=".md", delete=False) as template_md:
+        template_md.write(
+            "\n".join(
+                [
+                    "---",
+                    "name: John",
+                    "---",
+                    "Hey {{ name }}",
+                ]
+            ).encode()
+        )
+        template_md.close()
+
+        result = cli_runner.invoke(
+            cli,
+            ["-i", template_md.name, "-o", str(OUTPUT_PDF), "--template"],
+        )
+        assert result.exit_code == 0
+        assert "Template rendering enabled" in result.output
+        assert OUTPUT_PDF.exists()
+
+        reader = PdfReader(OUTPUT_PDF)
+        assert reader.pages[0].extract_text() == "Hey John"
+
+        # Manual cleanup
+        Path(template_md.name).unlink()
+
+
+def test_generate_pdf_without_template_renders_jinja_tags_literally(cli_runner):
+    """Generate a PDF without template rendering: Jinja tags are not interpreted."""
+    assert not OUTPUT_PDF.exists()
+
+    with NamedTemporaryFile(suffix=".md", delete=False) as template_md:
+        template_md.write(b"Hey {{ name }}")
+        template_md.close()
+
+        result = cli_runner.invoke(
+            cli,
+            ["-i", template_md.name, "-o", str(OUTPUT_PDF)],
+        )
+        assert result.exit_code == 0
+        assert "Template rendering enabled" not in result.output
+        assert OUTPUT_PDF.exists()
+
+        reader = PdfReader(OUTPUT_PDF)
+        assert reader.pages[0].extract_text() == "Hey {{ name }}"
+
+        # Manual cleanup
+        Path(template_md.name).unlink()
 
 
 def test_generate_pdf_with_watch(cli_runner):

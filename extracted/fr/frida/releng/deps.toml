@@ -1,5 +1,5 @@
 [dependencies]
-version = "20261117"
+version = "20261120"
 bootstrap_version = "20250801"
 
 [ninja]
@@ -118,7 +118,7 @@ options = [
 
 [glib]
 name = "GLib"
-version = "c6df0665dab0f971f66c5c46055b7d0b6085d1b1"
+version = "40355343ed5a4c1bbcf0e4d84d67bfea0ee66938"
 url = "https://github.com/frida-forks/glib.git"
 options = [
     "-Dcocoa=disabled",
@@ -294,7 +294,7 @@ options = [
 [lwip]
 when = "not machine.is_freestanding"
 name = "lwIP"
-version = "857ac9ef0de0e47c8b8f7a0b66f09673238368d0"
+version = "f7ab2f8609e50720eda120222d22e2ddc52ee811"
 url = "https://github.com/frida-forks/lwip.git"
 options = [
     "-Dipv4=disabled",
@@ -427,7 +427,7 @@ dependencies = [
 
 [quickjs]
 name = "QuickJS"
-version = "6f3b5b4827d4c81af85627d66fce2ec3c8ab70d0"
+version = "b3362371b6ebadbd97777977a01cc7bf07495750"
 url = "https://github.com/frida-forks/quickjs.git"
 options = [
     "-Dlibc=false",

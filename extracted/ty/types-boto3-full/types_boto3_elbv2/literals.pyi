@@ -28,6 +28,9 @@ __all__ = (
     "AuthenticateCognitoActionConditionalBehaviorEnumType",
     "AuthenticateOidcActionConditionalBehaviorEnumType",
     "CapacityReservationStateEnumType",
+    "ClientCertificateIdentityFilterActionType",
+    "ClientCertificateIdentityFilterFieldType",
+    "ClientCertificateIdentityFilterMatchTypeType",
     "DescribeAccountLimitsPaginatorName",
     "DescribeListenerCertificatesPaginatorName",
     "DescribeListenersPaginatorName",
@@ -87,6 +90,9 @@ AnomalyResultEnumType = Literal["anomalous", "normal"]
 AuthenticateCognitoActionConditionalBehaviorEnumType = Literal["allow", "authenticate", "deny"]
 AuthenticateOidcActionConditionalBehaviorEnumType = Literal["allow", "authenticate", "deny"]
 CapacityReservationStateEnumType = Literal["failed", "pending", "provisioned", "rebalancing"]
+ClientCertificateIdentityFilterActionType = Literal["accept"]
+ClientCertificateIdentityFilterFieldType = Literal["san-dns", "san-uri", "subject-cn", "subject-ou"]
+ClientCertificateIdentityFilterMatchTypeType = Literal["exact", "prefix"]
 DescribeAccountLimitsPaginatorName = Literal["describe_account_limits"]
 DescribeListenerCertificatesPaginatorName = Literal["describe_listener_certificates"]
 DescribeListenersPaginatorName = Literal["describe_listeners"]
@@ -455,6 +461,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

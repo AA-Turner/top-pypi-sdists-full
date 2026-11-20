@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-route53
-Version: 1.44.2
-Summary: Type annotations for boto3 Route53 1.44.2 service generated with mypy-boto3-builder 8.12.0
+Version: 1.44.7
+Summary: Type annotations for boto3 Route53 1.44.7 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Route53 1.44.2](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Route53 1.44.7](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.2' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.7' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Route53` service.
 4. Use provided commands to install generated packages.
@@ -342,6 +342,8 @@ from mypy_boto3_route53.paginator import (
     ListCidrBlocksPaginator,
     ListCidrCollectionsPaginator,
     ListCidrLocationsPaginator,
+    ListHealthCheckSourcesPaginator,
+    ListHealthChecksBySourcePaginator,
     ListHealthChecksPaginator,
     ListHostedZonesPaginator,
     ListQueryLoggingConfigsPaginator,
@@ -360,6 +362,12 @@ list_cidr_collections_paginator: ListCidrCollectionsPaginator = client.get_pagin
 )
 list_cidr_locations_paginator: ListCidrLocationsPaginator = client.get_paginator(
     "list_cidr_locations"
+)
+list_health_check_sources_paginator: ListHealthCheckSourcesPaginator = client.get_paginator(
+    "list_health_check_sources"
+)
+list_health_checks_by_source_paginator: ListHealthChecksBySourcePaginator = client.get_paginator(
+    "list_health_checks_by_source"
 )
 list_health_checks_paginator: ListHealthChecksPaginator = client.get_paginator("list_health_checks")
 list_hosted_zones_paginator: ListHostedZonesPaginator = client.get_paginator("list_hosted_zones")
@@ -387,12 +395,22 @@ list_vpc_association_authorizations_paginator: ListVPCAssociationAuthorizationsP
 from boto3.session import Session
 
 from mypy_boto3_route53 import Route53Client
-from mypy_boto3_route53.waiter import ResourceRecordSetsChangedWaiter
+from mypy_boto3_route53.waiter import (
+    HealthCheckSourceCreatedWaiter,
+    HealthCheckSourceDeletedWaiter,
+    ResourceRecordSetsChangedWaiter,
+)
 
 client: Route53Client = Session().client("route53")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+health_check_source_created_waiter: HealthCheckSourceCreatedWaiter = client.get_waiter(
+    "health_check_source_created"
+)
+health_check_source_deleted_waiter: HealthCheckSourceDeletedWaiter = client.get_waiter(
+    "health_check_source_deleted"
+)
 resource_record_sets_changed_waiter: ResourceRecordSetsChangedWaiter = client.get_waiter(
     "resource_record_sets_changed"
 )

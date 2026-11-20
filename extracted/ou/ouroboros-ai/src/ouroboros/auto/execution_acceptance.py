@@ -72,6 +72,11 @@ _CANONICAL_HELLO_AUTO_OBSERVATION_AC = (
     "the exact command `uv run pytest tests/test_hello_auto.py` passes."
 )
 
+# The wrapper earlier releases of the Seed repairer put around a repaired
+# criterion. Later releases appended an observation clause instead
+# (:func:`strip_observable_check_clause`). The repairer itself was removed with
+# the Seed review stage (#3064), but Seeds those releases persisted still carry
+# either form, so both are unwrapped.
 _SEED_REPAIRER_ORIGINAL_REQUIREMENT_PREFIX = (
     "a command/api check returns stable observable output or artifacts proving "
     "the original requirement for "
@@ -750,9 +755,10 @@ def normalize_autoresearch_execution_criteria(
 ) -> tuple[str, ...]:
     """Return direct observable ACs for Karpathy-style autoresearch handoffs.
 
-    The generic Seed repairer wraps vague ACs with
-    ``A command/API check returns ...``. That wrapper is useful as a fallback
-    for unknown tasks, but it violates the autoresearch plugin contract: the
+    The generic Seed repairer annotates unobservable ACs with a generic
+    observation clause (earlier releases wrapped them in
+    ``A command/API check returns ...``). That is useful as a fallback for
+    unknown tasks, but it violates the autoresearch plugin contract: the
     executor needs an experiment ledger contract, not a placeholder proof
     phrase. Keep this scoped to the plugin's distinctive train.py/val_bpb
     surface.
@@ -990,10 +996,10 @@ def _is_hello_auto_observation_unit_line(criterion: str) -> bool:
 
 
 def _is_observation_report_wrapper(criterion: str) -> bool:
-    """Return true for repairer-wrapped observation report requirements."""
-    key = _criterion_key(criterion)
-    if not key.startswith(_SEED_REPAIRER_ORIGINAL_REQUIREMENT_PREFIX):
+    """Return true for repairer-annotated observation report requirements."""
+    if _unwrap_seed_repairer_original_requirement(criterion) == criterion.strip():
         return False
+    key = _criterion_key(criterion)
     return "observation report" in key or "plain chat summary" in key
 
 
@@ -1010,18 +1016,53 @@ _SEED_REPAIRER_WRAPPER_RE = re.compile(
 )
 
 
-def _unwrap_seed_repairer_original_requirement(criterion: str) -> str:
-    """Strip every nested seed-repairer wrapper, preserving the inner casing.
+# The clause the removed Seed repairer appended to a criterion it made
+# observable: the requester's sentence first and verbatim, then the separator,
+# then one clause in the criterion's language. Kept to read persisted Seeds.
+OBSERVABLE_CHECK_SEPARATOR = " — "
+_OBSERVABLE_CHECK_CLAUSES: dict[str, dict[str, str]] = {
+    "en": {
+        "test": "verified when the test suite passes",
+        "api": "verified when an API request returns the expected response",
+        "file": "verified when the expected file is written",
+        "command": "verified when running the command prints the expected output",
+    },
+    "ko": {
+        "test": "테스트를 실행해 통과하는지 확인한다",
+        "api": "API 요청이 기대한 응답을 반환하는지 확인한다",
+        "file": "기대한 파일이 생성되는지 확인한다",
+        "command": "명령을 실행하면 기대한 출력이 나오는지 확인한다",
+    },
+}
 
-    The repairer can wrap an already-wrapped criterion, so unwrapping must
-    recurse until the innermost requirement is exposed; otherwise a nested
-    wrapper is later matched as a generic placeholder and the real requirement
-    it carries is deleted.  Casing is preserved so case-sensitive identifiers
-    survive round-trip.
+
+def strip_observable_check_clause(criterion: str) -> str:
+    """Return ``criterion`` without the observation clause the Seed repairer appended."""
+    text = criterion.strip()
+    body = text.rstrip(" .")
+    for clauses in _OBSERVABLE_CHECK_CLAUSES.values():
+        for clause in clauses.values():
+            suffix = OBSERVABLE_CHECK_SEPARATOR + clause
+            if body.endswith(suffix):
+                return body[: -len(suffix)].rstrip()
+    return text
+
+
+def _unwrap_seed_repairer_original_requirement(criterion: str) -> str:
+    """Strip every seed-repairer annotation, preserving the inner casing.
+
+    That is the observation clause the repairer appends and the legacy wrapper
+    prefix. An earlier release could wrap an already-wrapped criterion, so
+    unwrapping must recurse until the innermost requirement is exposed;
+    otherwise a nested wrapper is later matched as a generic placeholder and
+    the real requirement it carries is deleted.  Casing is preserved so
+    case-sensitive identifiers survive round-trip.
     """
     text = criterion.strip()
     while True:
-        stripped = _SEED_REPAIRER_WRAPPER_RE.sub("", text, count=1).strip()
+        stripped = strip_observable_check_clause(
+            _SEED_REPAIRER_WRAPPER_RE.sub("", text, count=1).strip()
+        )
         if stripped == text:
             return text
         text = stripped

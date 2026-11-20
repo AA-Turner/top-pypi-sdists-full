@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ur_rtde
-Version: 1.6.5
+Version: 1.6.6
 Summary: A Python interface for controlling and receiving data from a UR robot using the Real-Time Data Exchange (RTDE) interface of the robot.
 Home-page: https://gitlab.com/sdurobotics/ur_rtde
 Author: Anders Prier Lindvig
@@ -8,7 +8,7 @@ Author-email: Anders Prier Lindvig <anpl@mmmi.sdu.dk>
 Maintainer-email: Anders Prier Lindvig <anpl@mmmi.sdu.dk>
 License: MIT License
         
-        Copyright (c) 2025 Anders Prier Lindvig - SDU Robotics
+        Copyright (c) 2026 Anders Prier Lindvig - SDU Robotics
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,6 @@ Project-URL: Homepage, https://gitlab.com/sdurobotics/ur_rtde
 Project-URL: Documentation, https://sdurobotics.gitlab.io/ur_rtde/
 Project-URL: Repository, https://gitlab.com/sdurobotics/ur_rtde.git
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE

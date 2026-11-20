@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, BinaryIO
 
 from . import (
+    document_identity,
     indexes,
     memory_refs,
     originals,
@@ -71,6 +72,7 @@ from .vault import (
     parse_frontmatter,
     prepend_log_entry,
     read_guarded_text,
+    relative_posix,
     respell_new_path,
     with_newline,
     yaml_scalar,
@@ -887,6 +889,7 @@ def preserve(
             log_body += f" Description: {desc_one_line}"
 
         from .governance import connector_boundary
+        from .vault_store import read as store_read
 
         effect_admitted = connector_boundary.effect_admission(vault_root)
         top_index = kb / "index.md"
@@ -919,7 +922,9 @@ def preserve(
             warnings.append(f"{managed_join('index.md')} missing; skipped Recent activity bump")
 
         log_file = kb / "log.md"
-        if log_file.exists() and not raw_protection and effect_admitted(log_file):
+        # A store-mode log is a stored page that may have no file yet; the disk alone would call it missing.
+        log_held = store_read.holds_file(vault_root, relative_posix(log_file, vault_root))
+        if log_held and not raw_protection and effect_admitted(log_file):
             current_log, _guard = read_guarded_text(vault_root, log_file)
             new_log = _prepend_log_entry(
                 current_log,
@@ -934,7 +939,7 @@ def preserve(
                     expected_hash=content_hash(current_log),
                 )
             )
-        elif not raw_protection and not log_file.exists():
+        elif not raw_protection and not log_held:
             warnings.append(f"{managed_join('log.md')} missing; skipped log entry")
 
         from .governance import catalog_publication, graph_producer
@@ -1802,17 +1807,19 @@ def sidecar_extraction_writes(
     """
     parts = _parts_module()
     pieces = parts.split(text)
+    metadata = parse_frontmatter(before)[0]
     plan = parts.plan(
         vault_root,
         sidecar_path,
         pieces,
-        inherited=parse_frontmatter(before)[0],
+        inherited=metadata,
         date_iso=temporal.stamp(temporal.now()),
     )
     content = render_sidecar_extraction(
         before,
         text=pieces[0],
         parts=parts.layout(sidecar_path, pieces),
+        identity_check=document_identity.after_extraction(metadata, pieces[0]),
         **fields,
     )
     write = PlannedWrite(
@@ -1864,6 +1871,7 @@ def render_sidecar_extraction(
     reset_speakers: bool = False,
     parts: Layout | None = None,
     binary_hints: tuple[int, int] | None = None,
+    identity_check: dict | None = None,
 ) -> str:
     """Render an extraction sidecar without touching canonical or derived state.
 
@@ -1915,6 +1923,9 @@ def render_sidecar_extraction(
             content = _set_frontmatter_field(content, "speakers", f"[{', '.join(labels)}]")
     content = _set_asr_facts(content, asr)
     content = _set_ocr_confidence(content, ocr)
+    if identity_check is not None:
+        # The recorded check could not read a scanned PDF; the OCR text now can (`document_identity.after_extraction`).
+        content = _set_frontmatter_field(content, "identity_check", document_identity.render(identity_check))
     if binary_hints is not None:
         content = _media_processing_module().record_read_hints(
             content, mtime_ns=binary_hints[0], ctime_ns=binary_hints[1]

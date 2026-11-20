@@ -80,66 +80,68 @@ class ASGIMiddleware(BaseMiddleware):
         self.asgi_app = app
 
     async def __call__(self, scope, receive, send) -> None:
-        if request_state.get_request_id() is not None:
-            # This can happen if a single app is wrapped by multiple instances of the
-            # middleware (usually caused by automatic instrumentation)
-            logger.debug("Detected preexisting request_id - passing through")
-            await self.asgi_app(scope, receive, send)
-            return
-
-        contrast_rewriter.stop_profiler("start_asgi_middleware_call")
-
-        request_path = scope.get("path", "")
-        request_method = scope.get("method", "")
-
-        if scope.get("type") != "http":
-            logger.debug("Detected non-http request - cannot analyze", scope=scope)
-            await self.call_without_agent_async(scope, receive, send)
-            return
-
-        with self.context_stack(request_method, request_path) as context_stack:
-            request = ASGIRequest(scope, receive)
-            environ = await request.to_wsgi_environ()
-
-            context, web_context = self.should_analyze_request(environ)
-            if context is not None:
-                self.enter_agent_call_contexts(context_stack, context, web_context)
-                await self.call_with_agent(context, web_context, request, send)
+        with scope_.contrast_scope():
+            if request_state.get_request_id() is not None:
+                # This can happen if a single app is wrapped by multiple instances of
+                # the middleware (usually caused by automatic instrumentation)
+                logger.debug("Detected preexisting request_id - passing through")
+                with scope_.pop_contrast_scope():
+                    await self.asgi_app(scope, receive, send)
                 return
 
-            await self.call_without_agent_async(scope, request.contrast__receive, send)
+            contrast_rewriter.stop_profiler("start_asgi_middleware_call")
+
+            request_path = scope.get("path", "")
+            request_method = scope.get("method", "")
+
+            if scope.get("type") != "http":
+                logger.debug("Detected non-http request - cannot analyze", scope=scope)
+                await self.call_without_agent_async(scope, receive, send)
+                return
+
+            with self.context_stack(request_method, request_path) as context_stack:
+                request = ASGIRequest(scope, receive)
+                environ = await request.to_wsgi_environ()
+
+                context, web_context = self.should_analyze_request(environ)
+                if context is not None:
+                    self.enter_agent_call_contexts(context_stack, context, web_context)
+                    await self.call_with_agent(context, web_context, request, send)
+                    return
+
+                await self.call_without_agent_async(
+                    scope, request.contrast__receive, send
+                )
 
     async def call_with_agent(
         self, context: ContrastContext, web_context, request, send
     ) -> None:
-        with scope_.contrast_scope():
-            track_scope_sources(context, request.scope)
+        track_scope_sources(context, request.scope)
 
-            try:
-                self.prefilter(context)
+        try:
+            self.prefilter(context)
 
-                response = ASGIResponse(send)
-                with scope_.pop_contrast_scope():
-                    try:
-                        await self.asgi_app(
-                            request.scope,
-                            request.contrast__receive,
-                            response.contrast__send,
-                        )
-                        web_context.extract_response(response)
-                    except Exception as exc:
-                        web_context.response_exception = exc
-                        raise
+            response = ASGIResponse(send)
+            with scope_.pop_contrast_scope():
+                try:
+                    await self.asgi_app(
+                        request.scope,
+                        request.contrast__receive,
+                        response.contrast__send,
+                    )
+                    web_context.extract_response(response)
+                except Exception as exc:
+                    web_context.response_exception = exc
+                    raise
 
-                self.postfilter(context, web_context)
-                self.check_for_blocked(context)
-            finally:
-                if context.assess_enabled:
-                    contrast.STRING_TRACKER.ageoff()
+            self.postfilter(context, web_context)
+            self.check_for_blocked(context)
+        finally:
+            if context.assess_enabled:
+                contrast.STRING_TRACKER.ageoff()
 
     async def call_without_agent_async(self, scope, receive, send) -> None:
-        with scope_.contrast_scope():
-            await self.asgi_app(scope, receive, send)
+        await self.asgi_app(scope, receive, send)
 
     @cached_property
     def trigger_node(self):

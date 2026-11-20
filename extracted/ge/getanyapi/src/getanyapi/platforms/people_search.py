@@ -3940,10 +3940,11 @@ class PeopleSearchNamespace:
         """People Search - QuickEnrich Company Contacts
 
         List the known contacts at one company domain, with work emails and direct
-        phone lines where they are held. Returns up to 20 people per page for a flat
-        per-request price. Coverage is strongest for small and local businesses.
+        phone lines where they are held. Returns up to 20 people per page, charged
+        per contact returned; a page with no contacts is free. Coverage is strongest
+        for small and local businesses.
 
-        Price: $0.0072 per request.
+        Price: $0.0012 per request plus $0.00672 per result (maximum $0.1356).
 
         Example:
             res = client.people_search.quickenrich_company(companyDomain="southmemphisfence.com")
@@ -4208,10 +4209,11 @@ class AsyncPeopleSearchNamespace:
         """People Search - QuickEnrich Company Contacts
 
         List the known contacts at one company domain, with work emails and direct
-        phone lines where they are held. Returns up to 20 people per page for a flat
-        per-request price. Coverage is strongest for small and local businesses.
+        phone lines where they are held. Returns up to 20 people per page, charged
+        per contact returned; a page with no contacts is free. Coverage is strongest
+        for small and local businesses.
 
-        Price: $0.0072 per request.
+        Price: $0.0012 per request plus $0.00672 per result (maximum $0.1356).
 
         Example:
             res = client.people_search.quickenrich_company(companyDomain="southmemphisfence.com")

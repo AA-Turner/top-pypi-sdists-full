@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: albumentationsx
-Version: 2.6.6
+Version: 2.6.7
 Summary: Fast, flexible, and advanced augmentation library for deep learning, computer vision, and medical imaging. Albumentations offers a wide range of transformations for both 2D (images, masks, bboxes, keypoints) and 3D (volume data, volumetric masks, keypoints) data, with optimized performance and seamless integration into ML workflows. Available under AGPL-3.0-only or a commercial license with agreed coverage for your team, products, and deployments.
 Project-URL: Homepage, https://albumentations.ai
 Project-URL: Documentation, https://albumentations.ai/docs/
@@ -41,7 +41,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
-Requires-Dist: albucore==0.3.10
+Requires-Dist: albucore==0.3.11
 Requires-Dist: numkong>=7.8.7
 Requires-Dist: numpy>=2.2.6
 Requires-Dist: pydantic>=2.12.4
@@ -50,13 +50,13 @@ Requires-Dist: scipy>=1.15.3
 Requires-Dist: stringzilla>=5.3.2
 Requires-Dist: typing-extensions>=4.9.0
 Provides-Extra: contrib
-Requires-Dist: opencv-contrib-python>=5.0.0.93; extra == 'contrib'
+Requires-Dist: opencv-contrib-python>=5.1.0.95; extra == 'contrib'
 Provides-Extra: contrib-headless
-Requires-Dist: opencv-contrib-python-headless>=5.0.0.93; extra == 'contrib-headless'
+Requires-Dist: opencv-contrib-python-headless>=5.1.0.95; extra == 'contrib-headless'
 Provides-Extra: gui
-Requires-Dist: opencv-python>=5.0.0.93; extra == 'gui'
+Requires-Dist: opencv-python>=5.1.0.95; extra == 'gui'
 Provides-Extra: headless
-Requires-Dist: opencv-python-headless>=5.0.0.93; extra == 'headless'
+Requires-Dist: opencv-python-headless>=5.1.0.95; extra == 'headless'
 Provides-Extra: hub
 Requires-Dist: huggingface-hub; extra == 'hub'
 Description-Content-Type: text/markdown
@@ -204,7 +204,7 @@ pip install "torch>=2.13.0" --index-url https://download.pytorch.org/whl/cpu
 For CUDA or macOS (MPS), use the matching command from the [PyTorch installation selector](https://pytorch.org/get-started/locally/).
 AlbumentationsX does not choose or install a PyTorch accelerator build.
 
-If you already have OpenCV installed (any variant), install AlbumentationsX:
+If you already have OpenCV 5.1 or newer (5.1.0.95 or newer for PyPI wheels), install AlbumentationsX:
 
 ```bash
 pip install -U albumentationsx
@@ -212,17 +212,17 @@ pip install -U albumentationsx
 
 ### Installation with OpenCV
 
-If you don't have OpenCV installed yet, choose the appropriate variant:
+To install or upgrade OpenCV, choose the extra that matches the variant you use:
 
 ```bash
 # For servers/Docker (no GUI support, lighter package)
 pip install -U "albumentationsx[headless]"
 
 # For local development with GUI support (cv2.imshow, etc.)
-pip install opencv-python && pip install -U albumentationsx
+pip install -U "albumentationsx[gui]"
 
 # For OpenCV with extra algorithms (contrib modules)
-pip install opencv-contrib-python && pip install -U albumentationsx
+pip install -U "albumentationsx[contrib]"
 
 # For contrib + headless
 pip install -U "albumentationsx[contrib-headless]"

@@ -19,7 +19,7 @@ def query(ctx, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
     kwargs["org_id"] = input_helpers.get_org_from_input_or_ctx(ctx, **kwargs)
-    dt_from = kwargs.pop("dt_from", "now-1day")
+    dt_from = kwargs.pop("dt_from", None) or "now-1day"
     kwargs = strip_none(kwargs)
     kwargs = normalize_page_args(kwargs)
 
@@ -94,7 +94,7 @@ def format_audit_list_as_text(ctx, audits, show_columns):
 def query_auth_audits(ctx, limit=None, map_email=False, **kwargs):
     apiclient = context.get_apiclient(ctx)
     kwargs["org_id"] = input_helpers.get_org_from_input_or_ctx(ctx, **kwargs)
-    dt_from = kwargs.pop("dt_from", "now-1day")
+    dt_from = kwargs.pop("dt_from", None) or "now-1day"
     kwargs = strip_none(kwargs)
     kwargs["dt_from"] = dt_from
     kwargs = normalize_page_args(kwargs)
@@ -114,7 +114,11 @@ def query_auth_audits(ctx, limit=None, map_email=False, **kwargs):
         return page
 
     query_results = get_many_entries(
-        get_page, "auth_audits", maximum=limit, page_key="dt_to", **kwargs
+        get_page,
+        "auth_audits",
+        maximum=limit if limit is not None else 500,
+        page_key="dt_to",
+        **kwargs,
     )
     for result in query_results:
         email = emails.get(result.user_id)

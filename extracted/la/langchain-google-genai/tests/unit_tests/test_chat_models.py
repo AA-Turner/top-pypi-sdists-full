@@ -59,6 +59,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.messages import content as types
+from langchain_core.messages.ai import UsageMetadata, add_usage
 from langchain_core.messages.block_translators.google_genai import (
     _convert_to_v1_from_genai,
 )
@@ -85,6 +86,7 @@ from langchain_google_genai.chat_models import (
     _ClientCleanup,
     _convert_to_parts,
     _convert_tool_message_to_parts,
+    _finish_reason_fields,
     _get_ai_message_tool_messages_parts,
     _get_default_model_profile,
     _handle_client_error,
@@ -5441,6 +5443,33 @@ def test_convert_tool_message_to_parts_json_content() -> None:
     }
 
 
+def test_convert_tool_message_to_parts_json_ref_content_kept_as_text() -> None:
+    """Gemini rejects `$ref` keys in a function response, so JSON with one stays
+    text."""
+    schema = {
+        "$defs": {"Kind": {"enum": ["a", "b"], "type": "string"}},
+        "properties": {"kind": {"$ref": "#/$defs/Kind"}},
+    }
+    string_message = ToolMessage(
+        name="test_tool", content=json.dumps([schema]), tool_call_id="123"
+    )
+    list_message = ToolMessage(
+        name="test_tool", content=[{"type": "schema", **schema}], tool_call_id="456"
+    )
+
+    string_result = _convert_tool_message_to_parts(string_message)
+    list_result = _convert_tool_message_to_parts(list_message)
+
+    assert string_result[0].function_response is not None
+    assert string_result[0].function_response.response == {
+        "output": json.dumps([schema])
+    }
+    assert list_result[0].function_response is not None
+    assert list_result[0].function_response.response == {
+        "output": json.dumps([{"type": "schema", **schema}])
+    }
+
+
 def test_convert_tool_message_to_parts_dict_content() -> None:
     """Test `_convert_tool_message_to_parts` with `dict` content."""
     message = ToolMessage(  # type: ignore[call-overload]
@@ -8858,6 +8887,85 @@ def test_tool_use_prompt_tokens_counted_as_input() -> None:
     assert usage["input_tokens"] + usage["output_tokens"] == usage["total_tokens"]
 
 
+def test_grounded_cache_read_within_prompt_kept() -> None:
+    """A cached count within the prompt is kept on grounded calls."""
+    response = GenerateContentResponse(
+        candidates=[Candidate(content=Content(role="model", parts=[Part(text="ok")]))],
+        usage_metadata=GenerateContentResponseUsageMetadata(
+            prompt_token_count=58_700,
+            tool_use_prompt_token_count=40_000,
+            cached_content_token_count=50_000,
+            candidates_token_count=3_800,
+            total_token_count=102_500,
+        ),
+    )
+
+    message = _response_to_result(response).generations[0].message
+    assert isinstance(message, AIMessage)
+    usage = message.usage_metadata
+
+    assert usage is not None
+    assert usage["input_tokens"] == 98_700
+    assert usage["input_token_details"]["cache_read"] == 50_000
+    assert usage["input_tokens"] + usage["output_tokens"] == usage["total_tokens"]
+
+
+def test_cache_read_above_prompt_dropped() -> None:
+    """A cached count above the prompt is dropped rather than clamped."""
+    response = GenerateContentResponse(
+        candidates=[Candidate(content=Content(role="model", parts=[Part(text="ok")]))],
+        usage_metadata=GenerateContentResponseUsageMetadata(
+            prompt_token_count=58_700,
+            tool_use_prompt_token_count=40_000,
+            cached_content_token_count=90_000,
+            candidates_token_count=3_800,
+            total_token_count=102_500,
+        ),
+    )
+
+    message = _response_to_result(response).generations[0].message
+    assert isinstance(message, AIMessage)
+    usage = message.usage_metadata
+
+    assert usage is not None
+    assert usage["input_tokens"] == 98_700
+    assert usage["input_token_details"]["cache_read"] == 0
+
+
+def test_stream_cache_read_above_prompt_dropped() -> None:
+    """Summed streaming chunks don't carry a cached count above the prompt."""
+    chunks = [
+        GenerateContentResponse(
+            candidates=[
+                Candidate(content=Content(role="model", parts=[Part(text=text)]))
+            ],
+            usage_metadata=GenerateContentResponseUsageMetadata(
+                prompt_token_count=58_700,
+                cached_content_token_count=cached,
+                candidates_token_count=out,
+                total_token_count=58_700 + out,
+            ),
+        )
+        for text, cached, out in [
+            ("a", 1_000_000, 10),
+            ("b", 2_900_000, 20),
+        ]
+    ]
+
+    prev: UsageMetadata | None = None
+    for chunk in chunks:
+        msg = _response_to_result(chunk, stream=True, prev_usage=prev)
+        message = msg.generations[0].message
+        assert isinstance(message, AIMessage)
+        usage = message.usage_metadata
+        assert usage is not None
+        prev = usage if prev is None else add_usage(prev, usage)
+
+    assert prev is not None
+    assert prev["input_tokens"] == 58_700
+    assert prev["input_token_details"]["cache_read"] == 0
+
+
 def _video_media_block(**overrides: Any) -> dict[str, Any]:
     """Build a `media` content block referencing an uploaded video."""
     block: dict[str, Any] = {
@@ -9176,3 +9284,225 @@ def test_stream_empty_candidates_preserves_usage_metadata() -> None:
     assert chunk_msg.usage_metadata["input_tokens"] == 10
     assert chunk_msg.usage_metadata["output_tokens"] == 5
     assert chunk_msg.usage_metadata["total_tokens"] == 15
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "expected"),
+    [
+        (FinishReason.STOP, "stop"),
+        (FinishReason.MAX_TOKENS, "length"),
+        (FinishReason.SAFETY, "refusal"),
+        (FinishReason.PROHIBITED_CONTENT, "refusal"),
+        (FinishReason.BLOCKLIST, "refusal"),
+        (FinishReason.RECITATION, "content_filter"),
+        (FinishReason.SPII, "content_filter"),
+        (FinishReason.LANGUAGE, "content_filter"),
+        (FinishReason.IMAGE_SAFETY, "content_filter"),
+        (FinishReason.IMAGE_PROHIBITED_CONTENT, "content_filter"),
+        (FinishReason.IMAGE_RECITATION, "content_filter"),
+        (FinishReason.MALFORMED_FUNCTION_CALL, "error"),
+        (FinishReason.OTHER, "other"),
+        (FinishReason.FINISH_REASON_UNSPECIFIED, "other"),
+    ],
+)
+def test_normalized_finish_reason(finish_reason: FinishReason, expected: str) -> None:
+    response = GenerateContentResponse(
+        candidates=[
+            Candidate(
+                content=Content(role="model", parts=[Part(text="ok")]),
+                finish_reason=finish_reason,
+            )
+        ]
+    )
+
+    info = _response_to_result(response).generations[0].generation_info
+
+    assert info is not None
+    assert info["finish_reason"] == finish_reason.name
+    assert info["normalized_finish_reason"] == expected
+    assert "finish_state" not in info
+
+
+def test_normalized_finish_reason_lowercase_raw_value() -> None:
+    assert _finish_reason_fields("max_tokens", has_tool_calls=False) == {
+        "normalized_finish_reason": "length"
+    }
+
+
+def test_normalized_finish_reason_unknown_value() -> None:
+    mock_candidate = Mock(spec=Candidate)
+    mock_candidate.finish_reason = 999
+    mock_candidate.safety_ratings = []
+    mock_candidate.content = Content(role="model", parts=[Part(text="ok")])
+    mock_response = Mock(spec=GenerateContentResponse)
+    mock_response.candidates = [mock_candidate]
+    mock_response.model_version = MODEL_NAME
+    mock_response.usage_metadata = None
+    mock_response.prompt_feedback = None
+
+    info = _response_to_result(mock_response).generations[0].generation_info
+
+    assert info is not None
+    assert info["finish_reason"] == "UNKNOWN_999"
+    assert info["normalized_finish_reason"] == "other"
+
+
+def test_normalized_finish_reason_absent() -> None:
+    response = GenerateContentResponse(
+        candidates=[Candidate(content=Content(role="model", parts=[Part(text="ok")]))]
+    )
+
+    info = _response_to_result(response).generations[0].generation_info
+
+    assert info is not None
+    assert "finish_reason" not in info
+    assert "normalized_finish_reason" not in info
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_normalized_finish_reason_tool_call(stream: bool) -> None:
+    response = GenerateContentResponse(
+        candidates=[
+            Candidate(
+                content=Content(
+                    role="model",
+                    parts=[
+                        Part(
+                            function_call=FunctionCall(
+                                name="get_weather", args={"city": "Paris"}
+                            )
+                        )
+                    ],
+                ),
+                finish_reason=FinishReason.STOP,
+            )
+        ]
+    )
+
+    info = _response_to_result(response, stream=stream).generations[0].generation_info
+
+    assert info is not None
+    assert info["finish_reason"] == "STOP"
+    assert info["normalized_finish_reason"] == "tool_call"
+
+
+def test_normalized_finish_reason_invoke() -> None:
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, google_api_key=FAKE_API_KEY)
+    assert llm.client is not None
+    response = GenerateContentResponse(
+        candidates=[
+            Candidate(
+                content=Content(role="model", parts=[Part(text="ok")]),
+                finish_reason=FinishReason.MAX_TOKENS,
+            )
+        ]
+    )
+
+    with patch.object(llm.client.models, "generate_content", return_value=response):
+        message = llm.invoke("hi")
+
+    assert message.response_metadata["finish_reason"] == "MAX_TOKENS"
+    assert message.response_metadata["normalized_finish_reason"] == "length"
+
+
+def test_normalized_finish_reason_stream() -> None:
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, google_api_key=FAKE_API_KEY)
+    assert llm.client is not None
+    responses = [
+        GenerateContentResponse(
+            candidates=[
+                Candidate(content=Content(role="model", parts=[Part(text="Hel")]))
+            ]
+        ),
+        GenerateContentResponse(
+            candidates=[
+                Candidate(
+                    content=Content(role="model", parts=[Part(text="lo")]),
+                    finish_reason=FinishReason.STOP,
+                )
+            ]
+        ),
+    ]
+
+    with patch.object(
+        llm.client.models, "generate_content_stream", return_value=iter(responses)
+    ):
+        chunks = list(llm.stream("hi"))
+
+    assert "normalized_finish_reason" not in chunks[0].response_metadata
+    assert chunks[1].response_metadata["normalized_finish_reason"] == "stop"
+    full = chunks[0]
+    for chunk in chunks[1:]:
+        full += chunk
+    assert full.response_metadata["finish_reason"] == "STOP"
+    assert full.response_metadata["normalized_finish_reason"] == "stop"
+
+
+def _split_tool_call_responses() -> list[GenerateContentResponse]:
+    return [
+        GenerateContentResponse(
+            candidates=[
+                Candidate(
+                    content=Content(
+                        role="model",
+                        parts=[
+                            Part(
+                                function_call=FunctionCall(
+                                    name="get_weather", args={"city": "Paris"}
+                                )
+                            )
+                        ],
+                    )
+                )
+            ]
+        ),
+        GenerateContentResponse(
+            candidates=[
+                Candidate(
+                    content=Content(role="model", parts=[Part(text="")]),
+                    finish_reason=FinishReason.STOP,
+                )
+            ]
+        ),
+    ]
+
+
+def test_normalized_finish_reason_stream_split_tool_call() -> None:
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, google_api_key=FAKE_API_KEY)
+    assert llm.client is not None
+
+    with patch.object(
+        llm.client.models,
+        "generate_content_stream",
+        return_value=iter(_split_tool_call_responses()),
+    ):
+        chunks = list(llm.stream("hi"))
+
+    full = chunks[0]
+    for chunk in chunks[1:]:
+        full += chunk
+    assert isinstance(full, AIMessageChunk)
+    assert full.tool_calls
+    assert full.response_metadata["finish_reason"] == "STOP"
+    assert full.response_metadata["normalized_finish_reason"] == "tool_call"
+
+
+async def test_normalized_finish_reason_astream_split_tool_call() -> None:
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, google_api_key=FAKE_API_KEY)
+    assert llm.async_client is not None
+
+    async def _responses() -> AsyncIterator[GenerateContentResponse]:
+        for response in _split_tool_call_responses():
+            yield response
+
+    with patch.object(
+        llm.async_client.models,
+        "generate_content_stream",
+        AsyncMock(return_value=_responses()),
+    ):
+        chunks = [chunk async for chunk in llm.astream("hi")]
+
+    full = chunks[0]
+    for chunk in chunks[1:]:
+        full += chunk
+    assert full.response_metadata["normalized_finish_reason"] == "tool_call"

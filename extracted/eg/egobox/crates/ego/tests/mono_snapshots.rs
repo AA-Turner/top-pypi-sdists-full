@@ -209,7 +209,9 @@ fn g24_qei(name: &str, strategy: QEiStrategy, rel_tol: f64) {
 #[test]
 #[serial]
 fn snapshot_g24_qei_kb() {
-    g24_qei("g24_qei_kb", QEiStrategy::KrigingBeliever, 5e-4);
+    // The last batch depends on the CPU math code paths (up to ~1.5e-3 relative
+    // between machines with the basin SLSQP infill optimizer)
+    g24_qei("g24_qei_kb", QEiStrategy::KrigingBeliever, 5e-3);
 }
 
 #[test]
@@ -540,7 +542,7 @@ fn snapshot_g24_suggest() {
     let mut x_doe = g24_doe(6);
     let mut y_doe = f_g24(&x_doe.view());
     for _ in 0..4 {
-        let x_new = egor.suggest(&x_doe, &y_doe);
+        let x_new = egor.suggest(&x_doe, &y_doe).expect("suggestion");
         let y_new = f_g24(&x_new.view());
         x_doe = concatenate![Axis(0), x_doe, x_new];
         y_doe = concatenate![Axis(0), y_doe, y_new];
@@ -563,7 +565,7 @@ fn snapshot_noisy_xsinx_suggest() {
     let mut x_doe = xsinx_doe(8);
     let mut y_doe = noisy_xsinx(&x_doe.view());
     for _ in 0..4 {
-        let x_new = egor.suggest(&x_doe, &y_doe);
+        let x_new = egor.suggest(&x_doe, &y_doe).expect("suggestion");
         let y_new = noisy_xsinx(&x_new.view());
         x_doe = concatenate![Axis(0), x_doe, x_new];
         y_doe = concatenate![Axis(0), y_doe, y_new];

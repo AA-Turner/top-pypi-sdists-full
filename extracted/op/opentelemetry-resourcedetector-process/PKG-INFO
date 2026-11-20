@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opentelemetry-resourcedetector-process
-Version: 0.4.0
+Version: 0.4.1
 Summary: An OpenTelemetry package to populate Resource attributes from the running process
 Project-URL: Repository, https://github.com/chrisguidry/opentelemetry-resourcedetector-process
 Project-URL: Bug Tracker, https://github.com/chrisguidry/opentelemetry-resourcedetector-process/issues

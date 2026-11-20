@@ -32,13 +32,18 @@ from .paginator import (
     ListSpeechSynthesisTasksPaginator,
 )
 from .type_defs import (
+    CreateVoiceInputTypeDef,
+    CreateVoiceOutputTypeDef,
     DeleteLexiconInputTypeDef,
+    DeleteVoiceInputTypeDef,
     DescribeVoicesInputTypeDef,
     DescribeVoicesOutputTypeDef,
     GetLexiconInputTypeDef,
     GetLexiconOutputTypeDef,
     GetSpeechSynthesisTaskInputTypeDef,
     GetSpeechSynthesisTaskOutputTypeDef,
+    GetVoiceInputTypeDef,
+    GetVoiceOutputTypeDef,
     ListLexiconsInputTypeDef,
     ListLexiconsOutputTypeDef,
     ListSpeechSynthesisTasksInputTypeDef,
@@ -55,6 +60,7 @@ from .type_defs import (
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
 )
+from .waiter import VoiceActiveWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -66,7 +72,9 @@ __all__ = ("PollyClient",)
 
 
 class Exceptions(BaseClientExceptions):
+    AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     EngineNotSupportedException: type[BotocoreClientError]
     InvalidLexiconException: type[BotocoreClientError]
     InvalidNextTokenException: type[BotocoreClientError]
@@ -131,6 +139,15 @@ class PollyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#generate_presigned_url)
         """
 
+    def create_voice(self, **kwargs: Unpack[CreateVoiceInputTypeDef]) -> CreateVoiceOutputTypeDef:
+        """
+        Creates a custom voice from recordings of a speaker and returns it in
+        <code>pending</code> status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/create_voice.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#create_voice)
+        """
+
     def delete_lexicon(self, **kwargs: Unpack[DeleteLexiconInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified pronunciation lexicon stored in an Amazon Web Services
@@ -140,12 +157,20 @@ class PollyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#delete_lexicon)
         """
 
+    def delete_voice(self, **kwargs: Unpack[DeleteVoiceInputTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a custom voice.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/delete_voice.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#delete_voice)
+        """
+
     def describe_voices(
         self, **kwargs: Unpack[DescribeVoicesInputTypeDef]
     ) -> DescribeVoicesOutputTypeDef:
         """
-        Returns the list of voices that are available for use when requesting speech
-        synthesis.
+        Returns the list of voices: the voices that Amazon Polly provides and the
+        custom voices in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/describe_voices.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#describe_voices)
@@ -168,6 +193,14 @@ class PollyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/get_speech_synthesis_task.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#get_speech_synthesis_task)
+        """
+
+    def get_voice(self, **kwargs: Unpack[GetVoiceInputTypeDef]) -> GetVoiceOutputTypeDef:
+        """
+        Returns the status and properties of a custom voice.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/get_voice.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#get_voice)
         """
 
     def list_lexicons(
@@ -224,7 +257,7 @@ class PollyClient(BaseClient):
         self, **kwargs: Unpack[StartSpeechSynthesisTaskInputTypeDef]
     ) -> StartSpeechSynthesisTaskOutputTypeDef:
         """
-        Allows the creation of an asynchronous synthesis task, by starting a new
+        Starts an asynchronous synthesis task by creating a new
         <code>SpeechSynthesisTask</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/start_speech_synthesis_task.html)
@@ -288,4 +321,14 @@ class PollyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/get_paginator.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#get_paginator)
+        """
+
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["voice_active"]
+    ) -> VoiceActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#get_waiter)
         """

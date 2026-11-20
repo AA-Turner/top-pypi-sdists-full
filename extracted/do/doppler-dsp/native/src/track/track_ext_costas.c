@@ -424,6 +424,37 @@ CostasObj_configure_lock (CostasObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
+CostasObj_set_order (CostasObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "order", "bn", NULL };
+  int          order     = 0;
+  double       bn        = 0.0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "id", _kwlist, &order, &bn))
+    return NULL;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int _rc = dp_costas_set_order (self->handle, order, bn);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "Costas.set_order: order must be 2 or 3, bn >= 0 and "
+                    "finite (at most 0.12 at order 3), and bn_fll must be 0 "
+                    "for order 3",
+                    (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
 CostasObj_reset (CostasObject *self, PyObject *Py_UNUSED (ignored))
 {
   if (!self->handle)
@@ -621,7 +652,56 @@ Costas_setprop_bn_fll (CostasObject *self, PyObject *value,
   if (_rc != 0)
     {
       PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
-                    "Costas: bn_fll must be >= 0 and finite (0 = pure PLL)",
+                    "Costas: bn_fll must be >= 0 and finite (0 = pure PLL), "
+                    "and 0 at order 3",
+                    (long long)_rc);
+      return -1;
+    }
+  return 0;
+}
+static PyObject *
+Costas_getprop_order (CostasObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromLong ((long)dp_costas_get_order (self->handle));
+}
+static PyObject *
+Costas_getprop_norm_rate (CostasObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyFloat_FromDouble (dp_costas_get_norm_rate (self->handle));
+}
+static int
+Costas_setprop_norm_rate (CostasObject *self, PyObject *value,
+                          void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return -1;
+    }
+  double v = 0.0;
+  if (!PyArg_Parse (value, "d", &v))
+    return -1;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return -1;
+    }
+  int _rc = dp_costas_set_norm_rate (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "Costas: norm_rate is held only at order 3 (set_order(3, "
+                    "bn) first)",
                     (long long)_rc);
       return -1;
     }
@@ -660,8 +740,27 @@ static PyGetSetDef Costas_getset[] = {
     "ValueError\n"
     "    On assignment, if ``dp_costas_set_bn_fll`` refuses the value by\n"
     "    returning non-zero. The exception message is ``Costas: bn_fll must\n"
-    "    be >= 0 and finite (0 = pure PLL)``, with the return code "
-    "appended.\n",
+    "    be >= 0 and finite (0 = pure PLL), and 0 at order 3``, with the\n"
+    "    return code appended.\n",
+    NULL },
+  { "order", (getter)Costas_getprop_order, NULL,
+    "The active loop filter's order: 2 (the PI loop) or 3 (StateFilter); set "
+    "with set_order().\n",
+    NULL },
+  { "norm_rate", (getter)Costas_getprop_norm_rate,
+    (setter)Costas_setprop_norm_rate,
+    "The carrier's rate the third-order filter holds, in cycles per sample "
+    "per sample (R / fs**2 for R Hz/s at sample rate fs); 0 at order 2. "
+    "Writable at order 3 only: it seeds the rate, as norm_freq seeds the "
+    "frequency.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_costas_set_norm_rate`` refuses the value by\n"
+    "    returning non-zero. The exception message is ``Costas: norm_rate is\n"
+    "    held only at order 3 (set_order(3, bn) first)``, with the return\n"
+    "    code appended.\n",
     NULL },
   { NULL, NULL, NULL, NULL, NULL }
 };
@@ -782,7 +881,7 @@ static PyMethodDef CostasObj_methods[] = {
     "set_telemetry(tlm, prefix, decim) -> None\n"
     "\n"
     "Attach (or detach) a telemetry context and register the carrier\n"
-    "loop's probes on it. Registers five probes, emitted once per dumped\n"
+    "loop's probes on it. Registers seven probes, emitted once per dumped\n"
     "symbol and further thinned by decim: \"<prefix>.lock\" (the |Re P|/|P|\n"
     "lock-metric EMA, 1 = phase-locked), \"<prefix>.e\" (the PLL "
     "discriminator\n"
@@ -794,16 +893,26 @@ static PyMethodDef CostasObj_methods[] = {
     "(the complete loop-filter output, the integrator plus the proportional\n"
     "term, cycles/sample — dp_costas_get_nco_freq(); its mean rides a\n"
     "frequency ramp with no lag, where \".freq\" lags by the loop's ramp\n"
-    "error). Passing NULL detaches. Setup path, never hot: call before the\n"
-    "producer thread starts stepping; the context is borrowed and must\n"
-    "outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).\n"
+    "error), \"<prefix>.freq_rate\" (the norm_rate property: the third-order\n"
+    "filter's rate, cycles/sample^2 — dp_costas_get_norm_rate(); a loop's\n"
+    "complete output includes every integrator) and \"<prefix>.order\" (the\n"
+    "order property, 2 or 3, so a capture shows when a switch happened).\n"
+    "Both are registered and emitted at either order, \".freq_rate\" reading\n"
+    "exactly 0 at order 2, which holds no rate: the order can change on a\n"
+    "live, attached loop (dp_costas_set_order()), so a probe present only at\n"
+    "order 3 would make the probe table depend on when the attach happened.\n"
+    "Passing NULL detaches. Setup path, never hot: call before the producer\n"
+    "thread starts stepping; the context is borrowed and must outlive the\n"
+    "attachment (SPSC rules in dp_tlm/dp_tlm_core.h).\n"
     "\n"
     "Parameters\n"
     "----------\n"
     "tlm : object | None\n"
     "    Telemetry context to attach, or NULL to detach.\n"
     "prefix : str\n"
-    "    Probe-name prefix, e.g. \"car\" or \"ch0.car\".\n"
+    "    Probe-name prefix, e.g. \"car\" or \"ch0.car\"; at most 21 "
+    "characters,\n"
+    "    since \"<prefix>.freq_rate\" must fit the 31-character probe name.\n"
     "decim : int\n"
     "    Emit every decim-th symbol; >= 1.\n"
     "\n"
@@ -822,11 +931,12 @@ static PyMethodDef CostasObj_methods[] = {
     ">>> c = Costas(bn=0.05, zeta=0.707, tsamps=64)\n"
     ">>> c.set_telemetry(tlm, \"car\")\n"
     ">>> sorted(tlm.probe_names)\n"
-    "['car.e', 'car.freq', 'car.lock', 'car.locked', 'car.nco']\n"
+    "['car.e', 'car.freq', 'car.freq_rate', 'car.lock', 'car.locked', "
+    "'car.nco', 'car.order']\n"
     ">>> x = np.ones(64 * 100, dtype=np.complex64)\n"
     ">>> _ = c.steps(x)\n"
-    ">>> recs = tlm.read()   # five records per dumped symbol\n"
-    ">>> len(recs) == 5 * 100\n"
+    ">>> recs = tlm.read()   # seven records per dumped symbol\n"
+    ">>> len(recs) == 7 * 100\n"
     "True\n" },
   { "configure", (PyCFunction)(void *)CostasObj_configure,
     METH_VARARGS | METH_KEYWORDS,
@@ -842,6 +952,10 @@ static PyMethodDef CostasObj_methods[] = {
     "left untouched, so a converged loop keeps tracking straight through the\n"
     "re-tune — narrow the bandwidth once pulled in for lower phase jitter,\n"
     "or widen it to chase a faster-moving residual.\n"
+    "\n"
+    "At order 3 both filters are retuned and both keep their estimates\n"
+    "(frequency, and the third-order filter's rate); zeta reaches only the\n"
+    "second-order filter, which has the damping argument.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -910,16 +1024,73 @@ static PyMethodDef CostasObj_methods[] = {
     "False\n"
     ">>> c.configure_lock(0.9, 0.8, 4, 16)   # tighter declare, faster "
     "drop\n" },
+  { "set_order", (PyCFunction)(void *)CostasObj_set_order,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_order(order, bn) -> None\n"
+    "\n"
+    "Select the active loop filter on a live loop: order 2 (the PI loop every "
+    "Costas starts on) or order 3 (StateFilter, which also tracks the "
+    "carrier's rate), at loop bandwidth bn. The frequency estimate carries "
+    "across; a new order-3 rate starts at 0 (norm_rate seeds one). Raises "
+    "ValueError, changing nothing, for an order other than 2 or 3, a bn "
+    "outside the loop's domain (bn >= 0 and finite at either order, and at "
+    "most 0.12 at order 3), or order 3 while bn_fll > 0.\n"
+    "\n"
+    "What carries across (docs/design/costas.md section 3.2):\n"
+    "\n"
+    "- 2 to 3: the third-order filter is initialised at bn and takes the\n"
+    "  frequency estimate `lf.integ`; its rate starts at 0\n"
+    "  (dp_costas_set_norm_rate() seeds one).\n"
+    "- 3 to 2: the PI loop takes the third-order filter's frequency\n"
+    "  estimate; the rate is dropped.\n"
+    "- Either way, and to the same order: `lf` is retuned to (bn, the\n"
+    "  retained zeta), keeping its estimate; the NCO's phase and frequency,\n"
+    "  the lock metric and decision, the FLL's previous prompt and the\n"
+    "  integrate-and-dump are untouched, so the NCO frequency is continuous.\n"
+    "\n"
+    "Costas never chooses the order; the embedder does.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "order : int\n"
+    "    2 or 3.\n"
+    "bn : float\n"
+    "    Loop noise bandwidth per update: in dp_loop_filter_params_ok() at\n"
+    "    the retained zeta, and at order 3 also in\n"
+    "    dp_state_filter_params_ok() at `t = 1`, which bounds it at 0.12.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``Costas.set_order: order must be 2 or 3, bn >= 0 and finite (at\n"
+    "    most 0.12 at order 3), and bn_fll must be 0 for order 3``, with the\n"
+    "    return code appended (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.track import Costas\n"
+    ">>> c = Costas(bn=0.05, zeta=0.707, init_norm_freq=0.01, tsamps=16)\n"
+    ">>> c.set_order(3, 0.02)\n"
+    ">>> c.order, round(c.norm_freq, 6), c.bn  # the estimate carries across\n"
+    "(3, 0.01, 0.02)\n"
+    ">>> c.norm_rate = 1e-9                    # seed the carrier's rate\n"
+    ">>> round(c.norm_rate * 1e9, 9)\n"
+    "1.0\n"
+    ">>> c.set_order(2, 0.05)                  # back to the PI loop\n"
+    ">>> c.order, c.norm_rate                  # the rate is dropped\n"
+    "(2, 0.0)\n" },
   { "reset", (PyCFunction)CostasObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
-    "Re-seed the loop to the create-time frequency/phase; preserve config.\n"
+    "Re-seed the loop to the create-time frequency/phase, keeping the "
+    "configuration and the loop order; at order 3 the rate is zeroed.\n"
     "\n"
     "Drops the lock and rewinds the NCO, loop integrator and\n"
     "integrate-and-dump accumulators to the create-time seed frequency,\n"
-    "while retaining the configured loop bandwidth, damping and\n"
-    "lock-detector thresholds. Reprocess the same input after a reset and\n"
-    "the output is bit-identical.\n"
+    "while retaining the configured loop bandwidth, damping, lock-detector\n"
+    "thresholds and loop order. At order 3 the rate is zeroed as well.\n"
+    "Reprocess the same input after a reset and the output is bit-identical.\n"
     "\n"
     "Examples\n"
     "--------\n"

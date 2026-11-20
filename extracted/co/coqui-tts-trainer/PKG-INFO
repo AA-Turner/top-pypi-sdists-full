@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: coqui-tts-trainer
-Version: 0.4.0
+Version: 0.5.0
 Summary: General purpose model trainer for PyTorch that is more flexible than it should be, by 🐸Coqui.
 Project-URL: Homepage, https://github.com/idiap/coqui-ai-Trainer
 Project-URL: Repository, https://github.com/idiap/coqui-ai-Trainer
@@ -13,24 +13,23 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.15,>=3.10
+Requires-Python: >=3.11
 Requires-Dist: coqpit-config<0.3.0,>=0.2.2
 Requires-Dist: fsspec>=2023.6.0
 Requires-Dist: packaging>=21.0
-Requires-Dist: psutil>=5
+Requires-Dist: psutil>=5.9.4
 Requires-Dist: tensorboard>=2.17.1
 Provides-Extra: aim
 Requires-Dist: aim>=3.21; (python_version < '3.13') and extra == 'aim'
@@ -94,6 +93,7 @@ You just have to use the ```scaled_backward()``` function to handle mixed precis
 ```python
 ...
 
+
 def optimize(self, batch, trainer):
     imgs, _ = batch
 
@@ -136,6 +136,7 @@ def optimize(self, batch, trainer):
         trainer.optimizer[1].step()
         trainer.optimizer[1].zero_grad()
     return {"model_outputs": logits}, {"loss_gen": loss_gen, "loss_disc": loss_disc}
+
 
 ...
 ```
@@ -184,6 +185,7 @@ Here is how you provide an explicit call back to a 👟Trainer object for weight
 ```python
 def my_callback(trainer):
     print(" > My callback was called.")
+
 
 trainer = Trainer(..., callbacks={"on_init_end": my_callback})
 trainer.fit()

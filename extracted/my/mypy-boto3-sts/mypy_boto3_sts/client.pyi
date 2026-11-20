@@ -44,6 +44,8 @@ from .type_defs import (
     GetDelegatedAccessTokenResponseTypeDef,
     GetFederationTokenRequestTypeDef,
     GetFederationTokenResponseTypeDef,
+    GetScopedCredentialsRequestTypeDef,
+    GetScopedCredentialsResponseTypeDef,
     GetSessionTokenRequestTypeDef,
     GetSessionTokenResponseTypeDef,
     GetWebIdentityTokenRequestTypeDef,
@@ -63,8 +65,11 @@ class Exceptions(BaseClientExceptions):
     ExpiredTradeInTokenException: type[BotocoreClientError]
     IDPCommunicationErrorException: type[BotocoreClientError]
     IDPRejectedClaimException: type[BotocoreClientError]
+    InsufficientSessionLifetimeException: type[BotocoreClientError]
     InvalidAuthorizationMessageException: type[BotocoreClientError]
+    InvalidContextAssertionException: type[BotocoreClientError]
     InvalidIdentityTokenException: type[BotocoreClientError]
+    InvalidSubjectCredentialsException: type[BotocoreClientError]
     JWTPayloadSizeExceededException: type[BotocoreClientError]
     MalformedPolicyDocumentException: type[BotocoreClientError]
     OutboundWebIdentityFederationDisabledException: type[BotocoreClientError]
@@ -199,6 +204,17 @@ class STSClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sts/client/#get_federation_token)
         """
 
+    def get_scoped_credentials(
+        self, **kwargs: Unpack[GetScopedCredentialsRequestTypeDef]
+    ) -> GetScopedCredentialsResponseTypeDef:
+        """
+        Returns a set of temporary security credentials that are scoped down from the
+        caller's existing temporary security credentials.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts/client/get_scoped_credentials.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sts/client/#get_scoped_credentials)
+        """
+
     def get_session_token(
         self, **kwargs: Unpack[GetSessionTokenRequestTypeDef]
     ) -> GetSessionTokenResponseTypeDef:
@@ -215,7 +231,9 @@ class STSClient(BaseClient):
     ) -> GetWebIdentityTokenResponseTypeDef:
         """
         Returns a signed JSON Web Token (JWT) that represents the calling Amazon Web
-        Services identity.
+        Services identity or, if you set <code>SubjectMode</code> to
+        <code>OriginIdentity</code>, the human user or workload on whose behalf the
+        calling session acts.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts/client/get_web_identity_token.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sts/client/#get_web_identity_token)

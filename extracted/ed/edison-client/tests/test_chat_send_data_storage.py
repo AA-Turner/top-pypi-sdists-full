@@ -8,7 +8,7 @@ from edison_client.clients.chat_methods import ChatMethods
 
 
 class _StubChatClient(ChatMethods):
-    def __init__(self, response: MagicMock):
+    def __init__(self, response: MagicMock) -> None:
         self.sync_post = MagicMock(return_value=response)
         self.async_post = AsyncMock(return_value=response)
         self._sync = MagicMock(spec=httpx.Client)
@@ -31,9 +31,7 @@ def _stub_response(status_code: int, body: dict | None = None) -> MagicMock:
     response.text = "" if body is None else str(body)
     if status_code >= 400:
         response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "err",
-            request=MagicMock(),
-            response=response,
+            "err", request=MagicMock(), response=response
         )
     else:
         response.raise_for_status.return_value = None
@@ -47,13 +45,7 @@ class TestSendChatMessageDataStorageIds:
         session_id = uuid4()
         entry_id = uuid4()
         chat = _StubChatClient(
-            _stub_response(
-                200,
-                {
-                    "session_id": str(session_id),
-                    "status": "pending",
-                },
-            )
+            _stub_response(200, {"session_id": str(session_id), "status": "pending"})
         )
 
         result = chat.send_chat_message(
@@ -69,10 +61,7 @@ class TestSendChatMessageDataStorageIds:
         assert posted["project_id"] == str(project_id)
         assert posted["message"] == "analyze this"
         assert posted["timeout"] == 900
-        assert posted["info"] == {
-            "channel": "app",
-            "data_storage_ids": [str(entry_id)],
-        }
+        assert posted["info"] == {"channel": "app", "data_storage_ids": [str(entry_id)]}
 
     @pytest.mark.asyncio
     async def test_asend_includes_data_storage_ids_in_info(self) -> None:
@@ -80,20 +69,11 @@ class TestSendChatMessageDataStorageIds:
         session_id = uuid4()
         entry_id = uuid4()
         chat = _StubChatClient(
-            _stub_response(
-                200,
-                {
-                    "session_id": str(session_id),
-                    "status": "pending",
-                },
-            )
+            _stub_response(200, {"session_id": str(session_id), "status": "pending"})
         )
 
         result = await chat.asend_chat_message(
-            project_id,
-            "analyze this",
-            data_storage_ids=[entry_id],
-            timeout=900,
+            project_id, "analyze this", data_storage_ids=[entry_id], timeout=900
         )
 
         assert result.session_id == session_id
@@ -106,10 +86,7 @@ class TestSendChatMessageDataStorageIds:
         session_id = uuid4()
         entry_id = uuid4()
         chat = _StubChatClient(
-            _stub_response(
-                200,
-                {"session_id": str(session_id), "status": "pending"},
-            )
+            _stub_response(200, {"session_id": str(session_id), "status": "pending"})
         )
 
         chat.send_chat_message(
@@ -128,10 +105,7 @@ class TestSendChatMessageDataStorageIds:
         project_id = uuid4()
         session_id = uuid4()
         chat = _StubChatClient(
-            _stub_response(
-                200,
-                {"session_id": str(session_id), "status": "pending"},
-            )
+            _stub_response(200, {"session_id": str(session_id), "status": "pending"})
         )
 
         chat.send_chat_message(project_id, "hi")

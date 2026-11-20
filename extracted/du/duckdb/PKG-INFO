@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: duckdb
-Version: 2.0.0
+Version: 2.0.1
 Summary: DuckDB in-process database
 Keywords: DuckDB,Database,SQL,OLAP
 Author: DuckDB Foundation

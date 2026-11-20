@@ -1385,6 +1385,10 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         "they merge as one"
     )
 
+    # This family's name in the feature registry (`_features.SOLVERS`,
+    # `Feature.solvers`): which features it honours (momwire#1980).
+    FEATURE_SOLVER = "sinusoidal_galerkin"
+
     # momwire#396: differs from `SinusoidalSolver.capabilities` in exactly
     # the two axes this class's docstring describes — junction_ports and
     # node_gaps are served here (M5b / #305) — plus the three combination
@@ -4529,7 +4533,13 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         """
         return True
 
-    def _assemble_Z(self, geom, k, eta=None):
+    def _fill_report_end(self, ledger):
+        """Stage times only (momwire#2016): this family honours no `pair_reuse`
+        and has no sector route, so the report reads neither."""
+        ledger.route = "dense"
+        ledger.reuse = None
+
+    def _assemble_Z_filled(self, geom, k, eta=None):
         """Galerkin system matrix G (basis i tested against source basis j).
 
         G[i, j] = ∫ f_i(s) · ŝ·E_j(s) ds

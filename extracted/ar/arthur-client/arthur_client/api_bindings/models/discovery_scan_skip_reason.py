@@ -20,14 +20,14 @@ from typing_extensions import Self
 
 class DiscoveryScanSkipReason(str, Enum):
     """
-    Why \"Scan now\" leaves out an engine that has configs to run.  - `engine_offline`: the engine has not checked in for five minutes, so its scan   would sit queued rather than run. - `no_system_project`: the engine's workspace has no system project for   discovery jobs to run under. - `no_service_account`: the engine has no service account to read its jobs as. - `scan_in_progress`: a manual scan's discovery jobs are still queued or running   on the engine, so scanning it again would run its queries twice. The fetches   those jobs chain do not count: by then the queries have run. - `enqueue_failed`: none of the engine's scan jobs could be enqueued for a reason   the checks above do not cover; the app plane log says why.
+    Why \"Scan now\" leaves out an engine that has configs to run.  - `engine_offline`: the engine has not checked in for five minutes, so its scan   would sit queued rather than run. - `no_discovery_project`: the engine's workspace has no discovery project for   discovery jobs to run under. - `no_service_account`: the engine has no service account to read its jobs as. - `scan_in_progress`: a manual scan's discovery jobs are still queued or running   on the engine, so scanning it again would run its queries twice. The fetches   those jobs chain do not count: by then the queries have run. - `enqueue_failed`: none of the engine's scan jobs could be enqueued for a reason   the checks above do not cover; the app plane log says why.
     """
 
     """
     allowed enum values
     """
     ENGINE_OFFLINE = 'engine_offline'
-    NO_SYSTEM_PROJECT = 'no_system_project'
+    NO_DISCOVERY_PROJECT = 'no_discovery_project'
     NO_SERVICE_ACCOUNT = 'no_service_account'
     SCAN_IN_PROGRESS = 'scan_in_progress'
     ENQUEUE_FAILED = 'enqueue_failed'

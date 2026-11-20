@@ -5,10 +5,12 @@ from pandas import DataFrame
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.triangle_count_endpoints import (
-    TriangleCountEndpoints,
     TriangleCountMutateResult,
     TriangleCountStatsResult,
     TriangleCountWriteResult,
+)
+from graphdatascience.procedure_surface.api.community.triangle_count_session_endpoints import (
+    TriangleCountSessionEndpoints,
 )
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -17,7 +19,7 @@ from graphdatascience.procedure_surface.arrow.node_property_endpoints import Nod
 from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
-class TriangleCountArrowEndpoints(TriangleCountEndpoints):
+class TriangleCountArrowEndpoints(TriangleCountSessionEndpoints):
     def __init__(
         self,
         arrow_client: AuthenticatedArrowClient,
@@ -37,7 +39,7 @@ class TriangleCountArrowEndpoints(TriangleCountEndpoints):
         job_id: str | None = None,
         label_filter: list[str] | None = None,
         log_progress: bool = True,
-        max_degree: int | None = None,
+        max_degree: int | None = 2**63 - 1,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
         sudo: bool = False,
@@ -66,7 +68,7 @@ class TriangleCountArrowEndpoints(TriangleCountEndpoints):
         job_id: str | None = None,
         label_filter: list[str] | None = None,
         log_progress: bool = True,
-        max_degree: int | None = None,
+        max_degree: int | None = 2**63 - 1,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
         sudo: bool = False,
@@ -97,7 +99,7 @@ class TriangleCountArrowEndpoints(TriangleCountEndpoints):
         job_id: str | None = None,
         label_filter: list[str] | None = None,
         log_progress: bool = True,
-        max_degree: int | None = None,
+        max_degree: int | None = 2**63 - 1,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
         sudo: bool = False,
@@ -128,7 +130,7 @@ class TriangleCountArrowEndpoints(TriangleCountEndpoints):
         job_id: str | None = None,
         label_filter: list[str] | None = None,
         log_progress: bool = True,
-        max_degree: int | None = None,
+        max_degree: int | None = 2**63 - 1,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
         sudo: bool = False,
@@ -158,7 +160,7 @@ class TriangleCountArrowEndpoints(TriangleCountEndpoints):
         job_id: str | None = None,
         label_filter: list[str] | None = None,
         log_progress: bool = True,
-        max_degree: int | None = None,
+        max_degree: int | None = 2**63 - 1,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
         sudo: bool = False,
@@ -196,7 +198,7 @@ class TriangleCountArrowEndpoints(TriangleCountEndpoints):
         *,
         concurrency: int | None = None,
         label_filter: list[str] | None = None,
-        max_degree: int | None = None,
+        max_degree: int | None = 2**63 - 1,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
     ) -> EstimationResult:

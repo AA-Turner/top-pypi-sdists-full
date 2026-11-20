@@ -111,7 +111,7 @@ class CustomHiveConnection(BaseConnection):
                 self._transport = thrift_transport
             else:
                 # Create puretransport with SSL
-                import puretransport  # noqa: PLC0415
+                import puretransport
 
                 socket_kwargs = _get_ssl_socket_kwargs(
                     ssl_certfile=ssl_certfile,
@@ -141,7 +141,7 @@ class CustomHiveConnection(BaseConnection):
                 self._transport = thrift.transport.TTransport.TBufferedTransport(socket)
             elif auth in ("LDAP", "KERBEROS", "NONE", "CUSTOM"):
                 # Defer import so package dependency is optional
-                import thrift_sasl  # noqa: PLC0415
+                import thrift_sasl
 
                 if auth == "KERBEROS":
                     # KERBEROS mode in hive.server2.authentication is GSSAPI in sasl library

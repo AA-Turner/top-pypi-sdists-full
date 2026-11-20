@@ -542,6 +542,22 @@ void optimize_local_search_direct_trigonometry(
             LocalSearchEngine::DirectTrigonometry);
 }
 
+/**
+ * Compute the periodic packings of 'instance' (see
+ * 'Instance::get_periodic_packings') before solving its sub-instances, so
+ * that the sub-instances get them from 'instance' instead of each
+ * computing them again.
+ */
+void request_periodic_packings(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    optimizationtools::Timer periodic_packings_timer = parameters.timer;
+    periodic_packings_timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    instance.get_periodic_packings(periodic_packings_timer);
+}
+
 void optimize_sequential_single_knapsack(
         const Instance& instance,
         const OptimizeParameters& parameters,
@@ -549,6 +565,7 @@ void optimize_sequential_single_knapsack(
         Counter queue_size_max,
         Counter maximum_number_of_iterations)
 {
+    request_periodic_packings(instance, parameters, algorithm_formatter);
     double maximum_approximation_ratio = parameters.initial_maximum_approximation_ratio;
     for (Counter iteration = 0, growth_factor = 1;; ++iteration) {
         // The effort of each algorithm of the subproblems grows from its own
@@ -560,6 +577,9 @@ void optimize_sequential_single_knapsack(
         NodeId tree_search_periodic_packing_queue_size
             = parameters.anytime_sequential_single_knapsack_subproblem_tree_search_periodic_packing_initial_queue_size
             * growth_factor;
+        NodeId tree_search_maximal_spaces_queue_size
+            = parameters.anytime_sequential_single_knapsack_subproblem_tree_search_maximal_spaces_initial_queue_size
+            * growth_factor;
         Counter local_search_maximum_number_of_moves_factor
             = parameters.anytime_sequential_single_knapsack_subproblem_local_search_initial_maximum_number_of_moves_factor
             * growth_factor;
@@ -569,6 +589,8 @@ void optimize_sequential_single_knapsack(
                 .not_anytime_sequential_single_knapsack_subproblem_tree_search_queue_size;
             tree_search_periodic_packing_queue_size = parameters
                 .not_anytime_sequential_single_knapsack_subproblem_tree_search_periodic_packing_queue_size;
+            tree_search_maximal_spaces_queue_size = parameters
+                .not_anytime_sequential_single_knapsack_subproblem_tree_search_maximal_spaces_queue_size;
             local_search_maximum_number_of_moves_factor = parameters
                 .not_anytime_sequential_single_knapsack_subproblem_local_search_maximum_number_of_moves_factor;
             maximum_approximation_ratio = parameters.not_anytime_maximum_approximation_ratio;
@@ -583,6 +605,7 @@ void optimize_sequential_single_knapsack(
             = [&algorithm_formatter, &parameters,
             tree_search_queue_size,
             tree_search_periodic_packing_queue_size,
+            tree_search_maximal_spaces_queue_size,
             local_search_maximum_number_of_moves_factor,
             maximum_approximation_ratio](const Instance& kp_instance)
             {
@@ -599,6 +622,8 @@ void optimize_sequential_single_knapsack(
                 kp_parameters.not_anytime_tree_search_queue_size = tree_search_queue_size;
                 kp_parameters.not_anytime_tree_search_periodic_packing_queue_size
                     = tree_search_periodic_packing_queue_size;
+                kp_parameters.not_anytime_tree_search_maximal_spaces_queue_size
+                    = tree_search_maximal_spaces_queue_size;
                 kp_parameters.not_anytime_local_search_maximum_number_of_moves_factor
                     = local_search_maximum_number_of_moves_factor;
                 kp_parameters.linear_programming_solver_name = parameters.linear_programming_solver_name;
@@ -609,9 +634,11 @@ void optimize_sequential_single_knapsack(
         // Simplify the shapes once for all the subproblems of this iteration,
         // with the approximation budget of the whole instance, instead of
         // once per subproblem, with the much smaller budget of a single bin.
+        optimizationtools::Timer simplification_timer = parameters.timer;
+        simplification_timer.add_end_boolean(&algorithm_formatter.end_boolean());
         instance.get_simplified_instance(
                 maximum_approximation_ratio,
-                algorithm_formatter.end_boolean());
+                simplification_timer);
         SequentialValueCorrectionParameters<Instance, Solution, irregular::Output> svc_parameters;
         svc_parameters.verbosity_level = 0;
         svc_parameters.timer = parameters.timer;
@@ -663,6 +690,7 @@ void optimize_sequential_value_correction(
         const OptimizeParameters& parameters,
         AlgorithmFormatter& algorithm_formatter)
 {
+    request_periodic_packings(instance, parameters, algorithm_formatter);
     if (parameters.optimization_mode == OptimizationMode::Anytime
             || parameters.optimization_mode == OptimizationMode::Exact) {
         optimize_sequential_single_knapsack(
@@ -676,9 +704,11 @@ void optimize_sequential_value_correction(
     // Simplify the shapes once for all the subproblems, which are solved with
     // the not-anytime maximum approximation ratio, with the approximation
     // budget of the whole instance.
+    optimizationtools::Timer simplification_timer = parameters.timer;
+    simplification_timer.add_end_boolean(&algorithm_formatter.end_boolean());
     instance.get_simplified_instance(
             parameters.not_anytime_maximum_approximation_ratio,
-            algorithm_formatter.end_boolean());
+            simplification_timer);
 
     SequentialValueCorrectionFunction<Instance, Solution> kp_solve
         = [&algorithm_formatter, &parameters](const Instance& kp_instance)
@@ -729,6 +759,7 @@ void optimize_dichotomic_search(
         const OptimizeParameters& parameters,
         AlgorithmFormatter& algorithm_formatter)
 {
+    request_periodic_packings(instance, parameters, algorithm_formatter);
     double waste_percentage_upper_bound = std::numeric_limits<double>::infinity();
     double maximum_approximation_ratio = parameters.initial_maximum_approximation_ratio;
     for (Counter queue_size = 1;;) {
@@ -804,6 +835,7 @@ void optimize_column_generation(
         const OptimizeParameters& parameters,
         AlgorithmFormatter& algorithm_formatter)
 {
+    request_periodic_packings(instance, parameters, algorithm_formatter);
     ColumnGenerationPricingFunction<Instance, InstanceBuilder, Solution, irregular::Output> pricing_function
         = [&algorithm_formatter, &parameters](const Instance& kp_instance, PricingType pricing_type)
         {

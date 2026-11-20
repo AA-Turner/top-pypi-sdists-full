@@ -13,19 +13,29 @@ Usage::
         AgentRegistryClient,
         Client,
         ListDiscoverableRegistryRecordsPaginator,
+        SearchDiscoverableRegistryRecordsPaginator,
     )
 
     session = Session()
     client: AgentRegistryClient = session.client("agent-registry")
 
     list_discoverable_registry_records_paginator: ListDiscoverableRegistryRecordsPaginator = client.get_paginator("list_discoverable_registry_records")
+    search_discoverable_registry_records_paginator: SearchDiscoverableRegistryRecordsPaginator = client.get_paginator("search_discoverable_registry_records")
     ```
 """
 
 from .client import AgentRegistryClient
-from .paginator import ListDiscoverableRegistryRecordsPaginator
+from .paginator import (
+    ListDiscoverableRegistryRecordsPaginator,
+    SearchDiscoverableRegistryRecordsPaginator,
+)
 
 Client = AgentRegistryClient
 
 
-__all__ = ("AgentRegistryClient", "Client", "ListDiscoverableRegistryRecordsPaginator")
+__all__ = (
+    "AgentRegistryClient",
+    "Client",
+    "ListDiscoverableRegistryRecordsPaginator",
+    "SearchDiscoverableRegistryRecordsPaginator",
+)

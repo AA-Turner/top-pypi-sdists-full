@@ -21,9 +21,11 @@ from typing import Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.patch_workspace import PatchWorkspace
 from arthur_client.api_bindings.models.post_workspace import PostWorkspace
+from arthur_client.api_bindings.models.put_workspace_discovery_project import PutWorkspaceDiscoveryProject
 from arthur_client.api_bindings.models.resource_list_workspace import ResourceListWorkspace
 from arthur_client.api_bindings.models.sort_order import SortOrder
 from arthur_client.api_bindings.models.workspace import Workspace
+from arthur_client.api_bindings.models.workspace_discovery_project import WorkspaceDiscoveryProject
 from arthur_client.api_bindings.models.workspace_sort import WorkspaceSort
 from arthur_client.api_bindings.models.workspace_statistics import WorkspaceStatistics
 
@@ -573,6 +575,276 @@ class WorkspacesV1Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v1/workspaces/{workspace_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_workspace_discovery_project(
+        self,
+        workspace_id: StrictStr,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> WorkspaceDiscoveryProject:
+        """Get Workspace Discovery Project.
+
+        Returns the project agent discovery runs under for the workspace. The state is 'default' when no project is chosen and discovery runs under the workspace's system project, 'override' when discovery runs under the chosen project, 'fallback' when a project is still recorded as chosen but cannot be used and discovery runs under the system project, and 'blocked' when there is no project to run under. Deleting the chosen project clears the choice, so the state reads 'default' afterwards, or 'blocked' with no system project. Requires workspace_read permission on the workspace and organization_list_discovery_sources permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_workspace_discovery_project_serialize(
+            workspace_id=workspace_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "WorkspaceDiscoveryProject",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_workspace_discovery_project_with_http_info(
+        self,
+        workspace_id: StrictStr,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[WorkspaceDiscoveryProject]:
+        """Get Workspace Discovery Project.
+
+        Returns the project agent discovery runs under for the workspace. The state is 'default' when no project is chosen and discovery runs under the workspace's system project, 'override' when discovery runs under the chosen project, 'fallback' when a project is still recorded as chosen but cannot be used and discovery runs under the system project, and 'blocked' when there is no project to run under. Deleting the chosen project clears the choice, so the state reads 'default' afterwards, or 'blocked' with no system project. Requires workspace_read permission on the workspace and organization_list_discovery_sources permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_workspace_discovery_project_serialize(
+            workspace_id=workspace_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "WorkspaceDiscoveryProject",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_workspace_discovery_project_without_preload_content(
+        self,
+        workspace_id: StrictStr,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get Workspace Discovery Project.
+
+        Returns the project agent discovery runs under for the workspace. The state is 'default' when no project is chosen and discovery runs under the workspace's system project, 'override' when discovery runs under the chosen project, 'fallback' when a project is still recorded as chosen but cannot be used and discovery runs under the system project, and 'blocked' when there is no project to run under. Deleting the chosen project clears the choice, so the state reads 'default' afterwards, or 'blocked' with no system project. Requires workspace_read permission on the workspace and organization_list_discovery_sources permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_workspace_discovery_project_serialize(
+            workspace_id=workspace_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "WorkspaceDiscoveryProject",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_workspace_discovery_project_serialize(
+        self,
+        workspace_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if workspace_id is not None:
+            _path_params['workspace_id'] = workspace_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/workspaces/{workspace_id}/discovery_project',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1497,6 +1769,307 @@ class WorkspacesV1Api:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/api/v1/organization/workspaces',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def put_workspace_discovery_project(
+        self,
+        workspace_id: StrictStr,
+        put_workspace_discovery_project: PutWorkspaceDiscoveryProject,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> WorkspaceDiscoveryProject:
+        """Put Workspace Discovery Project.
+
+        Chooses the project in the workspace that agent discovery runs under, or clears the choice with a null project_id. Saving the choice grants nothing by itself: each of the workspace's engines gets the Data Plane Project role on the chosen project, including its connector secrets and datasets, when a discovery job is first queued for it there. Changing or clearing the choice revokes that role on the previous project, except where the engine still has active jobs there or an association grants it. Access kept for active jobs is withdrawn by a later discovery dispatch once they finish. The state is 'default' when no project is chosen and discovery runs under the workspace's system project, 'override' when discovery runs under the chosen project, 'fallback' when a project is still recorded as chosen but cannot be used and discovery runs under the system project, and 'blocked' when there is no project to run under. Deleting the chosen project clears the choice, so the state reads 'default' afterwards, or 'blocked' with no system project. Requires workspace_update permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param put_workspace_discovery_project: (required)
+        :type put_workspace_discovery_project: PutWorkspaceDiscoveryProject
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._put_workspace_discovery_project_serialize(
+            workspace_id=workspace_id,
+            put_workspace_discovery_project=put_workspace_discovery_project,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "WorkspaceDiscoveryProject",
+            '500': "InternalServerError",
+            '400': "BadRequestError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def put_workspace_discovery_project_with_http_info(
+        self,
+        workspace_id: StrictStr,
+        put_workspace_discovery_project: PutWorkspaceDiscoveryProject,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[WorkspaceDiscoveryProject]:
+        """Put Workspace Discovery Project.
+
+        Chooses the project in the workspace that agent discovery runs under, or clears the choice with a null project_id. Saving the choice grants nothing by itself: each of the workspace's engines gets the Data Plane Project role on the chosen project, including its connector secrets and datasets, when a discovery job is first queued for it there. Changing or clearing the choice revokes that role on the previous project, except where the engine still has active jobs there or an association grants it. Access kept for active jobs is withdrawn by a later discovery dispatch once they finish. The state is 'default' when no project is chosen and discovery runs under the workspace's system project, 'override' when discovery runs under the chosen project, 'fallback' when a project is still recorded as chosen but cannot be used and discovery runs under the system project, and 'blocked' when there is no project to run under. Deleting the chosen project clears the choice, so the state reads 'default' afterwards, or 'blocked' with no system project. Requires workspace_update permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param put_workspace_discovery_project: (required)
+        :type put_workspace_discovery_project: PutWorkspaceDiscoveryProject
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._put_workspace_discovery_project_serialize(
+            workspace_id=workspace_id,
+            put_workspace_discovery_project=put_workspace_discovery_project,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "WorkspaceDiscoveryProject",
+            '500': "InternalServerError",
+            '400': "BadRequestError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def put_workspace_discovery_project_without_preload_content(
+        self,
+        workspace_id: StrictStr,
+        put_workspace_discovery_project: PutWorkspaceDiscoveryProject,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Put Workspace Discovery Project.
+
+        Chooses the project in the workspace that agent discovery runs under, or clears the choice with a null project_id. Saving the choice grants nothing by itself: each of the workspace's engines gets the Data Plane Project role on the chosen project, including its connector secrets and datasets, when a discovery job is first queued for it there. Changing or clearing the choice revokes that role on the previous project, except where the engine still has active jobs there or an association grants it. Access kept for active jobs is withdrawn by a later discovery dispatch once they finish. The state is 'default' when no project is chosen and discovery runs under the workspace's system project, 'override' when discovery runs under the chosen project, 'fallback' when a project is still recorded as chosen but cannot be used and discovery runs under the system project, and 'blocked' when there is no project to run under. Deleting the chosen project clears the choice, so the state reads 'default' afterwards, or 'blocked' with no system project. Requires workspace_update permission.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param put_workspace_discovery_project: (required)
+        :type put_workspace_discovery_project: PutWorkspaceDiscoveryProject
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._put_workspace_discovery_project_serialize(
+            workspace_id=workspace_id,
+            put_workspace_discovery_project=put_workspace_discovery_project,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "WorkspaceDiscoveryProject",
+            '500': "InternalServerError",
+            '400': "BadRequestError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _put_workspace_discovery_project_serialize(
+        self,
+        workspace_id,
+        put_workspace_discovery_project,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if workspace_id is not None:
+            _path_params['workspace_id'] = workspace_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if put_workspace_discovery_project is not None:
+            _body_params = put_workspace_discovery_project
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v1/workspaces/{workspace_id}/discovery_project',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

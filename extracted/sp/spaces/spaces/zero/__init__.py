@@ -7,16 +7,26 @@ from packaging.version import Version
 
 from ..config import Config
 from .context import ZeroGPULog
+from .errors import ZeroGPUArgsPicklingError
+from .errors import ZeroGPUArgsUnpicklingError
 from .errors import ZeroGPUClientError
 from .errors import ZeroGPUError
 from .errors import ZeroGPUException
+from .errors import ZeroGPUExceptionPicklingError
 from .errors import ZeroGPUIllegalDuration
+from .errors import ZeroGPUInputUnpicklingError
+from .errors import ZeroGPUOutputUnpicklingError
 from .errors import ZeroGPUPendingCreditsExceeded
 from .errors import ZeroGPUQueueTimeout
 from .errors import ZeroGPUQuotaExceeded
+from .errors import ZeroGPUReturnValuePicklingError
+from .errors import ZeroGPUSendValuePicklingError
+from .errors import ZeroGPUSerializationError
 from .errors import ZeroGPUTaskAborted
 from .errors import ZeroGPUTaskException
+from .errors import ZeroGPUThrowValuePicklingError
 from .errors import ZeroGPUWorkerError
+from .errors import ZeroGPUYieldValuePicklingError
 from .middleware import ZeroGPUMiddleware
 from .lifecycle import default_gpu_size
 from .lifecycle import zerogpu_mode_enable
@@ -55,6 +65,16 @@ __all__ = [
     'ZeroGPUTaskAborted',
     'ZeroGPUTaskException',
     'ZeroGPUWorkerError',
+    'ZeroGPUSerializationError',
+    'ZeroGPUArgsPicklingError',
+    'ZeroGPUArgsUnpicklingError',
+    'ZeroGPUSendValuePicklingError',
+    'ZeroGPUThrowValuePicklingError',
+    'ZeroGPUYieldValuePicklingError',
+    'ZeroGPUReturnValuePicklingError',
+    'ZeroGPUExceptionPicklingError',
+    'ZeroGPUInputUnpicklingError',
+    'ZeroGPUOutputUnpicklingError',
     'ZeroGPULog',
     'ZeroGPUMiddleware',
     'default_gpu_size',

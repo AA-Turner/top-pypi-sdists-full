@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
 from arthur_client.api_bindings.models.data_source import DataSource
 from arthur_client.api_bindings.models.evidence import Evidence
@@ -44,14 +45,17 @@ class Agent(BaseModel):
     is_autocreated: Optional[StrictBool] = Field(default=True, description="Whether this agent was auto-created from traces.")
     rules: Optional[List[RuleResponse]] = Field(default=None, description="Rules associated with this agent's task.")
     last_fetched: Optional[datetime] = None
+    trace_count: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = None
+    inference_count: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = None
+    last_activity_at: Optional[datetime] = None
     muted_until: Optional[datetime] = None
     evidence: Optional[List[Evidence]] = Field(default=None, description="Every source's report of this agent, one record each. A list rather than the singular creation_source it replaces: two sources disagree about how much they can see, when they last looked and whether they are still reporting, and flattening them would make one of those answers win arbitrarily. Merged per source on upsert rather than replaced, so a fetch job scoped to one discovery source cannot wipe another source's evidence.")
     creation_source: Optional[AgentCreationSource] = None
-    tools: Optional[List[Tool]] = Field(default=None, description="Tools used by this agent.")
-    sub_agents: Optional[List[SubAgent]] = Field(default=None, description="Sub-agents used by this agent.")
-    llm_models: Optional[List[LLMModel]] = Field(default=None, description="LLM models used by this agent.")
-    data_sources: Optional[List[DataSource]] = Field(default=None, description="Data sources used by this agent.")
-    __properties: ClassVar[List[str]] = ["name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources"]
+    tools: Optional[List[Tool]] = None
+    sub_agents: Optional[List[SubAgent]] = None
+    llm_models: Optional[List[LLMModel]] = None
+    data_sources: Optional[List[DataSource]] = None
+    __properties: ClassVar[List[str]] = ["name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "trace_count", "inference_count", "last_activity_at", "muted_until", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -155,6 +159,21 @@ class Agent(BaseModel):
         if self.last_fetched is None and "last_fetched" in self.model_fields_set:
             _dict['last_fetched'] = None
 
+        # set to None if trace_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.trace_count is None and "trace_count" in self.model_fields_set:
+            _dict['trace_count'] = None
+
+        # set to None if inference_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.inference_count is None and "inference_count" in self.model_fields_set:
+            _dict['inference_count'] = None
+
+        # set to None if last_activity_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_activity_at is None and "last_activity_at" in self.model_fields_set:
+            _dict['last_activity_at'] = None
+
         # set to None if muted_until (nullable) is None
         # and model_fields_set contains the field
         if self.muted_until is None and "muted_until" in self.model_fields_set:
@@ -164,6 +183,26 @@ class Agent(BaseModel):
         # and model_fields_set contains the field
         if self.creation_source is None and "creation_source" in self.model_fields_set:
             _dict['creation_source'] = None
+
+        # set to None if tools (nullable) is None
+        # and model_fields_set contains the field
+        if self.tools is None and "tools" in self.model_fields_set:
+            _dict['tools'] = None
+
+        # set to None if sub_agents (nullable) is None
+        # and model_fields_set contains the field
+        if self.sub_agents is None and "sub_agents" in self.model_fields_set:
+            _dict['sub_agents'] = None
+
+        # set to None if llm_models (nullable) is None
+        # and model_fields_set contains the field
+        if self.llm_models is None and "llm_models" in self.model_fields_set:
+            _dict['llm_models'] = None
+
+        # set to None if data_sources (nullable) is None
+        # and model_fields_set contains the field
+        if self.data_sources is None and "data_sources" in self.model_fields_set:
+            _dict['data_sources'] = None
 
         return _dict
 
@@ -186,6 +225,9 @@ class Agent(BaseModel):
             "is_autocreated": obj.get("is_autocreated") if obj.get("is_autocreated") is not None else True,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
             "last_fetched": obj.get("last_fetched"),
+            "trace_count": obj.get("trace_count"),
+            "inference_count": obj.get("inference_count"),
+            "last_activity_at": obj.get("last_activity_at"),
             "muted_until": obj.get("muted_until"),
             "evidence": [Evidence.from_dict(_item) for _item in obj["evidence"]] if obj.get("evidence") is not None else None,
             "creation_source": AgentCreationSource.from_dict(obj["creation_source"]) if obj.get("creation_source") is not None else None,

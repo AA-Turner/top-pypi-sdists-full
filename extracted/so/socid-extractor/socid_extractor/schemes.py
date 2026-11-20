@@ -2,8 +2,77 @@ from dateutil.parser import parse as parse_datetime_str
 import html
 import json
 import itertools
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .utils import *
+
+
+def _habr_profile(page):
+    """Read the author record Habr renders into its Pinia store.
+
+    The store is assigned to window.__PINIA_STATE__ with more script following
+    on the same line, so a regex has no end to anchor on; raw_decode reads
+    exactly as far as the object goes and stops there.
+
+    Reading the store instead of a slice of it is also what keeps this working.
+    The previous version matched authorRefs with a regex that required the
+    record to end in a "reach" string, and Habr now sends "reach": null, which
+    silently cost every field on every profile.
+    """
+    start = re.search(r'window\.__PINIA_STATE__\s*=\s*', page)
+    if not start:
+        return '{}'
+    try:
+        store, _ = json.JSONDecoder().raw_decode(page[start.end():])
+    except ValueError:
+        return '{}'
+    # the alias is its own key here, next to a __ALIAS_STORE__ marker that is
+    # not a user; a page about one author carries exactly one real entry
+    refs = (store.get('users') or {}).get('authorRefs') or {}
+    user = next((v for k, v in refs.items() if k != '__ALIAS_STORE__' and isinstance(v, dict)), None)
+    return json.dumps(user) if user else '{}'
+
+
+def _nodebb_profile(page):
+    """Accept a NodeBB profile object, excluding errors and user listings."""
+    try:
+        data = json.loads(page)
+    except ValueError:
+        return '{}'
+    if not isinstance(data, dict) or not data.get('uid') or not data.get('username'):
+        return '{}'
+    if not all(key in data for key in ('userslug', 'joindate', 'postcount', 'icon:bgColor', 'email:confirmed')):
+        return '{}'
+    return json.dumps(data)
+
+
+def _flarum_user(page, request_url):
+    try:
+        doc = json.loads(page)
+    except ValueError:
+        return '{}'
+    if not isinstance(doc, dict):
+        return '{}'
+    wanted = parse_qs(urlparse(request_url).query).get('filter[q]', [None])[0]
+    if not wanted:
+        return '{}'
+
+    data = doc.get('data')
+    candidates = data if isinstance(data, list) else [data] if isinstance(data, dict) else []
+
+    for user in candidates:
+        if not isinstance(user, dict):
+            continue
+        attributes = user.get('attributes')
+        if (
+            user.get('type') == 'users'
+            and isinstance(attributes, dict)
+            and isinstance(attributes.get('username'), str)
+            and attributes['username'].casefold() == wanted.casefold()
+        ):
+            return json.dumps(user)
+
+    return '{}'
 
 
 # Helpers for the Virgool RSC profile scheme (see "Virgool" entry below).
@@ -120,7 +189,10 @@ def _gh_handle_for(accounts, provider):
     for a in accounts:
         if a.get('provider') == provider:
             url = (a.get('url') or '').split('?')[0].split('#')[0].rstrip('/')
-            return url.rsplit('/', 1)[-1].lstrip('@') or None
+            handle = url.rsplit('/', 1)[-1].lstrip('@') or None
+            if provider == 'bluesky' and handle:
+                return handle.removesuffix('.bsky.social')
+            return handle
     return None
 
 
@@ -175,6 +247,686 @@ def _faceit_streaming_links(profile):
     return links
 
 
+def _vbulletin_id_from_href(href):
+    """Return a vBulletin profile id encoded in a profile/search link."""
+    parsed = urlparse(href)
+    page = parsed.path.rsplit('/', 1)[-1]
+    query = parse_qs(parsed.query)
+    if page in ('member.php', 'profile.php'):
+        return (query.get('u') or [None])[0]
+    if page == 'search.php' and (query.get('do') or [None])[0] == 'finduser':
+        return (query.get('u') or query.get('userid') or [None])[0]
+    return None
+
+
+def _vbulletin_uid(soup):
+    """Extract a profile id without treating thread participants as one profile."""
+    relpath = soup.find(string=lambda value: value and 'RELPATH' in value)
+    if relpath:
+        match = re.search(r'RELPATH\s*=\s*["\']member\.php\?u=(\d+)', relpath)
+        if match:
+            return match.group(1)
+
+    header = soup.find(id='memberinfoheader') or soup.find(id='avatar')
+    if header:
+        ids = {
+            _vbulletin_id_from_href(a.get('href', ''))
+            for a in header.find_all('a', href=True)
+        }
+        ids.discard(None)
+        if len(ids) == 1:
+            return ids.pop()
+
+    stats = soup.find(id='stats')
+    links = (
+        stats.find_all('a', href=True)
+        if stats else soup.find_all('a', href=True)
+    )
+    ids = {_vbulletin_id_from_href(a.get('href', '')) for a in links}
+    ids.discard(None)
+    return ids.pop() if len(ids) == 1 else None
+
+
+def _vbulletin_username(soup):
+    member_username = soup.find(class_='member_username')
+    if member_username:
+        return member_username.get_text(' ', strip=True)
+
+    username_box = soup.find(id='username_box')
+    heading = username_box.find('h1') if username_box else None
+    if heading:
+        return heading.get_text(' ', strip=True)
+    return None
+
+
+def _yt_redirect_urls(data):
+    """Collect external destination URLs from youtube.com/redirect?...q= links in ytInitialData."""
+    urls = set()
+    for u in re.findall(r'youtube\.com/redirect\?[^"]*?q=([^"&]+)', json.dumps(data)):
+        decoded = unquote(u)
+        if 'youtube.com' not in decoded and 'google.com' not in decoded:
+            urls.add(decoded)
+    return list(urls)
+
+
+def _yt_find_about(data):
+    """Depth-first search for the aboutChannelViewModel dict, wherever YouTube nests it."""
+    stack = [data]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            about = node.get('aboutChannelViewModel')
+            if isinstance(about, dict):
+                return about
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return {}
+
+
+def _yt_social_username(data, domain):
+    """Extract a username from YouTube redirect URLs for a given social platform domain."""
+    for url in data.get('_all_redirect_urls', []):
+        if domain in url.lower():
+            path = re.sub(r'https?://(www\.|[a-z]{2}\.)?', '', url).split('/')
+            if len(path) >= 2 and path[1]:
+                username = path[1].rstrip('/')
+                if username and username not in ('invite',):
+                    return username
+            if 'invite' in url and len(path) >= 3:
+                return path[2].rstrip('/')
+    return None
+
+
+def _lens_attr(attrs, *keys):
+    """Return the first Lens metadata attribute value whose key matches any of `keys`."""
+    if not attrs:
+        return None
+    wanted = {k.lower() for k in keys}
+    for a in attrs:
+        if isinstance(a, dict) and str(a.get('key', '')).lower() in wanted and a.get('value'):
+            return a['value']
+    return None
+
+def _extract_teletype_blog(state):
+    """Merge a Teletype blog's profile with stats pulled from its article section."""
+    blogs = (state.get('blogs') or {}).get('items') or []
+    blog = next((b for b in blogs if b.get('uri')), {})
+
+    articles = (state.get('blog_articles') or {}).get('items') or {}
+    details = (articles.get(str(blog.get('id') or '')) or {}).get('blog') or {}
+
+    return {
+        **blog,
+        'posts_count': (details.get('sections') or {}).get('published'),
+        'topics': [
+            topic.get('uri')
+            for topic in (details.get('topics') or [])
+            if topic.get('uri')
+        ],
+    }
+
+
+def _search_group(pattern, text, group=1):
+    """First capture group of `pattern` in `text`, or None when it doesn't match."""
+    match = re.search(pattern, text or '')
+    return match.group(group) if match else None
+
+def _xenforo_profile(page):
+    """Read a XenForo member page, which has no API behind it.
+
+    The forum answers /members/?username=<name> with a redirect to the profile,
+    and the profile carries the numeric id in two places. og:url is the one to
+    trust: it survives even the login wall many instances put in front of member
+    pages, and it is what tells a profile apart from the member listing a failed
+    search falls back to — that listing is full of other people's data-user-id
+    attributes.
+
+    Labels like "Messages" and "Joined" are localised, so nothing is read by
+    them: the counters are reached through the links they wrap, and the two
+    dates are the first two <time> elements of the member header, in order.
+    Those dates come rendered in the viewer's timezone, so the offset on them
+    depends on where the request came from.
+    """
+    def find(pattern):
+        match = re.search(pattern, page)
+        return match.group(1) if match else None
+
+    member = re.search(r'og:url"\s+content="[^"]*/members/([^/"]+)\.(\d+)/', page)
+    if member:
+        uid, username = member.group(2), unquote(member.group(1))
+    elif 'memberHeader' in page:
+        # a profile that ships no og:url — take the id off the header instead
+        uid, username = find(r'data-user-id="(\d+)"'), None
+    else:
+        return '{}'
+
+    def digits(value):
+        return re.sub(r'[^0-9]', '', value) or None if value else None
+
+    times = re.findall(r'<time[^>]*datetime="([^"]+)"', page)
+    return json.dumps({
+        'uid': uid,
+        'username': username,
+        'image': find(r'<img[^>]+src="([^"]*/avatars/[^"]+)"'),
+        'created_at': times[0] if times else None,
+        'latest_activity_at': times[1] if len(times) > 1 else None,
+        # counters come out of the page grouped, as "9,193"
+        'posts_count': digits(find(r'search/member\?user_id=\d+"[^>]*>\s*([\d,.\s]+?)\s*<')),
+        'xenforo_points': digits(find(r'/trophies"[^>]*>\s*([\d,.\s]+?)\s*<')),
+    })
+
+
+def _phpbb_profile(page):
+    """Read what a phpBB board shows about one member, which has no API behind it.
+
+    maigret reaches a member two ways, and both answers carry the numeric id in
+    the profile link, memberlist.php?mode=viewprofile&u=<id>: the member list
+    filtered by name (memberlist.php?username=<name>) comes back with one row,
+    and an author search (search.php?author=<name>) comes back with that
+    member's posts, each headed by the same link. The profile page itself
+    (memberlist.php?mode=viewprofile&u=<id>) names its owner in the first row
+    of its details list and carries the id in the "search user's posts" link.
+
+    One person on the page is what tells an answer about a member apart from a
+    listing: a keyword search lists posts by everyone and an unfiltered member
+    list is the whole board, so a page with several ids yields nothing rather
+    than whoever is on top. The login wall, the flood-control notice and the
+    "no matches" notice carry none of the three shapes and yield nothing too.
+
+    Labels like "Posts" and "Joined" are localised, so nothing is read by them:
+    the counters sit in the cell and the link that carry them, and the join date
+    is the first row of the details list, in the board's own language and
+    timezone. The id is read from the link and never from the page text.
+    """
+    member_link = r'<a href="[^"]*memberlist\.php\?mode=viewprofile(?:&amp;|&)u=(\d+)[^"]*"[^>]*>([^<]+)</a>'
+
+    def digits(value):
+        return re.sub(r'[^0-9]', '', value) or None if value else None
+
+    def text(fragment):
+        return html.unescape(re.sub(r'<[^>]+>', '', fragment)).strip() or None
+
+    # an author search: every post on the page is headed by the same member.
+    # The name is compared across posts rather than the link, because a URL
+    # rewriting mod can leave the two forms side by side on one page, and a
+    # post whose author has no profile link carries a name but no id.
+    posts = re.findall(r'<dl class="postprofile[^"]*">[\s\S]*?</dl>', page)
+    if posts:
+        names = {text(_search_group(r'<dt class="author">[^<]*<(?:a|span)[^>]*>([^<]+)<', block)) for block in posts}
+        uids = {_search_group(member_link, block) for block in posts} - {None}
+        if None in names or len(names) != 1 or len(uids) != 1:
+            return '{}'
+        return json.dumps({'uid': uids.pop(), 'username': names.pop()})
+
+    # the member list filtered by name: exactly one row names a member
+    listing = re.search(r'<table[^>]*id="memberlist"[\s\S]*?</table>', page)
+    if listing:
+        rows = [row for row in re.findall(r'<tr[^>]*>[\s\S]*?</tr>', listing.group(0)) if re.search(member_link, row)]
+        if len(rows) != 1:
+            return '{}'
+        row = rows[0]
+        member = re.search(member_link, row)
+        return json.dumps({
+            'uid': member.group(1),
+            'username': member.group(2).strip(),
+            'created_at': _search_group(r'<td>\s*([^<]*?)\s*</td>', row),
+            # the count is a link to the member's posts when search is enabled
+            'posts_count': digits(_search_group(r'<td class="posts">\s*(?:<a[^>]*>)?\s*([\d,.\s]+?)\s*<', row)),
+            'website': _search_group(r'<td class="info">[\s\S]*?<a[^>]*href="([^"]+)"', row),
+        })
+
+    # the profile page: its owner is the first row of the details list
+    details = re.search(r'<dl class="left-box details profile-details">[\s\S]*?<dd>([\s\S]*?)</dd>', page)
+    uid = _search_group(r'href="[^"]*search\.php\?author_id=(\d+)', page)
+    if not details or not uid:
+        return '{}'
+    # the block that holds the search link starts with the join date
+    activity = re.search(r'<dl class="details">(?:(?!</dl>)[\s\S])*?author_id=' + uid, page)
+    return json.dumps({
+        'uid': uid,
+        'username': text(details.group(1)),
+        'created_at': _search_group(r'<dd>\s*([^<]*?)\s*</dd>', activity.group(0)) if activity else None,
+        'posts_count': digits(_search_group(r'<dd>\s*([\d,.\s]+?)\s*(?:\||<)', activity.group(0))) if activity else None,
+    })
+
+
+def _gitea_profile(page):
+    """Read a Gitea or Forgejo user page (Forgejo is a Gitea fork with the same profile).
+
+    maigret checks these instances by the profile page itself, {host}/{username},
+    so the page is read rather than the /api/v1/users/<name> endpoint. The layout
+    differs between versions: Gitea 1.2x puts the name in plain spans inside
+    #profile-avatar-card, Forgejo in span.username under .profile-avatar-name.
+    Nothing is read by those classes. What every version shares is the
+    "?tab=followers" and "?tab=following" links, whose path ends in the username
+    and whose text starts with the count, the "Joined on" date as a machine-readable
+    attribute (datetime= on <relative-time>, date= on <absolute-date>), and the
+    og: tags, where og:title is the full name when the user set one and the
+    username otherwise.
+
+    Labels are localised ("Followers", "Abonnenten"), so counts are read as the
+    first number in the link text and the date only from the attribute. A page
+    without a followers link (an organisation, a login wall) yields nothing.
+    An avatar URL on localhost (an instance that never set its ROOT_URL) is dropped.
+    """
+    followers = re.search(r'<a[^>]*href="[^"]*/([^/"?]+)\?tab=followers"[^>]*>([\s\S]*?)</a>', page)
+    if not followers:
+        return '{}'
+    username = html.unescape(followers.group(1))
+
+    def count(fragment):
+        # "1,234 Followers", "1.234 Abonnenten": the first number, separators dropped
+        number = _search_group(r'(\d[\d,.\s]*)', re.sub(r'<[^>]+>', '', fragment or ''))
+        return re.sub(r'[^0-9]', '', number) if number else None
+
+    def og(prop):
+        value = _search_group(r'<meta property="og:' + prop + r'" content="([^"]*)"', page)
+        return (html.unescape(value).strip() or None) if value else None
+
+    image = og('image')
+    if image and re.match(r'https?://(?:localhost|127\.0\.0\.1|\[::1\])(?:[:/]|$)', image):
+        image = None  # an instance whose ROOT_URL was never set links avatars to itself
+
+    following = _search_group(
+        r'<a[^>]*href="[^"]*/' + re.escape(followers.group(1)) + r'\?tab=following"[^>]*>([\s\S]*?)</a>', page)
+    title = og('title')
+    return json.dumps({
+        'username': username,
+        'fullname': title if title and title != username else None,
+        'image': image,
+        'created_at': _search_group(
+            r'Joined on\s*<(?:relative-time|absolute-date)\b[^>]*?\s(?:datetime|date)="([^"]+)"', page),
+        'follower_count': count(followers.group(2)),
+        'following_count': count(following),
+    })
+
+
+def _bbpress_profile(page):
+    """Read what a bbPress forum shows about one member.
+
+    bbPress has no API, and the WordPress REST user route is shut on nearly
+    every board that runs it, so the profile page is all there is. Themes
+    reskin that page freely, but the paragraphs below come from bbPress core
+    and carry classes of their own, so they are found by class and never by
+    position or by their labels, which are translated per board.
+
+    Two of them share the class bbp-user-forum-role: core prints the
+    registration age in the first and the forum role in the second. A board
+    that prints only one of the two breaks that order, so they are told apart
+    by content instead -- an age carries digits and a role does not.
+    """
+    # the block holds the member's link and picture; it ends at that link's
+    # close, which bounds it whatever a lazy-loading plugin puts in the img
+    avatar = _search_group(r'(<div[^>]*id=["\']bbp-user-avatar["\'][\s\S]*?</a>)', page)
+
+    def text(fragment):
+        plain = html.unescape(re.sub(r'<[^>]+>', ' ', fragment or ''))
+        return re.sub(r'\s+', ' ', plain).strip() or None
+
+    def paras(cls):
+        found = re.findall(r'<p[^>]*class=["\'][^"\']*\b%s\b[^"\']*["\'][^>]*>([\s\S]*?)</p>' % cls, page)
+        return [p for p in (text(f) for f in found) if p]
+
+    def tail(value):
+        # the labels are translated per board; the value follows the last colon
+        return value.split(':')[-1].strip() if value and ':' in value else value
+
+    def count(cls):
+        # "Replies Created: 2,001" -- the separator is the board's, not ours
+        found = re.findall(r'([\d][\d,.\u00a0\s]*)\s*$', ' '.join(paras(cls)) or '')
+        return re.sub(r'\D', '', found[-1]) if found else None
+
+    roles = paras('bbp-user-forum-role')
+    ages = [tail(p) for p in roles if re.search(r'\d', p)]
+    names = [tail(p) for p in roles if not re.search(r'\d', p)]
+
+    # an @nicename heading is bbPress core, but a theme can put its own text
+    # there, and the slug is also in the link the avatar block always carries
+    heading = text(_search_group(r'<h2[^>]*entry-title[^>]*>\s*(@[\s\S]*?)</h2>', page))
+
+    # a lazy-loading plugin leaves a placeholder in src and the real file in
+    # data-lazy-src, so the first source that is not inlined is the picture
+    sources = re.findall(r'(?:data-lazy-)?src=["\']([^"\']+)["\']', avatar or '')
+    image = next((s for s in sources if not s.startswith('data:')), None)
+
+    return json.dumps({k: v for k, v in {
+        'username': (heading or '').lstrip('@')
+                    or _search_group(r'href=["\'][^"\']*/users/([^/"\'?#]+)', avatar),
+        'fullname': html.unescape(_search_group(r'title=["\']([^"\']+)["\']', avatar) or '').strip(),
+        'image': html.unescape(image) if image else None,
+        # core prints an age relative to now; some boards print a date instead
+        'created_ago': ages[0] if ages else None,
+        'created_at': tail((paras('bbp-user-member-since') or [None])[0]),
+        'role': names[0] if names else None,
+        'topics_count': count('bbp-user-topic-count'),
+        'replies_count': count('bbp-user-reply-count'),
+        'bio': (paras('bbp-user-description') or [None])[0],
+    }.items() if v})
+
+
+def _buddypress_profile(page):
+    """Read what a BuddyPress member page shows about its owner.
+
+    BuddyPress is a WordPress plugin and themes rebuild its profile header
+    freely, so nothing here is read from the header's layout. What survives
+    reskinning is the avatar's class, which carries the member's WordPress id,
+    and the canonical URL, which carries the slug.
+
+    The id is taken only when the whole page names one member. A directory
+    page and an activity wall carry the same avatar markup for everyone listed
+    on them, and picking the first of those would report a bystander.
+    """
+    header = _search_group(r'(<div[^>]*id=["\']item-header[\s\S]{0,4000})', page)
+
+    username = (_search_group(r'rel=["\']canonical["\'][^>]*href=["\'][^"\']*/members/([^/"\'?#]+)', page)
+                or _search_group(r'property=["\']og:url["\'][^>]*content=["\'][^"\']*/members/([^/"\'?#]+)', page)
+                or _search_group(r'id=["\']item-header-avatar["\'][\s\S]{0,400}?href=["\'][^"\']*/members/([^/"\'?#]+)', page))
+    if not username:
+        return '{}'
+
+    ids = set(re.findall(r'class=["\'][^"\']*\buser-(\d+)-avatar', page))
+    uid = (ids.pop() if len(ids) == 1 else None) \
+        or _search_group(r'data-bp-item-id=["\'](\d+)', header or '') \
+        or _search_group(r'data-bb-user-id=["\'](\d+)', header or '')
+
+    # the member's display name heads the title, with the board's name after a
+    # dash, a pipe or a middle dot, depending on the theme
+    title = html.unescape(_search_group(r'<title[^>]*>([\s\S]{0,200}?)</title>', page) or '').strip()
+    fullname = (_search_group(r'property=["\']og:title["\'][^>]*content=["\']([^"\']+)', page)
+                or re.split(r'\s+[\u2013\u2014\u00b7\u2022|-]\s+', title)[0])
+
+    image = html.unescape(
+        _search_group(r'id=["\']item-header-avatar["\'][\s\S]{0,500}?<img[^>]*\ssrc=["\']([^"\']+)', page) or '')
+
+    return json.dumps({k: v for k, v in {
+        'uid': uid,
+        'username': username,
+        'fullname': html.unescape(fullname or '').strip() or None,
+        # Gravatar is linked without a scheme on some boards, and half a URL is
+        # no use to whoever reads this
+        'image': ('https:' + image if image.startswith('//') else image) or None,
+        # the one value on the page that is not written in the board's language
+        'latest_activity_at': _search_group(r'data-livestamp=["\']([^"\']+)', page),
+    }.items() if v})
+
+
+def _vanilla_profile(page):
+    """Read what a Vanilla forum shows about one member.
+
+    Vanilla translates the labels in its About panel but not the class names
+    beside them, so every field here is found by class. The dates come out of
+    the <time> element's datetime attribute, already in ISO, while the text
+    next to it is the board's own wording ("May 16", "July 2023").
+
+    Section-Profile is on the body of a member's page and on nothing else. A
+    board that hides profiles behind a login answers the same URL with its
+    sign-in page, and without that check the forum's own name in the heading
+    would be reported as a member's name.
+    """
+    if 'Section-Profile' not in page:
+        return '{}'
+
+    def text(fragment):
+        plain = html.unescape(re.sub(r'<[^>]+>', ' ', fragment or ''))
+        return re.sub(r'\s+', ' ', plain).strip() or None
+
+    def field(cls):
+        # the label is a <dt> carrying the same class, so only the <dd> is read
+        return _search_group(r'<dd[^>]*class=["\'][^"\']*\b%s\b[^"\']*["\'][^>]*>([\s\S]{0,300}?)</dd>' % cls, page)
+
+    def stamp(cls):
+        return _search_group(
+            r'<dd[^>]*class=["\'][^"\']*\b%s\b[^"\']*["\'][^>]*>[\s\S]{0,200}?<time[^>]*datetime=["\']([^"\']+)' % cls,
+            page)
+
+    def digits(cls):
+        return re.sub(r'\D', '', text(field(cls)) or '') or None
+
+    username = (text(_search_group(r'itemprop=["\']name["\'][^>]*>([^<]{1,60})', page))
+                or text(_search_group(r'<h1[^>]*>([\s\S]{0,60}?)(?:<span|</h1>)', page)))
+    if not username:
+        return '{}'
+
+    return json.dumps({k: v for k, v in {
+        'username': username,
+        'image': html.unescape(_search_group(
+            r'class=["\'][^"\']*(?:ProfilePhotoLarge|ProfilePhoto|PhotoWrap)[^"\']*["\'][\s\S]{0,300}?<img[^>]*\ssrc=["\']([^"\']+)',
+            page) or ''),
+        'created_at': stamp('Joined'),
+        'latest_activity_at': stamp('LastActive'),
+        'visits_count': digits('Visits'),
+        'points': digits('Points'),
+        'role': text(field('Roles')),
+    }.items() if v})
+
+
+def _paragraph_fullname(blog):
+    """Prefer the blog's own name over a displayName that is just the wallet.
+
+    Paragraph fills user.displayName with the raw 0x address when an author has
+    set no human name. That address is already reported as wallet_address, so
+    repeating it as a fullname says nothing; the blog name ("vitalik.eth") does.
+    """
+    user = blog.get('user') or {}
+    shown = ((user.get('displayName') or {}).get('fullName') or '').strip()
+    if shown.lower() == (user.get('wallet_address') or '').strip().lower():
+        shown = ''
+    return shown or blog.get('name') or None
+
+
+def _snapchat_profile(page):
+    """Read a Snapchat profile from its schema.org block.
+
+    Snapchat moved off the Next.js Pages Router, so the __NEXT_DATA__ blob the
+    two previous schemes parsed is gone from the page entirely. What stayed is
+    the ld+json ProfilePage, which carries the same identity fields and does not
+    depend on the framework underneath. The bio and the preview image are not in
+    it and are read from the meta tags, as elsewhere in this file.
+    """
+    def meta(pattern):
+        match = re.search(pattern, page)
+        return html.unescape(match.group(1)) if match else None
+
+    for raw in re.findall(
+        r'<script[^>]+type="application/ld\+json"[^>]*>([\s\S]*?)</script>', page
+    ):
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            continue
+        if not isinstance(data, dict) or data.get('@type') != 'ProfilePage':
+            continue
+        person = data.get('mainEntity') or {}
+        identifier = person.get('identifier') or {}
+        return json.dumps({
+            'username': person.get('alternateName') or identifier.get('value'),
+            'fullname': person.get('name'),
+            # Snapchat does not serve the meta tags to every client, so these two
+            # can come back empty where the ld+json above still parses.
+            'bio': (meta(r'<meta[^>]+name="description"[^>]+content="([^"]*)"')
+                    or meta(r'<meta[^>]+property="og:description"[^>]+content="([^"]*)"')),
+            'url': person.get('url'),
+            'image': meta(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"'),
+            # ld+json puts the snapcode in `image`; the real preview lives in og:image.
+            'snapcode_image': person.get('image'),
+        })
+    return '{}'
+
+
+def _discourse_html_profile(page):
+    """Pull what a Discourse profile page still carries in its server-rendered HTML.
+
+    Modern Discourse draws the profile on the client — everything lives in the JSON
+    at /u/<name>.json, which the url_mutation below fetches. The HTML shell is worth
+    parsing anyway: it names the user in the avatar URL and carries the bio in
+    og:description, which is all one gets when an instance closes its API. There is
+    no user id in it.
+    """
+    def find(pattern):
+        match = re.search(pattern, page)
+        return html.unescape(match.group(1)) if match else None
+
+    # Every page of a forum carries the generator tag and other people's avatars,
+    # so the profile has to be identified before anything is read off it —
+    # otherwise a topic page would report whoever posted in it first.
+    # The canonical link keeps the sub-route (/u/<name>/summary), which is how
+    # maigret stores these accounts, so the name is read without anchoring the end.
+    username = find(r'<link rel="canonical" href="[^"]*/u/([^"/?#]+)')
+    if not username and re.search(r'<title>\s*Profile - ', page):
+        username = find(r'/user_avatar/[^/"]+/([^/"]+)/')
+    if not username:
+        return '{}'
+
+    bio = find(r'property="og:description" content="([^"]*)"')
+    image = find(r'property="og:image" content="([^"]+)"')
+    # The canonical link is on the deny page too, so a username on its own is just
+    # the request echoed back — instances that refuse anonymous profiles would
+    # otherwise "confirm" every name asked about. Something the account owns has
+    # to come with it.
+    if not (bio or image):
+        return '{}'
+
+    return json.dumps({'username': username, 'bio': bio, 'image': image})
+
+
+def _fl_ld(soup, *keys):
+    """Extract a nested value from FL.ru JSON-LD (application/ld+json)."""
+    tag = soup.find('script', type='application/ld+json')
+    if not tag or not tag.string:
+        return None
+    try:
+        data = json.loads(tag.string)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    for k in keys:
+        if isinstance(data, dict):
+            data = data.get(k)
+        else:
+            return None
+    return data or None
+
+def _meta(soup, prop, attr='content', tag_attr='property'):
+    """Return value from <meta {tag_attr}="{prop}" {attr}="..."/> or None."""
+    tag = soup.find('meta', {tag_attr: prop})
+    if not tag:
+        return None
+    return tag.get(attr)
+
+def _meta_re(soup, prop, pattern, group=1, tag_attr='property'):
+    """Apply regex pattern to a meta tag's content; return capture group or None."""
+    val = _meta(soup, prop, tag_attr=tag_attr)
+    if not val:
+        return None
+    m = re.search(pattern, val)
+    return m.group(group) if m else None
+
+def _wikidot_field(soup, label):
+    """Wikidot profile-box has <dl><dt>label:</dt><dd>value</dd></dl>.
+    Find the <dt> matching the label and return the next <dd> text."""
+    box = soup.find(class_='profile-box')
+    if not box:
+        return None
+    for dt in box.find_all('dt'):
+        if dt.get_text(strip=True).rstrip(':') == label:
+            dd = dt.find_next_sibling('dd')
+            if dd:
+                return dd.get_text(' ', strip=True) or None
+    return None
+
+def _sc_value(soup, label, strip=None):
+    """Star Citizen profile field lookup: find <p class="entry"> with given
+    <span class="label">label</span> and return its <strong class="value">."""
+    for entry in soup.select('p.entry'):
+        label_tag = entry.find('span', class_='label')
+        if label_tag and label_tag.get_text(strip=True) == label:
+            value_tag = entry.find('strong', class_='value')
+            if value_tag:
+                text = ' '.join(value_tag.get_text(' ', strip=True).split())
+                if strip:
+                    text = text.lstrip(strip)
+                return text or None
+    return None
+
+_PATREON_RSC_CHUNK_RE = re.compile(r'self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)')
+
+
+def _patreon_rsc_deref(rsc, obj):
+    """Resolve `"$<row>"` placeholders to the RSC text rows they point at.
+
+    Long strings (a campaign summary, say) are not inlined — the object holds a
+    reference like `"$5f"` and that row carries the text. Row ids are hex, so a
+    decimal-only pattern silently leaves anything past row 9 unresolved. Only
+    text rows (`T`) are resolved; the payload length in their header is counted
+    in UTF-8 bytes, not characters.
+    """
+    raw = rsc.encode('utf-8')
+
+    def resolve(match):
+        row = re.search(rb'(?:^|\n)' + match.group(1).encode() + rb':T([0-9a-f]+),', raw)
+        if not row:
+            return match.group(0)
+        length = int(row.group(1), 16)
+        return json.dumps(raw[row.end():row.end() + length].decode('utf-8', 'replace'))
+
+    return re.sub(r'"\$([0-9a-f]+)"', resolve, obj)
+
+
+def _patreon_rsc_bootstrap(page):
+    """Pull the `pageBootstrap` object out of a Patreon App Router page.
+
+    Those profiles carry no __NEXT_DATA__ — the same payload arrives as escaped
+    JSON inside `self.__next_f.push([1,"..."])` chunks, so the chunks are decoded,
+    joined, and the object is cut out by brace matching. Returns a JSON string
+    for the extract_json pipeline, '{}' when the marker is absent.
+    """
+    rsc = ''.join(json.loads(c) for c in _PATREON_RSC_CHUNK_RE.findall(page))
+    marker = rsc.find('"pageBootstrap":')
+    if marker < 0:
+        return '{}'
+    start = rsc.find('{', marker + len('"pageBootstrap":'))
+    depth, in_string, escaped = 0, False, False
+    for i in range(start, len(rsc)):
+        char = rsc[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char == '{':
+            depth += 1
+        elif char == '}':
+            depth -= 1
+            if depth == 0:
+                return _patreon_rsc_deref(rsc, rsc[start:i + 1])
+    return '{}'
+
+
+def _patreon_user(bootstrap):
+    """The `user` entry of a campaign's `included` list — its position varies."""
+    return next((i for i in bootstrap['campaign']['included'] if i.get('type') == 'user'), {})
+
+
+# Shared by both Patreon schemes below: the campaign payload has the same shape
+# whether it comes from __NEXT_DATA__ or from the App Router RSC stream.
+_PATREON_FIELDS = {
+    'patreon_id': lambda x: _patreon_user(x)['id'],
+    'patreon_username': lambda x: _patreon_user(x)['attributes']['vanity'],
+    'fullname': lambda x: _patreon_user(x)['attributes']['full_name'],
+    'links': lambda x: [y['attributes'].get('external_profile_url') for y in x['campaign']['included'] if
+                        y['attributes'].get('app_name')],
+    'image': lambda x: x['campaign']['data']['attributes']['avatar_photo_url'],
+    'image_bg': lambda x: x['campaign']['data']['attributes']['cover_photo_url'],
+    'is_nsfw': lambda x: x['campaign']['data']['attributes']['is_nsfw'],
+    'created_at': lambda x: x['campaign']['data']['attributes']['published_at'],
+    'bio': lambda x: x['campaign']['data']['attributes']['summary'],
+}
+
+
 schemes = {
     # IMPORTANT: extract() returns the FIRST matching scheme.
     # More specific schemes (more/stricter flags) must come BEFORE
@@ -187,6 +939,28 @@ schemes = {
         'url_hints': ('twitter.com', 'x.com', 'twimg.com'),
         'flags': ['abs.twimg.com', 'moreCSSBundles'],
         'regex': r'{&quot;id&quot;:(?P<uid>\d+),&quot;id_str&quot;:&quot;\d+&quot;,&quot;name&quot;:&quot;(?P<username>.*?)&quot;,&quot;screen_name&quot;:&quot;(?P<name>.*?)&quot;'
+    },
+    # QQ Qzone portrait: users.qzone.qq.com/fcg-bin/cgi_get_portrait.fcg?uins={qq}
+    # JSONP array: ["<avatar_url>",<size>,...,"<nickname>",0]; empty nickname = no such account
+    'QQ Qzone portrait': {
+        'url_hints': ('qzone.qq.com', 'cgi_get_portrait'),
+        'flags': ['portraitCallBack('],
+        'regex': r'portraitCallBack\(\{"\d+":\["(?P<image>[^"]*)"(?:,-?\d+)+,"(?P<fullname>[^"]+)"',
+    },
+    # Bilibili user card: api.bilibili.com/x/web-interface/card?mid={uid}
+    'Bilibili card': {
+        'url_hints': ('api.bilibili.com', 'web-interface/card'),
+        'flags': ['"card":{', '"mid":'],
+        'regex': r'^({.+})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x['data']['card'].get('mid'),
+            'fullname': lambda x: x['data']['card'].get('name'),
+            'image': lambda x: x['data']['card'].get('face'),
+            'bio': lambda x: x['data']['card'].get('sign'),
+            'sex': lambda x: x['data']['card'].get('sex'),
+            'fans': lambda x: x['data']['card'].get('fans'),
+        },
     },
     # https://shadowban.eu/.api/user
     # https://gist.github.com/superboum/ab31bc4c85c731b9e89ebda5eaed9a3a
@@ -322,14 +1096,25 @@ schemes = {
         }
     },
     'Gitlab API': {
-        'url_hints': ('gitlab.com',),
-        'flags': ['avatar_url', 'https://gitlab.com', '"public_email"'],
+        'url_hints': ('gitlab', 'git.', 'forge', 'code.', 'lab.', 'src.', 'repo', 'scm'),
+        # The host literal is gone, and so is public_email: GitLab only started
+        # serving that field in 14.x, and requiring it dropped 7 of the 286
+        # instances maigret knows. web_url with state is signature enough --
+        # GitHub and Gitea both carry avatar_url but neither carries web_url.
+        'flags': ['avatar_url', '"web_url"', '"state"'],
         'regex': r'^\[({[\S\s]+?})\]$',
         'extract_json': True,
         'url_mutations': [
             {
-                'from': r'https://gitlab.com/(?P<username>.+)/?',
-                'to': 'https://gitlab.com/api/v4/users?username={username}',
+                # A GitLab profile is {host}/{username} with nothing in the path to
+                # key on, so the host carries the hint. These tokens appear in 281
+                # of the 286 instances maigret knows (98.3%); without them the rule
+                # would fire on every one-segment URL on the web. Anchored at the
+                # end so that {host}/group/project is left alone.
+                'from': r'^https?://(?P<host>[^/?#]*(?:gitlab|git|forge|lab\.|code\.'
+                        r'|src\.|repo|source|scm|devops|projects)[^/?#]*)'
+                        r'/(?P<username>[^/?#]+)/?$',
+                'to': 'https://{host}/api/v4/users?username={username}',
             }
         ],
         'fields': {
@@ -346,20 +1131,27 @@ schemes = {
     'Patreon': {
         'url_hints': ('patreon.com',),
         'flags': ['www.patreon.com/api', 'pledge_url'],
-        'regex': r'Object.assign\(window.patreon.bootstrap, ([\s\S]*)\);[\s\S]*Object.assign\(window.patreon.campaignFeatures, {}\);',
+        # Patreon moved to Next.js: the old `window.patreon.bootstrap` assignment
+        # is gone, the same payload now sits in __NEXT_DATA__ under pageBootstrap.
+        'regex': r'<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
         'extract_json': True,
-        'fields': {
-            'patreon_id': lambda x: x['campaign']['included'][0]['id'],
-            'patreon_username': lambda x: x['campaign']['included'][0]['attributes']['vanity'],
-            'fullname': lambda x: x['campaign']['included'][0]['attributes']['full_name'],
-            'links': lambda x: [y['attributes'].get('external_profile_url') for y in x['campaign']['included'] if
-                                y['attributes'].get('app_name')],
-            'image': lambda x: x['campaign']['data']['attributes']['avatar_photo_url'],
-            'image_bg': lambda x: x['campaign']['data']['attributes']['cover_photo_url'],
-            'is_nsfw': lambda x: x['campaign']['data']['attributes']['is_nsfw'],
-            'created_at': lambda x: x['campaign']['data']['attributes']['published_at'],
-            'bio': lambda x: x['campaign']['data']['attributes']['summary'],
-        }
+        'transforms': [
+            json.loads,
+            lambda x: safe_deep_get(x, 'props', 'pageProps', 'bootstrapEnvelope', 'pageBootstrap', default={}),
+            json.dumps,
+        ],
+        'fields': _PATREON_FIELDS,
+    },
+    # Patreon is mid-migration: App Router profiles (e.g. /kurzgesagt) ship no
+    # __NEXT_DATA__ at all, the same pageBootstrap arrives in an RSC stream.
+    'Patreon RSC': {
+        'url_hints': ('patreon.com',),
+        # RSC payloads are escaped, so the raw body has \"pageBootstrap\", not "pageBootstrap"
+        'flags': ['self.__next_f', 'pageBootstrap', 'pledge_url'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_patreon_rsc_bootstrap],
+        'fields': _PATREON_FIELDS,
     },
     'Flickr': {
         'url_hints': ('flickr.com',),
@@ -772,8 +1564,15 @@ schemes = {
         'url_hints': ('gravatar.com', 'en.gravatar.com'),
         'flags': ['gravatar.com\\/avatar', 'thumbnailUrl'],
         'url_mutations': [
+            # an avatar URL carries the email hash, which keys the JSON endpoint.
+            # Longest alternative first: a sha256 digest must not match as its
+            # own first 32 characters, which would ask about a different hash.
             {
-                'from': r'https?://.*?gravatar.com/(?P<username>[^/]+)',
+                'from': r'gravatar\.com/avatar/(?P<hash>[0-9a-f]{64}|[0-9a-f]{32})',
+                'to': 'https://en.gravatar.com/{hash}.json',
+            },
+            {
+                'from': r'https?://.*?gravatar\.com/(?!avatar/)(?P<username>[^/]+)',
                 'to': 'https://en.gravatar.com/{username}.json',
             }
         ],
@@ -882,6 +1681,15 @@ schemes = {
             'is_verified': lambda x: x.get('is_verified'),
             'follower_count': lambda x: (x.get('edge_followed_by') or {}).get('count'),
             'following_count': lambda x: (x.get('edge_follow') or {}).get('count'),
+            'post_count': lambda x: (x.get('edge_owner_to_timeline_media') or {}).get('count'),
+            'links': lambda x: [
+                link['url'] for link in (x.get('bio_links') or []) if link.get('url')
+            ] or None,
+            'usernames': lambda x: [
+                entity['user']['username']
+                for entity in ((x.get('biography_with_entities') or {}).get('entities') or [])
+                if (entity.get('user') or {}).get('username')
+            ] or None,
         }
     },
     'Spotify API': {
@@ -930,7 +1738,7 @@ schemes = {
         'regex': r'__APOLLO_STATE__ = ({.+})',
         'extract_json': True,
         'transforms': [
-            json.loads,
+            lambda x: json.JSONDecoder().raw_decode(x)[0],
             lambda x: [v for k, v in x.items() if k.startswith('User:')][0],
             json.dumps,
         ],
@@ -954,26 +1762,14 @@ schemes = {
         'flags': ['OK.startupData'],
         'regex': r'path:"/(profile/)?(?P<ok_user_name_id>.+?)",state:".+?friendId=(?P<ok_id>\d+?)"',
     },
-    'Habrahabr HTML (old)': {
-        'url_hints': ('habr.com', 'habracdn'),
-        'flags': ['habracdn.net'],
-        'bs': True,
-        'fields': {
-            'uid': lambda x: x.find('div', {'class': 'user-info__stats'}).parent.attrs['class'][-1].split('_')[-1],
-            'username': lambda x: x.find('a', {'class': 'media-obj__image'}).get('href').split('/')[-2],
-            'image': lambda x: 'http:' + x.find('div', {'class': 'user-info__stats'}).find('img').get('src'),
-        },
-    },
     'Habrahabr JSON': {
         'url_hints': ('habr.com', 'habrastorage'),
-        'flags': ['habrastorage.org', '"authorRefs":'],
-        'regex': r'"authorRefs":(\{"__ALIAS_STORE__":true,"[^"]+":\{[\s\S]+?"reach":"[^"]*"\}\})(?=,"author)',
+        # both are structural: habrastorage.org used to be here as well, but it
+        # only appears when the author has an avatar
+        'flags': ['__PINIA_STATE__', '"authorRefs":'],
+        'regex': r'^([\s\S]+)$',
         'extract_json': True,
-        'transforms': [
-            json.loads,
-            lambda x: next((v for k, v in x.items() if k != '__ALIAS_STORE__'), {}),
-            json.dumps,
-        ],
+        'transforms': [_habr_profile],
         'fields': {
             'username': lambda x: x.get('alias'),
             'about': lambda x: x.get('speciality') or None,
@@ -986,7 +1782,13 @@ schemes = {
             'location': lambda x: x.get('location') or None,
             'image': lambda x: x.get('avatarUrl') or None,
             'follower_count': lambda x: (x.get('followStats') or {}).get('followersCount'),
-            'following_count': lambda x: (x.get('followStats') or {}).get('followStats'),
+            # read followStats a second time instead of the count inside it, so
+            # this field came back empty on every profile
+            'following_count': lambda x: (x.get('followStats') or {}).get('followCount'),
+            'created_at': lambda x: x.get('registerDateTime'),
+            'latest_activity_at': lambda x: x.get('lastActivityDateTime'),
+            'posts_count': lambda x: (x.get('counterStats') or {}).get('postCount'),
+            'comments_count': lambda x: (x.get('counterStats') or {}).get('commentCount'),
         }
     },
     'My Mail.ru': {
@@ -1054,28 +1856,36 @@ schemes = {
         'regex': r"feedSettingsHandler.subscribe\(this, 'users', '(?P<uid>\d+)'",
     },
     'Gitlab': {
-        'url_hints': ('gitlab.com',),
-        'flags': ['gitlab-static.net'],
-        'regex': r'abuse_reports.+?user_id=(?P<uid>\d+)"',
+        'url_hints': ('gitlab', 'git.', 'forge', 'code.', 'lab.', 'src.', 'repo', 'scm'),
+        # Both the old flag (gitlab-static.net) and the old regex (abuse_reports)
+        # are gone from the markup, so this scheme had stopped matching anywhere,
+        # gitlab.com included. js-user-profile-actions is what maigret keys on.
+        # It earns its place on instances whose API is shut: a blocked or hidden
+        # account still renders its numeric id here, and nothing else does.
+        'flags': ['js-user-profile-actions'],
+        'regex': r'data-user-id="(?P<uid>\d+)"',
     },
     '500px userByUsername API': {
-        'url_hints': ('500px.com', 'api.500px.com'),
-        'flags': ['{"data":{"userByUsername":'],
+        'url_hints': ('500px.com', 'api-neo.500px.com'),
+        'flags': ['{"data":{"userByUsername":', '{"data":{"getUser":'],
         'regex': r'^(\{[\s\S]+\})$',
         'extract_json': True,
         'transforms': [
             json.loads,
-            lambda x: x.get('data', {}).get('userByUsername', {}) or {},
+            lambda x: x.get('data', {}).get('userByUsername') or x.get('data', {}).get('getUser') or {},
             json.dumps,
         ],
         'fields': {
             'uid': lambda x: x.get('legacyId') or x.get('id'),
             'username': lambda x: x.get('username'),
             'fullname': lambda x: x.get('displayName') or ' '.join(filter(None, [x.get('firstName'), x.get('lastName')])) or None,
-            'bio': lambda x: (x.get('userProfile') or {}).get('about') or None,
-            'country': lambda x: (x.get('userProfile') or {}).get('country') or None,
-            'city': lambda x: (x.get('userProfile') or {}).get('city') or None,
+            'bio': lambda x: x.get('about') or (x.get('userProfile') or {}).get('about') or None,
+            'country': lambda x: x.get('country') or (x.get('userProfile') or {}).get('country') or None,
+            'city': lambda x: x.get('city') or (x.get('userProfile') or {}).get('city') or None,
             'created_at': lambda x: x.get('registeredAt'),
+            'state': lambda x: x.get('state') or None,
+            'image': lambda x: x.get('avatar') if isinstance(x.get('avatar'), str) else None,
+            'follower_count': lambda x: x.get('followersCount'),
             'website': lambda x: (x.get('socialMedia') or {}).get('website') or None,
             'twitter_username': lambda x: (x.get('socialMedia') or {}).get('twitter') or None,
             'facebook_username': lambda x: (x.get('socialMedia') or {}).get('facebook') or None,
@@ -1083,41 +1893,26 @@ schemes = {
         },
     },
     '500px GraphQL API': {
-        'url_hints': ('500px.com', 'api.500px.com'),
+        'url_hints': ('500px.com', 'api-neo.500px.com'),
         'flags': ['{"data":{"profile":{"id"'],
         'url_mutations': [
             {
                 'from': r'https://500px.com/p/(?P<username>.+)/?',
-                'to': 'https://api.500px.com/graphql?operationName=ProfileRendererQuery&variables=%7B%22username%22%3A%22{username}%22%7D&extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22105058632482dd2786fd5775745908dc928f537b28e28356b076522757d65c19%22%7D%7D',
+                'to': 'https://api-neo.500px.com/graphql?query=query%20ProfileRendererQuery%28%24username%3AString%21%29%7Bprofile%3AgetUser%28username%3A%24username%29%7Bid%20username%20displayName%20about%20city%20country%20state%20avatar%20followersCount%7D%7D&variables=%7B%22username%22%3A%22{username}%22%7D',
             }
         ],
         'regex': r'^{"data":({.+})}$',
         'extract_json': True,
         'fields': {
             'uid': lambda x: x['profile']['id'],
-            'legacy_id': lambda x: x['profile']['legacyId'],
             'username': lambda x: x['profile']['username'],
-            'name': lambda x: x['profile']['displayName'],
-            'created_at': lambda x: x['profile']['registeredAt'],
-            'image': lambda x: x['profile']['avatar']['images'][-1]['url'],
-            'image_bg': lambda x: x['profile']['coverPhotoUrl'],
-            'qq_username': lambda x: x['profile']['socialMedia'].get('qq'),
-            'website': lambda x: x['profile']['socialMedia'].get('website'),
-            'blog': lambda x: x['profile']['socialMedia'].get('blog'),
-            'lastfm_username': lambda x: x['profile']['socialMedia'].get('lastfm'),
-            'facebook_link': lambda x: x['profile']['socialMedia'].get('facebook'),
-            'msn_username': lambda x: x['profile']['socialMedia'].get('MSN'),
-            'facebook_page': lambda x: x['profile']['socialMedia'].get('facebookpage'),
-            'livejournal_username': lambda x: x['profile']['socialMedia'].get('livejournal'),
-            'instagram_username': lambda x: x['profile']['socialMedia'].get('instagram'),
-            'twitter_username': lambda x: x['profile']['socialMedia'].get('twitter'),
-            'skype_username': lambda x: x['profile']['socialMedia'].get('skype'),
-            'thumblr_username': lambda x: x['profile']['socialMedia'].get('thumblr'),
-            'gtalk_username': lambda x: x['profile']['socialMedia'].get('gtalk'),
-            'icq_uid': lambda x: x['profile']['socialMedia'].get('icq'),
-            'flickr_username': lambda x: x['profile']['socialMedia'].get('flickr'),
-            'lookatme_username': lambda x: x['profile']['socialMedia'].get('LOOKATME'),
-            'googleplus_uid': lambda x: x['profile']['socialMedia'].get('googleplus'),
+            'fullname': lambda x: x['profile']['displayName'],
+            'image': lambda x: x['profile'].get('avatar'),
+            'bio': lambda x: x['profile'].get('about') or None,
+            'country': lambda x: x['profile'].get('country') or None,
+            'city': lambda x: x['profile'].get('city') or None,
+            'state': lambda x: x['profile'].get('state') or None,
+            'follower_count': lambda x: x['profile'].get('followersCount'),
         }
     },
     'Google Document API': {
@@ -1163,6 +1958,10 @@ schemes = {
         'flags': ['/maps/preview/opensearch.xml', '<meta content="Contributions by'],
         'regex': r'"Contributions by (?P<name>.+?)",("(?P<contributions_count>\d+) Contribution|"(?P<contribution_level>.+?)")',
     },
+    # Parses the /about page ytInitialData: channel metadata, social crosslinks decoded from
+    # youtube.com/redirect URLs, and aboutChannelViewModel fields
+    # (location/created_at/follower_count/views_count/videos_count). Social links and the
+    # about panel only appear on /about — hence the url_mutation.
     'YouTube ytInitialData': {
         'url_hints': ('youtube.com', 'youtu.be'),
         'flags': ['ytInitialData', 'channelMetadataRenderer'],
@@ -1170,7 +1969,11 @@ schemes = {
         'extract_json': True,
         'transforms': [
             json.loads,
-            lambda x: x.get('metadata', {}).get('channelMetadataRenderer', {}),
+            lambda x: {
+                **x.get('metadata', {}).get('channelMetadataRenderer', {}),
+                '_all_redirect_urls': _yt_redirect_urls(x),
+                '_about': _yt_find_about(x),
+            },
             json.dumps,
         ],
         'fields': {
@@ -1181,9 +1984,26 @@ schemes = {
             'channel_url': lambda x: x.get('vanityChannelUrl') or x.get('channelUrl'),
             'keywords': lambda x: x.get('keywords'),
             'is_family_safe': lambda x: x.get('isFamilySafe'),
+            'location': lambda x: (x.get('_about') or {}).get('country') or None,
+            'created_at': lambda x: ((x.get('_about') or {}).get('joinedDateText') or {}).get('content', '').replace('Joined ', '') or None,
+            'follower_count': lambda x: (x.get('_about') or {}).get('subscriberCountText') or None,
+            'views_count': lambda x: (x.get('_about') or {}).get('viewCountText') or None,
+            'videos_count': lambda x: (x.get('_about') or {}).get('videoCountText') or None,
             'facebook_id': lambda x: x.get('facebookProfileId') if x.get('facebookProfileId', '').isdigit() else None,
-            'facebook_username': lambda x: x.get('facebookProfileId') if x.get('facebookProfileId') and not x.get('facebookProfileId', '').isdigit() else None,
+            'links': lambda x: json.dumps(x.get('_all_redirect_urls')) if x.get('_all_redirect_urls') else None,
+            'instagram_username': lambda x: _yt_social_username(x, 'instagram.com'),
+            'twitter_username': lambda x: _yt_social_username(x, 'twitter.com') or _yt_social_username(x, 'x.com'),
+            'facebook_username': lambda x: _yt_social_username(x, 'facebook.com') or (x.get('facebookProfileId') if not x.get('facebookProfileId', '').isdigit() else None) or None,
+            'tiktok_username': lambda x: _yt_social_username(x, 'tiktok.com'),
+            'twitch_username': lambda x: _yt_social_username(x, 'twitch.tv'),
+            'soundcloud_username': lambda x: _yt_social_username(x, 'soundcloud.com'),
+            'pinterest_username': lambda x: _yt_social_username(x, 'pinterest.com') or _yt_social_username(x, 'pinterest.'),
+            'discord_invite': lambda x: _yt_social_username(x, 'discord.gg') or _yt_social_username(x, 'discord.com/invite'),
         },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?youtube\.com/@(?P<username>[^/?#]+)$',
+            'to': 'https://www.youtube.com/@{username}/about',
+        }],
     },
     'Youtube Channel': {
         'url_hints': ('youtube.com', 'youtu.be'),
@@ -1214,50 +2034,6 @@ schemes = {
             'has_2fa_enabled': lambda x: x['has_2fa_enabled'],
         }
     },
-    'Pinterest API': {
-        'url_hints': ('pinterest.com', 'pinimg.com'),
-        'flags': ['{"resource_response":{', 'video_pin_count'],
-        'regex': r'^(.+)$',
-        'extract_json': True,
-        'url_mutations': [
-            {
-                'from': r'https?://(www\.)?pinterest\.\w+/(?P<username>[^/]+)/?$',
-                'to': 'https://www.pinterest.com/resource/UserResource/get/?source_url=%2F{username}%2F&data=%7B%22options%22%3A%7B%22isPrefetch%22%3Afalse%2C%22field_set_key%22%3A%22profile%22%2C%22username%22%3A%22{username}%22%2C%22no_fetch_context_on_resource%22%3Afalse%7D%2C%22context%22%3A%7B%7D%7D',
-            }
-        ],
-        'transforms': [
-            json.loads,
-            lambda x: x['resource_response']['data'],
-            json.dumps,
-        ],
-        'fields': {
-            'pinterest_id': lambda x: x.get('id'),
-            'pinterest_username': lambda x: x.get('username'),
-            'fullname': lambda x: x.get('full_name'),
-            'bio': lambda x: x.get('about'),
-            'type': lambda x: x.get('type'),
-            'image': lambda x: x.get('image_xlarge_url'),
-            'board_count': lambda x: x.get('board_count'),
-            'pin_count': lambda x: x.get('pin_count'),
-            'location': lambda x: x.get('location'),
-            'country': lambda x: x.get('country'),
-            'follower_count': lambda x: x.get('follower_count'),
-            'following_count': lambda x: x.get('following_count'),
-            'group_board_count': lambda x: x.get('group_board_count'),
-            'last_pin_save_datetime': lambda x: x.get('last_pin_save_time'),
-            'is_website_verified': lambda x: x.get('domain_verified'),
-            'website': lambda x: x.get('website_url'),
-            'links': lambda x: [x['website_url']] if x.get('website_url') else [],
-            'has_board': lambda x: x.get('has_board'),
-            'has_catalog': lambda x: x.get('has_catalog'),
-            'is_indexed': lambda x: x.get('indexed'),
-            'is_partner': lambda x: x.get('is_partner'),
-            'is_tastemaker': lambda x: x.get('is_tastemaker'),
-            'is_verified_merchant': lambda x: x.get('is_verified_merchant'),
-            'verified_identity': lambda x: check_empty_object(x.get('verified_identity')),
-            'locale': lambda x: x.get('locale'),
-        }
-    },
     'Pinterest profile/board page': {
         'url_hints': ('pinterest.com', 'pinimg.com'),
         'flags': ['pinterest.com', 'unauth_profile', '"node_id":"VXNlcjo'],
@@ -1278,6 +2054,7 @@ schemes = {
             'follower_count': lambda x: x.get('follower_count'),
             'following_count': lambda x: x.get('following_count'),
             'posts_count': lambda x: x.get('pin_count'),
+            'board_count': lambda x: x.get('board_count'),
             'is_private': lambda x: x.get('is_private_profile'),
             'is_indexed': lambda x: x.get('indexed'),
             'is_partner': lambda x: x.get('is_partner'),
@@ -1324,6 +2101,17 @@ schemes = {
             'nickname': lambda x: x['personaname'],
             'username': lambda x: [y for y in x['url'].split('/') if y][-1],
         }
+    },
+    'Steam Community Group': {
+        'url_hints': ('steamcommunity.com',),
+        'flags': ['steamcommunity.com', 'Steam Community :: Group ::'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: (lambda m: m.group(1) if m else None)(re.search(r'steamcommunity\.com/groups/([^/?#"\' ]+)', str(x))),
+            'fullname': lambda x: _meta_re(x, 'og:title', r'Steam Community :: Group :: (.+)$'),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
     },
     'Steam Addiction': {
         # TODO: добавить отображение предыдущих ников по ссылке /ajaxaliases/, например https://steamcommunity.com/profiles/76561198222448544/ajaxaliases/
@@ -1378,6 +2166,9 @@ schemes = {
             'country_code': lambda x: x['country_code'],
             'bio': lambda x: x['description'],
             'created_at': lambda x: x['created_at'],
+            'updated_at': lambda x: x.get('last_modified'),
+            'comments_count': lambda x: x.get('comments_count'),
+            'likes_count': lambda x: x.get('likes_count')
         }
     },
     'TikTok': {
@@ -1734,11 +2525,11 @@ schemes = {
         },
     },
     'vBulletinEngine': {
-        'flags': ['vBulletin.register_control'],
+        'flags': ['vBulletin'],
         'bs': True,
         'fields': {
-            'status': lambda x: x.find('span', {'class': 'online-status'}).findAll('span')[1].text,
-            'country': lambda x: (x.find('span', {'class': 'sprite_flags'}) or {}).get('title'),
+            'uid': _vbulletin_uid,
+            'username': _vbulletin_username,
             'image': lambda x: x.find('span', {'class': 'avatarcontainer'}).find('img').get('src'),
         }
     },
@@ -2547,22 +3338,63 @@ schemes = {
             'links': lambda x: x.get('links') or x.get('socialLinks'),
         },
     },
-    'Wikipedia user API': {
-        'url_hints': ('wikipedia.org',),
+    # Every MediaWiki wiki answers the same users query, so this is not just
+    # Wikipedia. What differs between them is where api.php sits, and it is not
+    # where the user page sits: on 105 of 157 wikis measured the two paths
+    # disagree, /wiki for the page and /w for the API being the classic pair.
+    # So candidates are built from the host and not from the page's own path —
+    # that alone is the difference between 55% and 97% of them resolving. The
+    # page announces its path in <link rel="EditURI">, but a url_mutation
+    # rewrites the URL without ever seeing the page. Each miss costs a request,
+    # since callers fetch every candidate.
+    # The pipe in usprop stays unencoded: %7C is refused outright by some wikis.
+    'MediaWiki API': {
+        'url_hints': ('wikipedia.org', '/wiki/user:', '/user:'),
         'flags': ['"batchcomplete"', '"editcount"'],
         'regex': r'^(\{[\s\S]+\})$',
         'extract_json': True,
-        'url_mutations': [{
-            'from': r'https?://(?P<lang>\w+)\.wikipedia\.org/wiki/User:(?P<username>[^/?#]+)',
-            'to': 'https://{lang}.wikipedia.org/w/api.php?action=query&list=users&ususers={username}&usprop=editcount|registration|gender&format=json',
-        }],
+        'url_mutations': [
+            {
+                # 60.5% of the wikis maigret knows keep api.php at the root
+                'from': r'https?://(?P<host>[^/?#]+)[^?#]*?/(?:wiki/)?User:(?P<username>[^/?#]+)',
+                'to': 'https://{host}/api.php?action=query&list=users&ususers={username}&usprop=editcount|registration|groups|gender&format=json',
+            },
+            {
+                # another 31% under /w
+                'from': r'https?://(?P<host>[^/?#]+)[^?#]*?/(?:wiki/)?User:(?P<username>[^/?#]+)',
+                'to': 'https://{host}/w/api.php?action=query&list=users&ususers={username}&usprop=editcount|registration|groups|gender&format=json',
+            },
+            {
+                # then /mediawiki
+                'from': r'https?://(?P<host>[^/?#]+)[^?#]*?/(?:wiki/)?User:(?P<username>[^/?#]+)',
+                'to': 'https://{host}/mediawiki/api.php?action=query&list=users&ususers={username}&usprop=editcount|registration|groups|gender&format=json',
+            },
+            {
+                # and /wiki — the four together cover 97.6% of them
+                'from': r'https?://(?P<host>[^/?#]+)[^?#]*?/(?:wiki/)?User:(?P<username>[^/?#]+)',
+                'to': 'https://{host}/wiki/api.php?action=query&list=users&ususers={username}&usprop=editcount|registration|groups|gender&format=json',
+            },
+        ],
         'fields': {
             'uid': lambda x: x.get('query', {}).get('users', [{}])[0].get('userid'),
             'username': lambda x: x.get('query', {}).get('users', [{}])[0].get('name'),
             'edit_count': lambda x: x.get('query', {}).get('users', [{}])[0].get('editcount'),
-            'created_at': lambda x: x.get('query', {}).get('users', [{}])[0].get('registration'),
+            # empty on accounts older than the field itself — that is not a
+            # failure to extract, the id is still there
+            'created_at': lambda x: x.get('query', {}).get('users', [{}])[0].get('registration') or None,
             'gender': lambda x: x.get('query', {}).get('users', [{}])[0].get('gender') if x.get('query', {}).get('users', [{}])[0].get('gender') != 'unknown' else None,
+            'groups': lambda x: ', '.join(g for g in x.get('query', {}).get('users', [{}])[0].get('groups', []) if g != '*') or None,
         },
+    },
+    # The user page itself carries no numeric id — MediaWiki keeps that behind
+    # api.php, which only the mutation above reaches. What the page does carry is
+    # wgRelevantUserName, and only when the account exists: on 14 wikis checked,
+    # every one omitted it for a name nobody had registered. So this is the whole
+    # of what maigret can read without spending a second request.
+    'MediaWiki user page': {
+        'url_hints': ('/wiki/user:', '/user:'),
+        'flags': ['"wgRelevantUserName"', 'mw-body-content'],
+        'regex': r'"wgRelevantUserName"\s*:\s*"(?P<username>[^"]+)"',
     },
     'Fandom MediaWiki API': {
         'url_hints': ('fandom.com',),
@@ -2589,6 +3421,22 @@ schemes = {
             'fullname': lambda x: x.get('name'),
             'bio': lambda x: x.get('bio'),
             'image': lambda x: x.get('photo_url'),
+            'created_at': lambda x: x.get('profile_set_up_at') or None,
+            'twitter_username': lambda x: (x.get('twitterAccount') or {}).get('screen_name') or None,
+            'twitter_id': lambda x: (x.get('twitterAccount') or {}).get('twitter_id') or None,
+            'publication_subdomain': lambda x: ((x.get('publicationUsers') or [{}])[0].get('publication') or {}).get('subdomain') or None,
+            'publication_name': lambda x: ((x.get('publicationUsers') or [{}])[0].get('publication') or {}).get('name') or None,
+            'publication_bio': lambda x: ((x.get('publicationUsers') or [{}])[0].get('publication') or {}).get('hero_text') or None,
+            # Substack calls these subscribers, which is FIELDS.md's follower_count.
+            # The number is rounded by Substack itself, not by us: a profile with
+            # 1437 readers reports 1400, and one that hides the count reports 0
+            'follower_count': lambda x: x.get('subscriberCountNumber') or None,
+            # a bucket word -- Tens, Thousands, Hundreds of thousands -- which
+            # arrives even on profiles that hide the number above. Prefixed because
+            # an unprefixed follower_range would read as a standard counter field
+            'substack_follower_range': lambda x: x.get('rough_num_free_subscribers') or None,
+            # the paid-subscriber floor behind Substack's bestseller badge, 1000 or 10000
+            'bestseller_tier': lambda x: x.get('bestseller_tier') or None,
             'image_cdn': lambda x: 'https://substackcdn.com/image/fetch/w_224,h_224,c_fill,f_webp,q_auto:good,fl_progressive:steep/' + __import__('urllib.parse', fromlist=['quote']).quote(x.get('photo_url', ''), safe='') if x.get('photo_url') else None,
         },
         'url_mutations': [{
@@ -2799,11 +3647,6 @@ schemes = {
         'flags': ['stores/author/', 'AuthorSubHeader'],
         'regex': r'"authorName":"(?P<author_name>[^"]+)"[\s\S]*?"authorId":"(?P<author_id>[^"]+)"[\s\S]*?"storeId":"(?P<store_id>[^"]+)"',
     },
-    'Habr': {
-        'url_hints': ('habr.com',),
-        'flags': ['og:site_name" content="Хабр"', 'habr.com/ru/users/'],
-        'regex': r'<meta property="og:title" content="(?P<fullname>.+?) aka (?P<username>\w+)\s*[\n\s]*-?\s*"[\s\S]*?<meta property="og:url" content="(?P<website>[^"]+)"',
-    },
     'Taplink': {
         'url_hints': ('taplink.cc',),
         'flags': ['og:site_name" content="Taplink"', 'at Taplink'],
@@ -2882,7 +3725,18 @@ schemes = {
     'Threads': {
         'url_hints': ('threads.net', 'threads.com'),
         'flags': ['Threads, Say more', 'barcelona'],
-        'regex': r'og:title" content="(?P<fullname>[^"]*?) \((?:@|&#064;)(?P<username>[^)]+)\)[^"]*Threads[\s\S]*?og:description" content="(?P<follower_count>[\d,]+) Followers[^"]*?(?P<posts_count>[\d,]+) Threads(?:[^"]*?(?:&#x2022;|\xb7) (?:&quot;(?P<bio>[^&]+)&quot;|(?P<bio_raw>[^".]*)\.))?',
+        'regex': r'(?:"data":{"user":)(.*)(?:},"extensions)',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('full_name'),
+            'bio': lambda x: x.get('biography'),
+            'image': lambda x: x.get('hd_profile_pic_versions', [{}])[-1].get('url'),
+            'follower_count': lambda x: x.get('follower_count'),
+            'is_verified': lambda x: x.get('is_verified'),
+            'links': lambda x: [entry.get('url') for entry in x.get('bio_links')],
+        }
     },
     'Smule': {
         'url_hints': ('smule.com',),
@@ -2940,7 +3794,7 @@ schemes = {
         'fields': {
             'uid': lambda x: x.get('id'),
             'paragraph_user_id': lambda x: x.get('userId'),
-            'fullname': lambda x: x.get('user', {}).get('displayName', {}).get('fullName') or x.get('name'),
+            'fullname': _paragraph_fullname,
             'username': lambda x: (x.get('lowercase_url') or '').lstrip('@') or None,
             'bio': lambda x: (x.get('user', {}).get('authorBio') or '').strip() or None,
             'image': lambda x: x.get('user', {}).get('avatar_url') or x.get('logo_url') or None,
@@ -3224,6 +4078,26 @@ schemes = {
             ),
         }
     },
+    'Snapchat': {
+        'url_hints': ('snapchat.com',),
+        # Not '@type":"ProfilePage' alone: schema.org is generic, the snapcode is not.
+        'flags': ['ProfilePage', 'deeplink/snapcode'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_snapchat_profile],
+        'fields': {
+            'username': lambda x: x.get('username') or None,
+            'fullname': lambda x: x.get('fullname') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'url': lambda x: x.get('url') or None,
+            'image': lambda x: x.get('image') or None,
+            'snapcode_image': lambda x: x.get('snapcode_image') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?snapchat\.com/add/(?P<username>[^/?#]+)',
+            'to': 'https://www.snapchat.com/@{username}',
+        }],
+    },
     'Discourse API': {
         'flags': ['"trust_level"', '"badge_count"', '"profile_view_count"'],
         'regex': r'^(\{[\s\S]+\})$',
@@ -3250,6 +4124,45 @@ schemes = {
             'created_at': lambda x: x.get('created_at'),
             'latest_activity_at': lambda x: x.get('last_seen_at'),
         },
+        'url_mutations': [
+            {
+                # Matches /u/<name> and the sub-routes a profile link carries —
+                # maigret stores Discourse accounts as /u/<name>/summary. The base
+                # is captured rather than the host alone because plenty of forums
+                # live under a path (freecodecamp.org/forum). Dots are allowed in
+                # the name (a.shishkin is a real one); only a trailing .json is
+                # refused, so an already mutated URL is left alone.
+                'from': r'https?://(?P<base>[^?#]*?)/+u/(?P<username>[^/?#]+?)(?<!\.json)(?:/|$|[?#])',
+                'to': 'https://{base}/u/{username}.json',
+            },
+        ],
+    },
+    'Flarum API': {
+        'flags': ['"displayName"', '"joinTime"', '"username"'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transform_needs_url': True,
+        'transforms': [
+            _flarum_user
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x['attributes'].get('username'),
+            'fullname': lambda x: x['attributes'].get('displayName') or None,
+            'image': lambda x: x['attributes'].get('avatarUrl') or None,
+            'created_at': lambda x: x['attributes'].get('joinTime'),
+        },
+        'url_mutations': [
+            {
+                # Flarum profiles live at /u/<name>, the same route Discourse uses,
+                # so both mutations are produced for such a link and only the one
+                # whose answer matches the flags yields a result.
+                # The base is captured for forums under a path;
+                # a trailing .json is refused so a mutated Flarum URL is not mutated again.
+                'from': r'https?://(?P<base>[^?#]*?)/+u/(?P<username>[^/?#]+?)(?<!\.json)(?:/|$|[?#])',
+                'to': 'https://{base}/api/users?filter[q]={username}',
+            },
+        ],
     },
     'Snapchat': {
         'flags': ['__NEXT_DATA__', '"userProfile":'],
@@ -3319,6 +4232,1989 @@ schemes = {
             'steam_id': lambda x: x.get('platforms', {}).get('steam', {}).get('id64'),
             'steam_nickname': lambda x: x.get('platforms', {}).get('steam', {}).get('nickname'),
             'social_links': lambda x: _faceit_streaming_links(x),
+        },
+    },
+    'Fansly API': {
+        'url_hints': ('apiv2.fansly.com', 'fansly.com'),
+        'flags': ['"subscriberCount"', '"timelineStats"', '"accountMediaLikes"'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: (x.get('response') or [{}])[0],
+            json.dumps,
+        ],
+        'url_mutations': [
+            {
+                'from': r'https?://(?:www\.)?fansly\.com/(?P<username>[^/?#]+)',
+                'to': 'https://apiv2.fansly.com/api/v1/account?usernames={username}',
+            },
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('displayName') or None,
+            'follower_count': lambda x: x.get('followCount'),
+            'subscriber_count': lambda x: x.get('subscriberCount'),
+        },
+    },
+    # POST https://api.bunq.me/v1/bunqme-fundraiser-profile
+    # body: {"pointer":{"type":"URL","value":"https://bunq.me/{username}"}}
+    # header: X-Bunq-Client-Request-Id (any value). Returns 404 for unknown names.
+    # The IBAN is the payee account bunq.me publishes for receiving payments.
+    'bunq.me API': {
+        'url_hints': ('api.bunq.me', 'bunq.me'),
+        'flags': ['"BunqMeFundraiserProfile":', '"pointer":', '"alias":'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: safe_deep_get(x, 'Response', 0, 'BunqMeFundraiserProfile', 'uuid'),
+            'username': lambda x: (safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'pointer', 'value', default=''
+            ).rstrip('/').rsplit('/', 1)[-1] or None),
+            'fullname': lambda x: safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'alias', 'display_name'
+            ) or safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'alias', 'label_user', 'display_name'
+            ),
+            'image': lambda x: safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'alias', 'avatar', 'image', 0, 'urls', 0, 'url'
+            ) or safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'alias', 'label_user', 'avatar',
+                'image', 0, 'urls', 0, 'url'
+            ),
+            # bunq's alias.country, taken as-is. It is NOT derived from the IBAN and
+            # may in theory differ from the IBAN's country (its first two letters).
+            'country_code': lambda x: safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'alias', 'country'
+            ) or None,
+            'bio': lambda x: safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'description'
+            ) or None,
+            # Payee IBAN, verbatim. bunq currently issues IBANs in DE, FR, IE, ES, IT, NL.
+            'iban': lambda x: safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'alias', 'iban'
+            ) or None,
+            # bunq invite/referral handle, kept verbatim. Either bunq-generated
+            # (FirstnameColourAnimal[digits]) or initials + surname.
+            'bunq_invite_username': lambda x: safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'invite_profile_name'
+            ) or None,
+            # PERSON or a business type, as returned by bunq
+            'account_type': lambda x: safe_deep_get(
+                x, 'Response', 0, 'BunqMeFundraiserProfile', 'alias', 'label_user', 'type'
+            ) or None,
+        },
+    },
+    'Codewars API': {
+        'url_hints': ('codewars.com',),
+        # ponytail: structural keys only — no user-dependent values (see FIELDS/flags rule)
+        'flags': ['"honor":', '"leaderboardPosition":', '"codeChallenges":'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'url_mutations': [
+            {
+                'from': r'https?://(?:www\.)?codewars\.com/users/(?P<username>[^/?#]+).*',
+                'to': 'https://www.codewars.com/api/v1/users/{username}',
+            },
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'honor': lambda x: x.get('honor'),
+            'clan': lambda x: x.get('clan') or None,
+            'leaderboard_position': lambda x: x.get('leaderboardPosition'),
+            'rank': lambda x: ((x.get('ranks') or {}).get('overall') or {}).get('name'),
+            'rank_score': lambda x: ((x.get('ranks') or {}).get('overall') or {}).get('score'),
+            'languages': lambda x: sorted((((x.get('ranks') or {}).get('languages')) or {}).keys()) or None,
+            'challenges_completed': lambda x: (x.get('codeChallenges') or {}).get('totalCompleted'),
+            'challenges_authored': lambda x: (x.get('codeChallenges') or {}).get('totalAuthored'),
+        },
+    },
+    'Minds API': {
+        'url_hints': ('minds.com',),
+        # ponytail: structural keys only, present on any successful channel response
+        'flags': ['"briefdescription":', '"icontime":', '"boostProPlus"'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('channel') or {},
+            json.dumps,
+        ],
+        'url_mutations': [
+            {
+                'from': r'https?://(?:www\.)?minds\.com/(?P<username>[^/?#]+).*',
+                'to': 'https://www.minds.com/api/v1/channel/{username}',
+            },
+        ],
+        'fields': {
+            'uid': lambda x: x.get('guid'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('briefdescription') or None,
+            'location': lambda x: x.get('city') or None,
+            'gender': lambda x: x.get('gender') or None,
+            'website': lambda x: x.get('website') or None,
+            'is_verified': lambda x: x.get('verified'),
+            'created_at': lambda x: parse_datetime(x['time_created']) if x.get('time_created') else None,
+            'image': lambda x: 'https://www.minds.com/icon/{}/large/{}'.format(x['guid'], x.get('icontime')) if x.get('guid') else None,
+            # social_profiles: [{key, value}] — scheme-less crosslink URLs (instagram/github/gitlab/...)
+            'social_links': lambda x: [p.get('value') for p in (x.get('social_profiles') or []) if p.get('value')] or None,
+        },
+    },
+    'HackerNoon API': {
+        'url_hints': ('hackernoon.com', 'hackernoon-app.cloudfunctions.net'),
+        # ponytail: all three present on any profile envelope, absent on the {"redirect":…}
+        # case-mismatch response and the 404 {"ok":false} body — so neither is mis-parsed.
+        'flags': ['"handle":', '"displayName":', '"socialMedia":'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('profile') or {},
+            json.dumps,
+        ],
+        'url_mutations': [
+            {
+                'from': r'https?://(?:www\.)?hackernoon\.com/u/(?P<username>[^/?#]+).*',
+                'to': 'https://us-central1-hackernoon-app.cloudfunctions.net/profilesApi/?handle={username}',
+            },
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('handle'),
+            'fullname': lambda x: x.get('displayName') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'email': lambda x: x.get('email') or None,
+            'image': lambda x: x.get('avatar'),
+            # socialMedia values are mixed (bare handle vs full URL) — keep the platform label,
+            # ponytail: per-platform username normalisation is a future enhancement.
+            'social_accounts': lambda x: ['{}:{}'.format(k, v) for k, v in (x.get('socialMedia') or {}).items() if v] or None,
+        },
+    },
+    'Polar API': {
+        'url_hints': ('polar.sh', 'api.polar.sh'),
+        'flags': ['"organization":{', '"slug":'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('organization') or {},
+            json.dumps,
+        ],
+        'url_mutations': [
+            {
+                'from': r'https?://(?:www\.)?polar\.sh/(?P<username>[^/?#]+).*',
+                'to': 'https://api.polar.sh/v1/customer-portal/organizations/{username}',
+            },
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('slug'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'company': lambda x: x.get('company') or None,
+            'location': lambda x: x.get('location') or None,
+            'blog': lambda x: x.get('blog') or None,
+            'website': lambda x: x.get('website') or None,
+            'email': lambda x: x.get('email') or None,
+            'twitter_username': lambda x: x.get('twitter_username') or None,
+            'image': lambda x: x.get('avatar_url'),
+            # avatar is a GitHub CDN URL → the numeric u/{id} is the github_uid (same as GitHub API)
+            'github_uid': lambda x: m.group(1) if (m := re.search(r'githubusercontent\.com/u/(\d+)', x.get('avatar_url') or '')) else None,
+            'created_at': lambda x: x.get('created_at') or None,
+        },
+    },
+    'thanks.dev API': {
+        'url_hints': ('thanks.dev', 'api.thanks.dev'),
+        'flags': ['"git":{', '"ghgl":'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'fields': {
+            # shadow profiles (any GitHub user, not registered) set name to the literal `gh/{handle}`
+            'fullname': lambda x: x.get('name') if x.get('name') and x.get('name') != 'gh/' + ((x.get('git') or {}).get('name') or '\0') else None,
+            'bio': lambda x: x.get('bio') or None,
+            'description': lambda x: x.get('resume') or None,
+            'website': lambda x: x.get('url') or None,
+            'linkedin_url': lambda x: x.get('li') or None,
+            # `tw` is sometimes a bare handle, sometimes a full URL — normalise to the handle
+            'twitter_username': lambda x: (x.get('tw') or '').rstrip('/').split('/')[-1] or None,
+            'discord_invite': lambda x: x.get('dc') or None,
+            'bluesky_handle': lambda x: x.get('bs') or None,
+            'github_username': lambda x: (x.get('git') or {}).get('name'),
+            'is_thanks_dev_user': lambda x: x.get('isTdUser'),
+        },
+    },
+    'Matrix profile API': {
+        # federated: works against any homeserver's /_matrix/client/v3/profile/@{user}:{hs} endpoint.
+        # Body carries only display name + avatar; username/uid live in the request URL, not here.
+        'url_hints': ('matrix.org', '_matrix/client'),
+        'flags': ['"displayname":', '"avatar_url":'],
+        'regex': r'^({[\S\s]+})$',
+        'extract_json': True,
+        'fields': {
+            'fullname': lambda x: x.get('displayname') or None,
+            # mxc://{server}/{id} → media thumbnail URL on matrix.org's media repo
+            'image': lambda x: 'https://matrix-client.matrix.org/_matrix/client/v1/media/thumbnail/{}/{}?width=512&height=512&method=scale'.format(*x['avatar_url'][6:].split('/', 1)) if (x.get('avatar_url') or '').startswith('mxc://') and '/' in x['avatar_url'][6:] else None,
+        },
+    },
+    "osu!": {
+        "url_hints": ("osu.ppy.sh",),
+        "flags": ["data-initial-data=", "osu-layout"],
+        "regex": r'data-initial-data="([^"]*)"',
+        "extract_json": True,
+        "transforms": [
+            lambda x: x.replace("&quot;", '"'),
+            json.loads,
+            lambda x: x.get("user"),
+            json.dumps,
+        ],
+        "fields": {
+            "uid": lambda x: x.get("id"),
+            "username": lambda x: x.get("username"),
+            "image": lambda x: x.get("avatar_url"),
+            "image_bg": lambda x: x.get("cover_url"),
+            "website": lambda x: x.get("website"),
+            "occupation": lambda x: x.get("occupation"),
+            "interests": lambda x: x.get("interests"),
+            "country": lambda x: x.get("country").get("name"),
+            "country_code": lambda x: x.get("country").get("code"),
+            "location": lambda x: x.get("location"),
+            "created_at": lambda x: x.get("join_date"),
+            "latest_activity_at": lambda x: x.get("last_visit"),
+            "follower_count": lambda x: x.get("follower_count"),
+            "posts_count": lambda x: x.get("post_count"),
+            "comments_count": lambda x: x.get("comments_count"),
+            "is_deleted": lambda x: x.get("is_deleted"),
+            "is_employee": lambda x: x.get("is_admin"),  # maybe not totally correct?
+            "is_banned": lambda x: x.get(
+                "is_restricted"
+            ),  # maybe is_suspended instead of is_banned?
+            "title": lambda x: x.get("title") or None,
+            "is_bot": lambda x: x.get("is_bot"),
+            "is_active": lambda x: x.get("is_active"),
+            "is_supporter": lambda x: x.get("is_supporter"),
+            "previous_usernames": lambda x: ', '.join(x.get("previous_usernames") or []) or None,
+            "osu_pp": lambda x: (x.get("statistics") or {}).get("pp"),
+            "osu_global_rank": lambda x: (x.get("statistics") or {}).get("global_rank"),
+            "osu_country_rank": lambda x: (x.get("statistics") or {}).get("country_rank"),
+            "osu_play_count": lambda x: (x.get("statistics") or {}).get("play_count"),
+            "osu_hit_accuracy": lambda x: (x.get("statistics") or {}).get("hit_accuracy"),
+            "social_links": lambda x: [
+                {"discord": x.get("discord")},
+                {"twitter/x": x.get("twitter")},
+            ],
+        },
+    },
+    # Lens Protocol account, shared by every Lens-built client (Hey, Orb,
+    # Buttrfly, Tape, ...). The web clients are static SPAs; real data comes
+    # from the Lens GraphQL API (POST https://api.lens.xyz/graphql). Maigret
+    # does the POST itself and feeds the response body to extract(), so the
+    # scheme matches by flags — no url_mutations (mutate_url can't POST).
+    'Lens (Hey/Orb/Buttrfly) account': {
+        'url_hints': ('api.lens.xyz', 'hey.xyz', 'orb.club', 'buttrfly.app'),
+        'flags': ['"account":{', '"localName":', '"namespace":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: (x.get('data') or {}).get('account') or {},
+            json.dumps,
+        ],
+        'fields': {
+            'uid':              lambda x: x.get('address'),  # Ethereum wallet, reusable across Lens clients
+            'username':         lambda x: (x.get('username') or {}).get('localName'),
+            'lens_namespace':   lambda x: (x.get('username') or {}).get('namespace'),
+            'fullname':         lambda x: (x.get('metadata') or {}).get('name'),
+            'bio':              lambda x: (x.get('metadata') or {}).get('bio'),
+            'image':            lambda x: (x.get('metadata') or {}).get('picture'),
+            'image_bg':         lambda x: (x.get('metadata') or {}).get('coverPicture'),
+            'location':         lambda x: _lens_attr((x.get('metadata') or {}).get('attributes'), 'location'),
+            'website':          lambda x: _lens_attr((x.get('metadata') or {}).get('attributes'), 'website'),
+            'twitter_username': lambda x: _lens_attr((x.get('metadata') or {}).get('attributes'), 'x', 'twitter'),
+            'lens_score':       lambda x: x.get('score'),
+            'created_at':       lambda x: parse_datetime_str(x['createdAt']) if x.get('createdAt') else None,
+        },
+    },
+    'HuggingFace API': {
+        'url_hints': ('huggingface.co',),
+        'flags': ['"numModels":', '"numDatasets":', '"numSpaces":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'url_mutations': [
+            {
+                'from': r'https?://huggingface\.co/(?P<username>[^/?#]+)',
+                'to': 'https://huggingface.co/api/users/{username}/overview',
+            },
+        ],
+        'fields': {
+            'uid': lambda x: x.get('_id'),
+            'username': lambda x: x.get('user'),
+            'fullname': lambda x: x.get('fullname') or None,
+            'bio': lambda x: x.get('details') or None,
+            'image': lambda x: x.get('avatarUrl') if x.get('avatarUrl') and x.get('avatarUrl').startswith('http') else ('https://huggingface.co' + x.get('avatarUrl') if x.get('avatarUrl') else None),
+            'is_pro': lambda x: x.get('isPro'),
+            'follower_count': lambda x: x.get('numFollowers'),
+            'following_count': lambda x: x.get('numFollowing'),
+            'likes_count': lambda x: x.get('numLikes'),
+            'upvotes_count': lambda x: x.get('numUpvotes'),
+            'created_at': lambda x: x.get('createdAt'),
+            'huggingface_models': lambda x: x.get('numModels'),
+            'huggingface_datasets': lambda x: x.get('numDatasets'),
+            'huggingface_spaces': lambda x: x.get('numSpaces'),
+            'huggingface_papers': lambda x: x.get('numPapers'),
+        }
+    },
+    'HackerNews': {
+        'url_hints': ('news.ycombinator.com',),
+        'flags': ['>created:</td>', '>karma:</td>'],
+        'regex': r'^([\s\S]+)$',
+        'fields': {
+            'username': lambda x: m.group(1) if (m := re.search(r'class="hnuser">([^<]+)</a>', x)) else None,
+            'created_at': lambda x: m.group(1).strip() if (m := re.search(r'created:</td><td><span class="age"><a[^>]+>([^<]+)</a></span></td>', x)) else (m2.group(1).strip() if (m2 := re.search(r'created:</td><td>([^<]+)</td>', x)) else None),
+            'karma': lambda x: int(re.sub(r'[^\d]', '', m.group(1))) if (m := re.search(r'karma:</td><td>([^<]+)</td>', x)) and re.sub(r'[^\d]', '', m.group(1)) else None,
+            'bio': lambda x: re.sub(r'<[^>]+>', '', m.group(1)).strip() if (m := re.search(r'about:</td><td[^>]*>(.*?)</td>', x, re.DOTALL)) else None,
+        }
+    },
+    'Teletype': {
+        'url_hints': ('teletype.in',),
+        'flags': [
+            'window.__PUBLIC_PATH__=\'https://teletype.in/\'',
+            'property="og:site_name" content="Teletype"',
+            'teletype.in/rss/',
+        ],
+        'regex': r'window\.__INITIAL_STATE__=(\{[\s\S]+?\});window\.__PUBLIC_PATH__=',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            _extract_teletype_blog,
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('uri'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('userpic') or None,
+            'is_verified': lambda x: x.get('verified'),
+            'follower_count': lambda x: x.get('subscriptions'),
+            'following_count': lambda x: x.get('subscribed'),
+            'website': lambda x: x.get('domain') or None,
+            'posts_count': lambda x: x.get('posts_count'),
+            'topics': lambda x: x.get('topics') or None,
+            'url': lambda x: (
+                'https://teletype.in/@{}'.format(x['uri'])
+                if x.get('uri') else None
+            )
+        },
+    },
+    'GDBrowser API': {
+        'url_hints': ('gdbrowser.com',),
+        'flags': ['"playerID":', '"accountID":', '"userCoins":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'uid': lambda x: x.get('playerID'),
+            'gd_account_id': lambda x: x.get('accountID'),
+            'youtube_username': lambda x: x.get('youtube') or None,
+            'twitter_username': lambda x: x.get('twitter') or None,
+            'twitch_username': lambda x: x.get('twitch') or None,
+            'discord_username': lambda x: x.get('discord') or None,
+            'instagram_username': lambda x: x.get('instagram') or None,
+            'tiktok_username': lambda x: x.get('tiktok') or None,
+            'website': lambda x: x.get('customLink') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://gdbrowser\.com/u/(?P<username>[^/?#]+)',
+            'to': 'https://gdbrowser.com/api/profile/{username}',
+        }],
+    },
+    'StreamElements API': {
+        'url_hints': ('streamelements.com',),
+        'flags': ['"providerId":', '"broadcasterType":', '"isPartner":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('_id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('displayName'),
+            'image': lambda x: x.get('avatar') or None,
+            'provider': lambda x: x.get('provider'),
+            'provider_id': lambda x: x.get('providerId'),
+            'is_partner': lambda x: x.get('isPartner'),
+        },
+        'url_mutations': [{
+            'from': r'https?://streamelements\.com/(?P<username>[^/?#]+)',
+            'to': 'https://api.streamelements.com/kappa/v2/channels/{username}',
+        }],
+    },
+    'Streamlabs API': {
+        'url_hints': ('streamlabs.com',),
+        'flags': ['"primary_account":', '"ab_test_group":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'image': lambda x: x.get('logo') or None,
+            'primary_account_type': lambda x: x.get('primary_account', {}).get('type'),
+            'primary_account_id': lambda x: x.get('primary_account', {}).get('id'),
+            'primary_account_username': lambda x: x.get('primary_account', {}).get('username'),
+        },
+        'url_mutations': [{
+            'from': r'https?://streamlabs\.com/(?P<username>[^/?#]+)',
+            'to': 'https://streamlabs.com/api/v6/user/{username}',
+        }],
+    },
+    'Donatty API': {
+        'url_hints': ('donatty.com',),
+        'flags': ['"response":', '"registrationDate":', '"refId":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x['response'],
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('refId'),
+            'username': lambda x: x.get('name'),
+            'fullname': lambda x: x.get('displayName'),
+            'image': lambda x: x.get('picture', {}).get('source') or None,
+            'created_at': lambda x: x.get('registrationDate'),
+            'twitch_url': lambda x: x.get('twitch', {}).get('url') or None,
+            'twitch_username': lambda x: x.get('twitch', {}).get('url', '').rstrip('/').split('/')[-1] or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://donatty\.com/(?P<username>[^/?#]+)',
+            'to': 'https://api.donatty.com/users/find/{username}',
+        }],
+    },
+    'VisnessCard API': {
+        'url_hints': ('visnesscard.com',),
+        'flags': ['"card_id":', '"end_point":', '"business_title":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('card_id'),
+            'username': lambda x: x.get('end_point'),
+            'fullname': lambda x: ' '.join(filter(None, [x.get('first_name'), x.get('last_name')])) or None,
+            'email': lambda x: x.get('email') or None,
+            'company': lambda x: x.get('company_name') or None,
+            'business_title': lambda x: x.get('business_title') or None,
+            'location': lambda x: ', '.join(filter(None, [x.get('address'), x.get('suite'), x.get('city'), x.get('state'), x.get('zip')])) or None,
+            'website': lambda x: x.get('company_website_1') or x.get('company_website_2') or None,
+            'image': lambda x: (x.get('icons', [{}])[0].get('image_key') if x.get('icons') else None) or x.get('android_icon_key') or None,
+            'views_count': lambda x: x.get('unique_views') or x.get('views'),
+            'created_at': lambda x: x.get('date_created'),
+        },
+        'url_mutations': [{
+            'from': r'https?://my\.visnesscard\.com/(?P<username>[^/?#]+)',
+            'to': 'https://my.visnesscard.com/Home/GetCard/{username}',
+        }],
+    },
+    'Codeforces API': {
+        'url_hints': ('codeforces.com',),
+        'flags': ['"status":"OK"', '"handle":', '"maxRating":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x['result'][0],
+            json.dumps,
+        ],
+        'fields': {
+            'username': lambda x: x.get('handle'),
+            'fullname': lambda x: ' '.join(filter(None, [x.get('firstName'), x.get('lastName')])) or None,
+            'country': lambda x: x.get('country') or None,
+            'city': lambda x: x.get('city') or None,
+            'organization': lambda x: x.get('organization') or None,
+            'image': lambda x: x.get('avatar'),
+            'image_bg': lambda x: x.get('titlePhoto') or None,
+            'rank': lambda x: x.get('rank'),
+            'max_rank': lambda x: x.get('maxRank'),
+            'rating': lambda x: x.get('rating'),
+            'max_rating': lambda x: x.get('maxRating'),
+            'contribution': lambda x: x.get('contribution'),
+            'follower_count': lambda x: x.get('friendOfCount'),
+            'created_at': lambda x: x.get('registrationTimeSeconds'),
+        },
+        'url_mutations': [{
+            'from': r'https?://codeforces\.com/profile/(?P<username>[^/?#]+)',
+            'to': 'https://codeforces.com/api/user.info?handles={username}',
+        }],
+    },
+    'Discogs API': {
+        'url_hints': ('discogs.com',),
+        'flags': ['"wantlist_url":', '"releases_contributed":', '"inventory_url":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('profile') or None,
+            'location': lambda x: x.get('location') or None,
+            'website': lambda x: x.get('home_page') or None,
+            'image': lambda x: x.get('avatar_url') or None,
+            'image_bg': lambda x: x.get('banner_url') or None,
+            'created_at': lambda x: x.get('registered'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?discogs\.com/user/(?P<username>[^/?#]+)',
+            'to': 'https://api.discogs.com/users/{username}',
+        }],
+    },
+    'iNaturalist API': {
+        'url_hints': ('inaturalist.org',),
+        'flags': ['"total_results":', '"observations_count":', '"identifications_count":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x['results'][0],
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('login'),
+            'fullname': lambda x: x.get('name') or None,
+            'image': lambda x: x.get('icon_url') or None,
+            'orcid': lambda x: x.get('orcid') or None,
+            'observations_count': lambda x: x.get('observations_count'),
+            'species_count': lambda x: x.get('species_count'),
+            'identifications_count': lambda x: x.get('identifications_count'),
+            'created_at': lambda x: x.get('created_at'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?inaturalist\.org/people/(?P<username>[^/?#]+)',
+            'to': 'https://api.inaturalist.org/v1/users/{username}',
+        }],
+    },
+    'Pronouny API': {
+        'url_hints': ('pronouny.xyz',),
+        'flags': ['"pronouns":', '"nouns":', '"isPublic":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('_id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x['names'][0] if isinstance(x.get('names'), list) and x['names'] and isinstance(x['names'][0], str) else (x['names'][0].get('name') if isinstance(x.get('names'), list) and x['names'] and isinstance(x['names'][0], dict) else None),
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('profileImageURL') if x.get('profileImageURL', '').startswith('http') else None,
+            'pronouns': lambda x: ', '.join(p.get('pattern', '').split('/')[0] + '/' + p.get('pattern', '').split('/')[1] if '/' in p.get('pattern', '') else p.get('pattern', '') for p in x.get('pronouns', []) if isinstance(p, dict)) or None,
+            'created_at': lambda x: x.get('created'),
+        },
+        'url_mutations': [{
+            'from': r'https?://pronouny\.xyz/u/(?P<username>[^/?#]+)',
+            'to': 'https://pronouny.xyz/api/users/profile/username/{username}',
+        }],
+    },
+    'Zepeto API': {
+        'url_hints': ('zepeto.io', 'zepeto.me'),
+        'flags': ['"zepetoId":', '"hashCode":', '"isCreator":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('zepetoId'),
+            'fullname': lambda x: x.get('name') or None,
+            'hash_code': lambda x: x.get('hashCode'),
+            'image': lambda x: x.get('profilePic') or None,
+            'bio': lambda x: x.get('statusMessage') or None,
+            'country': lambda x: x.get('nationality') or None,
+            'occupation': lambda x: x.get('job') or None,
+            'is_creator': lambda x: x.get('isCreator'),
+            'follower_count': lambda x: x.get('followerCount'),
+            'following_count': lambda x: x.get('followingCount'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?zepeto\.me/profile/(?P<username>[^/?#]+)',
+            'to': 'https://gw-napi.zepeto.io/profiles/{username}',
+        }],
+    },
+    'OnlyFans API': {
+        'url_hints': ('onlyfans.com',),
+        'flags': ['"isPerformer":', '"subscribersCount":', '"joinDate":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name'),
+            'bio': lambda x: x.get('about'),
+            'website': lambda x: x.get('website') or None,
+            'location': lambda x: x.get('location') or None,
+            'image': lambda x: x.get('avatar'),
+            'image_bg': lambda x: x.get('header') or None,
+            'created_at': lambda x: x.get('joinDate'),
+            'latest_activity_at': lambda x: x.get('lastSeen') or None,
+            'is_verified': lambda x: x.get('isVerified'),
+            'is_performer': lambda x: x.get('isPerformer'),
+            'is_adult_content': lambda x: x.get('isAdultContent'),
+            'posts_count': lambda x: x.get('postsCount'),
+            'photos_count': lambda x: x.get('photosCount'),
+            'videos_count': lambda x: x.get('videosCount'),
+            'follower_count': lambda x: x.get('subscribersCount'),
+            'favorites_count': lambda x: x.get('favoritedCount'),
+            'subscribe_price': lambda x: x.get('subscribePrice'),
+        },
+    },
+    'eToro API': {
+        'url_hints': ('etoro.com',),
+        'flags': ['"gcid":', '"realCID":', '"allowDisplayFullName":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('gcid'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: ' '.join(filter(None, [x.get('firstName'), x.get('lastName')])) or None,
+            'bio': lambda x: x.get('aboutMe') or None,
+            'country': lambda x: x.get('country'),
+            'language': lambda x: x.get('languageIsoCode'),
+            'image': lambda x: next((a['url'] for a in x.get('avatars', []) if a.get('width') == 150), None),
+            'is_verified': lambda x: x.get('isVerified'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?etoro\.com/people/(?P<username>[^/?#]+)',
+            'to': 'https://www.etoro.com/api/logininfo/v1.1/users/{username}',
+        }],
+    },
+    'Gettr API': {
+        'url_hints': ('gettr.com',),
+        'flags': ['"nickname":', '"flw":', '"dsc":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('result', {}).get('data', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('_id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('nickname') or None,
+            'bio': lambda x: x.get('dsc') or None,
+            'website': lambda x: x.get('website') or None,
+            'location': lambda x: x.get('location') or None,
+            'language': lambda x: x.get('lang') or None,
+            'image': lambda x: x.get('ico') or None,
+            'image_bg': lambda x: x.get('bgimg') or None,
+            'is_verified': lambda x: x.get('vrf'),
+            'follower_count': lambda x: x.get('flw'),
+            'created_at': lambda x: x.get('cdate'),
+        },
+        'url_mutations': [{
+            'from': r'https?://gettr\.com/user/(?P<username>[^/?#]+)',
+            'to': 'https://gettr.com/api/s/uinf/{username}',
+        }],
+    },
+    'Habbo API': {
+        'url_hints': ('habbo.com', 'habbo.de', 'habbo.fr', 'habbo.es',
+                      'habbo.it', 'habbo.nl', 'habbo.fi', 'habbo.com.br',
+                      'habbo.com.tr'),
+        'flags': ['"uniqueId":', '"figureString":', '"memberSince":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('uniqueId'),
+            'username': lambda x: x.get('name'),
+            'bio': lambda x: x.get('motto') or None,
+            'is_online': lambda x: x.get('online'),
+            'created_at': lambda x: x.get('memberSince'),
+            'latest_activity_at': lambda x: x.get('lastAccessTime') or None,
+            'level': lambda x: x.get('currentLevel'),
+            'experience': lambda x: x.get('totalExperience'),
+            'is_profile_visible': lambda x: x.get('profileVisible'),
+        },
+        'url_mutations': [
+            {'from': r'https?://www\.habbo\.com/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.com/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.de/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.de/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.fr/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.fr/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.es/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.es/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.it/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.it/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.nl/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.nl/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.fi/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.fi/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.com\.br/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.com.br/api/public/users?name={username}'},
+            {'from': r'https?://www\.habbo\.com\.tr/profile/(?P<username>[^/?#]+)',
+             'to': 'https://www.habbo.com.tr/api/public/users?name={username}'},
+        ],
+    },
+    'Hackadvisor API': {
+        'url_hints': ('hackadvisor.io',),
+        'flags': ['"crypto_wallet_address":', '"bb_platform":', '"accounts":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: ' '.join(filter(None, [x.get('first_name'), x.get('last_name')])) or None,
+            'bio': lambda x: x.get('bio') or None,
+            'crypto_wallet': lambda x: x.get('crypto_wallet_address') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://hackadvisor\.io/hacker/(?P<username>[^/?#]+)',
+            'to': 'https://hackadvisor.io/api/v2/profile/{username}/',
+        }],
+    },
+    'Pillowfort JSON API': {
+        'url_hints': ('pillowfort.social',),
+        'flags': ['"posts":', '"rebloggable":', '"avatar_url":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('posts', [{}])[0] if isinstance(x.get('posts'), list) and x['posts'] else {},
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('user_id'),
+            'username': lambda x: x.get('username'),
+            'image': lambda x: x.get('avatar_url') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?pillowfort\.social/(?P<username>[^/?#]+)',
+            'to': 'https://www.pillowfort.social/{username}/json/?p=1',
+        }],
+    },
+    'Scored API': {
+        'url_hints': ('scored.co',),
+        'flags': ['"post_score":', '"comment_score":', '"moderates":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('users', [{}])[0] if isinstance(x.get('users'), list) and x['users'] else {},
+            json.dumps,
+        ],
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'image': lambda x: x.get('profile_picture') or None,
+            'is_admin': lambda x: x.get('is_admin'),
+            'post_score': lambda x: x.get('post_score'),
+            'comment_score': lambda x: x.get('comment_score'),
+            'created_at': lambda x: x.get('created'),
+        },
+        'url_mutations': [{
+            'from': r'https?://scored\.co/u/(?P<username>[^/?#]+)',
+            'to': 'https://scored.co/api/v2/user/about.json?user={username}',
+        }],
+    },
+    'YesWeHack API': {
+        'url_hints': ('yeswehack.com',),
+        'flags': ['"hunter_profile":', '"nb_reports":', '"kyc_status":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: ' '.join(filter(None, [x.get('public_firstname'), x.get('public_lastname')])) or None,
+            'image': lambda x: x.get('avatar') or None,
+            'country': lambda x: x.get('nationality') or None,
+            'website': lambda x: (x.get('hunter_profile') or {}).get('website_url') or None,
+            'github_username': lambda x: (x.get('hunter_profile') or {}).get('github') or None,
+            'twitter_username': lambda x: (x.get('hunter_profile') or {}).get('twitter') or None,
+            'rank': lambda x: x.get('rank'),
+            'reports_count': lambda x: x.get('nb_reports'),
+            'points': lambda x: x.get('points'),
+            'impact': lambda x: x.get('impact'),
+            'created_at': lambda x: x.get('joined_on'),
+        },
+        'url_mutations': [{
+            'from': r'https?://yeswehack\.com/hunters/(?P<username>[^/?#]+)',
+            'to': 'https://api.yeswehack.com/hunters/{username}',
+        }],
+    },
+    'Destream API': {
+        'url_hints': ('destream.net',),
+        'flags': ['"userName":', '"logoImageUrl":', '"liveStream":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('userName'),
+            'image': lambda x: x.get('logoImageUrl') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://destream\.net/live/(?P<username>[^/?#]+)',
+            'to': 'https://api.destream.net/siteapi/v2/live/details/{username}',
+        }],
+    },
+    'Tipeeestream API': {
+        'url_hints': ('tipeeestream.com',),
+        'flags': ['"tipper_number":', '"paymentMeans":', '"aclPage":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: (x.get('user') or {}).get('id'),
+            'username': lambda x: x.get('slug'),
+            'fullname': lambda x: (x.get('user') or {}).get('pseudo') or None,
+            'image': lambda x: x.get('avatar') or None,
+            'image_bg': lambda x: x.get('cover') or None,
+            'language': lambda x: (x.get('user') or {}).get('userLanguage') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?tipeeestream\.com/(?P<username>[^/?#]+)',
+            'to': 'https://www.tipeeestream.com/v3.0/pages/{username}',
+        }],
+    },
+    'Komi API': {
+        'url_hints': ('komi.io',),
+        'flags': ['"accountStatus":', '"talentProfile":', '"hasBooking":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: (x.get('talentProfile') or {}).get('displayName') or None,
+            'bio': lambda x: (x.get('talentProfile') or {}).get('bio') or None,
+            'image': lambda x: x.get('avatar') or (x.get('talentProfile') or {}).get('avatar') or None,
+            'website': lambda x: (x.get('talentProfile') or {}).get('website') or None,
+            'instagram_username': lambda x: (x.get('talentProfile') or {}).get('instagram') or None,
+            'youtube_channel': lambda x: (x.get('talentProfile') or {}).get('youtube') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://(?P<username>[^./?#]+)\.komi\.io',
+            'to': 'https://api.komi.io/api/talent/usernames/{username}',
+        }],
+    },
+    'Cropty API': {
+        'url_hints': ('cropty.io',),
+        'flags': ['"ref_code":', '"ref_link":', '"nickname":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('data', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'fullname': lambda x: x.get('name') or None,
+            'username': lambda x: x.get('nickname'),
+            'image': lambda x: x.get('image') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?cropty\.io/@(?P<username>[^/?#]+)',
+            'to': 'https://api.cropty.io/v1/auth/{username}',
+        }],
+    },
+    'Redgifs API': {
+        'url_hints': ('redgifs.com',),
+        'flags': ['"profileImageUrl":', '"publishedGifs":', '"creationtime":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('description') or None,
+            'image': lambda x: x.get('profileImageUrl') or None,
+            'website': lambda x: x.get('profileUrl') or None,
+            'is_verified': lambda x: x.get('verified'),
+            'follower_count': lambda x: x.get('followers'),
+            'following_count': lambda x: x.get('following'),
+            'views_count': lambda x: x.get('views'),
+            'likes_count': lambda x: x.get('likes'),
+            'gifs_count': lambda x: x.get('gifs'),
+            'created_at': lambda x: x.get('creationtime'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?redgifs\.com/users/(?P<username>[^/?#]+)',
+            'to': 'https://api.redgifs.com/v1/users/{username}',
+        }],
+    },
+    'Tappy API': {
+        'url_hints': ('tappy.tech',),
+        'flags': ['"header_logo":', '"social_order":', '"accent_color":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('user_id'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('photo') or None,
+            'image_bg': lambda x: x.get('banner_image') or x.get('header_logo') or None,
+            'created_at': lambda x: x.get('created_at'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?tappy\.tech/(?P<username>[^/?#]+)',
+            'to': 'https://api.tappy.tech/api/profile/username/{username}',
+        }],
+    },
+    'Komoot API': {
+        'url_hints': ('komoot.com', 'komoot.de'),
+        'flags': ['"display_name":', '"_links":', 'komoot'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('display_name') or None,
+            'image': lambda x: (x.get('avatar') or {}).get('src') if isinstance(x.get('avatar'), dict) else None,
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?komoot\.com/user/(?P<username>[^/?#]+)',
+            'to': 'https://api.komoot.de/v007/users/{username}/',
+        }],
+    },
+    'Tapitag API': {
+        'url_hints': ('tapitag.co',),
+        'flags': ['"profileDetail":', '"rfnumber":', '"privacystatus":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: (x.get('data') or {}).get('profileDetail', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('uuid') or x.get('id'),
+            'username': lambda x: x.get('rfnumber'),
+            'fullname': lambda x: ' '.join(filter(None, [x.get('first_name'), x.get('last_name')])) or None,
+            'email': lambda x: x.get('email') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('image') or None,
+            'image_bg': lambda x: x.get('bannerimage') or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://account\.tapitag\.co/(?P<username>[^/?#]+)',
+            'to': 'https://account.tapitag.co/tapitag/api/v1/{username}',
+        }],
+    },
+    'Vivino API': {
+        'url_hints': ('vivino.com',),
+        'flags': ['"seo_name":', '"is_featured":', '"statistics":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('seo_name'),
+            'fullname': lambda x: x.get('alias') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'website': lambda x: x.get('website') or None,
+            'image': lambda x: x.get('image', {}).get('location') or None,
+            'image_bg': lambda x: x.get('background_image', {}).get('location') or None,
+            'language': lambda x: x.get('language') or None,
+            'country': lambda x: (x.get('address') or {}).get('country') or None,
+            'is_premium': lambda x: x.get('is_premium'),
+            'follower_count': lambda x: (x.get('statistics') or {}).get('followers_count'),
+            'following_count': lambda x: (x.get('statistics') or {}).get('followings_count'),
+            'ratings_count': lambda x: (x.get('statistics') or {}).get('ratings_count'),
+            'reviews_count': lambda x: (x.get('statistics') or {}).get('reviews_count'),
+            'wishlist_count': lambda x: (x.get('statistics') or {}).get('wishlist_count'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?vivino\.com/users/(?P<username>[^/?#]+)',
+            'to': 'https://api.vivino.com/users/{username}',
+        }],
+    },
+    'Google Scholar': {
+        'url_hints': ('scholar.google.com', 'scholar.google.ru'),
+        'flags': ['gsc_prf_in', 'gsc_prf_il', 'gsc_rsb_st'],
+        'bs': True,
+        'fields': {
+            'fullname': lambda x: x.find(id='gsc_prf_in').text if x.find(id='gsc_prf_in') else None,
+            'bio': lambda x: x.find('div', class_='gsc_prf_il').text if x.find('div', class_='gsc_prf_il') else None,
+            'image': lambda x: x.find(id='gsc_prf_pup-img')['src'] if x.find(id='gsc_prf_pup-img') else None,
+            'website': lambda x: x.find(id='gsc_prf_ivh').find('a')['href'] if x.find(id='gsc_prf_ivh') and x.find(id='gsc_prf_ivh').find('a') else None,
+            'interests': lambda x: ', '.join(a.text for a in x.find_all('a', class_='gsc_prf_inta')) or None,
+        },
+    },
+    'Flipboard profile': {
+        'url_hints': ('flipboard.com',),
+        'flags': ['__PRELOADED_STATE__', 'authorDisplayName', 'authorUsername'],
+        'regex': r'__PRELOADED_STATE__\s*=\s*(\{.*?\});\s*</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('sections', {}).get('entries', [{}])[0] if isinstance(x.get('sections', {}).get('entries'), list) and x['sections']['entries'] else {},
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('userid'),
+            'username': lambda x: x.get('authorUsername'),
+            'fullname': lambda x: x.get('authorDisplayName') or None,
+            'bio': lambda x: x.get('authorDescription') or None,
+            'image': lambda x: (x.get('authorImage') or {}).get('smallURL') or None,
+            'is_verified': lambda x: x.get('isVerifiedPublisher'),
+            'mastodon_url': lambda x: x.get('mastodonProfile') or None,
+            'follower_count': lambda x: (x.get('metrics') or {}).get('follower'),
+            'following_count': lambda x: (x.get('metrics') or {}).get('follow'),
+            'articles_count': lambda x: (x.get('metrics') or {}).get('articles'),
+            'magazines_count': lambda x: (x.get('metrics') or {}).get('magazineCount'),
+        },
+    },
+    'Clubhouse profile': {
+        'url_hints': ('clubhouse.com',),
+        'flags': ['__NEXT_DATA__', '"num_followers":', '"user_profile_type":'],
+        'regex': r'id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('props', {}).get('pageProps', {}).get('routeProps', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'username': lambda x: (x.get('user') or {}).get('username'),
+            'fullname': lambda x: (x.get('user') or {}).get('full_name') or None,
+            'bio': lambda x: (x.get('user') or {}).get('bio') or None,
+            'image': lambda x: (x.get('user') or {}).get('photo_url') or None,
+            'twitter_username': lambda x: (x.get('user') or {}).get('twitter_username') or None,
+            'instagram_username': lambda x: (x.get('user') or {}).get('instagram_username') or None,
+            'follower_count': lambda x: x.get('num_followers'),
+            'following_count': lambda x: x.get('num_following'),
+        },
+    },
+    'Coda.io profile': {
+        'url_hints': ('coda.io',),
+        'flags': ['application/ld+json', '"Person"', 'coda.io/@'],
+        'regex': r'<script[^>]*application/ld\+json[^>]*>\s*(\{[^<]+\})\s*</script>',
+        'extract_json': True,
+        'fields': {
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('description') or None,
+            'image': lambda x: x.get('image') or None,
+            'occupation': lambda x: x.get('jobTitle') or None,
+            'company': lambda x: (x.get('worksFor') or {}).get('name') or None,
+            'website': lambda x: x.get('url') or None,
+        },
+    },
+    'Poe.com profile': {
+        'url_hints': ('poe.com',),
+        'flags': ['__NEXT_DATA__', '"followerCount":', '"createdBotCount":'],
+        'regex': r'id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('props', {}).get('pageProps', {}).get('data', {}).get('mainQuery', {}).get('user', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('uid'),
+            'username': lambda x: x.get('handle'),
+            'fullname': lambda x: x.get('fullName') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('largeProfilePhotoUrl') or x.get('profilePhotoUrl') or None,
+            'follower_count': lambda x: x.get('followerCount'),
+            'following_count': lambda x: x.get('followeeCount'),
+            'bots_count': lambda x: x.get('createdBotCount'),
+        },
+    },
+    'Gumroad profile': {
+        'url_hints': ('gumroad.com',),
+        'flags': ['data-page=', 'creator_profile', 'Gumroad'],
+        'regex': r'data-page="([^"]+)"',
+        'extract_json': True,
+        'transforms': [
+            html.unescape,
+            json.loads,
+            lambda x: x.get('props', {}).get('creator_profile', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('external_id'),
+            'fullname': lambda x: x.get('name') or None,
+            'image': lambda x: x.get('avatar_url') or None,
+            'is_verified': lambda x: x.get('is_verified'),
+        },
+    },
+    'Mastodon HTML profile': {
+        'flags': ['id="mastodon"', 'profile:username', 'initial-state'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: x.find('meta', {'property': 'profile:username'})['content'].split('@')[0] if x.find('meta', {'property': 'profile:username'}) else None,
+            'fullname': lambda x: (lambda t: t['content'].split(' (@')[0] if ' (@' in t.get('content', '') else t['content'])(x.find('meta', {'property': 'og:title'})) if x.find('meta', {'property': 'og:title'}) else None,
+            'bio': lambda x: x.find('meta', {'property': 'og:description'})['content'] if x.find('meta', {'property': 'og:description'}) else None,
+            'image': lambda x: x.find('meta', {'property': 'og:image'})['content'] if x.find('meta', {'property': 'og:image'}) else None,
+            'mastodon_id': lambda x: x.find('meta', {'property': 'profile:username'})['content'] if x.find('meta', {'property': 'profile:username'}) else None,
+        },
+    },
+    # Recognised by the generator meta tag every Discourse instance emits; the
+    # data-preloaded attribute this used to key on is gone from current versions.
+    'Discourse HTML profile': {
+        'flags': ['name="generator" content="Discourse', 'discourse_theme_id'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_discourse_html_profile],
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('image') or None,
+        },
+        'url_mutations': [
+            {
+                'from': r'https?://(?P<host>[^/]+)/u/(?P<username>[^/?#.]+)/summary',
+                'to': 'https://{host}/u/{username}',
+            },
+        ],
+    },
+    'Mastodon API': {
+        'url_hints': ('/@',),
+        'flags': ['"followers_count":', '"avatar_static":', '"header_static":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('display_name') or None,
+            'bio': lambda x: x.get('note') or None,
+            'image': lambda x: x.get('avatar') if x.get('avatar') and '/missing.' not in x.get('avatar', '') else None,
+            'image_bg': lambda x: x.get('header') if x.get('header') and '/missing.' not in x.get('header', '') else None,
+            'is_locked': lambda x: x.get('locked'),
+            'is_bot': lambda x: x.get('bot'),
+            'follower_count': lambda x: x.get('followers_count'),
+            'following_count': lambda x: x.get('following_count'),
+            'posts_count': lambda x: x.get('statuses_count'),
+            'created_at': lambda x: x.get('created_at'),
+            'latest_activity_at': lambda x: x.get('last_status_at') or None,
+        },
+        'url_mutations': [
+            {
+                # Every Mastodon instance answers the same lookup endpoint, and the
+                # /@handle route is distinctive enough to key on, so the list of 23
+                # hardcoded hosts this replaced was only ever a list of the ones
+                # somebody had got round to adding.
+                'from': r'^https?://(?P<host>[^/?#]+)/@(?P<username>[^/?#]+)/?$',
+                'to': 'https://{host}/api/v1/accounts/lookup?acct={username}',
+            }
+        ],
+    },
+    'FL.ru': {
+        'url_hints': ('fl.ru',),
+        'flags': ['application/ld+json', '"ProfilePage"', 'fl.ru'],
+        'bs': True,
+        'fields': {
+            'uid': lambda x: (lambda m: m.group(1) if m else None)(re.search(r'ID:(\d+)', x.title.text if x.title else '')),
+            'username': lambda x: (lambda m: m.group(1) if m else None)(re.search(r'/users/([^/]+)/', _fl_ld(x, 'mainEntity', 'url') or '')),
+            'fullname': lambda x: _fl_ld(x, 'mainEntity', 'name'),
+            'occupation': lambda x: _fl_ld(x, 'mainEntity', 'jobTitle'),
+            'image': lambda x: _fl_ld(x, 'mainEntity', 'image'),
+            'created_at': lambda x: _fl_ld(x, 'dateCreated'),
+        },
+    },
+    'Manifold Markets': {
+        'url_hints': ('manifold.markets',),
+        'flags': ['__NEXT_DATA__', '"creatorTraders":', '"followerCountCached":'],
+        'regex': r'id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: {**x.get('props', {}).get('pageProps', {}).get('user', {}),
+                        '_rating': x.get('props', {}).get('pageProps', {}).get('rating'),
+                        '_reviewCount': x.get('props', {}).get('pageProps', {}).get('reviewCount')},
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('avatarUrl') or None,
+            'website': lambda x: x.get('website') or None,
+            'twitter_username': lambda x: x.get('twitterHandle') or None,
+            'discord_username': lambda x: x.get('discordHandle') or None,
+            'is_bot': lambda x: x.get('isBot'),
+            'is_verified': lambda x: x.get('idVerified'),
+            'follower_count': lambda x: x.get('followerCountCached'),
+            'created_at': lambda x: x.get('createdTime'),
+            'rating': lambda x: x.get('_rating'),
+            'review_count': lambda x: x.get('_reviewCount'),
+        },
+    },
+    'VSCO': {
+        'url_hints': ('vsco.co',),
+        'flags': ['__PRELOADED_STATE__', 'vsco.co', '"profileImage"'],
+        'regex': r'__PRELOADED_STATE__\s*=\s*(\{[\s\S]+\})\s*;?\s*</script>',
+        'extract_json': True,
+        'transforms': [
+            lambda x: x.replace('undefined', 'null'),
+            json.loads,
+            lambda x: next((v.get('site', {}) for v in (x.get('sites', {}).get('siteByUsername', {}) or {}).values() if isinstance(v, dict) and 'site' in v), {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id') or x.get('userId'),
+            'username': lambda x: x.get('subdomain'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('description') or None,
+            'image': lambda x: x.get('profileImage') or None,
+            'website': lambda x: (x.get('links', {}) or {}).get('personalUrl') or x.get('externalLink') or None,
+        },
+    },
+    'Mojang API': {
+        'url_hints': ('api.mojang.com',),
+        'flags': ['"id" :', '"name" :'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('name'),
+        },
+    },
+    'OP.GG': {
+        'url_hints': ('op.gg',),
+        'flags': ['op.gg/lol/summoners/', 'game_name'],
+        'regex': r'\\"game_name\\":\\"(?P<username>[^\\]+)\\",\\"tagline\\":\\"(?P<opgg_tagline>[^\\]+)\\",\\"name\\":\\"(?P<opgg_summoner_name>[^\\]*)\\",\\"internal_name\\":\\"[^\\]*\\",\\"profile_image_url\\":\\"(?P<image>[^\\]+)\\",\\"level\\":(?P<opgg_level>\d+)',
+        'fields': {},
+    },
+    'coder.social': {
+        'url_hints': ('coder.social',),
+        'flags': ['Coder Social</title>', 'og:site_name'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: (lambda t: t.split('|')[0].strip() if t else None)(x.title.text if x.title else None),
+            'fullname': lambda x: (lambda m: m['content'].split(',')[1].strip() if ',' in m.get('content', '') else None)(x.find('meta', {'name': 'keywords'}) or {}) if x.find('meta', {'name': 'keywords'}) else None,
+            'image': lambda x: (lambda i: i['src'] if i else None)(x.find('img', src=re.compile(r'avatars\.githubusercontent\.com'))),
+            'location': lambda x: (lambda d: d.split('.')[-2].strip() if d and '.' in d else None)(x.find('meta', {'name': 'description'}).get('content', '') if x.find('meta', {'name': 'description'}) else None),
+        },
+    },
+    'GOG': {
+        'url_hints': ('gog.com',),
+        'flags': ['profilesData.profileUser', '"games_owned"'],
+        'regex': r'profilesData\.profileUser\s*=\s*(\{[^;]+\})\s*;',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('userId'),
+            'username': lambda x: x.get('username'),
+            'image': lambda x: x.get('avatar') or None,
+            'created_at': lambda x: x.get('created_date'),
+            'gog_games_owned': lambda x: (x.get('stats') or {}).get('games_owned'),
+            'gog_achievements': lambda x: (x.get('stats') or {}).get('achievements'),
+            'gog_hours_played': lambda x: (x.get('stats') or {}).get('hours_played'),
+        },
+    },
+    'Kick API': {
+        'url_hints': ('kick.com',),
+        'flags': ['"followers_count":', '"subscriber_badges":', '"playback_url":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('user', {}).get('id'),
+            'username': lambda x: x.get('user', {}).get('username'),
+            'bio': lambda x: x.get('user', {}).get('bio') or None,
+            'image': lambda x: x.get('user', {}).get('profile_pic') or None,
+            'image_bg': lambda x: (x.get('banner_image') or {}).get('url') or None,
+            'is_verified': lambda x: x.get('verified'),
+            'is_banned': lambda x: x.get('is_banned'),
+            'follower_count': lambda x: x.get('followers_count'),
+            'instagram_username': lambda x: x.get('user', {}).get('instagram').rstrip('/').rsplit('/', 1)[-1] if x.get('user', {}).get('instagram') else None,
+            'twitter_username': lambda x: x.get('user', {}).get('twitter') or None,
+            'youtube_channel_id': lambda x: x.get('user', {}).get('youtube').split('/')[-1] if x.get('user', {}).get('youtube') else None,
+            'discord_username': lambda x: x.get('user', {}).get('discord') or None,
+            'tiktok_username': lambda x: x.get('user', {}).get('tiktok') or None,
+            'facebook_username': lambda x: x.get('user', {}).get('facebook') or None,
+            'created_at': lambda x: x.get('user', {}).get('email_verified_at'),
+        },
+    },
+    'Academia.edu': {
+        'url_hints': ('academia.edu',),
+        'flags': ['Aedu.User.set_viewed(', 'academia.edu'],
+        'regex': r'Aedu\.User\.set_viewed\(\s*(\{[^)]+\})\s*\)',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('page_name'),
+            'fullname': lambda x: x.get('display_name') or None,
+            'image': lambda x: x.get('photo') if x.get('has_photo') else None,
+            'created_at': lambda x: x.get('created_at'),
+        },
+    },
+    'TradingView': {
+        'url_hints': ('tradingview.com',),
+        'flags': ['"ssrData":', '"date_joined":', 'tradingview.com/u/'],
+        'regex': r'"ssrData"\s*:\s*(\{.+?"paid_space":[^}]*\})',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('picture_url_orig') or None,
+            'website': lambda x: (x.get('social_links') or {}).get('website') or None,
+            'twitter_username': lambda x: (x.get('social_links') or {}).get('twitter_username') or None,
+            'instagram_username': lambda x: (x.get('social_links') or {}).get('instagram_username') or None,
+            'facebook_username': lambda x: (x.get('social_links') or {}).get('facebook_username') or None,
+            'follower_count': lambda x: (x.get('statistics') or {}).get('followers'),
+            'following_count': lambda x: (x.get('statistics') or {}).get('following'),
+            'created_at': lambda x: parse_datetime(int(x['date_joined'])) if x.get('date_joined') else None,
+            'latest_activity_at': lambda x: parse_datetime(int(x['last_login'])) if x.get('last_login') else None,
+        },
+    },
+    'Geocaching': {
+        'url_hints': ('geocaching.com',),
+        'flags': ['geocaching.com', 'ProfileHeader_lblMemberName'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: (lambda t: t.text.strip() if t else None)(x.find(id=re.compile(r'lblMemberName'))),
+            'uid': lambda x: (lambda m: m.group(1) if m else None)(re.search(r'guid=([a-f0-9-]+)', str(x))),
+            'image': lambda x: (lambda t: t['src'] if t and '/default_avatar' not in t.get('src', '') else None)(x.find(id=re.compile(r'uxProfilePhoto'))),
+        },
+    },
+    'Rutracker': {
+        'url_hints': ('rutracker.org', 'rutracker.net'),
+        'flags': ['rutracker', 'avatar-img'],
+        'bs': True,
+        'fields': {
+            'uid': lambda x: (lambda m: m.group(1) if m else None)(re.search(r'privmsg\.php\?mode=post&(?:amp;)?u=(\d+)', str(x))),
+            'username': lambda x: x.title.text.strip() if x.title else None,
+            'image': lambda x: (lambda t: t.find('img')['src'] if t and t.find('img') else None)(x.find(id='avatar-img')),
+            'created_at': lambda x: (lambda m: m.group(1) if m else None)(re.search(r'Зарегистрирован.*?<b[^>]*>(\d{4}-\d{2}-\d{2})', str(x), re.DOTALL)),
+            'posts_count': lambda x: (lambda m: m.group(1).replace(',', '') if m else None)(re.search(r'Сообщения.*?<b>([\d,]+)</b>', str(x), re.DOTALL)),
+        },
+    },
+    'Weburg': {
+        'url_hints': ('weburg.net',),
+        'flags': ['search-item_type_persons', 'weburg.me/user/'],
+        'bs': True,
+        'fields': {
+            'uid': lambda x: (lambda a: _search_group(r'/user/(\d+)', a.get('href', '')) if a else None)(x.find('a', class_='search-item-heading-link')),
+            'username': lambda x: (lambda a: a.text.strip() if a else None)(x.find('a', class_='search-item-heading-link')),
+            'image': lambda x: (lambda i: i['src'] if i else None)(x.find('img', class_='search-item-image')),
+        },
+    },
+    'Pokemon Showdown': {
+        'url_hints': ('pokemonshowdown.com',),
+        'flags': ['pokemonshowdown.com', 'Joined:'],
+        'regex': r'<h1>(?P<fullname>[^<]+)</h1>[\s\S]*?<em>Joined:</em>\s*(?P<created_at>[^<]+)</small>',
+        'fields': {},
+    },
+    'ImageShack': {
+        'url_hints': ('imageshack.com',),
+        'flags': ['IS.start(', 'bootstrapped'],
+        'regex': r'photosTotal:\s*"(?P<photos_count>\d+)",\s*username:\s*"(?P<username>[^"]+)"',
+        'fields': {},
+    },
+    'Replit': {
+        'url_hints': ('replit.com',),
+        'flags': ['__NEXT_DATA__', 'apolloState', '"User:'],
+        'regex': r'id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: next((v for k, v in x.get('props', {}).get('apolloState', {}).items() if k.startswith('User:')), {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('fullName') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('image') or None,
+            'location': lambda x: x.get('location') or None,
+        },
+    },
+    'Itch.io': {
+        'url_hints': ('itch.io',),
+        'flags': ['itch:path', 'itch.io'],
+        'bs': True,
+        'fields': {
+            'uid': lambda x: (lambda m: m['content'].split('/')[-1] if m else None)(x.find('meta', {'name': 'itch:path'})),
+            'fullname': lambda x: (lambda t: t['content'] if t else None)(x.find('meta', {'property': 'og:title'})),
+            'created_at': lambda x: (lambda a: a['title'] if a else None)(x.find('abbr')),
+        },
+    },
+    'Giphy': {
+        'url_hints': ('giphy.com',),
+        'flags': ['giphy.com/channel', 'avatar_url'],
+        'regex': r'\\"display_name\\":\\"(?P<fullname>[^\\]*)\\",\\"about_bio\\":\\"(?P<bio>[^\\]*)\\",\\"avatar\\":\\"(?P<image>[^\\]+)\\"[\s\S]*?\\"is_verified\\":(?P<is_verified>true|false)[\s\S]*?\\"twitter\\":\\"(?P<twitter_username>[^\\]*)\\",\\"instagram\\":\\"(?P<instagram_username>[^\\]*)\\",\\"facebook\\":\\"(?P<facebook_username>[^\\]*)\\",\\"tiktok\\":\\"(?P<tiktok_username>[^\\]*)\\",\\"youtube\\":\\"(?P<youtube_username>[^\\]*)\\",\\"website_url\\":(?:\\"(?P<website>[^\\]*)\\"|null)',
+        'fields': {},
+    },
+    'Wattpad HTML profile': {
+        'url_hints': ('wattpad.com',),
+        'flags': ['wattpad.com/user/', '"allowCrawler"', '"numStoriesPublished"'],
+        'regex': r'"user\.[^"]+":\{"data":\[(\{[\s\S]+?"lastName":"[^"]*"\})\]',
+        'extract_json': True,
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('description') or None,
+            'image': lambda x: x.get('avatar') or None,
+            'image_bg': lambda x: x.get('backgroundUrl') or None,
+            'gender': lambda x: x.get('gender') or None,
+            'location': lambda x: x.get('location') or None,
+            'website': lambda x: x.get('website') or None,
+            'is_verified': lambda x: x.get('verified'),
+            'is_private': lambda x: x.get('isPrivate'),
+            'follower_count': lambda x: x.get('numFollowers'),
+            'following_count': lambda x: x.get('numFollowing'),
+            'posts_count': lambda x: x.get('numStoriesPublished'),
+            'created_at': lambda x: x.get('createDate'),
+            'facebook_username': lambda x: x.get('facebook') or None,
+        },
+    },
+    'Venmo': {
+        'url_hints': ('venmo.com',),
+        'flags': ['__NEXT_DATA__', '"friendCount":', '"initials":'],
+        'regex': r'id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('props', {}).get('pageProps', {}).get('user', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('displayName') or None,
+            'image': lambda x: x.get('profilePictureUrl') or None,
+            'friends_count': lambda x: x.get('friendCount'),
+            'is_active': lambda x: x.get('isActive'),
+        },
+    },
+    'Tumblr blog': {
+        'url_hints': ('tumblr.com',),
+        'flags': ['___INITIAL_STATE___', '"blog-info"', '"uuid":"t:'],
+        'regex': r'id="___INITIAL_STATE___"[^>]*>\s*([\s\S]+?)\s*</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: {
+                **next((q.get('state', {}).get('data', {}) for q in x.get('queries', {}).get('queries', []) if 'blog-info' in str(q.get('queryKey', []))), {}),
+                '_latest_post_ts': (x.get('PeeprRoute', {}).get('initialTimeline', {}).get('objects', [{}]) or [{}])[0].get('timestamp'),
+                '_visible_posts': len(x.get('PeeprRoute', {}).get('initialTimeline', {}).get('objects', []) or []),
+            },
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('uuid'),
+            'username': lambda x: x.get('name'),
+            'fullname': lambda x: x.get('title') or None,
+            'website': lambda x: x.get('url') or None,
+            'image': lambda x: next((a['url'] for a in x.get('avatar', []) if a.get('width') == 512), None) or (x.get('avatar', [{}])[0].get('url') if x.get('avatar') else None),
+            'image_bg': lambda x: (x.get('theme') or {}).get('headerImage') or None,
+            'is_adult': lambda x: x.get('isAdult'),
+            'created_at': lambda x: parse_datetime(int(x['created'])) if x.get('created') else None,
+            'latest_activity_at': lambda x: parse_datetime(int(x['_latest_post_ts'])) if x.get('_latest_post_ts') else None,
+            'last_posts_count': lambda x: x.get('_visible_posts'),
+        },
+    },
+    'Drive2.ru': {
+        'url_hints': ('drive2.ru',),
+        'flags': ['drive2.ru', 'data-ihc-token', 'c-username'],
+        'bs': True,
+        'fields': {
+            'uid': lambda x: (lambda m: m.group(1) if m else None)(re.search(r'data-ihc-token="p/(\d+)"', str(x))),
+            'username': lambda x: (lambda l: l['href'].rstrip('/').rsplit('/', 1)[-1] if l and '/users/' in l.get('href', '') else None)(x.find('link', rel='canonical')),
+            'fullname': lambda x: (lambda m: m['content'].split(',', 1)[1].rsplit('—', 1)[0].strip() if m and ',' in m.get('content', '') else None)(x.find('meta', {'property': 'yandex_recommendations_title'})),
+            'bio': lambda x: (lambda m: m['content'] if m else None)(x.find('meta', {'name': 'description'})),
+            'image': lambda x: (lambda m: m['content'] if m else None)(x.find('meta', {'property': 'og:image'})),
+            'location': lambda x: (lambda m: m['title'] if m else None)(x.find('span', title=re.compile(r'.+,.+'))),
+        },
+    },
+    'Lichess API': {
+        'url_hints': ('lichess.org',),
+        'flags': ['"perfs":', '"playTime":', '"createdAt":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('profile', {}).get('realName') or None,
+            'bio': lambda x: x.get('profile', {}).get('bio') or None,
+            'country_code': lambda x: x.get('profile', {}).get('flag') or None,
+            'location': lambda x: x.get('profile', {}).get('location') or None,
+            'is_verified': lambda x: x.get('verified'),
+            'lichess_is_patron': lambda x: x.get('patron'),
+            'lichess_is_tos_violation': lambda x: x.get('tosViolation'),
+            'created_at': lambda x: x.get('createdAt'),
+            'latest_activity_at': lambda x: x.get('seenAt'),
+            'play_time_seconds': lambda x: x.get('playTime', {}).get('total'),
+            'games_count': lambda x: x.get('count', {}).get('all'),
+            'wins_count': lambda x: x.get('count', {}).get('win'),
+            'losses_count': lambda x: x.get('count', {}).get('loss'),
+            'draws_count': lambda x: x.get('count', {}).get('draw'),
+            'links': lambda x: x.get('profile', {}).get('links') or None,
+            'twitch_username': lambda x: ((x.get('streamer', {}).get('twitch', {}) or {}).get('channel') or '').rstrip('/').rsplit('/', 1)[-1] or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://lichess\.org/@/(?P<username>[^/?#]+)',
+            'to': 'https://lichess.org/api/user/{username}',
+        }],
+    },
+    'Hackerrank API': {
+        'url_hints': ('hackerrank.com',),
+        'flags': ['"model":', '"username":', '"followers_count":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x['model'],
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('short_bio') or None,
+            'country': lambda x: x.get('country') or None,
+            'image': lambda x: x.get('avatar') or None,
+            'website': lambda x: x.get('website') or None,
+            'company': lambda x: x.get('company') or None,
+            'occupation': lambda x: x.get('job_title') or None,
+            'school': lambda x: x.get('school') or None,
+            'created_at': lambda x: x.get('created_at'),
+            'follower_count': lambda x: x.get('followers_count'),
+            'is_admin': lambda x: x.get('is_admin'),
+            'is_deleted': lambda x: x.get('deleted'),
+            'linkedin_username': lambda x: (x.get('linkedin_url') or '').rstrip('/').rsplit('/', 1)[-1] or None,
+            'github_username': lambda x: (x.get('github_url') or '').rstrip('/').rsplit('/', 1)[-1] or None,
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?hackerrank\.com/(?:profile/)?(?P<username>[^/?#]+)',
+            'to': 'https://www.hackerrank.com/rest/contests/master/hackers/{username}/profile',
+        }],
+    },
+    'Kongregate API': {
+        'url_hints': ('kongregate.com',),
+        'flags': ['"user_data":', '"profile_data":', '"badge_count":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('user_data', {}).get('id'),
+            'username': lambda x: x.get('user_data', {}).get('username'),
+            'image': lambda x: x.get('user_data', {}).get('avatar_url') or None,
+            'level': lambda x: x.get('user_data', {}).get('level'),
+            'points': lambda x: x.get('user_data', {}).get('points'),
+            'is_developer': lambda x: x.get('user_data', {}).get('developer'),
+            'is_moderator': lambda x: x.get('user_data', {}).get('moderator'),
+            'is_admin': lambda x: x.get('user_data', {}).get('admin'),
+            'is_premium': lambda x: x.get('user_data', {}).get('premium'),
+            'is_banned': lambda x: x.get('user_data', {}).get('banned'),
+            'facebook_uid': lambda x: x.get('user_data', {}).get('facebook_uid'),
+            'bio': lambda x: x.get('profile_data', {}).get('about') or None,
+            'location': lambda x: x.get('profile_data', {}).get('location') or None,
+            'created_at': lambda x: x.get('profile_data', {}).get('created_at'),
+            'friends_count': lambda x: x.get('profile_data', {}).get('friend_count'),
+            'badge_count': lambda x: x.get('profile_data', {}).get('badge_count'),
+            'comments_count': lambda x: x.get('profile_data', {}).get('comment_count'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?:www\.)?kongregate\.com/accounts/(?P<username>[^/?#.]+)',
+            'to': 'https://www.kongregate.com/accounts/{username}.json',
+        }],
+    },
+    'WordPress.com site API': {
+        'url_hints': ('wordpress.com', 'public-api.wordpress.com'),
+        'flags': ['"jetpack":', '"subscribers_count":', '"is_private":'],
+        'regex': r'^(\{[\s\S]+\})$',
+        'extract_json': True,
+        'fields': {
+            'uid': lambda x: x.get('ID'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('description') or None,
+            'website': lambda x: x.get('URL') or None,
+            'image': lambda x: (x.get('icon') or {}).get('img') or None,
+            'follower_count': lambda x: x.get('subscribers_count'),
+            'is_private': lambda x: x.get('is_private'),
+            'is_deleted': lambda x: x.get('is_deleted'),
+        },
+        'url_mutations': [{
+            'from': r'https?://(?P<username>[^/?#.]+)\.wordpress\.com/?',
+            'to': 'https://public-api.wordpress.com/rest/v1.1/sites/{username}.wordpress.com',
+        }],
+    },
+    'Codecademy profile': {
+        'url_hints': ('codecademy.com',),
+        'flags': ['__NEXT_DATA__', '"profile":', '"profileImageUrl":', '"proGold":'],
+        'regex': r'id="__NEXT_DATA__"[^>]*>([\s\S]+?)</script>',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: x.get('props', {}).get('pageProps', {}).get('profile', {}),
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('name') or None,
+            'bio': lambda x: x.get('bio') or None,
+            'image': lambda x: x.get('profileImageUrl') or None,
+            'is_pro': lambda x: x.get('pro'),
+            'codecademy_is_pro_gold': lambda x: x.get('proGold'),
+            'is_private': lambda x: True if x.get('__typename') == 'PrivateUser' else None,
+        },
+    },
+    'About.me profile': {
+        'url_hints': ('about.me',),
+        'flags': ['about.me', 'aboutme_prod:page', 'application/ld+json'],
+        'bs': True,
+        'fields': {
+            'fullname': lambda x: _fl_ld(x, 'name'),
+            'bio': lambda x: _fl_ld(x, 'description'),
+            'website': lambda x: _fl_ld(x, 'url'),
+            'image': lambda x: _fl_ld(x, 'image', 'url'),
+        },
+    },
+    'Fur Affinity profile': {
+        'url_hints': ('furaffinity.net',),
+        'flags': ['Fur Affinity', 'og:title', 'Userpage of'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'/user/([^/?#]+)/?'),
+            'fullname': lambda x: _meta_re(x, 'og:title', r'Userpage of\s+(.+?)\s+--'),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Pikabu profile': {
+        'url_hints': ('pikabu.ru',),
+        'flags': ['pikabu.ru', 'data-user-id=', 'profile__nick'],
+        'bs': True,
+        'fields': {
+            'uid': lambda x: (lambda t: t.get('data-user-id') if t else None)(x.find(attrs={'data-user-id': True})),
+            'username': lambda x: _meta_re(x, 'og:url', r'/@([^/?#]+)'),
+            'image': lambda x: _meta(x, 'og:image') or None,
+        },
+    },
+    'Codepen profile': {
+        'url_hints': ('codepen.io',),
+        'flags': ['codepen.io', 'og:url', 'CodePen'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'codepen\.io/([^/?#]+)'),
+            'fullname': lambda x: _meta_re(x, 'og:title', r'^(.+?)\s+on CodePen$'),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Letterboxd profile': {
+        'url_hints': ('letterboxd.com',),
+        'flags': ['letterboxd.com', 'og:url', 'Letterboxd'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'letterboxd\.com/([^/?#]+)/?'),
+            'fullname': lambda x: _meta_re(x, 'og:title', r'^(.+?)(?:’s|\'s)\s+profile$'),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Gitee profile': {
+        'url_hints': ('gitee.com',),
+        'flags': ['Gitee.com', 'og:url', 'gon.info'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:title', r'\(([^)]+)\)'),
+            'fullname': lambda x: _meta_re(x, 'og:title', r'^(.+?)\s*\('),
+            'image': lambda x: _meta(x, 'og:image'),
+            'bio': lambda x: _meta(x, 'og:description'),
+        },
+    },
+    'Slack workspace': {
+        'url_hints': ('slack.com',),
+        'flags': ['slack.com', 'og:url', 'team_id'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'https?://([^./]+)\.slack\.com'),
+            'fullname': lambda x: _meta(x, 'og:title'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Instructables member': {
+        'url_hints': ('instructables.com',),
+        'flags': ['Instructables', 'og:type', '/member/'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'/member/([^/?#]+)/?'),
+            'fullname': lambda x: _meta(x, 'og:title'),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Envato Author profile': {
+        'url_hints': (
+            'themeforest.net', 'codecanyon.net', 'audiojungle.net',
+            'graphicriver.net', 'photodune.net', 'videohive.net', '3docean.net',
+        ),
+        'flags': ['profile on', 'envato', '/user/'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'/user/([^/?#]+)'),
+            'fullname': lambda x: _meta_re(x, 'og:title', r"^(.+?)(?:'s|&#39;s)\s+profile on"),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+            'envato_marketplace': lambda x: _meta_re(x, 'og:title', r"profile on (\S+)$"),
+        },
+    },
+    'Kwork freelancer': {
+        'url_hints': ('kwork.ru', 'kwork.com'),
+        'flags': ['Kwork', '<title>', '/user/'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: (lambda t: _search_group(r'\(([^)]+)\)', t.text) if t else None)(x.find('title')),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Freesound user': {
+        'url_hints': ('freesound.org',),
+        'flags': ['freesound.org', '/people/', 'Freesound'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: (lambda a: _search_group(r'/people/([^/?#]+)/', a.get('href', '')) if a else None)(x.find('a', title=re.compile(r'^Username:'))),
+            'fullname': lambda x: (lambda h: h.get_text(strip=True) if h else None)(x.find('h1')),
+        },
+    },
+    'Star Citizen citizen': {
+        'url_hints': ('robertsspaceindustries.com',),
+        'flags': ['robertsspaceindustries', 'UEE Citizen Record', 'Handle name'],
+        'bs': True,
+        'fields': {
+            'uid': lambda x: _sc_value(x, 'UEE Citizen Record', strip='#'),
+            'username': lambda x: _sc_value(x, 'Handle name'),
+            'created_at': lambda x: _sc_value(x, 'Enlisted'),
+            'location': lambda x: _sc_value(x, 'Location'),
+            'sc_organization_rank': lambda x: _sc_value(x, 'Organization rank'),
+            'sc_sid': lambda x: _sc_value(x, 'Spectrum Identification (SID)'),
+            'sc_fluency': lambda x: _sc_value(x, 'Fluency'),
+        },
+    },
+    'Dribbble profile': {
+        'url_hints': ('dribbble.com',),
+        'flags': ['dribbble.com', 'og:type', 'Dribbble', 'profile'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'dribbble\.com/([^/?#]+)'),
+            'fullname': lambda x: _meta(x, 'og:title'),
+            'bio': lambda x: _meta(x, 'description', tag_attr='name'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Depop shop': {
+        'url_hints': ('depop.com',),
+        'flags': ['depop.com', 'og:url', 'Depop'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'depop\.com/([^/?#]+)/?'),
+            'fullname': lambda x: _meta_re(x, 'og:title', r"^(.+?)(?:’s|'s)\s+Shop"),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'ModDB member': {
+        'url_hints': ('moddb.com',),
+        'flags': ['moddb.com', '/members/', 'ModDB'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'/members/([^/?#]+)'),
+            'fullname': lambda x: _meta(x, 'og:title'),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Xbox Gamertag': {
+        'url_hints': ('xboxgamertag.com',),
+        'flags': ['Xbox Gamertag', 'Xbox Live Profile'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'description', r"^(.+?)(?:’s|'s)\s+Xbox Live Profile", tag_attr='name'),
+            'fullname': lambda x: _meta_re(x, 'description', r"^(.+?)(?:’s|'s)\s+Xbox Live Profile", tag_attr='name'),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'DonationAlerts streamer': {
+        'url_hints': ('donationalerts.com',),
+        'flags': ['donationalerts.com', 'DonationAlerts', '/r/'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'donationalerts\.com/r/([^/?#]+)'),
+            'image': lambda x: (lambda v: v if v and 'da_logo' not in v else None)(_meta(x, 'og:image')),
+        },
+    },
+    'CCM profile': {
+        'url_hints': ('ccm.net',),
+        'flags': ['ccm.net', "'s profile - CCM", '/profile/user/'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: (lambda t: _search_group(r"^(.+?)(?:’s|'s)\s+profile - CCM$", t.text) if t else None)(x.find('title')),
+            'image': lambda x: _meta(x, 'og:image'),
+        },
+    },
+    'Wikidot user': {
+        'url_hints': ('wikidot.com',),
+        'flags': ['Wikidot', 'profile-title', 'profile-box'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: (lambda t: t.get_text(strip=True) if t else None)(x.find(class_='profile-title')),
+            'gender': lambda x: _wikidot_field(x, 'Gender'),
+            'website': lambda x: _wikidot_field(x, 'Website'),
+            'created_at': lambda x: _wikidot_field(x, 'Wikidot user since'),
+            'wikidot_account_type': lambda x: _wikidot_field(x, 'Account type'),
+            'karma': lambda x: _wikidot_field(x, 'Karma level'),
+        },
+    },
+    'Couchsurfing person': {
+        'url_hints': ('couchsurfing.com',),
+        'flags': ['couchsurfing.com', 'Couchsurfing', '/people/'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'/people/([^/?#]+)'),
+            'fullname': lambda x: (lambda v: v if v and v.lower() != 'couchsurfing' else None)(_meta(x, 'og:title')),
+            'bio': lambda x: (lambda v: v if v and 'Couchsurfers share their homes' not in (v or '') else None)(_meta(x, 'og:description')),
+            'image': lambda x: (lambda v: v if v and 'og_image-' not in (v or '') else None)(_meta(x, 'og:image')),
+        },
+    },
+    'ReverbNation artist': {
+        'url_hints': ('reverbnation.com',),
+        'flags': ['reverbnation.com', 'ReverbNation', 'og:type'],
+        'bs': True,
+        'fields': {
+            'username': lambda x: _meta_re(x, 'og:url', r'reverbnation\.com/([^/?#]+)'),
+            'fullname': lambda x: _meta_re(x, 'og:title', r'^(.+?)(?:\s*\|\s*)'),
+            'bio': lambda x: _meta(x, 'og:description'),
+            'image': lambda x: (lambda v: v if v and 'rn-logo' not in (v or '') else None)(_meta(x, 'og:image')),
+        },
+    },
+    # XenForo has no public API — everything comes off the member page, and one
+    # scheme covers every instance of it.
+    'XenForo': {
+        'flags': ['data-user-id="', '/members/'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_xenforo_profile],
+        'fields': {
+            'uid': lambda x: x.get('uid'),
+            'username': lambda x: x.get('username'),
+            'image': lambda x: x.get('image'),
+            'created_at': lambda x: x.get('created_at'),
+            'latest_activity_at': lambda x: x.get('latest_activity_at'),
+            'posts_count': lambda x: x.get('posts_count'),
+            'xenforo_points': lambda x: x.get('xenforo_points'),
+        },
+    },
+    'Lemmy API': {
+        'flags': ['"person_view"', '"person"', '"actor_id"', '"counts"', '"published"'],
+        'regex': r'^\s*(\{[\s\S]+\})\s*$',
+        'extract_json': True,
+        'transforms': [
+            json.loads,
+            lambda x: (x.get('person_view') or {}).get('person') or {},
+            json.dumps,
+        ],
+        'fields': {
+            'uid': lambda x: x.get('id'),
+            'username': lambda x: x.get('name'),
+            'fullname': lambda x: x.get('display_name'),
+            'bio': lambda x: x.get('bio'),
+            'image': lambda x: x.get('avatar'),
+            'created_at': lambda x: x.get('published'),
+        },
+        'url_hints': ('/u/', '/api/v3/user'),
+        'url_mutations': [{
+            # v3 only: other versions are not silently assumed to be compatible.
+            'from': r'^(?P<base>https?://[^/?#]+)/u/(?P<username>[A-Za-z0-9_-]+(?:@[A-Za-z0-9.-]+(?::[0-9]+)?)?)(?:/?(?:[?#].*)?)$',
+            'to': '{base}/api/v3/user?username={username}',
+        }],
+    },
+    'NodeBB API': {
+        'flags': ['"userslug"', '"joindate"', '"postcount"', '"icon:bgColor"', '"email:confirmed"'],
+        'regex': r'^\s*(\{[\s\S]+\})\s*$',
+        'extract_json': True,
+        'transforms': [_nodebb_profile],
+        'fields': {
+            'uid': lambda x: x.get('uid'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('fullname'),
+            'image': lambda x: x.get('picture'),
+            'created_at': lambda x: parse_datetime(x.get('joindate')),
+            'latest_activity_at': lambda x: parse_datetime(x.get('lastonline')),
+            'posts_count': lambda x: x.get('postcount'),
+            'follower_count': lambda x: x.get('followerCount'),
+            'following_count': lambda x: x.get('followingCount'),
+        },
+        'url_hints': ('/user/',),
+        'url_mutations': [{
+            # Profile URLs contain a userslug, which need not equal the username.
+            # Use the slug endpoint rather than /api/user/username/<slug>. Preserve
+            # the scheme and installation path, and do not mutate API URLs again.
+            'from': r'^(?P<base>https?://[^/?#]+(?:/(?!api(?:/|$))[^/?#]+)*?)/user/'
+                    r'(?P<userslug>[^/?#]+)(?:/|$|[?#])',
+            'to': '{base}/api/user/{userslug}',
+        }],
+    },
+    # phpBB has no public API either. One scheme reads the three pages a board
+    # answers about a member: the member list filtered by name, the author
+    # search, and the profile itself.
+    'phpBB': {
+        'url_hints': ('memberlist.php', 'search.php?author='),
+        'flags': ['id="phpbb"', 'memberlist.php?mode=viewprofile'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_phpbb_profile],
+        'fields': {
+            'uid': lambda x: x.get('uid'),
+            'username': lambda x: x.get('username'),
+            'created_at': lambda x: x.get('created_at'),
+            'posts_count': lambda x: x.get('posts_count'),
+            'website': lambda x: x.get('website'),
+        },
+    },
+    'Gitea / Forgejo': {
+        # self-hosted, so there is no single host to hint at; these are the names
+        # instances most often carry (gitea.com, codeberg.org, code.*, git.*)
+        'url_hints': ('gitea', 'forgejo', 'codeberg', 'code.', 'git.'),
+        'flags': ['id="profile-avatar-card"', 'appSubUrl', '?tab=followers'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_gitea_profile],
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('fullname'),
+            'image': lambda x: x.get('image'),
+            'created_at': lambda x: x.get('created_at'),
+            'follower_count': lambda x: x.get('follower_count'),
+            'following_count': lambda x: x.get('following_count'),
+        },
+    },
+    'bbPress': {
+        # a WordPress plugin, so the forum lives wherever the site keeps it;
+        # these are the path pieces bbPress itself puts in a profile URL
+        'url_hints': ('/forums/users/', '/forums/profile/', 'bbpress'),
+        'flags': ['bbpress-forums', 'bbp-user-profile'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_bbpress_profile],
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('fullname'),
+            'image': lambda x: x.get('image'),
+            'created_ago': lambda x: x.get('created_ago'),
+            'created_at': lambda x: x.get('created_at'),
+            'role': lambda x: x.get('role'),
+            'topics_count': lambda x: x.get('topics_count'),
+            'replies_count': lambda x: x.get('replies_count'),
+            'bio': lambda x: x.get('bio'),
+        },
+    },
+    'BuddyPress': {
+        # a WordPress plugin; /members/ is the path BuddyPress itself uses
+        'url_hints': ('/members/', 'buddypress'),
+        'flags': ['buddypress', '/members/', '-avatar avatar-'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_buddypress_profile],
+        'fields': {
+            'uid': lambda x: x.get('uid'),
+            'username': lambda x: x.get('username'),
+            'fullname': lambda x: x.get('fullname'),
+            'image': lambda x: x.get('image'),
+            'latest_activity_at': lambda x: x.get('latest_activity_at'),
+        },
+    },
+    'Vanilla': {
+        'url_hints': ('/profile/', 'vanillaforums'),
+        'flags': ['gdn.meta', 'Section-Profile'],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [_vanilla_profile],
+        'fields': {
+            'username': lambda x: x.get('username'),
+            'image': lambda x: x.get('image'),
+            'created_at': lambda x: x.get('created_at'),
+            'latest_activity_at': lambda x: x.get('latest_activity_at'),
+            'visits_count': lambda x: x.get('visits_count'),
+            'points': lambda x: x.get('points'),
+            'role': lambda x: x.get('role'),
         },
     },
 }

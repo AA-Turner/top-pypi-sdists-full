@@ -57,7 +57,7 @@ class PythonVersion(Enum):
         return python_target_meets(construct, self.version_key)
 
     @property
-    def has_union_operator(self) -> bool:  # pragma: no cover
+    def has_union_operator(self) -> bool:
         """Check if Python version supports the union operator (|)."""
         return self._meets("python.union_operator")
 
@@ -164,6 +164,7 @@ __all__ = [
     "MAX_SHORT_DEFAULT_OVERFLOW",
     "MAX_TOP_LEVEL_BLANK_LINES",
     "NEWEST_TARGET",
+    "RUFF_FORMATTERS",
     "STRING_PREFIX_PATTERN",
     "TYPE_ALIAS_INLINE_ARGUMENT_COUNT",
     "DateClassType",

@@ -40,6 +40,7 @@ from anyscale.client.openapi_client.models import (
 from anyscale.cloud_utils import get_cloud_id_and_name
 from anyscale.controllers.cloud_controller import CloudController
 from anyscale.controllers.kubernetes_verifier import KubectlOperations
+from anyscale.errors import ResourceNotFoundError
 from anyscale.shared_anyscale_utils.conf import (
     ANYSCALE_CORS_EXPOSE_HEADERS,
     ANYSCALE_CORS_ORIGIN,
@@ -54,6 +55,8 @@ HELM_REPO_NAME = "anyscale"
 HELM_REPO_URL = "https://anyscale.github.io/helm-charts"
 CONNECTOR_CHART_REF = "anyscale/anyscale-connector"
 CONNECTOR_RELEASE_NAME = "anyscale-connector"
+# Where --skip-install writes the chart's values unless --values-file names a path.
+DEFAULT_VALUES_FILE = "anyscale-connector-values.yaml"
 # The chart's default service account (values.yaml connector.serviceAccount.name).
 # The name registered with Anyscale and the name the chart deploys must agree --
 # the token subject is verified against the registration -- so both sides read one
@@ -258,6 +261,35 @@ def _stack_delete_command(infra: AwsInfra) -> str:
     )
 
 
+def _values_from_set_args(set_args: Sequence[str]) -> Dict[str, Any]:
+    """The values tree helm builds from this command's own --set/--set-string pairs.
+
+    Not a general --set parser: it takes only what this command emits (dots inside a key
+    escaped as `\\.`, booleans for --set) and raises on anything else.
+    """
+    if len(set_args) % 2:
+        raise ValueError(f"Unpaired helm --set arguments: {list(set_args)}")
+    values: Dict[str, Any] = {}
+    for flag, pair in zip(set_args[::2], set_args[1::2]):
+        key, sep, raw = pair.partition("=")
+        # helm splits a value on commas and reads backslashes as escapes.
+        if not sep or not key or "," in raw or "\\" in raw:
+            raise ValueError(f"Unsupported helm {flag} value: {pair}")
+        value: Any
+        if flag == "--set-string":
+            value = raw
+        elif flag == "--set" and raw in ("true", "false"):
+            value = raw == "true"
+        else:
+            raise ValueError(f"Unsupported helm {flag} value: {pair}")
+        *parents, leaf = [part.replace("\\.", ".") for part in re.split(r"(?<!\\)\.", key)]
+        node = values
+        for part in parents:
+            node = node.setdefault(part, {})
+        node[leaf] = value
+    return values
+
+
 class KubeRayCloudSetupCommand:
     """Command to set up a KubeRay (connector) cloud."""
 
@@ -278,7 +310,7 @@ class KubeRayCloudSetupCommand:
                 "then re-run setup."
             )
 
-    def run(  # noqa: PLR0913
+    def run(  # noqa: PLR0912, PLR0913
         self,
         name: str,
         cluster_context: Optional[str],
@@ -292,13 +324,19 @@ class KubeRayCloudSetupCommand:
         ingress_class: Optional[str] = None,
         test_job: Optional[bool] = None,
         control_plane_domain: Optional[str] = None,
+        skip_install: bool = False,
+        values_file: Optional[str] = None,
     ) -> None:
         """Create a KubeRay cloud end to end: infra, registration, connector.
 
         Opinionated on scope too: workloads run in the connector's namespace.
         A cloud that needs more namespaces registers through `cloud register`,
         where allowed_namespaces is an explicit input.
+
+        With skip_install, setup writes the chart's values to a file instead of
+        installing the chart.
         """
+        values_path = Path(values_file or DEFAULT_VALUES_FILE)
         if not _NAMESPACE_PATTERN.match(namespace):
             raise click.ClickException(
                 f"'{namespace}' is not a valid Kubernetes namespace (lowercase "
@@ -318,6 +356,7 @@ class KubeRayCloudSetupCommand:
         try:
             self._check_required_tools()
             self._log_login()
+            self._check_cloud_name_unused(name)
             # Needs only the login and the flags: an unknown console fails before any
             # cluster or AWS call.
             control_plane = self._plan_control_plane(control_plane_domain, connector_values)
@@ -393,17 +432,26 @@ class KubeRayCloudSetupCommand:
                 registered = True
                 cloud_id, cloud_resource_id = self._resolve_cloud_ids(name)
 
-                install_started = True
-                self._install_connector(
-                    chart_reference=chart_reference,
-                    namespace=namespace,
-                    cloud_id=cloud_id,
-                    cloud_resource_id=cloud_resource_id,
-                    cluster_context=cluster_context,
-                    connector_values=connector_values,
-                    role_arn=infra.role_arn,
-                    extra_set_args=scan_sets,
-                )
+                if skip_install:
+                    self._write_connector_values(
+                        values_path,
+                        [
+                            *self._connector_set_args(cloud_id, cloud_resource_id, infra.role_arn),
+                            *scan_sets,
+                        ],
+                    )
+                else:
+                    install_started = True
+                    self._install_connector(
+                        chart_reference=chart_reference,
+                        namespace=namespace,
+                        cloud_id=cloud_id,
+                        cloud_resource_id=cloud_resource_id,
+                        cluster_context=cluster_context,
+                        connector_values=connector_values,
+                        role_arn=infra.role_arn,
+                        extra_set_args=scan_sets,
+                    )
             # KeyboardInterrupt included: Ctrl+C during the 10-minute helm wait
             # must still tell the user what already exists.
             except (Exception, KeyboardInterrupt) as e:
@@ -419,6 +467,17 @@ class KubeRayCloudSetupCommand:
                 )
                 raise
             assert infra is not None  # Set before registration.
+            if skip_install:
+                # Nothing is installed, so there is nothing to annotate, wait for or verify.
+                self._log_install_instructions(
+                    values_path=values_path,
+                    namespace=namespace,
+                    cluster_context=cluster_context,
+                    chart_reference=chart_reference,
+                    connector_values=connector_values,
+                    role_arn=infra.role_arn,
+                )
+                return
 
             # Past this point nothing is half-created: a poll timeout's own
             # message carries the conditional cleanup guidance instead. Every
@@ -489,6 +548,29 @@ class KubeRayCloudSetupCommand:
     def _debug(self, msg: str) -> None:
         if self.debug:
             self.log.info(f"[DEBUG] {msg}")
+
+    def _check_cloud_name_unused(self, name: str) -> None:
+        """Stop before any cluster or AWS call when a cloud already has this name.
+
+        Registration refuses a taken name only after the infrastructure step has reused
+        the stack named for it (_stack_name), so the failure's cleanup advice would name
+        the stack holding the live cloud's bucket and role.
+        """
+        try:
+            self.cloud_controller.api_client.find_cloud_by_name_api_v2_clouds_find_by_name_post(
+                cloud_name_options={"name": name}
+            )
+        except ResourceNotFoundError:
+            return
+        except Exception as e:  # noqa: BLE001
+            # ANYSCALE_DEBUG=1 re-raises the client's own exception, which carries the status.
+            if getattr(e, "status", None) == 404:
+                return
+            raise click.ClickException(f"Could not check whether cloud '{name}' exists: {e}")
+        # No delete hint: the existing cloud may be someone else's.
+        raise click.ClickException(
+            f"A cloud named '{name}' already exists. Choose another --name."
+        )
 
     def _check_no_existing_release(self, namespace: str, cluster_context: Optional[str]) -> None:
         """Stop if the connector release exists: this command installs a fresh connector and
@@ -1850,21 +1932,10 @@ class KubeRayCloudSetupCommand:
             "--wait",
             "--timeout",
             HELM_WAIT_TIMEOUT,
-            "--set-string",
-            f"global.cloudId={cloud_id}",
-            "--set-string",
-            f"global.cloudResourceId={cloud_resource_id}",
+            *self._connector_set_args(cloud_id, cloud_resource_id, role_arn),
+            # What the cluster scan decided: operator, GPU metrics and ingress sets.
+            *extra_set_args,
         ]
-        # The chart takes one annotations map per ServiceAccount it creates; all
-        # three components read the bucket, so the role lands on each. The dots
-        # in the annotation key are escaped so helm keeps them in one key.
-        escaped_key = IRSA_ROLE_ANNOTATION.replace(".", "\\.")
-        for values_path in CHART_SERVICE_ACCOUNT_VALUES:
-            argv += ["--set-string", f"{values_path}.annotations.{escaped_key}={role_arn}"]
-        # What the cluster scan decided: operator, GPU metrics and ingress sets.
-        argv += list(extra_set_args)
-        # global.allowedNamespaces is not set: the chart's webhook selector
-        # falls back to the release namespace, which is exactly the scope.
         if cluster_context:
             argv += ["--kube-context", cluster_context]
         if connector_values:
@@ -1876,6 +1947,66 @@ class KubeRayCloudSetupCommand:
         except subprocess.CalledProcessError as e:
             raise click.ClickException(f"Failed to install Anyscale connector: {e.stderr}")
         self.log.info("Connector installed", block_label="Setup")
+
+    @staticmethod
+    def _connector_set_args(cloud_id: str, cloud_resource_id: str, role_arn: str) -> List[str]:
+        """The values every connector install sets, whether setup runs helm or writes a file."""
+        args = [
+            "--set-string",
+            f"global.cloudId={cloud_id}",
+            "--set-string",
+            f"global.cloudResourceId={cloud_resource_id}",
+        ]
+        # The chart takes one annotations map per ServiceAccount it creates; all
+        # three components read the bucket, so the role lands on each. The dots
+        # in the annotation key are escaped so helm keeps them in one key.
+        escaped_key = IRSA_ROLE_ANNOTATION.replace(".", "\\.")
+        for service_account_values in CHART_SERVICE_ACCOUNT_VALUES:
+            args += [
+                "--set-string",
+                f"{service_account_values}.annotations.{escaped_key}={role_arn}",
+            ]
+        # global.allowedNamespaces is not set: the chart's webhook selector
+        # falls back to the release namespace, which is exactly the scope.
+        return args
+
+    def _write_connector_values(self, path: Path, set_args: Sequence[str]) -> None:
+        """Write the values the install would have set, for the user's own install."""
+        values = _values_from_set_args(set_args)
+        # The cloud already exists by now, so a new GitOps folder must not fail the write.
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(yaml.safe_dump(values, default_flow_style=False, sort_keys=False))
+        self.log.info(f"Wrote the connector's Helm values to {path}", block_label="Setup")
+
+    def _log_install_instructions(  # noqa: PLR0913
+        self,
+        values_path: Path,
+        namespace: str,
+        cluster_context: Optional[str],
+        chart_reference: str,
+        connector_values: Optional[str],
+        role_arn: str,
+    ) -> None:
+        """Print the install a --skip-install run leaves to the user."""
+        helm = f"helm --kube-context {cluster_context}" if cluster_context else "helm"
+        kubectl = f"kubectl --context {cluster_context}" if cluster_context else "kubectl"
+        # The later --values file wins, as setup's own --set args beat --connector-values.
+        extra_values = f" --values {connector_values}" if connector_values else ""
+        self.log.info("")
+        self.log.info(
+            f"KubeRay cloud registered. The connector is not installed: install the chart "
+            f"({HELM_REPO_URL}) as release {CONNECTOR_RELEASE_NAME} in namespace {namespace} "
+            "with your GitOps tool, or with helm:"
+        )
+        self.log.info(
+            f"  {helm} install {CONNECTOR_RELEASE_NAME} {chart_reference} --namespace "
+            f"{namespace} --create-namespace{extra_values} --values {values_path}"
+        )
+        self.log.info("Then give Ray pods in that namespace access to the bucket:")
+        self.log.info(
+            f"  {kubectl} -n {namespace} annotate serviceaccount default "
+            f"{IRSA_ROLE_ANNOTATION}={role_arn} --overwrite"
+        )
 
     def _annotate_workload_service_account(
         self,
@@ -2043,6 +2174,8 @@ def setup_kuberay_cloud(  # noqa: PLR0913
     ingress_class: Optional[str] = None,
     test_job: Optional[bool] = None,
     control_plane_domain: Optional[str] = None,
+    skip_install: bool = False,
+    values_file: Optional[str] = None,
 ) -> None:
     """Set up an Anyscale KubeRay (connector) cloud on a Kubernetes cluster."""
     cmd = KubeRayCloudSetupCommand(debug=debug)
@@ -2060,6 +2193,8 @@ def setup_kuberay_cloud(  # noqa: PLR0913
             ingress_class=ingress_class,
             test_job=test_job,
             control_plane_domain=control_plane_domain,
+            skip_install=skip_install,
+            values_file=values_file,
         )
     except click.Abort:
         raise

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-env
-Version: 1.8.6
+Version: 1.8.7
 Import-Name: pytest_env
 Summary: Set environment variables for pytest sessions.
 Project-URL: Changelog, https://github.com/pytest-dev/pytest-env/blob/main/CHANGELOG.md
@@ -130,7 +130,8 @@ pytest --envfile +.env.override       # load configured env_files first, then th
 ```
 
 To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`. A `${VAR}`
-reference in a `.env` file then expands to the kept value:
+reference in a `.env` file then expands to the kept value. Native TOML reserves `env_files_skip_if_set` for this option
+and requires an unquoted `true` or `false`. A string such as `"true"` stops pytest before collection.
 
 ```toml
 [tool.pytest_env]
@@ -159,10 +160,10 @@ HOME = { value = "~/tmp", skip_if_set = true }
 TEMP_VAR = { unset = true }
 ```
 
-`transform` expands `{VAR}` placeholders using existing environment variables. `skip_if_set` leaves the variable
-unchanged when it already exists. For `.env` files, use `env_files_skip_if_set = true`. `unset` removes it entirely
-(different from setting to empty string). When an entry combines `skip_if_set` with `unset`, an existing variable is
-kept.
+`transform` expands `{VAR}` placeholders using existing environment variables. Windows looks up these names without
+regard to case. `skip_if_set` leaves the variable unchanged when it already exists. For `.env` files, use
+`env_files_skip_if_set = true`. `unset` removes it entirely (different from setting to empty string). When an entry
+combines `skip_if_set` with `unset`, an existing variable is kept.
 
 ### Set different environments for test suites
 
@@ -247,6 +248,9 @@ env = [
 In `pytest.toml` / `.pytest.toml`, this pytest-native `[pytest]` table is an alternative to the plugin-specific
 `[pytest_env]` TOML table described above. Both forms work there, so `pytest.toml` does not have to use `[pytest_env]`.
 
+In pytest’s native TOML options, `env` and `env_files` take lists of strings and `env_files_skip_if_set` takes a
+boolean. A type error names the option and expected type.
+
 Prefix flags modify behavior. Flags are case-insensitive and can be combined in any order (e.g., `R:D:KEY=VALUE`):
 
 | Flag | Description                                                          |
@@ -281,6 +285,8 @@ env_files =
 Files are parsed by [python-dotenv](https://github.com/theskumar/python-dotenv) and support `KEY=VALUE` lines, `#`
 comments, `export` prefix, quoted values with escape sequences in double quotes, and `${VAR:-default}` expansion.
 
+Malformed statements are skipped. pytest reports their file and line number in its warning summary.
+
 Example `.env` file:
 
 ```shell
@@ -291,8 +297,9 @@ MESSAGE="hello\nworld"
 API_KEY=${FALLBACK_KEY:-default_key}
 ```
 
-Missing `.env` files from configuration are silently skipped. Configured `env_files` are resolved relative to the
-project root. An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback;
+Both `env_files` and `--envfile` accept regular files. A directory or named pipe at a selected path stops pytest with a
+usage error. Missing `.env` files from configuration are silently skipped. Configured `env_files` are resolved relative
+to the project root. An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback;
 omitting the key preserves that fallback. CLI `--envfile` paths still load in either case, resolved relative to the
 directory pytest was invoked from, then the project root.
 
@@ -324,6 +331,8 @@ pytest-env:
   UNSET TEMP_VAR                               (from /path/to/pyproject.toml)
 ```
 
+Entries supplied through `-o env=...` show `-o env` as their source.
+
 Non-printable characters in names, values and paths are shown escaped, so each assignment stays on one line.
 
 Useful for debugging when multiple env files, inline configuration, and CLI options interact.
@@ -345,6 +354,8 @@ precedence over INI format. Among TOML files, the first file with a `pytest_env`
 `pytest.toml`, `.pytest.toml`, `pyproject.toml`. A TOML file with another name selected with `-c` is checked first and
 is read like `pytest.toml`. If no TOML file contains `pytest_env`, the plugin falls back to INI-style `env`
 configuration.
+
+When the operating system rejects an assignment, pytest stops before collection and names the variable and its source.
 
 ### File discovery
 

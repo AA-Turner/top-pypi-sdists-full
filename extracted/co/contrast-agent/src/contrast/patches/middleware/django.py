@@ -148,6 +148,7 @@ def get_app_name() -> str:
     return application.split(".")[0]
 
 
+@scope.contrast_scope()
 @fail_loudly("Failed to initialize Django-specific instrumentation")
 def initialize_django():
     # Lazy import for django

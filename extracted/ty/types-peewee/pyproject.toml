@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-peewee"
-version = "4.5.3.20261029"
+version = "4.5.3.20261120"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for peewee"
@@ -29,13 +29,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.4.0
-* [pyrefly](https://pyrefly.org/) 1.4.0
+* [mypy](https://www.mypy-lang.org/) 2.4.1
+* [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.90
+* [ty](https://docs.astral.sh/ty/) 0.0.102
 
 It was generated from typeshed commit
-[`d3fe4dd2f928b33aa50d347a21ea30a8c9c9811e`](https://github.com/python/typeshed/commit/d3fe4dd2f928b33aa50d347a21ea30a8c9c9811e).
+[`b208a42e574f777f214cf583b05b8b3a583e233c`](https://github.com/python/typeshed/commit/b208a42e574f777f214cf583b05b8b3a583e233c).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -54,9 +54,9 @@ dependencies = []
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['peewee-stubs', 'playhouse-stubs']
+packages = ['playhouse-stubs', 'peewee-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'peewee-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
 'playhouse-stubs' = ['__init__.pyi', 'flask_utils.pyi', 'METADATA.toml', 'py.typed']
+'peewee-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']

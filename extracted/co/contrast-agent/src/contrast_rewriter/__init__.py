@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import contextlib
 import contextvars
 import copy
 import cProfile
@@ -102,6 +103,10 @@ class DeferredLogger:
 # Can't use our Namespace here since we don't want to import contrast package yet
 class rewriter_module:
     logger = DeferredLogger()
+    # Callable returning a context manager. This is a no-op until the contrast package
+    # is available, at which point it's replaced with `contrast.agent.scope.contrast_scope`.
+    contrast_scope = contextlib.nullcontext
+    pop_contrast_scope = contextlib.nullcontext
     enabled: bool = False
     registry = set()
 
@@ -215,7 +220,9 @@ def stop_profiler(filename_slug: str):
 orig_compile = builtins.compile
 
 
-def _load_module(source, module, filename, *, force_optimize=False):
+def _load_module(
+    source, module, filename, *, force_optimize=False, pop_scope=contextlib.nullcontext
+):
     """
     Convenience method to compile and execute the given module source
 
@@ -233,7 +240,9 @@ def _load_module(source, module, filename, *, force_optimize=False):
     code = orig_compile(
         source, filename, "exec", dont_inherit=True, optimize=optimize_flag
     )
-    exec(code, module.__dict__)
+    # The module body is application code, so it must not run in contrast scope
+    with pop_scope():
+        exec(code, module.__dict__)
 
 
 def add_dependency_to_module(module: ModuleType, dependency: ModuleType):
@@ -260,6 +269,11 @@ class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
         self.in_progress = set()
 
     def find_spec(self, fullname, path, target=None):
+        logger = rewriter_module.logger
+        with rewriter_module.contrast_scope():
+            return self._find_spec(fullname, path, logger)
+
+    def _find_spec(self, fullname, path, logger):
         """
         The finder is in charge of finding a module's "spec". The spec includes import
         machinery metadata about the module - including its name, source file path, and
@@ -285,7 +299,7 @@ class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
                 or spec.origin is None
                 or not isinstance(spec.loader, importlib.machinery.SourceFileLoader)
             ):
-                rewriter_module.logger.debug(
+                logger.debug(
                     "Skipping non-source module",
                     module_name=fullname,
                     path=getattr(spec, "origin", "<unknown>"),
@@ -306,7 +320,7 @@ class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
             if loader and not isinstance(loader, _ContrastImportHookChainedLoader):
                 new_spec.loader = _ContrastImportHookChainedLoader(loader)
 
-            rewriter_module.logger.debug(
+            logger.debug(
                 "Updated spec for module: fullname=%s, path=%s",
                 fullname,
                 spec.origin,
@@ -333,21 +347,26 @@ def parse(source_code: str) -> ast.AST:
 
 class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
     def exec_module(self, module) -> None:
-        rewriter_module.logger.debug(
-            "ContrastRewriteLoader started executing module",
-            module_name=self.name,
-            module_path=self.path,
-        )
-        try:
-            self._exec_module(module)
-        finally:
-            rewriter_module.logger.debug(
-                "ContrastRewriteLoader finished executing module",
+        # The logger may be swapped out while we're in scope (e.g. when the agent
+        # initializes), so use the same logger until we exit.
+        logger = rewriter_module.logger
+        pop_scope = rewriter_module.pop_contrast_scope
+        with rewriter_module.contrast_scope():
+            logger.debug(
+                "ContrastRewriteLoader started executing module",
                 module_name=self.name,
                 module_path=self.path,
             )
+            try:
+                self._exec_module(module, logger, pop_scope)
+            finally:
+                logger.debug(
+                    "ContrastRewriteLoader finished executing module",
+                    module_name=self.name,
+                    module_path=self.path,
+                )
 
-    def _exec_module(self, module) -> None:
+    def _exec_module(self, module, logger, pop_scope) -> None:
         """
         This method is responsible for actually doing the module `exec`-ing. We take
         control of this system and do the following:
@@ -378,34 +397,35 @@ class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
                 module,
                 filename,
                 force_optimize=(not os.environ.get("CONTRAST_TESTING")),
+                pop_scope=pop_scope,
             )
             return
 
         try:
             tree = parse(original_source_code)
         except Exception as ex:
-            rewriter_module.logger.debug(
+            logger.debug(
                 "WARNING: failed to parse module AST",
                 filename=filename,
                 exc_info=ex,
                 module_name=self.name,
             )
 
-            _load_module(original_source_code, module, filename)
+            _load_module(original_source_code, module, filename, pop_scope=pop_scope)
             return
 
         if module_was_rewritten(self.name):
-            rewriter_module.logger.debug(
+            logger.debug(
                 "WARNING: module appears to have been already rewritten; will not rewrite again",
                 filename=filename,
             )
         else:
             try:
-                propagation_rewriter = PropagationRewriter()
+                propagation_rewriter = PropagationRewriter(logger)
                 propagation_rewriter.visit(tree)
                 propagation_rewriter.populate_dependencies(module)
             except Exception as ex:
-                rewriter_module.logger.debug(
+                logger.debug(
                     "WARNING: failed to rewrite module",
                     filename=filename,
                     exc_info=ex,
@@ -414,7 +434,7 @@ class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
 
         rewriter_module.registry.add(self.name)
 
-        _load_module(tree, module, filename)
+        _load_module(tree, module, filename, pop_scope=pop_scope)
 
 
 class PropagationRewriter(ast.NodeTransformer):
@@ -439,8 +459,9 @@ class PropagationRewriter(ast.NodeTransformer):
         ast.Subscript: "visit_Subscript",
     }
 
-    def __init__(self) -> None:
+    def __init__(self, logger=None) -> None:
         super().__init__()
+        self.logger = logger if logger is not None else rewriter_module.logger
         self.injected_modules = set()
 
     def visit(self, node):
@@ -596,9 +617,7 @@ class PropagationRewriter(ast.NodeTransformer):
             elif node.conversion == 97:
                 conversion = "ascii"
             else:
-                rewriter_module.logger.debug(
-                    "unexpected conversion code", code=node.conversion
-                )
+                self.logger.debug("unexpected conversion code", code=node.conversion)
                 return node
 
             node.value = ast.copy_location(
@@ -692,13 +711,14 @@ def register():
     replacement function itself. If that were to occur, we would get an infinite
     recursion.
     """
+    logger = rewriter_module.logger
     if is_rewriter_enabled():
-        rewriter_module.logger.debug("Rewriter already enabled, not applying again")
+        logger.debug("Rewriter already enabled, not applying again")
         return
 
     sys.meta_path.insert(0, ContrastMetaPathFinder())
 
-    rewriter_module.logger.debug("enabled AST rewriter")
+    logger.debug("enabled AST rewriter")
 
     rewriter_module.enabled = True
 
@@ -732,6 +752,15 @@ def initialize_rewriter_logger(agent_logger):
 
     agent_logger.debug("Setting rewriter logger to agent logger")
     rewriter_module.logger = agent_logger
+
+
+def initialize_rewriter_scope(contrast_scope, pop_contrast_scope) -> None:
+    """
+    Inject the real contrast scope context manager. The rewriter can't import
+    `contrast` itself, so this is called once the contrast package is available.
+    """
+    rewriter_module.pop_contrast_scope = pop_contrast_scope
+    rewriter_module.contrast_scope = contrast_scope
 
 
 def is_rewriter_enabled() -> bool:

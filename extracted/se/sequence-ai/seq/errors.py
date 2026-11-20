@@ -20,10 +20,9 @@ readable error, never left as a string that blows up when the harness loads it".
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterable
 
-from sequence_ai.errors import AuthError, Conflict, SequencesError, Unavailable, from_response
+from sequence_ai.errors import AuthError, Unavailable, from_response
 
 from sequence_ai.errors import MissingPackage
 
@@ -135,114 +134,4 @@ def no_api_key() -> AuthError:
                      "(keys are made at https://app.generalsequences.com/)")
 
 
-def build_failed(what: str, error: str | None, *, hint: str | None = None) -> Conflict:
-    """A build that ended `failed`. What it built is now in the failed state — what a connect to it reports too
-    (409, `details.state`) — so it is the same Conflict, not a class of its own. A build its owner canceled, or stopped
-    at the time they gave it, is said canceled, never failed to build (canceled())."""
-    if canceled(error):
-        return Conflict(f"{what} was canceled: {str(error).removeprefix(CANCELED)}", details={"state": "failed"},
-                        hint=hint)
-    return Conflict(f"{what} failed to build: {error or 'no reason reported'}", details={"state": "failed"}, hint=hint)
 
-
-
-
-
-CANCELED = "canceled: "
-
-
-def canceled(error: str | None) -> bool:
-    """Whether a failed build's error says it ended at its owner's word: `seq benchmark cancel`, or the time a deploy gave
-    it (out_of_time)."""
-    return str(error or "").startswith(CANCELED)
-
-
-
-
-TIME_LIMIT = f"{CANCELED}stopped at its time limit"
-
-
-def out_of_time(error: str | None, command: str) -> str | None:
-    """What a build stopped at the time `--timeout` gave it leaves to do, with `command`, what started it; None for any
-    other end."""
-    if not str(error or "").startswith(TIME_LIMIT):
-        return None
-    return (f"the time --timeout gave it ran out: the platform stopped it, its machines have ended and what ran until "
-            f"then is billed; run {command} again with more time, or with no --timeout")
-
-
-def state_said(status: str, error: str | None) -> str:
-    """A benchmark's state in words: its platform's `status`, but canceled for a registration its owner canceled, which
-    is failed by no fault of its own. What a script reads (--json, seq.benchmarks()) stays the platform's.
-    
-"""
-    return "canceled" if status == "failed" and canceled(error) else status
-
-
-class LeftRunning(KeyboardInterrupt):
-    """Ctrl-C while a command followed a build: the command ends and the build does not, running on the platform, billed,
-    whatever this terminal does. Its text is what the command ends in, where "cancelled" told its owner it had stopped.
-    `stop`: what ends it now, said only where a command does without taking more than the build.
-    """
-
-    def __init__(self, what: str, limit_s: float | None, stop: str | None = None) -> None:
-        until = "it ends" if limit_s is None else f"it ends or the {limit_s:.10g} s --timeout gave it run out"
-        super().__init__(f"not canceled: {what} keeps building on the platform, billed, until {until}"
-                         + (f"; {stop}" if stop else ""))
-
-
-class GpuCancelled(LeftRunning):
-    """Ctrl-C while `seq gpu add` waited for its GPUs to run: those not running yet removed, said by their ids with what each
-    was billed as the platform says it once removed (`billed`, by id: sequence_ai.gpu._billed's words - not billed, or the
-    capacity it held while it started) - and any whose removal was not answered, and how to end it -
-    where "cancelled" alone would name none.
-"""
-
-    def __init__(self, cancelled: list[str], not_cancelled: list[str], billed: dict | None = None) -> None:
-        from sequence_ai.gpu import _billed
-
-        alike: dict[str, list[str]] = {}
-        own: list[str] = []
-        for i in cancelled:
-            words = _billed((billed or {}).get(i))
-            if words.startswith("billed "):
-                own.append(f"{i} - {words}")
-            else:
-                alike.setdefault(words, []).append(i)
-        parts = [f"{', '.join(ids)} - {words}" for words, ids in alike.items()] + own
-        said = f"cancelled: {'; '.join(parts)}" if cancelled else "cancelled"
-        if not_cancelled:
-            said += f"; not cancelled, still starting: {', '.join(not_cancelled)} - seq gpu remove <id> ends one"
-        KeyboardInterrupt.__init__(self, said)
-
-
-class GpuNotCancelled(LeftRunning):
-    """Ctrl-C twice while `seq gpu add` was asked: the second stops it before the platform answered, and the platform adds
-    them all the same once it has the request, so what it added is not known here and not removed - said so, with how to
-    see and end them, where "cancelled" alone told its owner nothing was left to bill.
-"""
-
-    def __init__(self) -> None:
-        KeyboardInterrupt.__init__(self, "not cancelled: stopped before the platform answered, it may have added them - "
-                                         "seq gpu list shows them, seq gpu remove <id> ends one")
-
-
-@contextmanager
-def following(what: str, limit_s: float | None, stop: str | None = None) -> Iterator[None]:
-    """A command following a build: Ctrl-C in it is LeftRunning."""
-    try:
-        yield
-    except KeyboardInterrupt:
-        raise LeftRunning(what, limit_s, stop) from None
-
-
-def still_building(what: str, follow: str, *, stalled_s: float | None = None) -> Unavailable:
-    """The wait ended while the build went on: not abandoned, and worth waiting on again (`timeout`, retryable). Its
-    window ran out - or, `stalled_s`, its build log stood still that long, which is said as such: the two read as one
-    sentence, and a user could not tell a wait of theirs run out from a build that stopped moving."""
-    if stalled_s:
-        return Unavailable(f"{what} is still building, and its build log has not moved in the last "
-                           f"{stalled_s / 60:.0f} min; it was not abandoned", code="timeout",
-                           details={"state": "building", "log_still_s": round(stalled_s)}, hint=follow)
-    return Unavailable(f"{what} is still building after the wait window; it was not abandoned", code="timeout",
-                       details={"state": "building"}, hint=follow)

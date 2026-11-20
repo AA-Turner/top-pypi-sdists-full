@@ -1,9 +1,9 @@
-"""Who serves each member, from Python (docs/design/correlator-python.md
-section 18).
+"""Who serves each member, from Python (docs/design/correlator.md
+section 4).
 
 One class reaches every member from every flavor, and the C refuses a
 member off the flavors that serve it, never the binding. These tests read
-section 18's two tables (properties and methods) from the design page and
+section 4's two tables (properties and methods) from the design page and
 hold every row against the code, on every flavor: a served flavor reads or
 calls the member, and every other raises the member's own declared
 off-flavor sentence (a property's AttributeError, a method's ValueError).
@@ -123,14 +123,14 @@ def test_last_corr_is_a_detectors(flavor):
 
 # ── Section 18's tables, against the code (#2958 review) ───────────────────
 #
-# The two tables in docs/design/correlator-python.md section 18 name which
+# The two tables in docs/design/correlator.md section 4 name which
 # flavors serve each flavor-only member. They are read here, not restated:
 # every public property of the class must have a row, so a new member is
 # covered the moment it exists, and every (member, flavor) pair is checked
 # against the code -- a served flavor reads or calls it, every other
 # refuses with the member's own declared sentence.
 
-_DESIGN = repo_root() / "docs/design/correlator-python.md"
+_DESIGN = repo_root() / "docs/design/correlator.md"
 #: Each "served by" phrase the tables use, as the flavors it names.
 _PHRASES = {
     "every flavor": set(FLAVORS),
@@ -159,9 +159,9 @@ _PHRASES = {
 }
 
 
-def _section_18_table(header: str) -> dict[str, set[str]]:
+def _members_table(header: str) -> dict[str, set[str]]:
     text = _DESIGN.read_text(encoding="utf-8")
-    body = text[text.index("## 18. ") :]
+    body = text[text.index("## 4. ") :]
     body = body[body.index(f"| {header} ") :]
     served: dict[str, set[str]] = {}
     for line in body.splitlines()[2:]:
@@ -176,8 +176,8 @@ def _section_18_table(header: str) -> dict[str, set[str]]:
     return served
 
 
-_PROPS = _section_18_table("properties")
-_METHODS = _section_18_table("methods")
+_PROPS = _members_table("properties")
+_METHODS = _members_table("methods")
 
 
 def _telemetry():
@@ -211,6 +211,7 @@ _CALLS = {
     ),
     "push": lambda c: c.push(np.ones(64, np.complex64)),
     "set_max_peaks": lambda c: c.set_max_peaks(2),
+    "set_peak_zone": lambda c: c.set_peak_zone(1, 1.0),
     "configure_search_raw": lambda c: c.configure_search_raw(1, 1),
     "set_threads": lambda c: c.set_threads(1),
     "set_carrier_freq_hz": lambda c: c.set_carrier_freq_hz(2.5e9),
@@ -226,7 +227,7 @@ def test_every_property_has_a_row():
         if inspect.isdatadescriptor(v) and not n.startswith("_")
     }
     assert public == set(_PROPS), (
-        f"not in section 18's table: {sorted(public - set(_PROPS))}; "
+        f"not in section 4's table: {sorted(public - set(_PROPS))}; "
         f"in the table but not the class: {sorted(set(_PROPS) - public)}"
     )
     assert set(_METHODS) == set(_CALLS)
@@ -256,7 +257,7 @@ _REFUSALS = _declared_refusals()
 
 
 def test_every_flavor_refusing_method_has_a_row():
-    """A method that declares an off-flavor refusal is a §18 row, and a row
+    """A method that declares an off-flavor refusal is a §4 row, and a row
     names a method that declares one: derived from the manifest, so a new
     flavor-only method is covered the moment it is declared."""
     assert set(_REFUSALS) == set(_METHODS), (
@@ -484,6 +485,16 @@ _CAUSES = [
         lambda c: c.set_max_peaks(65),
         "burst",
         "set_max_peaks: n must lie in 1..64 (DP_CORRELATOR_MAX_PEAKS)",
+    ),
+    (
+        lambda c: c.set_peak_zone(2, 1.0),
+        "burst",
+        "set_peak_zone: all_doppler must be 0 or 1 and half_chips finite",
+    ),
+    (
+        lambda c: c.set_peak_zone(1, float("nan")),
+        "continuous",
+        "set_peak_zone: all_doppler must be 0 or 1 and half_chips finite",
     ),
     (
         lambda c: c.set_telemetry(_tlm_full(), "acq"),

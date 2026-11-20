@@ -30,6 +30,7 @@ class PortGroup(_common.Resource):
     _query_mapping = resource.QueryParameters(
         'node',
         'address',
+        include_sorting_defaults=True,
         fields={'format': 'csv'},
     )
 

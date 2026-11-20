@@ -15,8 +15,10 @@ if TYPE_CHECKING:
 
 
 class _Catcher:
-    def __init__(self, handler_map: Mapping[tuple[type[BaseException], ...], _Handler]):
-        self._handler_map = handler_map
+    def __init__(
+        self, handler_entries: list[tuple[tuple[type[BaseException], ...], _Handler]]
+    ):
+        self._handler_entries = handler_entries
 
     def __enter__(self) -> None:
         pass
@@ -34,16 +36,13 @@ class _Catcher:
             elif unhandled is None:
                 return True
             else:
-                if isinstance(exc, BaseExceptionGroup):
-                    try:
-                        raise unhandled from exc.__cause__
-                    except BaseExceptionGroup:
-                        # Change __context__ to __cause__ because Python 3.11 does this
-                        # too
-                        unhandled.__context__ = exc.__cause__
-                        raise
-
-                raise unhandled from exc
+                # Raising here would set __context__ to the original exception, so
+                # restore the chaining set by split() or by the handler
+                context = unhandled.__context__
+                try:
+                    raise unhandled
+                finally:
+                    unhandled.__context__ = context
 
         return False
 
@@ -55,19 +54,21 @@ class _Catcher:
             excgroup = BaseExceptionGroup("", [exc])
 
         new_exceptions: list[BaseException] = []
-        for exc_types, handler in self._handler_map.items():
+        for exc_types, handler in self._handler_entries:
             matched, excgroup = excgroup.split(exc_types)
             if matched:
+                if not isinstance(exc, BaseExceptionGroup):
+                    # split() sets this on derived groups, but native except* passes
+                    # a fresh wrapper group to the handler
+                    matched.__suppress_context__ = False
+
+                context = matched.__context__
                 try:
                     try:
                         raise matched
                     except BaseExceptionGroup:
+                        matched.__context__ = context
                         result = handler(matched)
-                except BaseExceptionGroup as new_exc:
-                    if new_exc is matched:
-                        new_exceptions.append(new_exc)
-                    else:
-                        new_exceptions.extend(new_exc.exceptions)
                 except BaseException as new_exc:
                     new_exceptions.append(new_exc)
                 else:
@@ -81,6 +82,9 @@ class _Catcher:
                 break
 
         if new_exceptions:
+            if excgroup:
+                new_exceptions.append(excgroup)
+
             if len(new_exceptions) == 1:
                 return new_exceptions[0]
 
@@ -99,9 +103,7 @@ def catch(
     if not isinstance(__handlers, Mapping):
         raise TypeError("the argument must be a mapping")
 
-    handler_map: dict[
-        tuple[type[BaseException], ...], Callable[[BaseExceptionGroup]]
-    ] = {}
+    handler_entries: list[tuple[tuple[type[BaseException], ...], _Handler]] = []
     for type_or_iterable, handler in __handlers.items():
         iterable: tuple[type[BaseException]]
         if isinstance(type_or_iterable, type) and issubclass(
@@ -133,6 +135,6 @@ def catch(
                     "Use except instead."
                 )
 
-        handler_map[iterable] = handler
+        handler_entries.append((iterable, handler))
 
-    return _Catcher(handler_map)
+    return _Catcher(handler_entries)

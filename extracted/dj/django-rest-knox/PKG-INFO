@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-rest-knox
-Version: 5.1.1
+Version: 6.0.0
 Summary: Authentication for django rest framework
 Author-email: James McMahon <james1345@googlemail.com>
 License: MIT
@@ -13,21 +13,20 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Internet :: WWW/HTTP :: Session
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
-Requires-Python: >=3.10
+Classifier: Framework :: Django :: 6.1
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: django>=4.2
-Requires-Dist: djangorestframework>=3.14
+Requires-Dist: django>=5.2
+Requires-Dist: djangorestframework>=3.16
 Dynamic: license-file
 
 django-rest-knox
@@ -82,6 +81,28 @@ Django versions.
 
 You could also simply run regular ``tox`` in the root folder as well, but that would make testing the matrix of
 Python / Django versions a bit more tricky.
+
+# Linting and formatting
+
+We use [ruff](https://docs.astral.sh/ruff/) for both linting and formatting, configured in
+`pyproject.toml`. CI runs both checks on every push and pull request, so run them before
+opening a PR:
+
+```
+pip install ruff==0.17.5
+ruff check .
+ruff format .
+```
+
+Use the same ruff version as CI (see `.github/workflows/test.yml`) to avoid formatting
+differences. `ruff check --fix .` will fix most lint issues automatically.
+
+The commit that reformatted the codebase with ruff is listed in `.git-blame-ignore-revs`.
+To have `git blame` skip it locally, run once:
+
+```
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 # Work on the documentation
 

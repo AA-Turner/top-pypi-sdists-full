@@ -903,6 +903,8 @@ def register_generated_tools(mcp, _get_client):
         - When that default page cuts the list, the response also carries a `warning` and the headers `X-Result-Truncated: true` and `X-Result-Limit: 25`.
         - At most 1 year between `fromDate` and `toDate`. A longer range is cut to the year before `toDate`: `dateRange.from` shows where the data starts and the response carries a `warning`.
 
+        The newer way to read this is `GET /v1/metrics/accounts` with `metrics=followers,followersGrowth` and the granularity you need.
+
         Args:
             account_ids: Comma-separated list of up to 25 account IDs. Optional: without it, the response pages through all your accounts.
             profile_id: Filter by profile ID
@@ -922,6 +924,38 @@ def register_generated_tools(mcp, _get_client):
                 limit=limit,
                 cursor=cursor,
             )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get account",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_account(account_id: str) -> str:
+        """Get account
+
+        Returns one connected account, in the same shape as an item of `GET /v1/accounts`.
+
+        The same access rules apply: a key or a team member limited to some profiles gets a 404 for an account outside them.
+
+        An account the list leaves out by default is still returned when you name it:
+
+        - one over the plan's profile limit
+        - one on a creator profile
+        - an ad account listed behind its ads login
+
+        A malformed `accountId` returns 400; an unknown account, or one you cannot access, returns 404.
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_account(account_id=account_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -1166,31 +1200,37 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def accounts_get_account_posts(account_id: str) -> str:
+    def accounts_get_account_posts(
+        account_id: str, limit: int = 25, cursor: str | None = None
+    ) -> str:
         """List posts published on the platform
 
-        Returns the 25 most recent posts that exist on the platform for a connected account, read live from the platform API. This covers everything on the account, including posts that were never created through Zernio.
+        Returns the most recent posts that exist on the platform for a connected account, newest first, read live from the platform API. This covers everything on the account, including posts that were never created through Zernio.
 
-        Use it to obtain the platform's own post id, which the analytics endpoints take as input. On YouTube the returned `id` is the video ID that `GET /v1/analytics/youtube/daily-views`, `/video-retention` and `/demographics` expect as `videoId`, so this endpoint is what backs a video picker in your own UI.
+        ### Pagination
 
-        ### Platform-specific fields
+        Returns `limit` posts (25 by default, up to 100). When `pagination.hasMore` is true, send `pagination.nextCursor` back as `cursor` for the next, older page, until `nextCursor` is null.
 
-        Not every field applies to every platform. Absent fields are omitted from the response.
+        On TikTok only the newest page is available for now: `pagination.hasMore` is always false there.
 
-        - `reactionCount`: Facebook and LinkedIn.
-        - `shareCount`: platform dependent.
-        - `cid`: the Bluesky content id needed to reply.
-        - `subreddit`: Reddit only.
-        - `title`, `description`, `link`, `boardId` and `boardOwnerUsername`: Pinterest only (the native Pin values; `message` keeps title and description joined).
-        - `isOwner`: Pinterest and Facebook. On Pinterest, ...
+        On X:
+
+        - Every page, the first one included, is a separate X read billed through your X API usage. You control the cost by choosing whether to fetch the next page.
+        - A page reads `limit` tweets. X reads at least 5 per request, so a `limit` below 5 is billed as 5 tweets. A tweet read again on the same UTC day is not billed twice.
+        - A page can hold fewer than `limit` posts, because replies and reposts are left out.
+        - X serves only the newest 800 tweets of a timeline, so ...
 
         Platforms: facebook, instagram, twitter, bluesky, threads, youtube, linkedin, reddit, tiktok, pinterest
 
         Args:
-            account_id: (required)"""
+            account_id: (required)
+            limit: Page size. Values above the maximum return 400 rather than being clamped.
+            cursor: `pagination.nextCursor` of the previous page, sent back unchanged. An unreadable cursor returns 400."""
         client = _get_client()
         try:
-            response = client.accounts.get_account_posts(account_id=account_id)
+            response = client.accounts.get_account_posts(
+                account_id=account_id, limit=limit, cursor=cursor
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -5824,7 +5864,7 @@ def register_generated_tools(mcp, _get_client):
         On Reddit, `size` is the lower bound of Reddit's matched-users range, and `status` is `too_small`
         while the list has matched fewer than 1,000 people.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+        Platforms (the platform parameter takes): facebook, instagram, googleads, tiktok, tiktokads, pinterest, linkedin, linkedinads, twitter, xads, redditads
 
         Args:
             account_id: Account ID (required)
@@ -6184,6 +6224,8 @@ def register_generated_tools(mcp, _get_client):
 
         Paginated by campaign: pass `nextCursor` back as `cursor` until it is null.
 
+        The newer way to read this is `GET /v1/metrics/campaigns`.
+
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
@@ -6266,6 +6308,8 @@ def register_generated_tools(mcp, _get_client):
         An event counts here up to 15 minutes after it arrives.
 
         Formulas are not computed here, since they also read the platform's numbers: apply one to these totals and the account's spend for the same range, or read it per campaign from `GET /v1/ads/tree?results=true`.
+
+        The newer way to read this is `GET /v1/metrics/ad-accounts`.
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -6577,7 +6621,7 @@ def register_generated_tools(mcp, _get_client):
 
             1. Filter by platformAdId (the Meta ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
             Args:
                 page: Page number (1-based)
@@ -7257,7 +7301,7 @@ def register_generated_tools(mcp, _get_client):
 
             Zernio's own status writes re-read the switches they change. A change made in the ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
             Args:
                 include_empty: Meta only. Set true to also list campaigns with ZERO ads, with `adCount: 0` and zeroed metrics.
@@ -7517,7 +7561,7 @@ def register_generated_tools(mcp, _get_client):
         - **Already in the requested state:** nothing is written (`updated: 0`, `skipped: 1`, with the reason).
         - **Otherwise:** the switch is written (`updated: 1`), read back and stored. The delivery status of the ads under it (up to 20) is re-read and stored, so an immediate GET returns what the platform now ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -7799,7 +7843,7 @@ def register_generated_tools(mcp, _get_client):
             | `name` | Yes | 501 | Reddit: Yes; others 501 |
             | ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
             Args:
                 campaign_id: Platform campaign ID (required)
@@ -7894,7 +7938,7 @@ def register_generated_tools(mcp, _get_client):
 
         Google, TikTok, LinkedIn, Pinterest and Reddit take the ad account from the synced ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -8094,7 +8138,7 @@ def register_generated_tools(mcp, _get_client):
             - `statusOption` applies at every level.
             - If any child copy fails, the partial copy is deleted and the request fails with Meta's error, so a retry starts ...
 
-            Platforms: meta, tiktok, linkedin, google
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, google
 
             Args:
                 campaign_id: Source platform campaign ID (required)
@@ -8284,7 +8328,7 @@ def register_generated_tools(mcp, _get_client):
 
             So ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit
 
             Args:
                 account_id: Account ID
@@ -8461,7 +8505,7 @@ def register_generated_tools(mcp, _get_client):
             - If an ad copy fails, the partial ad set copy is deleted and the request fails with Meta's error.
             - A sync discovery starts automatically and runs after the response (`syncAfter: false` to skip). The copy is readable through Zernio once it finishes, usually within a few minutes. Until then, calls that take a copied id return 404, so retry them. ...
 
-            Platforms: meta, tiktok
+            Platforms (the platform parameter takes): facebook, instagram, tiktok
 
             Args:
                 ad_set_id: Source platform ad set ID (required)
@@ -8675,7 +8719,7 @@ def register_generated_tools(mcp, _get_client):
             - Sending `valueRulesApplied: false` TOGETHER with `valueRuleSetId` returns 400 `mutually_exclusive_fields`.
             - Eligibility: only ad sets on ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit
 
             Args:
                 ad_set_id: Platform ad set ID (required)
@@ -8903,7 +8947,7 @@ def register_generated_tools(mcp, _get_client):
 
         - When that live read ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
         Args:
             ad_set_id: Platform ad set ID (required)
@@ -9001,7 +9045,7 @@ def register_generated_tools(mcp, _get_client):
 
             The older days (up to 730 days back) are imported in the background; repeat the request until it returns 200. A request scoped to no Meta ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
             Args:
                 page: Page number (1-based)
@@ -9121,13 +9165,13 @@ def register_generated_tools(mcp, _get_client):
 
         Returns an ads account's ads ranked by spend, impressions, clicks, results or ROAS over a date range, each with its creative (type, thumbnail, headline, body, link) and campaign.
 
-        Use it to see which creatives perform best. `accountId` is sibling-expanded like `/v1/ads/timeline`.
+        Use it to see which creatives perform best, and from `frequency` which ones the same people keep seeing. `accountId` is sibling-expanded like `/v1/ads/timeline`.
 
         Money is ranked by its raw amount, so pass `adAccountId` when the connection's ad accounts bill in different currencies.
 
         A Meta range older than the imported history answers `202` with `backfillPending: true` and the covered part; repeat the request until it returns 200.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting and ads pair. An id the API key cannot reach answers 404. (required)
@@ -9198,7 +9242,7 @@ def register_generated_tools(mcp, _get_client):
 
         When an ad account connects, Zernio ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+        Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting↔ads pair. An id that does not exist or sits on a profile the API key cannot reach answers 404 (code: account_not_found). (required)
@@ -13545,6 +13589,8 @@ def register_generated_tools(mcp, _get_client):
 
             Other platforms never return `202`.
 
+            The newer way to read this is `GET ...
+
             Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
             Args:
@@ -13679,47 +13725,56 @@ def register_generated_tools(mcp, _get_client):
             "KEYWORD_UNORDERED", "KEYWORD_EXACT_PHRASE"
         ] = "KEYWORD_UNORDERED",
         fields: str | None = None,
+        include_media: bool = False,
         limit: int = 25,
         after: str | None = None,
     ) -> str:
         """Search the public Ad Library
 
-        Searches Meta's or LinkedIn's public Ad Library to see what ads other advertisers run, for competitor and market research.
+            Searches Meta's or LinkedIn's public Ad Library to see what ads other advertisers run, for competitor and market research.
 
-        ### Which library is searched
+            ### Which library is searched
 
-        - Meta's Ad Library (`GET /ads_archive`) is searched with Zernio's own developer access, so `platform=meta` needs no connected account at all.
-        - LinkedIn's Ad Library (`GET /rest/adLibrary`) runs on a connected `linkedin` / `linkedinads` account, passed as `accountId`.
-        - Passing a Meta account as `accountId` also selects Meta.
+            - Meta's Ad Library (`GET /ads_archive`) is searched with Zernio's own developer access, so `platform=meta` needs no connected account at all.
+            - LinkedIn's Ad Library (`GET /rest/adLibrary`) runs on a connected `linkedin` / `linkedinads` account, passed as `accountId`.
+            - Passing a Meta account as `accountId` also selects Meta.
 
-        Rows are returned in the platform's raw shape under `data`. `paging.after` is an opaque cursor on both (`null` when exhausted).
+            Rows are returned in the platform's raw shape under `data`. `paging.after` is an opaque cursor on both (`null` when exhausted).
 
-        **Meta coverage.** Political and social-issue ads are searchable worldwide. Every other ad is in the archive only if it was delivered to the EU or UK within the last year, so a US-only commercial advertiser is invisible.
+            **Meta coverage.** Political and social-issue ads are searchable worldwide. Every other ad is in the archive only if it was delivered to the EU or UK within the last year, so a US-only commercial advertiser is invisible.
 
-        Spend, impressions and demographics are political-only fields and are left out of the default projection; request them via `fields`.
+            Spend, impressions and demographics are political-only fields and are left out of the default projection; request them via `fields`.
 
-        **Meta rate limit.** Meta ...
+            **Meta rate limit.** Meta ...
 
-        Platforms: meta, linkedin
+            Platforms: meta, linkedin
 
-        Args:
-            platform: Which archive to search. `meta` needs no accountId. Required unless accountId is given.
-            account_id: Zernio SocialAccount id. Required for LinkedIn (linkedin / linkedinads: its token searches). Optional for Meta, where any facebook / instagram / metaads account only selects the platform.
-            q: Keyword search. Meta does not translate it, so write it in the ads' language. Required unless pageIds (Meta) or advertiser (LinkedIn) is given.
-            page_ids: Meta only. Comma-separated Facebook Page ids (max 10) whose ads to list.
-            advertiser: LinkedIn only. Advertiser (Page) name to search.
-            countries: Comma-separated ISO 3166-1 alpha-2 codes the ads reached. Meta defaults to ALL (an explicit ALL is Meta-only); LinkedIn searches every market when omitted.
-            ad_type: Meta only.
-            status: Meta only. ACTIVE = eligible for delivery right now.
-            platforms: Meta only. Comma-separated publisher platforms: FACEBOOK, INSTAGRAM, AUDIENCE_NETWORK, MESSENGER, WHATSAPP, OCULUS, THREADS, STREAMING_SERVICES.
-            media_type: Meta only.
-            languages: Meta only. Comma-separated ISO 639-1 codes of the ad text.
-            since: Meta only. Earliest delivery date (YYYY-MM-DD). LinkedIn's archive does not filter by date, so it is a 400 there: filter on details.adStatistics.firstImpressionAt / latestImpressionAt instead (EU-delivered ads only).
-            until: Meta only. Latest delivery date (YYYY-MM-DD); a 400 on LinkedIn, see since.
-            search_type: Meta only. Whether q matches words in any order or as an exact phrase (comma-separate phrases to match all of them).
-            fields: Meta only. Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
-            limit: Rows per page. LinkedIn accepts at most 25.
-            after: paging.after of the previous page."""
+            Args:
+                platform: Which archive to search. `meta` needs no accountId. Required unless accountId is given.
+                account_id: Zernio SocialAccount id. Required for LinkedIn (linkedin / linkedinads: its token searches). Optional for Meta, where any facebook / instagram / metaads account only selects the platform.
+                q: Keyword search. Meta does not translate it, so write it in the ads' language. Required unless pageIds (Meta) or advertiser (LinkedIn) is given.
+                page_ids: Meta only. Comma-separated Facebook Page ids (max 10) whose ads to list.
+                advertiser: LinkedIn only. Advertiser (Page) name to search.
+                countries: Comma-separated ISO 3166-1 alpha-2 codes the ads reached. Meta defaults to ALL (an explicit ALL is Meta-only); LinkedIn searches every market when omitted.
+                ad_type: Meta only.
+                status: Meta only. ACTIVE = eligible for delivery right now.
+                platforms: Meta only. Comma-separated publisher platforms: FACEBOOK, INSTAGRAM, AUDIENCE_NETWORK, MESSENGER, WHATSAPP, OCULUS, THREADS, STREAMING_SERVICES.
+                media_type: Meta only.
+                languages: Meta only. Comma-separated ISO 639-1 codes of the ad text.
+                since: Meta only. Earliest delivery date (YYYY-MM-DD). LinkedIn's archive does not filter by date, so it is a 400 there: filter on details.adStatistics.firstImpressionAt / latestImpressionAt instead (EU-delivered ads only).
+                until: Meta only. Latest delivery date (YYYY-MM-DD); a 400 on LinkedIn, see since.
+                search_type: Meta only. Whether q matches words in any order or as an exact phrase (comma-separate phrases to match all of them).
+                fields: Meta only. Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
+                include_media: Meta only. When `true`, each row also carries `media`: the ad's rendered creative (images, videos, carousel cards) as direct file URLs, so you don't have to open `ad_snapshot_url` yourself.
+
+        It also carries `destination_urls`: where the ad sends people (landing page, WhatsApp, app store), unwrapped from Facebook's redirect, in the order the ad shows them. Meta's archive does not return these itself.
+
+        - Meta CDN links are signed and expire: download what you need before each item's `expires_at`.
+        - `media` and `destination_urls` are `null` when Meta would not render the snapshot for that ad. `media` is `[]` for a text-only ad, `destination_urls` is `[]` for an ad with no outbound link (lead forms, messages).
+        - Every ad is rendered in a browser, so responses take several seconds longer, and `limit` is capped at 25 (`limit` > 25 is a 400).
+        - With a `fields` override, include `ad_snapshot_url` or no row gets `media` or `destination_urls`.
+                limit: Rows per page. LinkedIn accepts at most 25.
+                after: paging.after of the previous page."""
         client = _get_client()
         try:
             response = client.ad_library.search_ad_library(
@@ -13738,6 +13793,7 @@ def register_generated_tools(mcp, _get_client):
                 until=until,
                 search_type=search_type,
                 fields=fields,
+                include_media=include_media,
                 limit=limit,
                 after=after,
             )
@@ -13843,10 +13899,10 @@ def register_generated_tools(mcp, _get_client):
             account_id: The ads connection (account ID from `GET /v1/accounts`). (required)
             ad_account_id: Platform ad account ID, from `GET /v1/ads/accounts`. (required)
             level: (required)
-            campaign_ids: Only check these platform campaign IDs (or what sits in them). Leave out to check the whole ad account.
+            campaign_ids: Only check these platform campaign IDs (or what sits in them). Leave out or send null to check the whole ad account.
             filters: Each item is an object with keys: field (one of: name, campaign_name, adset_name, goal; required) - The object's own name, its campaign's or ad set's name, or the campaign goal (objective) as the platform reports it.; op (one of: contains, not_contains, equals, not_equals, starts_with; required); value (string, required)
             groups: Each item is an object with keys: name (string, required) - Unique in the rule, ignoring case.; filters (list of objects with keys field, op, value, required)
-            lifecycle: Object with keys: confirmChecks (integer) - Matching runs in a row before acting. Defaults to 1.; hold (object with keys all) - Keeps an open alert open after the conditions stop matching.; critical (object with keys all) - Marks an open alert critical.
+            lifecycle: Leave out or send null for none. Object with keys: confirmChecks (integer) - Matching runs in a row before acting. Defaults to 1.; hold (object with keys all) - Keeps an open alert open after the conditions stop matching.; critical (object with keys all) - Marks an open alert critical.
             conditions: Object with keys: all (list of objects with keys metric, window, op, value, model, compareTo, of, required) (required)
             actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook, and the alert to every `send` destination.; send (list of objects with keys accountId, channelId) - Also send a short alert through accounts you connected: what matched, the values and what the rule did. Up to 5 destinations, checked when the rule is saved. ... (required)
             schedule: Leave it out to run every 60 minutes. Object with keys: everyMinutes (one of: 15, 30, 60, 180, 360, 720, 1440) - How often the rule runs, in minutes. Null on a rule that runs at set times.; times (list of objects with keys days, at) - Set weekly times in the ad account timezone, instead of an interval. A rule that changes ads needs a cooldown of at least the shortest gap between two times.; startsAt (string) - The rule runs from this time on.; endsAt (string) - The rule stops running after this time.; quietHours (object with keys from, to) - A daily window in the ad account timezone when the rule does not run, like `{ \"from\": \"22:00\", \"to\": \"06:00\" }`. It may wrap past midnight; the first run ...
@@ -14690,6 +14746,8 @@ def register_generated_tools(mcp, _get_client):
 
         Returns analytics for posts. With postId, returns a single post. Without it, returns a paginated list with overview stats.
 
+        To keep a local copy in sync, do not poll this endpoint per account or per post. Subscribe to the `analytics.synced` webhook and read only what changed from `GET /v1/analytics/delta`.
+
         - Accepts both Zernio Post IDs and External Post IDs (auto-resolved).
         - fromDate defaults to 90 days ago if omitted, max range 366 days.
         - Single post lookups may return 202 (sync pending) or 424 (all platforms failed).
@@ -14698,11 +14756,7 @@ def register_generated_tools(mcp, _get_client):
 
         ### LinkedIn personal accounts
 
-        Analytics are only available for posts published through Zernio. LinkedIn's API only returns metrics for posts authored by the authenticated user. Organization/company page analytics work for all posts.
-
-        ### Facebook Page stories
-
-        Stories on a connected Page, published through Zernio or natively, are collected while they are live and ...
+        Analytics are only available for posts published through Zernio. LinkedIn's API only returns metrics for posts authored by the authenticated user. ...
 
         Args:
             post_id: Returns analytics for a single post. Accepts Zernio Post IDs, External Post IDs and the platform's native post ID. Zernio IDs are auto-resolved to External Post analytics.
@@ -14883,8 +14937,8 @@ def register_generated_tools(mcp, _get_client):
             Backed by LinkedIn's organizationalEntityShareStatistics,
             organizationalEntityFollowerStatistics, and organizationPageStatistics endpoints.
 
-            Response shape matches /v1/analytics/instagram/account-insights. Max 89 days,
-            defaults to last 30 days.
+            Response shape matches /v1/analytics/instagram/account-insights. Max 365 days,
+            fromDate no older than 365 days ago, defaults to last 30 days.
 
             Scope requirements: r_organization_social, r_organization_followers, and
             r_organization_admin must all be present on the account. Accounts connected before
@@ -14894,10 +14948,9 @@ def register_generated_tools(mcp, _get_client):
               - Page-view metrics accept only metricType=total_value (LinkedIn omits per-day
                 segmentation even when the API is called with DAY granularity, so a time-series
                 response would be meaningless).
-              - Date range capped at 89 days.
+              - Date range capped at 365 days, starting no more than 365 days ago.
 
-            LinkedIn-side platform limits (not re-enforced here, but worth knowing for larger
-            ranges ...
+            LinkedIn keeps ...
 
             Args:
                 account_id: The Zernio SocialAccount ID for the LinkedIn organization account. (required)
@@ -15715,6 +15768,8 @@ def register_generated_tools(mcp, _get_client):
 
             `totals` sums the whole range for the applied filters (pass `accountId` for one account). With attribution \"publish\" they are the lifetime metrics of posts published in the range, with \"received\" the engagement that arrived in the range.
 
+            The newer way to read this is `GET /v1/metrics/accounts` with `granularity=day`, grouped by `account`, `platform` or `none`.
+
             Args:
                 platform: Filter by platform (e.g. "instagram", "tiktok"). Omit for all platforms.
                 profile_id: Filter by profile ID. Omit for all profiles.
@@ -15815,6 +15870,8 @@ def register_generated_tools(mcp, _get_client):
         Groups all published posts by day of week and hour (UTC), calculating average engagement per slot.
         Use this to auto-schedule posts at optimal times.
 
+        The newer way to read this is `GET /v1/metrics/posts` with `groupBy=dayOfWeek,hour` and a list scope (`accountId` or `profileId`): one row per UTC weekday and hour, with any of its post metrics.
+
         Args:
             platform: Filter by platform (e.g. "instagram", "tiktok"). Omit for all platforms.
             profile_id: Filter by profile ID. Omit for all profiles.
@@ -15851,6 +15908,8 @@ def register_generated_tools(mcp, _get_client):
         Returns how engagement accumulates over time after a post is published.
         Each bucket shows what percentage of the post's total engagement had been reached by that time window.
         Useful for understanding content lifespan (e.g. \"posts reach 78% of total engagement within 24 hours\").
+
+        The newer way to read this is `GET /v1/metrics/posts` with `groupBy=postAge` and a list scope (`accountId` or `profileId`): one row per post age with `engagementShareOfFinal`.
 
         Args:
             platform: Filter by platform (e.g. "instagram", "tiktok"). Omit for all platforms.
@@ -15889,6 +15948,8 @@ def register_generated_tools(mcp, _get_client):
         Helps find the optimal posting cadence for each platform. Each row represents a specific (platform, posts_per_week) combination
         with the average engagement rate observed across all weeks matching that frequency.
 
+        The newer way to read this is `GET /v1/metrics/accounts` with `granularity=week`, `groupBy=platform` and `metrics=postCount,engagementRate`.
+
         Args:
             platform: Filter by platform (e.g. "instagram", "tiktok"). Omit for all platforms.
             profile_id: Filter by profile ID. Omit for all profiles.
@@ -15922,6 +15983,8 @@ def register_generated_tools(mcp, _get_client):
            Returns a daily timeline of analytics metrics for a specific post, showing how impressions, likes,
            and other metrics evolved day-by-day since publishing. Each row represents one day of data per platform.
            For multi-platform Zernio posts, returns separate rows for each platform.
+
+           The newer way to read this is `GET /v1/metrics/posts` with one `postId` and `granularity=day`.
 
            Args:
                post_id: The post to fetch timeline for. Accepts an ExternalPost ID, a platformPostId, or a Zernio Post ID.
@@ -16117,17 +16180,15 @@ def register_generated_tools(mcp, _get_client):
 
         Group by any of `date`, `hour`, `query`, `page`, `country`, `device`, `searchAppearance` and `brandedClassification`, and filter with Google's own filter groups. With no dimensions you get one row with the site's totals.
 
+        The newer way to read clicks, impressions, ctr and position is `GET /v1/metrics/insights` with a Search Console `accountId`, grouped by any of `query`, `page`, `country` and `device`. This route keeps Google's filters, `type`, `aggregationType`, the `hour` dimension and `dataState`.
+
         ### Branded queries
 
         `brandedClassification` splits searches into `BRANDED` and `NON_BRANDED`. Google has it from February 21, 2026, and only for sites with enough search volume. As a filter it takes `equals` only and cannot be combined with a `query` filter.
 
         ### Dates
 
-        Dates are `YYYY-MM-DD` in Pacific time. `toDate` defaults to yesterday and `fromDate` to 27 days before `toDate`, the window every report takes. Unknown fields answer 400. Google keeps 16 months, and the last two or three days are still filling in unless you pass `dataState: all`.
-
-        ### Caching and quota
-
-        Identical requests on the same site are cached for 10 ...
+        Dates are `YYYY-MM-DD` in Pacific time. `toDate` defaults to yesterday and ...
 
         Platforms: googlesearchconsole
 
@@ -16387,6 +16448,8 @@ def register_generated_tools(mcp, _get_client):
         - `shares` and `saves` are null on platforms that do not return that counter, which is different from a real zero.
         - `watchSeconds` and `completionRate` are null when the platform gives no watch signal.
 
+        The newer way to read this is `GET /v1/metrics/posts` with `include=samples`, for up to 10 posts in one request.
+
         Platforms: instagram, facebook, tiktok, youtube, twitter, threads, pinterest, reddit, bluesky, googlebusiness, linkedin
 
         Args:
@@ -16461,6 +16524,8 @@ def register_generated_tools(mcp, _get_client):
 
         - `minScore` and `maxScore`: find posts that look inflated.
         - `from` and `to`: bound when the score was computed.
+
+        The newer way to read scores is `GET /v1/metrics/posts` with `metrics=authenticityScore` or `include=authenticity`. This route keeps the score filters (`minScore`, `maxScore`, `from`, `to`).
 
         Platforms: instagram, facebook, tiktok, youtube, twitter, threads, pinterest, reddit, bluesky, googlebusiness, linkedin
 
@@ -17318,6 +17383,32 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Take over an automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_take_over_automation(automation_id: str) -> str:
+        """Take over an automation
+
+        Makes the caller the automation's owner, so its AI steps use the caller's own AI key. Only the owner or an admin of the active workspace can take over, from the dashboard.
+
+        When the member who made an automation leaves the workspace, its AI steps pause until it is taken over; every other step keeps running.
+
+        Args:
+            automation_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.take_over_automation(
+                automation_id=automation_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Preview a saved automation",
             readOnlyHint=False,
             destructiveHint=True,
@@ -18094,7 +18185,11 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def blogs_list_blog_articles(
-        account_id: str, blog_id: str, limit: int = 20, cursor: str | None = None
+        account_id: str,
+        blog_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        handle: str | None = None,
     ) -> str:
         """List blog articles
 
@@ -18103,6 +18198,12 @@ def register_generated_tools(mcp, _get_client):
         ### Pagination
 
         Cursor-paginated: pass `limit` (1-50, default 20) and the `cursor` from a previous response's `nextCursor`. `nextCursor` is null when there are no more pages. Treat cursors as opaque and pass them unchanged.
+
+        ### Find an article by handle
+
+        Pass `handle` to get that one article in any status (published, draft or scheduled), or an empty list. WordPress and Webflow only.
+
+        Use it after a `502` on create to see whether the article exists.
 
         ### Platform differences
 
@@ -18116,11 +18217,16 @@ def register_generated_tools(mcp, _get_client):
             account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             blog_id: Platform-native blog/site id returned by the list operation. (required)
             limit: Page size (1-50).
-            cursor: Opaque cursor from a previous response. Omit for the first page."""
+            cursor: Opaque cursor from a previous response. Omit for the first page.
+            handle: Only the article with this handle, in any status. WordPress and Webflow only."""
         client = _get_client()
         try:
             response = client.blogs.list_blog_articles(
-                account_id=account_id, blog_id=blog_id, limit=limit, cursor=cursor
+                account_id=account_id,
+                blog_id=blog_id,
+                limit=limit,
+                cursor=cursor,
+                handle=handle,
             )
             return _format_response(response)
         except Exception as e:
@@ -26348,7 +26454,7 @@ def register_generated_tools(mcp, _get_client):
 
             A reconnect is accepted when the new grant shares at least one ad ...
 
-            Platforms: meta, linkedin, tiktok, twitter, pinterest, google, reddit
+            Platforms (the platform parameter takes): facebook, instagram, linkedin, tiktok, twitter, pinterest, googleads, redditads, microsoftads
 
             Args:
                 identity_provider: Microsoft Ads only. How the user signs in to Microsoft Advertising: `google` for a Microsoft Advertising login that is a Google account. `google` on any other platform returns 400 `invalid_field_value`.
@@ -31236,6 +31342,7 @@ def register_generated_tools(mcp, _get_client):
             "web",
             "salesforce",
             "postback",
+            "form_leads",
         ]
         | None = None,
         platform: str | None = None,
@@ -31770,6 +31877,7 @@ def register_generated_tools(mcp, _get_client):
                 "web",
                 "salesforce",
                 "postback",
+                "form_leads",
             ]
         ]
         | None = None,
@@ -40092,6 +40200,9 @@ def register_generated_tools(mcp, _get_client):
             Returns 403 when a requested profile is not found or not owned, or when
             called with a restricted (zrk_) API key: invite management is admin-plane.
 
+            Returns 409 for a key of a Personal workspace: the first teammate is invited from the
+            dashboard, which turns that workspace into a team workspace (same ID, accounts and keys).
+
             Args:
                 scope: 'all' grants access to all profiles, 'profiles' restricts to specific profiles (required)
                 profile_ids: Required if scope is 'profiles'. Array of profile IDs to grant access to.
@@ -40133,7 +40244,7 @@ def register_generated_tools(mcp, _get_client):
         account_ids: str | None = None,
         status: str | None = None,
         campaign_id: str | None = None,
-        platform: Literal["meta", "google", "linkedin"] | None = None,
+        platform: Literal["meta", "google", "linkedin", "web"] | None = None,
         q: str | None = None,
         ad_account_id: str | None = None,
         limit: int = 25,
@@ -40142,41 +40253,47 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List submitted leads
 
-        Lists the leads submitted through your Meta, Google or LinkedIn lead forms, newest first.
+            Lists the leads submitted through your Meta, Google or LinkedIn lead forms, newest first.
 
-        Returns submitted Lead Gen leads for your team, newest-first, with keyset pagination on `cursor`. Requires the Ads add-on.
+            Returns submitted Lead Gen leads for your team, newest-first, with keyset pagination on `cursor`. Requires the Ads add-on.
 
-        ### Meta (default)
+            ### Meta (default)
 
-        Leads are served from the persisted cache, ingested in real time from the `leadgen` webhook.
+            Leads are served from the persisted cache, ingested in real time from the `leadgen` webhook.
 
-        ### Google
+            ### Google
 
-        Google lead form submissions are stored like Meta leads and listed with them, usually within 15 minutes of the submission.
+            Google lead form submissions are stored like Meta leads and listed with them, usually within 15 minutes of the submission.
 
-        - Each lead says its network in `platform` (`meta`, `google`, `linkedin`), and `platform=google` lists only Google leads.
-        - `leadgenId` is the submission id and `formId` the lead form asset id.
-        - Answers are keyed like Meta's (`email`, `phone_number`, `full_name`), custom questions by their text.
-        - Statuses work as for Meta leads.
+            - Each lead says its network in `platform` (`meta`, `google`, `linkedin`), and `platform=google` lists only Google leads.
+            - `leadgenId` is the submission id and `formId` the lead form asset id.
+            - Answers are keyed like Meta's (`email`, `phone_number`, `full_name`), custom questions by their text.
+            - Statuses work as for Meta leads.
 
-        ### LinkedIn
+            ### LinkedIn
 
-        LinkedIn lead form responses are also stored and listed with the other networks (`platform: linkedin`), usually within 15 minutes, once they reach Zernio. So are TikTok Instant Form ...
+            LinkedIn lead form responses are also stored and listed with the other networks (`platform: linkedin`), usually within 15 minutes, once they reach Zernio. So are TikTok Instant Form ...
 
-        Platforms: meta, google, linkedin
+            Platforms: meta, google, linkedin
 
-        Args:
-            form_id: Filter to a single lead form.
-            account_id: Filter to a single connected account. LinkedIn ads accounts switch to the live fetch.
-            account_ids: Meta only. Comma-separated connected account ids, to list several accounts at once. Without accountId or accountIds every account of the team is listed.
-            status: Meta only. Comma-separated lead statuses: new, contacted, unreachable, qualified, converted, disqualified.
-            campaign_id: Meta only. The platform campaign id the lead came from.
-            platform: Only leads of this network. meta and google list stored leads of that network (no LinkedIn live fetch); linkedin requires accountId to be a LinkedIn ads connection (400 otherwise). Without it, every stored network is listed, and an accountId that is a LinkedIn ads connection switches to the live fetch.
-            q: Meta only. Case-insensitive text search over the lead's answers and the form name.
-            ad_account_id: LinkedIn only: the LinkedIn ad account id whose responses to read (owner-scoped finder).
-            limit
-            since: Unix seconds; only leads created at/after this timestamp. Millisecond timestamps return 400 with instructions to divide by 1000.
-            cursor: Keyset cursor from a previous response's pagination.cursor (Meta: AdLead id; LinkedIn: numeric start offset)."""
+            Args:
+                form_id: Filter to a single lead form.
+                account_id: Filter to a single connected account. LinkedIn ads accounts switch to the live fetch.
+                account_ids: Meta only. Comma-separated connected account ids, to list several accounts at once. Without accountId or accountIds every account of the team is listed.
+                status: Meta only. Comma-separated lead statuses: new, contacted, unreachable, qualified, converted, disqualified.
+                campaign_id: Meta only. The platform campaign id the lead came from.
+                platform: Only leads of this network.
+
+        - `web`: your own website and API forms.
+        - `meta` and `google` list stored leads of that network (no LinkedIn live fetch).
+        - `linkedin` requires accountId to be a LinkedIn ads connection (400 otherwise).
+
+        Without it, every stored network is listed, and an accountId that is a LinkedIn ads connection switches to the live fetch.
+                q: Meta only. Case-insensitive text search over the lead's answers and the form name.
+                ad_account_id: LinkedIn only: the LinkedIn ad account id whose responses to read (owner-scoped finder).
+                limit
+                since: Unix seconds; only leads created at/after this timestamp. Millisecond timestamps return 400 with instructions to divide by 1000.
+                cursor: Keyset cursor from a previous response's pagination.cursor (Meta: AdLead id; LinkedIn: numeric start offset)."""
         client = _get_client()
         try:
             response = client.lead_gen.list_leads(
@@ -40246,11 +40363,17 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a lead's status
 
-        Sets the status of a Meta lead (and optionally its value) so you can track it from lead to sale.
+        Sets the status of a lead (and optionally its value) so you can track it from lead to sale.
+
+        Moving a lead to `qualified` stores a `QualifiedLead` event, and to `converted` a `Purchase` with the lead's value. Moving away from a stage retracts its event.
+
+        Each stage event is also sent to the ad platforms, but only through the forwarding rules that list that event name in `eventNames`. A rule taking every event name never gets them, so a won lead is never counted as a second sale next to your store's or Stripe's own.
+
+        Meta leads are matched by their lead id. Website and API form leads (`platform: web`) are matched by the email, phone and ad click ids they arrived with, and are sent under the `form_leads` source.
 
         `{id}` is the Zernio lead id (`id` on `GET /v1/ads/leads`, `leadId` on `GET /v1/ads/lead-forms/{formId}/leads`) or the Meta `leadgenId` together with `accountId` in the body. Requires the Ads add-on.
 
-        Platforms: meta
+        Platforms: meta, google, linkedin, tiktok
 
         Args:
             id: Zernio lead id, or the Meta leadgenId (then accountId is required). (required)
@@ -40266,6 +40389,72 @@ def register_generated_tools(mcp, _get_client):
                 value=value,
                 currency=currency,
                 account_id=account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a lead from your own form",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def lead_gen_create_lead(
+        profile_id: str,
+        email: str | None = None,
+        phone: str | None = None,
+        fields: dict[str, Any] | None = None,
+        form_id: str | None = None,
+        form_name: str | None = None,
+        lead_id: str | None = None,
+        submitted_at: str | None = None,
+        source_url: str | None = None,
+        visitor_id: str | None = None,
+        click_ids: dict[str, Any] | None = None,
+        utm: dict[str, Any] | None = None,
+    ) -> str:
+        """Create a lead from your own form
+
+        Stores a lead from a form on your own site or app, posted by your backend. It joins the leads from ad networks: it is listed on `GET /v1/ads/leads` (`platform: web`), fires `lead.received`, starts lead workflows, and moves through statuses with `PATCH /v1/ads/leads/{id}`.
+
+        - **Lead event.** A `Lead` event is stored and sent through the profile's forwarding rules that take the `form_leads` source, like an event sent to `POST /v1/events`.
+        - **Attribution.** Pass the ad click ids from the landing URL in `clickIds` (a raw `fbclid` becomes Meta's `fbc`) and the Zernio tag's visitor id (`_zid` cookie) in `visitorId`.
+        - **Earlier visits.** Zernio adds the click ids it saw on that visitor's, email's or phone's earlier website visits. Qualifying or converting the lead later sends those ids with the stage event.
+        - **Idempotent by `leadId`.** Posting the same `leadId` again returns the stored lead with `created: false` and sends nothing twice. Without `leadId`, every call creates a lead.
+
+        A ...
+
+        Args:
+            profile_id: The profile the lead belongs to. (required)
+            email: Required unless phone is given.
+            phone: Required unless email is given. E.164 is best.
+            fields: Other answers, field name to value (`full_name`, `company`, ...). Stored on the lead, never sent to an ad platform.
+            form_id: Your id for the form. Defaults to `api`.
+            form_name
+            lead_id: Your id for this lead (a CRM id, a submission id). Makes the call idempotent.
+            submitted_at: When the form was submitted. Defaults to now.
+            source_url: The page the form was submitted on, with its query string.
+            visitor_id: The Zernio tag visitor id, from the `_zid` cookie.
+            click_ids: Ad click and browser ids: `fbclid` or `fbc`, `fbp`, `gclid`, `gbraid`, `wbraid`, `ttclid`, `msclkid`, `li_fat_id`, ...
+            utm: `utm_source`, `utm_campaign`, ..."""
+        client = _get_client()
+        try:
+            response = client.lead_gen.create_lead(
+                profile_id=profile_id,
+                email=email,
+                phone=phone,
+                fields=fields,
+                form_id=form_id,
+                form_name=form_name,
+                lead_id=lead_id,
+                submitted_at=submitted_at,
+                source_url=source_url,
+                visitor_id=visitor_id,
+                click_ids=click_ids,
+                utm=utm,
             )
             return _format_response(response)
         except Exception as e:
@@ -41040,6 +41229,7 @@ def register_generated_tools(mcp, _get_client):
             "wechat",
         ]
         | None = None,
+        updated_since: str | None = None,
         status: Literal["active", "archived"] | None = None,
         folder: Literal["inbox", "requests"] = "inbox",
         sort_order: Literal["asc", "desc"] = "desc",
@@ -41067,6 +41257,7 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 profile_id: Filter by profile ID
                 platform: Filter by platform
+                updated_since: ISO 8601 date-time with a timezone (e.g. `2026-11-19T10:00:00Z`). Turns the list into a change feed: only conversations written at or after this instant, ordered by `updatedAt` ascending. Feed `sync.nextUpdatedSince` from the last page back here. See Incremental sync above.
                 status: Filter by conversation status
                 folder: `requests` lists Facebook Page Message Requests (threads from people the account has not accepted) live from Meta, each item with `folder: requests`.
 
@@ -41086,6 +41277,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.messages.list_inbox_conversations(
                 profile_id=profile_id,
                 platform=platform,
+                updated_since=updated_since,
                 status=status,
                 folder=folder,
                 sort_order=sort_order,
@@ -41390,7 +41582,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def messages_get_inbox_conversation_messages(
         conversation_id: str,
-        account_id: str,
+        account_id: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
         sort_order: Literal["asc", "desc"] = "asc",
@@ -41418,7 +41610,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 conversation_id: Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed. (required)
-                account_id: Account ID (required)
+                account_id: Account ID. Optional: the account is taken from the conversation. Pass it when the conversation id is an Instagram thread id, or when the call answers 400 `missing_required_field` because the id matches conversations on more than one of your accounts.
                 limit: Number of messages to return per page. Default 100, max 100.
                 cursor: Opaque pagination cursor. Pass `pagination.nextCursor` from a prior response verbatim: a cursor we cannot parse returns 400 rather than silently restarting from the first page.
                 sort_order: Order of returned messages. Default `asc` (oldest first, chat style).
@@ -43732,6 +43924,732 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
 
+    # METRICS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the metrics, groupings and limits of each metrics endpoint",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_metrics_catalog(
+        entity: Literal[
+            "posts", "accounts", "inbox", "insights", "ads", "campaigns", "ad-accounts"
+        ]
+        | None = None,
+        platform: Literal[
+            "tiktok",
+            "instagram",
+            "facebook",
+            "youtube",
+            "linkedin",
+            "twitter",
+            "threads",
+            "pinterest",
+            "reddit",
+            "bluesky",
+            "googlebusiness",
+            "telegram",
+            "snapchat",
+            "whatsapp",
+            "discord",
+            "slack",
+            "google",
+            "microsoft",
+            "openai",
+        ]
+        | None = None,
+    ) -> str:
+        """List the metrics, groupings and limits of each metrics endpoint
+
+        Describes each metrics endpoint (`GET /v1/metrics/posts`, `/accounts`, `/insights`, `/inbox`, `/ads`, `/campaigns` and `/ad-accounts`): the scope it needs, the most ids per scope, the longest and default date window, the granularities, sorts, includes, groupBy values, attributions and every metric with its unit, platforms and freshness.
+
+        Read it once and cache it: it changes only when Zernio adds a metric or a grouping. Filter with `entity` and `platform` to get only what one screen needs. No analytics add-on is needed to read it.
+
+        Args:
+            entity: Only this entity.
+            platform: Only the metrics, sorts, includes and groupBy values this platform has. Every entity is still listed."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_metrics_catalog(
+                entity=entity, platform=platform
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read post metrics by id, day by day, as a list, or grouped",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_post_metrics(
+        post_id: str | None = None,
+        platform_post_id: str | None = None,
+        account_id: str | None = None,
+        profile_id: str | None = None,
+        metrics: str | None = None,
+        group_by: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        platform: Literal[
+            "tiktok",
+            "instagram",
+            "facebook",
+            "youtube",
+            "linkedin",
+            "twitter",
+            "threads",
+            "pinterest",
+            "reddit",
+            "bluesky",
+            "googlebusiness",
+            "telegram",
+            "snapchat",
+            "whatsapp",
+            "discord",
+            "slack",
+        ]
+        | None = None,
+        granularity: Literal["total", "day"] = "total",
+        origin: Literal["all", "zernio", "external"] | None = None,
+        sort: str | None = None,
+        include: str | None = None,
+        changed_since: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> str:
+        """Read post metrics by id, day by day, as a list, or grouped
+
+        Reads the metrics Zernio synced for published posts, Zernio posts and posts published outside Zernio alike. Send exactly one scope: `postId`, `platformPostId`, `accountId` or `profileId`, or read the change feed with `changedSince`.
+
+        - **By id** (`postId` or `platformPostId`, up to 100): one row per publication. Ids that match no post you can read come back in `meta.missingIds`.
+        - **One post day by day**: one id with `granularity=day`.
+        - **A list** (`accountId` up to 25, or one `profileId` with an optional `platform`): posts published in the window, newest first, paged with `cursor`. `sort` orders it by a metric (`likes-desc`, `engagement-desc`...), up to the 1,000 best posts. `include=total` counts the list on the first page (windows up to 92 days).
+
+        Grouped with `groupBy`:
+
+        - `post`: sums the platforms each post id was published to into one row (by id, `granularity=total`).
+        - `dayOfWeek,hour`: one row per UTC weekday and hour the posts were published, summing each post's latest ...
+
+        Args:
+            post_id: Comma-separated post ids (Zernio or external), up to 100.
+            platform_post_id: Comma-separated ids the platform gave the posts (a TikTok video id, a tweet id), up to 100.
+            account_id: Comma-separated account ids, up to 25.
+            profile_id: One profile id.
+            metrics: Comma-separated metric names from the catalog. Defaults to every metric.
+            group_by: Comma-separated groupings from the catalog, at most 2.
+            from_date: First day, inclusive (YYYY-MM-DD, UTC).
+            to_date: Last day, inclusive (YYYY-MM-DD, UTC).
+            platform: Only with profileId.
+            granularity: day reads one post.
+            origin: Lists only. Defaults to all.
+            sort: A sort from the catalog, such as published-desc or likes-desc.
+            include: Comma-separated includes from the catalog.
+            changed_since: now (no rows, the starting cursor) or the previous pagination.nextCursor: one row per post whose metrics changed since, oldest first, across every account the key reads. Narrow with profileId and platform. Changes are kept 7 days; cursors older than 6 days are refused.
+            limit: Rows per page, 50 by default, 100 at most.
+            cursor: pagination.nextCursor of the previous page, sent with the same query."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_post_metrics(
+                post_id=post_id,
+                platform_post_id=platform_post_id,
+                account_id=account_id,
+                profile_id=profile_id,
+                metrics=metrics,
+                group_by=group_by,
+                from_date=from_date,
+                to_date=to_date,
+                platform=platform,
+                granularity=granularity,
+                origin=origin,
+                sort=sort,
+                include=include,
+                changed_since=changed_since,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read follower and post totals per account, platform or scope over time",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_account_metrics(
+        account_id: str | None = None,
+        profile_id: str | None = None,
+        metrics: str | None = None,
+        group_by: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        platform: Literal[
+            "tiktok",
+            "instagram",
+            "facebook",
+            "youtube",
+            "linkedin",
+            "twitter",
+            "threads",
+            "pinterest",
+            "reddit",
+            "bluesky",
+            "googlebusiness",
+            "telegram",
+            "snapchat",
+            "whatsapp",
+            "discord",
+            "slack",
+        ]
+        | None = None,
+        granularity: Literal["total", "day", "week", "month"] = "total",
+        attribution: Literal["publish", "received"] = "publish",
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> str:
+        """Read follower and post totals per account, platform or scope over time
+
+        Reads followers, the account counters the platform reports (media count, video count...) and the totals of the posts each account published, per account, per platform or for the whole scope, for the whole window or by day, week or month.
+
+        - Scope: exactly one of `accountId` (up to 25) or `profileId` (one, with an optional `platform`).
+        - `groupBy`: `account` (the default, one row per account and period), `platform` or `none`.
+        - `granularity`: `total` (the default), `day`, `week` (rows start on Monday) or `month`. A row's `date` is the start of its period, never before `fromDate`.
+        - `attribution`: `publish` (the default) counts each post on the day it was published; `received` counts each interaction on the day it arrived, for windows up to 92 days.
+        - `granularity=week&groupBy=platform&metrics=postCount,engagementRate`: how many posts each platform got per week and their pooled engagement rate. The newer way to read `GET /v1/analytics/posting-frequency`.
+
+        Without `fromDate` and ...
+
+        Args:
+            account_id: Comma-separated account ids, up to 25.
+            profile_id: One profile id.
+            metrics: Comma-separated metric names from the catalog. Defaults to every metric.
+            group_by: Comma-separated groupings from the catalog, at most 2.
+            from_date: First day, inclusive (YYYY-MM-DD, UTC).
+            to_date: Last day, inclusive (YYYY-MM-DD, UTC).
+            platform: Only with profileId.
+            granularity
+            attribution
+            limit: Rows per page, 50 by default, 100 at most.
+            cursor: pagination.nextCursor of the previous page, sent with the same query."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_account_metrics(
+                account_id=account_id,
+                profile_id=profile_id,
+                metrics=metrics,
+                group_by=group_by,
+                from_date=from_date,
+                to_date=to_date,
+                platform=platform,
+                granularity=granularity,
+                attribution=attribution,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read live account or post insights from the platform",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_insight_metrics(
+        account_id: str,
+        metrics: str | None = None,
+        platform_post_id: str | None = None,
+        granularity: Literal["total", "day"] | None = None,
+        group_by: str | None = None,
+        breakdown: str | None = None,
+        timeframe: Literal["this_week", "this_month"] | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+        include: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> str:
+        """Read live account or post insights from the platform
+
+        Reads insights the platform computes and Zernio does not store (page views, profile visits, watch time, audience demographics...), live from the platform, for one account or one of its posts (`platformPostId`).
+
+        Platforms: Facebook, Instagram, LinkedIn, TikTok, YouTube, Pinterest, Google Business and Google Search Console. Another platform answers 400 on `accountId`, a disconnected account 401 `account_disconnected`, and a platform error the platform's own code under `platformError`.
+
+        - `granularity`: `total` (the default) or `day`.
+        - `groupBy=demographic` with one metric and `breakdown` (age, gender, country, city...): one row per audience segment. LinkedIn: organizations only.
+        - `groupBy=hour`: Instagram followers online per day and hour of the last 30 days.
+        - `groupBy=keyword`: Google Business search keywords, one row per keyword, paged with `cursor`.
+
+        Google Search Console answers clicks, impressions, ctr (0 to 1) and position (1 is the top), final days only:
+
+        - Without groupBy: ...
+
+        Args:
+            account_id: One account id. (required)
+            metrics: Comma-separated metric names (up to 25). Defaults to the platform's default metrics. `GET /v1/metrics/catalog?entity=insights&platform=...` lists them.
+            platform_post_id: One post of the account, by its platform id: answers the post's live insights instead of the account's.
+            granularity: Defaults to total; groupBy=hour answers per day.
+            group_by: demographic: audience segments (age, gender, country...). hour: Instagram followers online per day and hour, last 30 days. keyword: Google Business search keywords per month. query, page, country, device: Google Search Console, combined with commas (groupBy=query,country).
+            breakdown: With groupBy=demographic: comma-separated segments. Defaults to the platform's default segments.
+            timeframe: Instagram demographics only. Defaults to this_month.
+            cursor: With groupBy=keyword or a Search Console account: pagination.nextCursor of the previous page, sent with the same query.
+            limit: Search Console accounts only: rows per page. Defaults to 1,000.
+            include: With platformPostId on YouTube: retentionCurve adds the audience retention curve.
+            from_date: First day, inclusive (YYYY-MM-DD, UTC). Defaults to 30 days before toDate. The window is at most 541 days.
+            to_date: Last day, inclusive (YYYY-MM-DD, UTC). Defaults to today."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_insight_metrics(
+                account_id=account_id,
+                metrics=metrics,
+                platform_post_id=platform_post_id,
+                granularity=granularity,
+                group_by=group_by,
+                breakdown=breakdown,
+                timeframe=timeframe,
+                cursor=cursor,
+                limit=limit,
+                include=include,
+                from_date=from_date,
+                to_date=to_date,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read message volume and response times",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_inbox_metrics(
+        conversation_id: str | None = None,
+        account_id: str | None = None,
+        profile_id: str | None = None,
+        metrics: str | None = None,
+        group_by: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        platform: str | None = None,
+        source: str | None = None,
+        granularity: Literal["total", "day", "week"] = "total",
+        sort: str | None = None,
+        include: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> str:
+        """Read message volume and response times
+
+        Counts messages received, sent, read and failed, conversations and replies, and response times (median, p90, p99, mean, min, max) across the inbox, from the messages Zernio logged.
+
+        - Scope: `conversationId` (up to 25, one row per conversation), `accountId` (up to 25) or one `profileId`. Without a scope, every account the key can read.
+        - `groupBy` (at most 2): `account`, `platform`, `source`, `hourOfWeek` (one row per UTC weekday and hour), `responseTimeBucket` (with `metrics=replied`) or `conversation` (paged with `cursor`, `include=total` counts up to 100,000).
+        - `granularity`: `total` (the default), `day` or `week`.
+        - `include=account` adds usernames to account rows; `include=conversation` adds the participant and last message to conversation rows.
+
+        Response time metrics are returned only when named in `metrics`. Without `fromDate` and `toDate` it reads the last 30 days; the window is at most 90 days. `GET /v1/metrics/catalog?entity=inbox` lists every metric, sort and groupBy.
+
+        Args:
+            conversation_id: Comma-separated conversation ids (Zernio or platform), up to 25: one row per conversation.
+            account_id: Comma-separated account ids, up to 25.
+            profile_id: One profile id.
+            metrics: Comma-separated metric names from the catalog. Defaults to the counts; response times only when named.
+            group_by: Comma-separated groupings from the catalog, at most 2: account, conversation, platform, source, hourOfWeek, responseTimeBucket.
+            from_date: First day, inclusive (YYYY-MM-DD, UTC). Defaults to 30 days before toDate. The window is at most 90 days.
+            to_date: Last day, inclusive (YYYY-MM-DD, UTC). Defaults to today.
+            platform: A messaging platform, such as instagram or whatsapp.
+            source: Only messages sent from this source, such as api or broadcast. Not with response time metrics.
+            granularity
+            sort: A sort from the catalog, such as messages-desc. With granularity=total.
+            include: Comma-separated includes from the catalog: account, conversation, total.
+            limit: Rows returned with groupBy=account (10 by default, 100 at most) or groupBy=conversation (50 by default, 1,000 at most).
+            cursor: With groupBy=conversation: pagination.nextCursor of the previous page."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_inbox_metrics(
+                conversation_id=conversation_id,
+                account_id=account_id,
+                profile_id=profile_id,
+                metrics=metrics,
+                group_by=group_by,
+                from_date=from_date,
+                to_date=to_date,
+                platform=platform,
+                source=source,
+                granularity=granularity,
+                sort=sort,
+                include=include,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read ad metrics by id, or one ad day by day with breakdowns",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_ad_metrics(
+        ad_id: str,
+        granularity: Literal["total", "day"] = "total",
+        from_date: str | None = None,
+        to_date: str | None = None,
+        breakdowns: str | None = None,
+        attribution_windows: str | None = None,
+    ) -> str:
+        """Read ad metrics by id, or one ad day by day with breakdowns
+
+        Reads the delivery and conversion metrics Zernio synced from the ad networks for up to 100 Zernio ad ids (`adId`, as `GET /v1/ads` returns them). Ids you cannot read come back in `meta.missingIds`.
+
+        - `granularity=day` with one ad: one point per day.
+        - `breakdowns` with one ad: read live from the network (age, gender, country, placement...), with `attributionWindows` for Meta.
+
+        Without `fromDate` and `toDate` it reads the last 90 days; the window is at most 730 days. `meta.backfillPending` is true while older days are still being fetched. Money is in the ad account currency (`currency`). `GET /v1/metrics/catalog?entity=ads` lists every metric with the networks that report it.
+
+        Args:
+            ad_id: Comma-separated Zernio ad ids, up to 100. (required)
+            granularity: day reads one ad, one point per day.
+            from_date: Without fromDate and toDate, the last 90 days.
+            to_date: Last day, inclusive (YYYY-MM-DD, UTC).
+            breakdowns: Comma-separated breakdowns, read live from the platform. One ad only.
+            attribution_windows: Meta attribution windows for the breakdowns, comma-separated."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_ad_metrics(
+                ad_id=ad_id,
+                granularity=granularity,
+                from_date=from_date,
+                to_date=to_date,
+                breakdowns=breakdowns,
+                attribution_windows=attribution_windows,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read the uploaded results of each campaign over a window",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_campaign_metrics(
+        from_date: str,
+        to_date: str,
+        limit: int = 50,
+        cursor: str | None = None,
+        campaign_id: str | None = None,
+    ) -> str:
+        """Read the uploaded results of each campaign over a window
+
+        Sums, per campaign, each result metric you uploaded (one key per metric, as `GET /v1/ads/campaign-results/metrics` lists them), with `cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale` and `qualified_rate` next to them, over `fromDate` to `toDate` (both required, at most 400 days).
+
+        Filter with `campaignId` (platform campaign ids); pages with `cursor`.
+
+        Args:
+            limit: Rows per page, 50 by default, 100 at most.
+            cursor: pagination.nextCursor of the previous page, sent with the same query.
+            from_date: First day, inclusive. (required)
+            to_date: Last day, inclusive. The range is at most 400 days. (required)
+            campaign_id: Comma-separated platform campaign ids."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_campaign_metrics(
+                limit=limit,
+                cursor=cursor,
+                from_date=from_date,
+                to_date=to_date,
+                campaign_id=campaign_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read the uploaded results summed across ad accounts",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def metrics_get_ad_account_metrics(
+        from_date: str, to_date: str, ad_account_id: str | None = None
+    ) -> str:
+        """Read the uploaded results summed across ad accounts
+
+        Sums each result metric you uploaded across ad accounts (every ad account the key can read, or the platform ids in `adAccountId`) over `fromDate` to `toDate` (both required, at most 400 days), with the same metrics as `GET /v1/metrics/campaigns`.
+
+        Args:
+            from_date: First day, inclusive. (required)
+            to_date: Last day, inclusive. The range is at most 400 days. (required)
+            ad_account_id: Comma-separated platform ad account ids. Defaults to every ad account the key sees."""
+        client = _get_client()
+        try:
+            response = client.metrics.get_ad_account_metrics(
+                from_date=from_date, to_date=to_date, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Run a Meta Marketing API insights query on one ad account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def metrics_query_meta_ads(
+        account_id: str,
+        ad_account_id: str,
+        level: Literal["ad", "adset", "campaign", "account"] | None = None,
+        fields: list[str] | None = None,
+        breakdowns: list[str] | None = None,
+        action_breakdowns: list[str] | None = None,
+        action_attribution_windows: list[str] | None = None,
+        action_report_time: str | None = None,
+        use_unified_attribution_setting: bool | None = None,
+        filtering: list[dict[str, Any]] | None = None,
+        date_preset: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        time_increment: str | None = None,
+        limit: int = 500,
+        cursor: str | None = None,
+    ) -> str:
+        """Run a Meta Marketing API insights query on one ad account
+
+        Reads Meta's insights for one ad account (`act_<n>`). Read its campaigns, ad sets or ads with `level` and `filtering` on the same ad account.
+
+        Runs a native query on the platform with the account's own token and answers the platform's rows unchanged, with its own field names, plus its headers, counts and quota in `meta`. Use it for what `/v1/metrics/*` does not store; the stored metrics stay cheaper and faster.
+
+        - Up to 120 reads per hour per platform target (the Zernio account plus the ad account or property); past it, 429 with `details.scope` `platform_query_target`.
+
+        - Up to 10 queries in flight per team.
+
+        - A query must answer within 25 seconds.
+
+        - An account of another source answers 400 on `accountId` with the route it belongs to.
+
+        - The next page goes in `cursor`, from `pagination.nextCursor`.
+
+        Args:
+            account_id: The Zernio id of the connected Meta ads account. (required)
+            ad_account_id: The Meta ad account, act_<n>. Read its campaigns, ad sets or ads with level and filtering. (required)
+            level: The level of each row. Defaults to the ad account.
+            fields: Meta insights fields, such as spend or impressions, up to 100.
+            breakdowns: Meta breakdowns, up to 5.
+            action_breakdowns: An empty array asks Meta for no action breakdown at all.
+            action_attribution_windows: Meta attribution windows, such as 7d_click or 1d_view.
+            action_report_time: impression, conversion or mixed.
+            use_unified_attribution_setting: Use each ad set's own attribution setting.
+            filtering: Meta filters of field, operator and value, up to 25. Each item is an object with keys: field (string, required); operator (string, required); value (any, required)
+            date_preset: A Meta date preset, such as last_30d. Not with fromDate and toDate.
+            from_date: First day, YYYY-MM-DD, sent with toDate.
+            to_date: Last day, YYYY-MM-DD, sent with fromDate.
+            time_increment: Days per row, 1 to 90, or monthly or all_days.
+            limit: Rows per page, up to 500. Defaults to 500.
+            cursor: The pagination.nextCursor of the previous page, unchanged."""
+        client = _get_client()
+        try:
+            response = client.metrics.query_meta_ads(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                level=level,
+                fields=fields,
+                breakdowns=breakdowns,
+                action_breakdowns=action_breakdowns,
+                action_attribution_windows=action_attribution_windows,
+                action_report_time=action_report_time,
+                use_unified_attribution_setting=use_unified_attribution_setting,
+                filtering=filtering,
+                date_preset=date_preset,
+                from_date=from_date,
+                to_date=to_date,
+                time_increment=time_increment,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Run a Google Ads Query Language search on one customer",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def metrics_query_google_ads(
+        account_id: str,
+        query: str,
+        ad_account_id: str | None = None,
+        cursor: str | None = None,
+    ) -> str:
+        """Run a Google Ads Query Language search on one customer
+
+        Runs a GAQL `SELECT` on one Google Ads customer, read only. Without `adAccountId` it reads the connection's own customer.
+
+        Runs a native query on the platform with the account's own token and answers the platform's rows unchanged, with its own field names, plus its headers, counts and quota in `meta`. Use it for what `/v1/metrics/*` does not store; the stored metrics stay cheaper and faster.
+
+        - Up to 120 reads per hour per platform target (the Zernio account plus the ad account or property); past it, 429 with `details.scope` `platform_query_target`.
+
+        - Up to 10 queries in flight per team.
+
+        - A query must answer within 25 seconds.
+
+        - An account of another source answers 400 on `accountId` with the route it belongs to.
+
+        - The next page goes in `cursor`, from `pagination.nextCursor`.
+
+        Args:
+            account_id: The Zernio id of the connected Google Ads account. (required)
+            ad_account_id: The Google Ads customer to query. Defaults to the connection's own customer.
+            query: A GAQL SELECT statement, up to 10,000 characters. Read only. (required)
+            cursor: The pagination.nextCursor of the previous page, unchanged."""
+        client = _get_client()
+        try:
+            response = client.metrics.query_google_ads(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                query=query,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Run a TikTok Marketing API report on one advertiser",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def metrics_query_tik_tok_ads(
+        account_id: str,
+        ad_account_id: str,
+        data_level: Literal[
+            "AUCTION_ADVERTISER", "AUCTION_CAMPAIGN", "AUCTION_ADGROUP", "AUCTION_AD"
+        ],
+        dimensions: list[str] | None,
+        metrics: list[str] | None,
+        from_date: str,
+        to_date: str,
+        report_type: Literal["BASIC", "AUDIENCE"] = "BASIC",
+        filtering: list[dict[str, Any]] | None = None,
+        page_size: int = 1000,
+        cursor: str | None = None,
+    ) -> str:
+        """Run a TikTok Marketing API report on one advertiser
+
+        Runs a synchronous TikTok report (`BASIC` or `AUDIENCE`) for one advertiser at the data level asked.
+
+        Runs a native query on the platform with the account's own token and answers the platform's rows unchanged, with its own field names, plus its headers, counts and quota in `meta`. Use it for what `/v1/metrics/*` does not store; the stored metrics stay cheaper and faster.
+
+        - Up to 120 reads per hour per platform target (the Zernio account plus the ad account or property); past it, 429 with `details.scope` `platform_query_target`.
+
+        - Up to 10 queries in flight per team.
+
+        - A query must answer within 25 seconds.
+
+        - An account of another source answers 400 on `accountId` with the route it belongs to.
+
+        - The next page goes in `cursor`, from `pagination.nextCursor`.
+
+        Args:
+            account_id: The Zernio id of the connected TikTok ads account. (required)
+            ad_account_id: The numeric TikTok advertiser id. (required)
+            report_type: Defaults to BASIC.
+            data_level: The level of each row. (required)
+            dimensions: TikTok dimensions, 1 to 4. (required)
+            metrics: TikTok metrics, up to 100. (required)
+            filtering: TikTok filters of field, operator and value, up to 25. A filter on an entity finer than dataLevel is refused. Each item is an object with keys: field (string, required); operator (string, required); value (any, required)
+            from_date: First day, YYYY-MM-DD, inclusive. (required)
+            to_date: Last day, YYYY-MM-DD, inclusive. (required)
+            page_size: Rows per page, up to 1,000. Defaults to 1,000.
+            cursor: The pagination.nextCursor of the previous page, unchanged."""
+        client = _get_client()
+        try:
+            response = client.metrics.query_tik_tok_ads(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                report_type=report_type,
+                data_level=data_level,
+                dimensions=dimensions,
+                metrics=metrics,
+                filtering=filtering,
+                from_date=from_date,
+                to_date=to_date,
+                page_size=page_size,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Run a GA4 standard or realtime report on one property",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def metrics_query_google_analytics(body: dict[str, Any]) -> str:
+        """Run a GA4 standard or realtime report on one property
+
+        Runs a GA4 `standard` report over up to 4 date ranges, paged, or a `realtime` report on the last 30 minutes. Needs the Analytics add-on.
+
+        Runs a native query on the platform with the account's own token and answers the platform's rows unchanged, with its own field names, plus its headers, counts and quota in `meta`. Use it for what `/v1/metrics/*` does not store; the stored metrics stay cheaper and faster.
+
+        - Up to 120 reads per hour per platform target (the Zernio account plus the ad account or property); past it, 429 with `details.scope` `platform_query_target`.
+
+        - Up to 10 queries in flight per team.
+
+        - A query must answer within 25 seconds.
+
+        - An account of another source answers 400 on `accountId` with the route it belongs to.
+
+        - The next page goes in `cursor`, from `pagination.nextCursor`.
+
+        Args:
+            body: Full request body as documented in the API reference. (required)"""
+        client = _get_client()
+        try:
+            response = client.metrics.query_google_analytics(body=body)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
     # PHONE_NUMBERS
 
     @mcp.tool(
@@ -44093,6 +45011,7 @@ def register_generated_tools(mcp, _get_client):
     def phone_numbers_get_phone_number_kyc_form(
         country: str,
         number_type: Literal["local", "mobile", "national", "toll_free"] | None = None,
+        profile_id: str | None = None,
     ) -> str:
         """Get KYC form spec
 
@@ -44102,11 +45021,12 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             country: (required)
-            number_type: Requirements and reuse eligibility are per (country, type). Omitted = the country's default type. Pass the same value on the POST."""
+            number_type: Requirements and reuse eligibility are per (country, type). Omitted = the country's default type. Pass the same value on the POST.
+            profile_id: Profile the order is for. When given, `reusable.options` only lists verifications held by numbers on this profile. A key or team member limited to some profiles must pass it to get any options."""
         client = _get_client()
         try:
             response = client.phone_numbers.get_phone_number_kyc_form(
-                country=country, number_type=number_type
+                country=country, number_type=number_type, profile_id=profile_id
             )
             return _format_response(response)
         except Exception as e:
@@ -44129,6 +45049,7 @@ def register_generated_tools(mcp, _get_client):
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         phone_number: str | None = None,
         pre_order: bool | None = None,
         end_user_first_name: str | None = None,
@@ -44163,14 +45084,15 @@ def register_generated_tools(mcp, _get_client):
         - Once the number has been ordered, a retry with the same token returns that number instead of ordering another.
         - A submission that fails before the number is ordered releases the token, so you can correct your details and re-submit with it.
                 quantity: Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort). With `areaCode`, a quantity above that area's live stock is rejected with a 400.
-                reuse: Reuse a prior approved verification for this country (skips document/field collection; places the order immediately).
-                reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
-                reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
+                reuse: Reuse a prior approved verification held by a number on `profileId` for this country (skips document/field collection; places the order immediately).
+                reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Must come from a number on `profileId`. Omitted = the approved default. No match on this profile = 409.
+                reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Must be a number on `profileId`. Omitted = the approved default. No match on this profile = 409.
                 area_code: Area code (NDC) the number must be in. Omit for any area.
 
         Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area.
 
         Options come from GET /v1/phone-numbers/availability (areaOptions). The purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
+                purchase_intent_id: Correlation label copied onto every number this submission creates (a batch shares it) and onto their webhooks. Not an idempotency key: use submissionId for safe retries. Max 100 characters; longer values are truncated.
                 phone_number: Exact number to order, in E.164, taken from GET /v1/phone-numbers/available. It is ordered as is or the request fails with 409 code phone_number_unavailable; another number is never substituted and a pre-order is never placed. Requires quantity 1 (or omitted). Omit to let the carrier pick a number in the area.
                 pre_order: Pre-order a number when the requested area has no stock.
 
@@ -44194,6 +45116,7 @@ def register_generated_tools(mcp, _get_client):
                 reuse_option_id=reuse_option_id,
                 reuse_from=reuse_from,
                 area_code=area_code,
+                purchase_intent_id=purchase_intent_id,
                 phone_number=phone_number,
                 pre_order=pre_order,
                 end_user_first_name=end_user_first_name,
@@ -44326,6 +45249,7 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         country: str,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         language: Literal["en", "es", "pt-BR"] | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
@@ -44350,6 +45274,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id: (required)
                 country: ISO 3166-1 alpha-2 country code (must be a regulated/KYC country). (required)
                 area_code: Area code (NDC) the eventual number must be in. Hard constraint carried by the link; the end customer filling the form makes no area choice. Options come from GET /v1/phone-numbers/availability (areaOptions).
+                purchase_intent_id: Correlation label stamped on the numbers when the end customer submits the hosted form, and copied onto their webhooks. Max 100 characters; longer values are truncated.
                 language: Language of the hosted page: its copy, the carrier requirement texts (translated once per country and cached), the pre-submit review notes and the status emails to the end customer.
 
         Omitted: the browser language of the end customer, falling back to English. The end customer can also switch with `?lang=` on the page.
@@ -44364,6 +45289,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 country=country,
                 area_code=area_code,
+                purchase_intent_id=purchase_intent_id,
                 language=language,
                 branding=branding,
                 redirect_url=redirect_url,
@@ -44976,6 +45902,7 @@ def register_generated_tools(mcp, _get_client):
         fields: str | None = None,
         view: Literal["full", "summary"] = "summary",
         updated_since: str | None = None,
+        external_id: str | None = None,
         source: Literal["zernio", "external"] = "zernio",
         status: Literal[
             "draft",
@@ -45012,6 +45939,8 @@ def register_generated_tools(mcp, _get_client):
 
             Returns a paginated list of posts. Published posts include platformPostUrl with the public URL on each platform. A query parameter that is not listed here returns 400 naming it and the accepted parameters, so a misspelled filter never silently returns the unfiltered list.
 
+            To learn when posts publish or fail, subscribe to the `post.published`, `post.failed` and `post.partial` webhooks instead of re-reading this list.
+
             Args:
                 page: Page number (1-based)
                 limit: Page size. Default 10, at most 40 per call; page through for more.
@@ -45024,21 +45953,28 @@ def register_generated_tools(mcp, _get_client):
         - Not available with `sortBy=status` or `sortBy=platform`, or with `source=external`.
                 fields: Comma-separated list of post fields to return. Each post then carries `_id` plus only these fields, which makes large pages much cheaper: leave out `platforms`, `content`, `mediaItems` or `metadata` when you do not need them.
 
-        Accepted: `userId`, `title`, `content`, `mediaItems`, `platforms`, `scheduledFor`, `timezone`, `status`, `tags`, `hashtags`, `mentions`, `visibility`, `metadata`, `recycling`, `recycledFromPostId`, `queuedFromProfile`, `queueId`, `createdAt`, `updatedAt`.
+        Accepted: `userId`, `title`, `content`, `mediaItems`, `platforms`, `scheduledFor`, `timezone`, `status`, `tags`, `hashtags`, `mentions`, `visibility`, `metadata`, `externalId`, `recycling`, `recycledFromPostId`, `queuedFromProfile`, `queueId`, `createdAt`, `updatedAt`.
 
         An unknown field returns 400 naming it. `fields=_id` returns ids only. Omit it (or send it empty) for the full post. Not available with `source=external`.
                 view: `full` returns the whole post. `summary` returns only what an agent needs to read a page of posts:
 
-        - Post: `_id`, `title`, `content`, `status`, `scheduledFor`, `timezone`, `tags`, `createdAt`, `updatedAt`, and `contentNotRetained` when set.
+        - Post: `_id`, `title`, `content`, `externalId`, `status`, `scheduledFor`, `timezone`, `tags`, `createdAt`, `updatedAt`, and `contentNotRetained` when set.
         - Each platform: `platform`, `status`, `accountId` (the id), `username`, `scheduledFor`, `publishedAt`, `platformPostId`, `platformPostUrl`, `errorMessage`, `errorCategory`.
         - Left out: the author (`userId`), `mediaItems`, `metadata`, `recycling`, and each platform's custom content, custom media and `platformSpecificData`. Null values are left out too.
 
         Works with both sources. Send either `fields` or `view=summary`: both together return 400. Defaults to summary here; pass full for everything. Not sent when fields is set.
                 updated_since: Only posts whose `updatedAt` is at or after this ISO 8601 timestamp (an offset or `Z` required).
 
-        `updatedAt` moves when the post or any of its platforms changes (an edit, a status change, a platform publishing or failing). To keep a copy in sync, send the time of your previous sync instead of reading every page again.
+        `updatedAt` moves when the post or any of its platforms changes (an edit, a status change, a platform publishing or failing). To keep a copy in sync, send the time your previous sync started instead of reading every page again.
+
+        For a stable walk, pair it with `sortBy=created-asc` and follow `pagination.nextCursor` until it is null: the cursor is keyed on (`createdAt`, `_id`), which never change, so a post edited during the walk is neither skipped nor repeated, and it comes back on the next sync.
 
         Combines with the other filters and with `cursor`. Deleted posts are not returned. Not available with `source=external`.
+                external_id: Only posts whose `externalId` equals this value exactly (case-sensitive). Returns every matching post, since `externalId` is not unique.
+
+        Combines with the other filters. Not available with `source=external`.
+
+        Values stored in `metadata` cannot be filtered: set `externalId` on create or update to look a post up by your own id.
                 source: Which collection to read. `zernio` (default) returns posts authored through Zernio. `external` returns posts synced from the platform (existing/historical posts that were published outside Zernio). Combine with `accountId` and paginate via `page`/`limit` to walk the full synced history (we keep up to the last ~12 months per account).
                 status
                 platform
@@ -45063,6 +45999,7 @@ def register_generated_tools(mcp, _get_client):
                 fields=fields or None,
                 view=None if fields else view,
                 updated_since=updated_since,
+                external_id=external_id,
                 source=source,
                 status=status,
                 platform=platform,
@@ -45106,6 +46043,7 @@ def register_generated_tools(mcp, _get_client):
         mentions: list[str] | None = None,
         crossposting_enabled: bool = True,
         metadata: dict[str, Any] | None = None,
+        external_id: str | None = None,
         tiktok_settings: dict[str, Any] | None = None,
         facebook_settings: dict[str, Any] | None = None,
         recycling: dict[str, Any] | None = None,
@@ -45175,7 +46113,12 @@ def register_generated_tools(mcp, _get_client):
                 hashtags: Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead.
                 mentions: Stored for reference only. Publishing does not create mentions from this field.
                 crossposting_enabled: Stored on the post and echoed back on reads. Publishing does not branch on it: every entry in `platforms` is published regardless, so treat it as a label for your own tooling.
-                metadata: Free-form key/value pairs of your own, stored on the post and returned on reads and in webhook payloads. Zernio also writes the bookkeeping keys `usageCounted`, `usageRefunded` and `hidden` into this object; do not set them, and they are stripped from webhook payloads.
+                metadata: Free-form key/value pairs of your own, stored on the post and returned on reads and in webhook payloads.
+
+        Zernio also writes the bookkeeping keys `usageCounted`, `usageRefunded` and `hidden` into this object; do not set them, and they are stripped from webhook payloads. To look posts up by one of your ids, use `externalId` instead: metadata cannot be filtered.
+                external_id: Your own identifier for this post (a CMS id, a job id, a campaign item). Returned on every read and filterable with `GET /v1/posts?externalId=`. Leading and trailing spaces are trimmed.
+
+        Not unique: several posts can share one value (for example the same article posted twice), and the filter returns all of them. To avoid creating a post twice on retries, send an `Idempotency-Key` header instead.
                 tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator gets an inbox notification to complete posting ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when the ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. Overrides ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only. The business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Requires locationName. Ignored on drafts, where TikTok ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
                 facebook_settings: Root-level Facebook settings applied to the Facebook platforms sent in the same request. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence. Object with keys: draft (boolean) - When true, creates the post as a draft in Facebook Publishing Tools instead of publishing immediately. Supported for feed posts (text, link, image, video) and ...; carouselCards (list of objects with keys link, name, description) - Renders the post as a multi-link carousel (organic Page post). Mutually exclusive with contentType=story|reel. - mediaItems must be provided with the same ...; carouselLink (string) - Optional top-level \"See more\" destination shown on the carousel end card. Defaults to the first card's link when omitted. Only used together with carouselCards.; textFormatPresetId (string) - Facebook-defined preset ID that renders the post as large text on a colored background (Graph `text_format_preset_id`). Supply the raw numeric ID from Meta; ...
                 recycling: Object with keys: enabled (boolean) - Set to false to disable recycling on this post; gap (integer) - Number of interval units between each repost. Required when enabling recycling.; gapFreq (one of: week, month) - Interval unit for the gap. Defaults to 'month'.; startDate (string) - When to start the recycling cycle. Defaults to the post's scheduledFor date.; expireCount (integer) - Stop recycling after this many copies have been created. Send null on update to clear this limit.; expireDate (string) - Stop recycling after this date, regardless of count. Send null on update to clear this limit.; contentVariations (list of string) - Content variations for recycled copies. Each recycle uses the next variation, in round-robin order. Recommended for X and Pinterest to avoid duplicate content ...
@@ -45202,6 +46145,7 @@ def register_generated_tools(mcp, _get_client):
                 mentions=mentions,
                 crossposting_enabled=crossposting_enabled,
                 metadata=metadata,
+                external_id=external_id,
                 tiktok_settings=tiktok_settings,
                 facebook_settings=facebook_settings,
                 recycling=recycling,
@@ -45225,6 +46169,8 @@ def register_generated_tools(mcp, _get_client):
         """Get post
 
         Fetch a single post by ID. For published posts, this returns platformPostUrl for each platform.
+
+        To wait for a post to publish, subscribe to the `post.published`, `post.failed` and `post.partial` webhooks instead of polling this endpoint. Each event carries the post, so no follow-up read is needed.
 
         Args:
             post_id: (required)"""
@@ -45260,6 +46206,7 @@ def register_generated_tools(mcp, _get_client):
         mentions: list[str] | None = None,
         crossposting_enabled: bool | None = None,
         metadata: dict[str, Any] | None = None,
+        external_id: str | None = None,
         queued_from_profile: str | None = None,
         queue_id: str | None = None,
         tiktok_settings: dict[str, Any] | None = None,
@@ -45268,7 +46215,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update post
 
-        Update an existing post. Draft, scheduled, failed, partial, and cancelled posts can be edited. Published posts can only have their recycling config updated.
+        Update an existing post. Draft, scheduled, failed, partial, and cancelled posts can be edited. Published posts can only have their recycling config and `externalId` updated: to change the text of a live post, use `POST /v1/posts/{postId}/edit`.
 
         To promote a draft to scheduled, send `isDraft: false` together with `scheduledFor` (or `publishNow: true`, or `queuedFromProfile`). If `isDraft` is omitted the post keeps its current draft status, so sending only `scheduledFor` to a draft returns 200 but the post remains a draft.
 
@@ -45291,6 +46238,7 @@ def register_generated_tools(mcp, _get_client):
             mentions
             crossposting_enabled
             metadata
+            external_id: Your own identifier for this post (see `externalId` on create). Send `null` to clear it. Also accepted on published posts.
             queued_from_profile: Profile ID to schedule via queue.
             queue_id: Specific queue ID to use when scheduling via queue.
             tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Returns 400 if sent without a platforms array. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator gets an inbox notification to complete posting ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when the ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. Overrides ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only. The business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Requires locationName. Ignored on drafts, where TikTok ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
@@ -45315,6 +46263,7 @@ def register_generated_tools(mcp, _get_client):
                 mentions=mentions,
                 crossposting_enabled=crossposting_enabled,
                 metadata=metadata,
+                external_id=external_id,
                 queued_from_profile=queued_from_profile,
                 queue_id=queue_id,
                 tiktok_settings=tiktok_settings,
@@ -45470,7 +46419,7 @@ def register_generated_tools(mcp, _get_client):
         Deletes a published post from the specified platform. The post record in Zernio is kept but its status is updated to cancelled.
         Not supported on Instagram, TikTok, or Snapchat. Threaded posts delete all items. YouTube deletion is permanent.
 
-        Platforms: facebook, youtube, linkedin, twitter, threads, googlebusiness, pinterest, reddit, telegram, bluesky, discord, slack
+        Platforms (the platform parameter takes): threads, facebook, twitter, linkedin, youtube, pinterest, reddit, bluesky, googlebusiness, telegram
 
         Args:
             post_id: (required)
@@ -51621,6 +52570,25 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get the current user",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def users_get_current_user() -> str:
+        """Get the current user
+
+        Returns the user the credential belongs to, in the same shape as one element of `users` in GET /v1/users, plus the workspace the credential acts in. Use it to check who an API key belongs to without listing every user."""
+        client = _get_client()
+        try:
+            response = client.users.get_current_user()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get user",
             readOnlyHint=True,
             destructiveHint=False,
@@ -51637,6 +52605,34 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.users.get_user(user_id=user_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove member",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def users_remove_user(user_id: str) -> str:
+        """Remove member
+
+        Removes a member from your team. The member keeps their own login and what they had before joining.
+        What they added as a member passes to the team owner.
+
+        API keys the member used in the last 7 days pass to the owner and expire within 24 hours, and their
+        other keys in the team are revoked.
+
+        Requires the owner or an admin, and a key that is not restricted. You cannot remove yourself.
+
+        Args:
+            user_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.users.remove_user(user_id=user_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -52614,6 +53610,8 @@ def register_generated_tools(mcp, _get_client):
                 "account.ads.initial_sync_completed",
                 "account.ads.sync_failed",
                 "account.ads.sync_recovered",
+                "account.restricted",
+                "account.recovered",
                 "analytics.synced",
                 "post.tracking_completed",
                 "post.authenticity_changed",
@@ -52643,6 +53641,7 @@ def register_generated_tools(mcp, _get_client):
                 "review.restored",
                 "lead.received",
                 "conversion.received",
+                "tracking_site.ready",
                 "ad.status_changed",
                 "ad.created",
                 "ad.updated",
@@ -52723,6 +53722,8 @@ def register_generated_tools(mcp, _get_client):
                 "balance.low",
                 "balance.empty",
                 "balance.charged",
+                "billing.publishing_blocked",
+                "billing.publishing_unblocked",
                 "campaign_participant.pending",
                 "campaign_participant.approved",
                 "campaign_participant.denied",
@@ -52854,6 +53855,8 @@ def register_generated_tools(mcp, _get_client):
                 "account.ads.initial_sync_completed",
                 "account.ads.sync_failed",
                 "account.ads.sync_recovered",
+                "account.restricted",
+                "account.recovered",
                 "analytics.synced",
                 "post.tracking_completed",
                 "post.authenticity_changed",
@@ -52883,6 +53886,7 @@ def register_generated_tools(mcp, _get_client):
                 "review.restored",
                 "lead.received",
                 "conversion.received",
+                "tracking_site.ready",
                 "ad.status_changed",
                 "ad.created",
                 "ad.updated",
@@ -52963,6 +53967,8 @@ def register_generated_tools(mcp, _get_client):
                 "balance.low",
                 "balance.empty",
                 "balance.charged",
+                "billing.publishing_blocked",
+                "billing.publishing_unblocked",
                 "campaign_participant.pending",
                 "campaign_participant.approved",
                 "campaign_participant.denied",
@@ -53236,6 +54242,8 @@ def register_generated_tools(mcp, _get_client):
             "account.ads.sync_failed",
             "account.ads.sync_recovered",
             "account.rate_limited",
+            "account.restricted",
+            "account.recovered",
             "account.privacy_request",
             "calendar.event.created",
             "calendar.event.updated",
@@ -53339,6 +54347,7 @@ def register_generated_tools(mcp, _get_client):
             "automation.alert.resolved",
             "lead.received",
             "conversion.received",
+            "tracking_site.ready",
             "whatsapp.template.status_updated",
             "whatsapp.template.category_updated",
             "whatsapp.account.name_status_updated",
@@ -53373,6 +54382,8 @@ def register_generated_tools(mcp, _get_client):
             "balance.low",
             "balance.empty",
             "balance.charged",
+            "billing.publishing_blocked",
+            "billing.publishing_unblocked",
             "notification.sent",
             "api.changelog.published",
         ]
@@ -56599,7 +57610,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def whatsapp_phone_numbers_get_whats_app_number_kyc_form(
-        country: str, profile_id: str
+        country: str, profile_id: str | None = None
     ) -> str:
         """Get KYC form spec
 
@@ -56612,7 +57623,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             country: (required)
-            profile_id: (required)"""
+            profile_id: Profile the order is for. When given, `reusable.options` only lists verifications held by numbers on this profile. A key or team member limited to some profiles must pass it to get any options."""
         client = _get_client()
         try:
             response = client.whatsapp_phone_numbers.get_whats_app_number_kyc_form(
@@ -56639,6 +57650,7 @@ def register_generated_tools(mcp, _get_client):
         reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         phone_number: str | None = None,
         pre_order: bool | None = None,
         end_user_first_name: str | None = None,
@@ -56676,14 +57688,15 @@ def register_generated_tools(mcp, _get_client):
         - Once the number has been ordered, a retry with the same token returns that same number instead of ordering another.
         - A submission that fails before the number is ordered releases the token, so you can correct your details and re-submit with it.
                 quantity: Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort). With `areaCode`, a quantity above that area's live stock is rejected with a 400.
-                reuse: Reuse a prior approved verification for this country (skips document/field collection; places the order immediately).
-                reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.
-                reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Omitted = the approved default. No match = 409.
+                reuse: Reuse a prior approved verification held by a number on `profileId` for this country (skips document/field collection; places the order immediately).
+                reuse_option_id: Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Must come from a number on `profileId`. Omitted = the approved default. No match on this profile = 409.
+                reuse_from: Legacy fallback for `reuseOptionId`: the source phone number (GET reusable.options[].fromPhoneNumber). Ambiguous when a number labels two verifications, so prefer `reuseOptionId`. Must be a number on `profileId`. Omitted = the approved default. No match on this profile = 409.
                 area_code: Area code (NDC) the number must be in. Omit for any area.
 
         Hard constraint: an empty area pool fails with 409 code AREA_CODE_UNAVAILABLE instead of ordering from another area.
 
         Options come from GET /v1/phone-numbers/availability (areaOptions). The purchase 202 kycUrl echoes the areaCode picked at purchase time so it can be passed here.
+                purchase_intent_id: Correlation label copied onto every number this submission creates (a batch shares it) and onto their webhooks. Not an idempotency key: use submissionId for safe retries. Max 100 characters; longer values are truncated.
                 phone_number: Exact number to order, in E.164, taken from GET /v1/whatsapp/phone-numbers/available. It is ordered as is or the request fails with 409 code phone_number_unavailable; another number is never substituted and a pre-order is never placed. Requires quantity 1 (or omitted). Omit to let the carrier pick a number in the area.
                 pre_order: Pre-order a number when the area has no stock.
 
@@ -56707,6 +57720,7 @@ def register_generated_tools(mcp, _get_client):
                 reuse_option_id=reuse_option_id,
                 reuse_from=reuse_from,
                 area_code=area_code,
+                purchase_intent_id=purchase_intent_id,
                 phone_number=phone_number,
                 pre_order=pre_order,
                 end_user_first_name=end_user_first_name,
@@ -56820,6 +57834,7 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         country: str,
         area_code: str | None = None,
+        purchase_intent_id: str | None = None,
         language: Literal["en", "es", "pt-BR"] | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
@@ -56842,6 +57857,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id: (required)
                 country: ISO 3166-1 alpha-2 country code (must be a regulated/KYC country). (required)
                 area_code: Area code (NDC) the eventual number must be in. Hard constraint carried by the link; the end customer filling the form makes no area choice. Options come from GET /v1/phone-numbers/availability (areaOptions).
+                purchase_intent_id: Correlation label stamped on the numbers when the end customer submits the hosted form, and copied onto their webhooks. Max 100 characters; longer values are truncated.
                 language: Language of the hosted page: its copy, the carrier requirement texts (translated once per country and cached), the pre-submit review notes and the status emails to the end customer.
 
         Omitted: the end customer's browser language, falling back to English. The end customer can also switch with `?lang=` on the page.
@@ -56856,6 +57872,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 country=country,
                 area_code=area_code,
+                purchase_intent_id=purchase_intent_id,
                 language=language,
                 branding=branding,
                 redirect_url=redirect_url,
@@ -57233,7 +58250,7 @@ def register_generated_tools(mcp, _get_client):
 
         Create a branching conversation workflow (draft) from a node/edge graph. Created in `draft` status; activate it to start matching inbound messages. The graph is validated structurally; completeness (a trigger node + reachable entry) is required at activation.
 
-        Platforms: hubspot, salesforce
+        Platforms (the platform parameter takes): whatsapp, instagram, facebook, telegram, twitter, bluesky, reddit, tiktok, line, wechat
 
         Args:
             profile_id: (required)
@@ -57407,6 +58424,30 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.workflows.pause_workflow(workflow_id=workflow_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Take over a workflow",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def workflows_take_over_workflow(workflow_id: str) -> str:
+        """Take over a workflow
+
+        Makes the caller the workflow's owner, so its AI steps use the caller's own AI key. Only the owner or an admin of the active workspace can take over, from the dashboard.
+
+        When the member who made a workflow leaves the workspace, its AI steps pause (they take the error edge with \"{Name} left this workspace. Add a workspace AI key or take over this automation.\") and every other step keeps running; taking it over starts the AI steps again.
+
+        Args:
+            workflow_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.workflows.take_over_workflow(workflow_id=workflow_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e

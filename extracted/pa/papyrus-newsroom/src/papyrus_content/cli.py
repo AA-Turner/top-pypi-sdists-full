@@ -398,6 +398,7 @@ PORTED_COMMANDS = frozenset(
         "stories:localize",
         "stories:correct-translation",
         "stories:import-translation",
+        "stories:import-edition",
         "stories:backfill-published-dates",
         "stories:repair-image-paths",
         "stories:set-slug",
@@ -460,6 +461,8 @@ PORTED_COMMANDS = frozenset(
         "automations:create",
         "automations:update",
         "automations:adopt",
+        "automations:attention",
+        "automations:acknowledge",
         "automations:run",
         "reviews:list",
         "reviews:show",
@@ -982,6 +985,9 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         from .story_commands import stories_head_index
 
         stories_head_index(flags)
+    elif route == "stories:import-edition":
+        from .story_commands import stories_import_edition
+        stories_import_edition(flags)
     elif route == "stories:import-translation":
         from .story_commands import stories_import_translation
 

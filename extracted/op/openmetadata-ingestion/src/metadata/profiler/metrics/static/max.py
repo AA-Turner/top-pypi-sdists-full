@@ -13,9 +13,10 @@
 Max Metric definition
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from functools import partial
-from typing import TYPE_CHECKING, Callable, Optional  # noqa: UP035
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import TIME, column
 from sqlalchemy.ext.compiler import compiles
@@ -139,8 +140,8 @@ class Max(StaticMetric):
         Maintains a single maximum value (not a list). Compares chunk's max
         with current maximum and returns the larger value.
         """
-        import pandas as pd  # noqa: PLC0415
-        from pandas import Timestamp  # noqa: PLC0415
+        import pandas as pd
+        from pandas import Timestamp
 
         chunk_max: float | datetime | None = None
 
@@ -165,7 +166,7 @@ class Max(StaticMetric):
 
         return max(current_max, chunk_max)
 
-    def nosql_fn(self, adaptor: NoSQLAdaptor) -> Callable[[Table], Optional[T]]:  # noqa: UP045
+    def nosql_fn(self, adaptor: NoSQLAdaptor) -> Callable[[Table], T | None]:
         """nosql function"""
         if is_quantifiable(self.col.type):
             return partial(adaptor.max, column=self.col)

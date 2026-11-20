@@ -378,7 +378,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.943"
+__version__ = "0.12.945"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -444,6 +444,9 @@ EXTRA_SERVICES = []  # List of {'name': str, 'port': int} from --monitor-service
 FLEET_API_KEY = os.environ.get("CLAWMETRY_FLEET_KEY", "")
 FLEET_DB_PATH = None  # Set via CLI or auto-detected
 FLEET_NODE_TIMEOUT = 300  # seconds before node is considered offline
+# True only when WORKSPACE came from an explicit source (--workspace, env var, or
+# detected OpenClaw markers).  False when it fell back to os.getcwd().
+WORKSPACE_EXPLICIT = False
 
 # ── Budget & Alert Configuration ───────────────────────────────────────
 _budget_paused = False
@@ -1731,6 +1734,7 @@ EXTRA_SERVICES = []  # List of {'name': str, 'port': int} from --monitor-service
 FLEET_API_KEY = os.environ.get("CLAWMETRY_FLEET_KEY", "")
 FLEET_DB_PATH = None  # Set via CLI or auto-detected
 FLEET_NODE_TIMEOUT = 300  # seconds before node is considered offline
+WORKSPACE_EXPLICIT = False
 
 # ── Stuck-Session Detection ────────────────────────────────────────────
 STUCK_SESSION_TIMEOUT_SEC = 300   # 5 min silent → warning alert
@@ -2273,7 +2277,12 @@ def _fleet_db_path():
     """
     if FLEET_DB_PATH:
         return FLEET_DB_PATH
-    if WORKSPACE:
+    # Only use a workspace-relative fleet DB when the workspace was given
+    # explicitly (--workspace, OPENCLAW_HOME, OPENCLAW_WORKSPACE) or when real
+    # OpenClaw markers were found during auto-detect.  A cwd fallback must NOT
+    # steer the fleet DB, because the daemon always writes to
+    # ~/.clawmetry/fleet.db and the two paths then diverge (issue #6615).
+    if WORKSPACE and WORKSPACE_EXPLICIT:
         _ws_db = os.path.join(WORKSPACE, ".clawmetry-fleet.db")
         # Only honour the workspace-relative path when we can actually write
         # there. Under launchd the process starts with cwd="/", and the
@@ -6393,7 +6402,7 @@ def _auto_detect_data_dir():
 
 def detect_config(args=None):
     """Auto-detect OpenClaw/Moltbot paths, with CLI and env overrides."""
-    global WORKSPACE, MEMORY_DIR, LOG_DIR, SESSIONS_DIR, USER_NAME
+    global WORKSPACE, MEMORY_DIR, LOG_DIR, SESSIONS_DIR, USER_NAME, WORKSPACE_EXPLICIT
 
     # 0a. --openclaw-dir: set OpenClaw config directory (Issue #322 - Docker config bleed)
     if args and getattr(args, 'openclaw_dir', None):
@@ -6424,10 +6433,13 @@ def detect_config(args=None):
     # 1. Workspace - where agent files live (SOUL.md, MEMORY.md, memory/, etc.)
     if args and args.workspace:
         WORKSPACE = os.path.expanduser(args.workspace)
+        WORKSPACE_EXPLICIT = True
     elif os.environ.get("OPENCLAW_HOME"):
         WORKSPACE = os.path.expanduser(os.environ["OPENCLAW_HOME"])
+        WORKSPACE_EXPLICIT = True
     elif os.environ.get("OPENCLAW_WORKSPACE"):
         WORKSPACE = os.path.expanduser(os.environ["OPENCLAW_WORKSPACE"])
+        WORKSPACE_EXPLICIT = True
     else:
         # Auto-detect: check common locations
         candidates = [
@@ -6446,11 +6458,14 @@ def detect_config(args=None):
                 os.path.isdir(os.path.join(c, "memory"))
             ):
                 WORKSPACE = c
+                WORKSPACE_EXPLICIT = True  # real OpenClaw markers found
                 break
         if not WORKSPACE:
             # "/" is not a workspace. launchd starts agents with cwd="/", so
             # this last-resort guess silently poisoned every workspace-relative
             # state path (see _fleet_db_path) on an auto-started install.
+            # WORKSPACE_EXPLICIT stays False: the cwd fallback must not steer
+            # the fleet DB away from ~/.clawmetry/fleet.db (issue #6615).
             _cwd = os.getcwd()
             WORKSPACE = _cwd if _cwd not in ("/", "") else os.path.expanduser("~")
 
@@ -10029,383 +10044,12 @@ def _generic_channel_data(channel_key):
 import re as _sec_re  # noqa: E402
 
 # Built-in threat signatures: pattern matching on tool call details
-_THREAT_SIGNATURES = [
-    # Critical: Direct system compromise attempts
-    {
-        "id": "SEC-001",
-        "severity": "critical",
-        "description": "Reverse shell attempt via exec",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"(?:bash|sh|nc|ncat|netcat)\s.*-[ie]\s",
-            r"/dev/tcp/",
-            r"mkfifo\s+/tmp/",
-            r"\bsocat\b.*\bexec\b",
-            r"\btelnet\b.*\|.*\bsh\b",
-        ],
-    },
-    {
-        "id": "SEC-002",
-        "severity": "critical",
-        "description": "Credential/secret file access",
-        "tool_types": ["READ", "EXEC"],
-        "patterns": [
-            r"(?:/etc/shadow|/etc/passwd)",
-            r"\.ssh/(?:id_rsa|id_ed25519|authorized_keys)",
-            r"\.aws/credentials",
-            r"\.env(?:\b|$)",
-            r"(?:\.kube|kubeconfig)",
-            r"\.gnupg/private",
-            r"\.netrc",
-        ],
-    },
-    {
-        "id": "SEC-003",
-        "severity": "critical",
-        "description": "Privilege escalation attempt",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bsudo\s+(?:su|bash|sh|chmod\s+[ugo]*s)",
-            r"\bchmod\s+[0-7]*4[0-7]{2}\b",
-            r"\bchmod\s+u\+s\b",
-            r"\bpkexec\b",
-            r"\bsu\s+-\s",
-        ],
-    },
-    # High: Data exfiltration and suspicious network activity
-    {
-        "id": "SEC-004",
-        "severity": "high",
-        "description": "Potential data exfiltration via curl/wget POST",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bcurl\b.*\b-[dX]\b.*(?:POST|PUT)",
-            r"\bcurl\b.*--data(?:-binary|-raw|-urlencode)?\b",
-            r"\bwget\b.*--post-(?:data|file)\b",
-        ],
-    },
-    {
-        "id": "SEC-005",
-        "severity": "high",
-        "description": "SSH/SCP to unknown external host",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bssh\b\s+(?!localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(?:1[6-9]|2[0-9]|3[01]))",
-            r"\bscp\b\s+.*:",
-            r"\brsync\b.*(?<!localhost):",
-        ],
-    },
-    {
-        "id": "SEC-006",
-        "severity": "high",
-        "description": "Cryptocurrency miner indicators",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bxmrig\b",
-            r"\bstratum\+tcp\b",
-            r"(?:mine|pool)\..*\.(?:com|net|org)",
-            r"\bcpuminer\b",
-        ],
-    },
-    # Medium: Suspicious but potentially legitimate
-    {
-        "id": "SEC-007",
-        "severity": "medium",
-        "description": "Destructive file operation (rm -rf on system paths)",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\brm\s+(?:-[rfRv]+\s+)*(?:/(?:etc|usr|var|boot|lib|bin|sbin|opt|root)\b|/\s*$)",
-            r"\brm\s+-[rfR]+\s+\*",
-            r"\bdd\s+.*of=/dev/",
-            r"\bmkfs\b",
-        ],
-    },
-    {
-        "id": "SEC-008",
-        "severity": "medium",
-        "description": "Package manager running as agent (supply chain risk)",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bpip\s+install\b.*(?:--index-url|--extra-index-url|--trusted-host)",
-            r"\bnpm\s+install\b.*(?:--registry|--unsafe-perm)",
-            r"\bcurl\b.*\|\s*(?:sudo\s+)?(?:bash|sh)\b",
-            r"\bwget\b.*\|\s*(?:sudo\s+)?(?:bash|sh)\b",
-        ],
-    },
-    {
-        "id": "SEC-009",
-        "severity": "medium",
-        "description": "Firewall or security policy modification",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\b(?:ufw|iptables|nftables|firewall-cmd)\b.*(?:allow|disable|delete|flush)",
-            r"\bsetenforce\s+0\b",
-            r"\bsystemctl\s+(?:stop|disable)\s+(?:firewalld|ufw|apparmor)",
-        ],
-    },
-    {
-        "id": "SEC-010",
-        "severity": "medium",
-        "description": "Cron/systemd persistence mechanism",
-        "tool_types": ["EXEC", "WRITE"],
-        "patterns": [
-            r"\bcrontab\b",
-            r"/etc/cron\.",
-            r"/etc/systemd/system/.*\.service",
-            r"systemctl\s+enable\b",
-        ],
-    },
-    # Low: Informational security events
-    {
-        "id": "SEC-011",
-        "severity": "low",
-        "description": "Port scanning or network reconnaissance",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bnmap\b",
-            r"\bmasscan\b",
-            r"\bnetstat\s+-[tul]*p",
-            r"\bss\s+-[tul]*p",
-        ],
-    },
-    {
-        "id": "SEC-012",
-        "severity": "low",
-        "description": "Large file download (potential payload)",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bwget\b\s+https?://(?!github\.com|pypi\.org|registry\.npmjs\.org|dl\.google\.com)",
-            r"\bcurl\b\s+-[oOL]+\s+https?://(?!github\.com|pypi\.org|registry\.npmjs\.org)",
-        ],
-    },
-    {
-        "id": "SEC-013",
-        "severity": "medium",
-        "description": "Environment variable or API key extraction",
-        "tool_types": ["EXEC", "READ"],
-        "patterns": [
-            r"\bprintenv\b",
-            r"\benv\s*$",
-            r"\bset\s*\|\s*grep\b.*(?:KEY|SECRET|TOKEN|PASS)",
-            r"cat\s+.*(?:\.env|secrets|credentials)",
-        ],
-    },
-    {
-        "id": "SEC-014",
-        "severity": "high",
-        "description": "Process injection or debugging attachment",
-        "tool_types": ["EXEC"],
-        "patterns": [
-            r"\bgdb\b.*-p\s*\d+",
-            r"\bstrace\b.*-p\s*\d+",
-            r"\bptrace\b",
-            r"\bLD_PRELOAD\b",
-            r"\b/proc/\d+/mem\b",
-        ],
-    },
-    {
-        "id": "SEC-015",
-        "severity": "high",
-        "description": "Browser tool accessing sensitive URLs",
-        "tool_types": ["BROWSER", "SEARCH"],
-        "patterns": [
-            r"(?:bank|paypal|stripe\.com/dashboard|console\.aws|portal\.azure)",
-            r"(?:admin|phpmyadmin|wp-admin|cpanel)",
-            r"file:///etc/",
-        ],
-    },
-    {
-        "id": "SEC-016",
-        "severity": "high",
-        "description": "Prompt injection attempt in external content",
-        "tool_types": ["READ", "BROWSER", "SEARCH"],
-        "patterns": [
-            r"ignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions",
-            r"disregard\s+(?:all\s+)?(?:previous|prior|above)\s+instructions",
-            r"forget\s+(?:all\s+)?(?:your\s+)?(?:previous|prior|above)\s+instructions",
-            r"override\s+(?:your\s+)?(?:system\s+prompt|instructions|directives)",
-            r"you\s+are\s+now\s+(?:a\s+)?(?:DAN|uncensored|unrestricted|jailbroken)",
-            r"\bdo\s+anything\s+now\b",
-            r"act\s+as\s+if\s+you\s+have\s+no\s+restrictions",
-            r"new\s+instructions?[:]\s*(?:you|your|from\s+now)",
-        ],
-    },
-]
-
-# Compile patterns once
-for _sig in _THREAT_SIGNATURES:
-    _sig["_compiled"] = [
-        _sec_re.compile(p, _sec_re.IGNORECASE) for p in _sig["patterns"]
-    ]
-
-
-# Action labels a signature's ``tool_types`` may declare. These come from the
-# LEGACY JSONL parser's ``tool_to_type()`` (routes/brain.py) and predate the
-# DuckDB-first read path.
-_THREAT_ACTION_TYPES = frozenset(
-    {"EXEC", "READ", "WRITE", "BROWSER", "SEARCH", "MSG", "SPAWN", "TOOL"}
+from clawmetry.security_signatures import (  # noqa: E402,F401
+    _THREAT_SIGNATURES, _THREAT_ACTION_TYPES, _THREAT_NON_ACTION_TYPES,
+    _THREAT_TOOL_TYPES, _THREAT_RESULT_TYPES, _threat_tool_name_to_action,
+    _threat_action_types, _threat_event_session, _threat_session_runtime,
+    _scan_events_for_threats,
 )
-
-# Rows that are agent *speech*, not agent *action*. Running action signatures
-# over these is how you flag the model for merely discussing ``~/.ssh/id_rsa``.
-# Content-borne risk (PII, injection, leaked keys) is the content scanners'
-# job — see ``_scan_content_for_policy_events``.
-_THREAT_NON_ACTION_TYPES = frozenset(
-    {"MESSAGE", "THINKING", "USER", "ASSISTANT", "SUMMARY", "COMPACT", "SYSTEM"}
-)
-
-# Tool-CALL rows as the DuckDB fast path emits them (routes/brain.py's
-# ``evt_type = event_type.upper()``). Only the call is an agent ACTION.
-#
-# TOOL_RESULT is deliberately absent, and so is ERROR (which routes/brain.py
-# derives from a failed TOOL_RESULT). A result is data the agent RECEIVED, not
-# something it did, and results are big free-text blobs — a page of docs, web
-# search output, a source file. Scanning them for action patterns produced
-# nothing but noise: live on a real node, all four hits were TOOL_RESULT rows
-# and all four were false positives (a Devin CLI docs page and a geocoding
-# result matched "browser reaching an admin panel"; a Python source file
-# matched "credential file access" at CRITICAL). Content-borne risk in results
-# is the policy scanners' job — see ``_scan_content_for_policy_events``.
-_THREAT_TOOL_TYPES = frozenset({"TOOL_CALL", "TOOL.CALL", "TOOL_USE"})
-
-# Returned data, not agent action. Excluded for the reason above.
-_THREAT_RESULT_TYPES = frozenset({"TOOL_RESULT", "TOOL.RESULT", "ERROR"})
-
-
-def _threat_tool_name_to_action(name):
-    """Map a tool NAME to a legacy action label. Mirrors routes/brain.py's
-    ``tool_to_type`` so both taxonomies agree on what 'EXEC' means."""
-    tn = str(name or "").lower()
-    if tn == "exec" or "shell" in tn or "bash" in tn or tn == "process":
-        return "EXEC"
-    if "read" in tn or "grep" in tn or "glob" in tn:
-        return "READ"
-    if "write" in tn or "edit" in tn:
-        return "WRITE"
-    if "browser" in tn or "canvas" in tn or "image" in tn:
-        return "BROWSER"
-    if "web_search" in tn or "web_fetch" in tn or "search" in tn or "fetch" in tn:
-        return "SEARCH"
-    if "subagent" in tn or "spawn" in tn or "task" in tn:
-        return "SPAWN"
-    return "TOOL"
-
-
-def _threat_action_types(ev):
-    """Which action labels an event should be matched against.
-
-    The signature table gates on the legacy ``EXEC/READ/WRITE/...`` vocabulary,
-    but since the DuckDB-first migration brain rows arrive as
-    ``TOOL_CALL/TOOL_RESULT/MESSAGE/THINKING/ERROR``. The two vocabularies do
-    not intersect, so every event fell through every signature and the scanner
-    could never report a threat (it was structurally pinned at 0). This bridges
-    them: legacy labels pass through, speech rows are excluded, and a tool row
-    with no tool NAME is matched against every signature — the store keeps the
-    tool INPUT in ``detail`` but not which tool produced it, and the signature
-    regexes are specific enough (``/dev/tcp/``, ``.ssh/id_rsa``) to carry the
-    precision on their own.
-    """
-    ev_type = str(ev.get("type") or "").upper()
-    if not ev_type:
-        return frozenset()
-    if ev_type in _THREAT_ACTION_TYPES:
-        return frozenset({ev_type})
-    if ev_type in _THREAT_NON_ACTION_TYPES or ev_type in _THREAT_RESULT_TYPES:
-        return frozenset()
-    if ev_type in _THREAT_TOOL_TYPES:
-        name = ev.get("tool") or ev.get("toolName") or ev.get("name")
-        if name:
-            return frozenset({_threat_tool_name_to_action(name)})
-        return _THREAT_ACTION_TYPES
-    # CHANNEL.*, NUMBAT_FINDING, daemon rows, anything else we don't recognise
-    # as an agent action: leave alone rather than guess.
-    return frozenset()
-
-
-def _threat_event_session(ev):
-    """Session id for a brain event across both read paths.
-
-    The legacy parser used ``source``; the DuckDB fast path emits ``sessionId``
-    (full) plus ``src`` (truncated to 32 chars). Reading only ``source`` meant
-    every event reported the empty string, so a node with five active sessions
-    reported ``sessions_scanned: 1``.
-    """
-    return str(
-        ev.get("sessionId") or ev.get("source") or ev.get("src") or ""
-    )
-
-
-def _threat_session_runtime(session_id):
-    """``claude_code:1bfbb30f-...`` → ``claude_code``. Bare ids → ""."""
-    sid = str(session_id or "")
-    return sid.split(":", 1)[0] if ":" in sid else ""
-
-
-def _scan_events_for_threats(events, runtime=None):
-    """Scan brain-history events against threat signatures. Returns list of threat matches.
-
-    ``runtime`` scopes the scan to one agent runtime (per FLYWHEEL §1c —
-    a number shown under the runtime switcher must belong to that runtime).
-    """
-    threats = []
-    sessions_seen = set()
-    sessions_with_threats = set()
-    want_runtime = str(runtime or "").strip().lower()
-
-    for ev in events:
-        source = _threat_event_session(ev)
-        if want_runtime and _threat_session_runtime(source).lower() != want_runtime:
-            continue
-        sessions_seen.add(source)
-        action_types = _threat_action_types(ev)
-        if not action_types:
-            continue
-        ev_type = str(ev.get("type") or "")
-        detail = ev.get("detail", "")
-        if not detail:
-            continue
-
-        for sig in _THREAT_SIGNATURES:
-            if not action_types.intersection(sig["tool_types"]):
-                continue
-            for compiled in sig["_compiled"]:
-                if compiled.search(detail):
-                    sessions_with_threats.add(source)
-                    threats.append(
-                        {
-                            "rule_id": sig["id"],
-                            "severity": sig["severity"],
-                            "description": sig["description"],
-                            "detail": detail[:500],
-                            "time": ev.get("time", ""),
-                            "session": ev.get("sourceLabel", source),
-                            "source": source,
-                            "event_type": ev_type,
-                            "engine": "builtin",
-                            "runtime": _threat_session_runtime(source),
-                        }
-                    )
-                    break  # One match per signature per event
-
-    # Sort by severity then time
-    sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-    threats.sort(
-        key=lambda t: (sev_order.get(t["severity"], 9), t.get("time", "") or ""),
-        reverse=False,
-    )
-    threats.sort(key=lambda t: t.get("time", "") or "", reverse=True)
-
-    counts = {
-        "critical": sum(1 for t in threats if t["severity"] == "critical"),
-        "high": sum(1 for t in threats if t["severity"] == "high"),
-        "medium": sum(1 for t in threats if t["severity"] == "medium"),
-        "low": sum(1 for t in threats if t["severity"] == "low"),
-        "total": len(threats),
-        "sessions_scanned": len(sessions_seen),
-        "clean_sessions": len(sessions_seen - sessions_with_threats),
-    }
-    return threats, counts
-
 
 # (bp_security routes /api/security/threats and /api/security/signatures
 #  moved to routes/infra.py)
@@ -12625,16 +12269,37 @@ Examples:
 Docs: https://docs.clawmetry.com
 """
 
-# Windows has no /tmp, so the literal path resolved to C:\tmp and every read
-# failed into the bare except below — _read_pid() always returned None, which
-# is what silently disabled the stale-instance reclaim at startup (two dev
-# servers could then bind the same port and requests would land on whichever
-# Windows picked). tempfile.gettempdir() honours %TEMP% there; POSIX keeps the
-# exact path it has always used so existing pid files stay discoverable.
-PID_FILE = (
-    os.path.join(_tempfile.gettempdir(), "clawmetry.pid")
+# The pid file and the daemon log both used to sit at a fixed, predictable name
+# in the shared temp directory ("/tmp/clawmetry.pid", "/tmp/clawmetry.log").
+# On a multi-user POSIX machine /tmp is world-writable, so any other local
+# account can pre-create either name -- or a symlink standing in for it -- and
+# this user's write then follows that symlink back out of /tmp under this
+# user's own privileges. The pid write is one integer, but the launchd plist
+# aims StandardOutPath AND StandardErrorPath at the log path, so a planted
+# symlink there is an append primitive against any file this user can write,
+# lasting as long as the daemon runs.
+#
+# Both now live under ~/.clawmetry/, a directory this user owns, which is
+# already where clawmetry/proxy.py keeps proxy.pid and matches the convention
+# in clawmetry/sync.py and clawmetry/telemetry.py. The earlier note on this
+# block still holds for the legacy paths below: Windows has no /tmp, so the
+# bare literal resolved to C:\tmp, every read failed into the except in
+# _read_pid() and the stale-instance reclaim at startup was silently disabled;
+# _tempfile.gettempdir() honours %TEMP%, which is per-user on Windows.
+_DAEMON_DIR = os.path.join(os.path.expanduser("~"), ".clawmetry")
+PID_FILE = os.path.join(_DAEMON_DIR, "clawmetry.pid")
+DAEMON_LOG_FILE = os.path.join(_DAEMON_DIR, "clawmetry.log")
+
+# A daemon started by an earlier build wrote its pid to the old location, so
+# these are still READ -- by `clawmetry status`, by `stop`, and by the
+# stale-instance reclaim -- to keep an already-running instance discoverable
+# across the upgrade. Nothing writes them, and `remove` clears them.
+_LEGACY_PID_FILES = (
+    (os.path.join(_tempfile.gettempdir(), "clawmetry.pid"),)
     if os.name == "nt"
-    else "/tmp/clawmetry.pid"
+    # The literal below is a read-only legacy path and is never written to;
+    # it is declared to bandit on the line itself.
+    else ("/tmp/clawmetry.pid",)  # nosec B108
 )
 LAUNCHD_LABEL = "com.clawmetry.dashboard"
 LAUNCHD_PLIST = os.path.expanduser(f"~/Library/LaunchAgents/{LAUNCHD_LABEL}.plist")
@@ -12668,16 +12333,36 @@ def _get_script_path():
 
 
 def _write_pid(pid):
+    # ~/.clawmetry/ is created on demand: a first run has no config dir yet,
+    # and without this the write raised and took `clawmetry start` with it.
+    try:
+        os.makedirs(_DAEMON_DIR, exist_ok=True)
+    except Exception:
+        pass
     with open(PID_FILE, "w") as f:
         f.write(str(pid))
 
 
-def _read_pid():
+def _pid_in(path):
+    """The integer in `path`, or None when it is missing or unreadable."""
     try:
-        with open(PID_FILE) as f:
+        with open(path) as f:
             return int(f.read().strip())
     except Exception:
         return None
+
+
+def _read_pid():
+    """Current pid, falling back to the pre-~/.clawmetry locations.
+
+    Returns None when no file holds a readable integer, which is what every
+    caller already treats as "nothing is running".
+    """
+    for _path in (PID_FILE,) + tuple(_LEGACY_PID_FILES):
+        pid = _pid_in(_path)
+        if pid is not None:
+            return pid
+    return None
 
 
 def _is_pid_running(pid):
@@ -13268,7 +12953,13 @@ def _start_oauth_bridge(provider, mode="managed"):
     return f"{app_base}/api/oauth/{provider}/start?cli_port={port}"
 
 
-def _build_plist(python_exe, script_path, port, host, log_path="/tmp/clawmetry.log"):
+def _build_plist(python_exe, script_path, port, host, log_path=None):
+    # Defaulted to "/tmp/clawmetry.log", and the one caller never passes this,
+    # so that shared-temp path was the one launchd actually used for both
+    # StandardOutPath and StandardErrorPath. Resolved here rather than in the
+    # signature so a default evaluated at import cannot outlive $HOME.
+    if log_path is None:
+        log_path = DAEMON_LOG_FILE
     extra = []
     if host != "127.0.0.1":
         extra += ["<string>--host</string>", f"<string>{host}</string>"]
@@ -13346,12 +13037,9 @@ def cmd_start(args):
     _port_busy = _s.connect_ex(("127.0.0.1", port)) == 0
     _s.close()
     if _port_busy:
-        _old_pid = None
-        try:
-            with open(PID_FILE) as _pf:
-                _old_pid = int(_pf.read().strip())
-        except Exception:
-            pass
+        # Was an inline open(PID_FILE) that only looked at the new path, so
+        # the reclaim missed a daemon still running from an earlier build.
+        _old_pid = _read_pid()
         if _old_pid:
             try:
                 import subprocess as _sp
@@ -13385,6 +13073,9 @@ def cmd_start(args):
     if _is_macos():
         # Write plist
         plist_content = _build_plist(python_exe, script_path, port, host)
+        # launchd will not start a job whose StandardOutPath directory does
+        # not exist, and ~/.clawmetry/ may not exist on a first run.
+        os.makedirs(_DAEMON_DIR, exist_ok=True)
         os.makedirs(os.path.dirname(LAUNCHD_PLIST), exist_ok=True)
         with open(LAUNCHD_PLIST, "w") as f:
             f.write(plist_content)
@@ -13403,7 +13094,7 @@ def cmd_start(args):
         time.sleep(1)
         if _launchd_running():
             print(f"[ok] ClawMetry started  ->  http://localhost:{port}")
-            print("   Auto-starts on login - logs: /tmp/clawmetry.log")
+            print(f"   Auto-starts on login - logs: {DAEMON_LOG_FILE}")
             print("   Stop with: clawmetry stop")
         else:
             print(
@@ -13821,9 +13512,14 @@ def cmd_uninstall(args):
     else:
         print("  Daemon mode not supported on this OS.")
 
-    # Remove PID file if present
-    if os.path.exists(PID_FILE):
-        os.remove(PID_FILE)
+    # Remove PID file if present, legacy locations included -- leaving one
+    # behind means the next start reclaims a pid that is no longer ours.
+    for _pid_path in (PID_FILE,) + tuple(_LEGACY_PID_FILES):
+        try:
+            if os.path.exists(_pid_path):
+                os.remove(_pid_path)
+        except OSError:
+            pass
 
     print("[ok] ClawMetry service removed.")
 
@@ -14072,7 +13768,7 @@ def _run_server(args):
         # One-click login URL when gateway token was detected (#1356 PR-D).
         # Defense against shoulder-surfing screenshots: only the framed URL is
         # printed (never the bare token), and only on the interactive startup
-        # banner (stdout). We never log this line to /tmp/clawmetry.log because
+        # banner (stdout). We never log this line to the daemon log file because
         # the daemon-mode launcher redirects only the noisy server output, not
         # this one-shot banner that runs before serve().
         try:

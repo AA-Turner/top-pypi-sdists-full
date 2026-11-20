@@ -705,7 +705,7 @@ class ToolExecutionMixin:
             if not has_registered_plugins():
                 return
         except Exception:  # pragma: no cover - defensive plugin boundary
-            pass
+            logger.debug("Plugin fast-path check failed; scanning plugins", exc_info=True)
         try:
             from ..plugins import get_plugin_manager
 
@@ -840,7 +840,7 @@ class ToolExecutionMixin:
             if not has_registered_plugins():
                 return
         except Exception:  # pragma: no cover - defensive plugin boundary
-            pass
+            logger.debug("Plugin fast-path check failed; scanning plugins", exc_info=True)
         try:
             from ..plugins import get_plugin_manager
 
@@ -943,7 +943,7 @@ class ToolExecutionMixin:
                                         )
                                         continue
                                 except Exception:  # pragma: no cover
-                                    pass
+                                    logger.debug("Could not look up existing policy %r", rule_name, exc_info=True)
                             if rule_name is not None and rule_name in existing:
                                 logger.warning(
                                     "Skipping duplicate plugin policy %r.",
@@ -1982,7 +1982,7 @@ class ToolExecutionMixin:
                 except Exception:
                     # Trust module unavailable (partial/broken install) must not
                     # abort tool execution; fall through with the raw result.
-                    pass
+                    logger.debug("Could not fence the model-facing view of %r", function_name, exc_info=True)
             
             # Apply tool output truncation to prevent context overflow
             # Uses context manager budget if enabled, otherwise applies default limit
@@ -2614,7 +2614,7 @@ class ToolExecutionMixin:
                     standing_grant = (
                         approval_registry.is_env_auto_approve()
                         or approval_registry.is_yaml_approved(tool_name)
-                        or approval_registry.is_auto_approved(tool_name, scope_id)
+                        or approval_registry._skill_grant_covers(tool_name, scope_id)
                         or approval_registry.is_already_approved(
                             tool_name, tool_args, scope_id
                         )
@@ -2698,7 +2698,7 @@ class ToolExecutionMixin:
                             decision, scope_id,
                         )
                     except Exception:  # noqa: BLE001 - bookkeeping only
-                        pass
+                        logger.debug("Could not persist approval decision for %r", tool_name, exc_info=True)
                     return decision
 
                 if is_async:
@@ -3097,7 +3097,8 @@ class ToolExecutionMixin:
             "write", "edit", "append", "delete", "remove", "create", "mkdir",
             "rm", "put", "post", "patch", "update", "insert", "save", "move",
             "rename", "chmod", "chown", "exec", "run", "shell", "bash", "command",
-            "kill", "apply_patch", "install", "deploy",
+            "kill", "apply_patch", "install", "deploy", "send", "publish",
+            "upload", "push", "notify", "forward", "reply", "archive", "commit",
         )
         return not any(marker in name for marker in write_markers)
 
@@ -3476,7 +3477,7 @@ class ToolExecutionMixin:
                 weakref.finalize(self, self._remove_circuit_breaker, breaker_name)
             )
         except Exception:
-            pass
+            logger.debug("Could not register circuit-breaker finalizer for %r", breaker_name, exc_info=True)
 
     def _get_tool_circuit_breaker(self, function_name):
         """Return this agent's circuit breaker for *function_name*, or None.
@@ -3637,7 +3638,7 @@ class ToolExecutionMixin:
         registry: a guardrail must come from the tool this agent was actually
         given, never from a same-named tool registered elsewhere.
         """
-        candidates = tools if tools is not None else getattr(self, "tools", None)
+        candidates = tools if tools is not None else self._dispatch_tools()
         if not isinstance(candidates, (list, tuple)):
             return None
         for tool_obj in candidates:
@@ -3932,7 +3933,7 @@ class ToolExecutionMixin:
         # Try to find the function in the agent's tools list first
         func = None
         plugin_owners = getattr(self, "_plugin_tool_owners", None)
-        for tool in self.tools if isinstance(self.tools, (list, tuple)) else []:
+        for tool in self._dispatch_tools():
             if plugin_owners and not self._is_plugin_tool_active(tool):
                 continue
             # Check for BaseTool instances (plugin system)
@@ -4102,7 +4103,7 @@ class ToolExecutionMixin:
             near = difflib.get_close_matches(function_name, available, n=1, cutoff=0.5)
             suggestion = near[0] if near else None
         except Exception:
-            pass
+            logger.debug("Could not suggest a tool name for %r", function_name, exc_info=True)
         hint = f" Did you mean '{suggestion}'?" if suggestion else ""
         error_msg = (
             f"Tool '{function_name}' not found.{hint} "
@@ -4147,7 +4148,7 @@ class ToolExecutionMixin:
             if compact is not None:
                 return compact
         except Exception:
-            pass
+            logger.debug("resolve_model_output failed for %r; using the full result", function_name, exc_info=True)
 
         # Unwrap to the raw output value so the hook receives the same payload
         # BaseTool.safe_run passes (the ``output`` channel), keeping one contract.
@@ -4166,7 +4167,7 @@ class ToolExecutionMixin:
                         )
                 return None
         except Exception:
-            pass
+            logger.debug("Model-facing view lookup failed for %r; using the full result", function_name, exc_info=True)
         return None
 
     def _iter_active_named_tools(self):
@@ -4187,18 +4188,23 @@ class ToolExecutionMixin:
                         if sub_name:
                             yield sub_name, sub
                 except Exception:
-                    pass
+                    logger.debug("Could not expand tool %r into sub-tools", tool, exc_info=True)
                 return
             name = self._get_tool_display_name(tool)
             if name:
                 yield name, tool
 
+        turn = self._turn_scope_tools()
+        for tool in turn:
+            if self._is_plugin_tool_active(tool):
+                yield from _expand(tool)
         tools = self.tools
         if MCP is not None and isinstance(tools, MCP):
-            yield from _expand(tools)
+            if not any(tools is t for t in turn):
+                yield from _expand(tools)
             return
         for tool in tools if isinstance(tools, (list, tuple)) else []:
-            if not self._is_plugin_tool_active(tool):
+            if not self._is_plugin_tool_active(tool) or any(tool is t for t in turn):
                 continue
             yield from _expand(tool)
 
@@ -4249,6 +4255,17 @@ class ToolExecutionMixin:
             return False, None
 
         def _execute_mcp_tool(mcp_instance, func_name, args):
+            found, result = _call_mcp_tool(mcp_instance, func_name, args)
+            if found:
+                # An MCP server is a third party: fence its output as external.
+                from ..tools.trust import add_external_tool
+                add_external_tool(func_name)
+            return found, result
+
+        def _call_mcp_tool(mcp_instance, func_name, args):
+            permitted = getattr(mcp_instance, "_tool_permitted", None)
+            if permitted is not None and not permitted(func_name):
+                return False, None  # filtered out by allowed_tools/disabled_tools
             if hasattr(mcp_instance, 'is_sse') and mcp_instance.is_sse:
                 if hasattr(mcp_instance, 'sse_client'):
                     for tool in mcp_instance.sse_client.tools:
@@ -4269,6 +4286,16 @@ class ToolExecutionMixin:
                     if hasattr(mcp_tool, 'name') and mcp_tool.name == func_name:
                         return True, mcp_instance.runner.call_tool(func_name, args)
             return False, None
+
+        # Per-turn ``tools=`` take precedence (same order as _dispatch_tools):
+        # a same-named per-turn callable must win over the agent's MCP tool.
+        for tool in self._turn_scope_tools():
+            if isinstance(tool, MCP):
+                found, result = _execute_mcp_tool(tool, function_name, arguments)
+                if found:
+                    return True, result
+            elif function_name in (getattr(tool, "name", None), getattr(tool, "__name__", None)):
+                return False, None  # native dispatch runs the per-turn tool
 
         if isinstance(self.tools, MCP):
             found, result = _execute_mcp_tool(self.tools, function_name, arguments)
@@ -4360,7 +4387,30 @@ class ToolExecutionMixin:
         """Bind the per-turn ``tools=`` allow-set for dispatch; ``None`` = inherit."""
         if tools is None:
             return None
-        return _turn_tool_scope.set((self, self._turn_tool_names(tools)))
+        objs = tuple(
+            t for t in (tools if isinstance(tools, (list, tuple)) else [tools])
+            if not isinstance(t, (str, dict))
+        )
+        return _turn_tool_scope.set((self, self._turn_tool_names(tools), objs))
+
+    def _turn_scope_tools(self):
+        """Tool objects passed for the current turn via ``tools=`` (empty when none)."""
+        scope = _turn_tool_scope.get()
+        if scope is None or scope[0] is not self or len(scope) < 3:
+            return ()
+        return scope[2]
+
+    def _dispatch_tools(self):
+        """Tools resolvable this turn: per-turn ``tools=`` first, then the agent's own.
+
+        ``Task(tools=...)`` / ``chat(tools=...)`` are advertised to the model, so
+        they must also be dispatchable even when absent from ``Agent(tools=...)``.
+        """
+        own = list(self.tools) if isinstance(self.tools, (list, tuple)) else []
+        turn = self._turn_scope_tools()
+        if not turn:
+            return own
+        return list(turn) + [t for t in own if not any(t is x for x in turn)]
 
     @staticmethod
     def _exit_turn_tool_scope(token):
@@ -4385,7 +4435,7 @@ class ToolExecutionMixin:
                         if sub_name:
                             names.add(sub_name)
                 except Exception:
-                    pass
+                    logger.debug("Could not expand tool %r into sub-tools", tool, exc_info=True)
             else:
                 name = self._get_tool_display_name(tool)
                 if name:
@@ -4718,7 +4768,7 @@ class ToolExecutionMixin:
                     if isinstance(explicit, bool):
                         return not explicit
             except Exception:
-                pass
+                logger.debug("Registry lookup for %r failed; using the default", tool_name, exc_info=True)
         return False
 
     def _is_tool_idempotent(self, tool_name):
@@ -4756,7 +4806,7 @@ class ToolExecutionMixin:
                 if isinstance(explicit, bool):
                     return explicit
             except Exception:
-                pass
+                logger.debug("Registry lookup for %r failed; using the default", tool_name, exc_info=True)
         try:
             from ..escalation.loop_guard import IDEMPOTENT_TOOLS, MUTATING_TOOLS
         except Exception:

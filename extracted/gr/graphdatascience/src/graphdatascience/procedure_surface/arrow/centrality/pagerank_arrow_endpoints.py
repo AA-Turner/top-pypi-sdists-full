@@ -7,10 +7,12 @@ from graphdatascience.arrow_client.authenticated_flight_client import Authentica
 from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.scaler_config import ScalerConfig
 from graphdatascience.procedure_surface.api.centrality.pagerank_endpoints import (
-    PageRankEndpoints,
     PageRankMutateResult,
     PageRankStatsResult,
     PageRankWriteResult,
+)
+from graphdatascience.procedure_surface.api.centrality.pagerank_session_endpoints import (
+    PageRankSessionEndpoints,
 )
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -19,7 +21,7 @@ from graphdatascience.procedure_surface.arrow.node_property_endpoints import Nod
 from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
-class PageRankArrowEndpoints(PageRankEndpoints):
+class PageRankArrowEndpoints(PageRankSessionEndpoints):
     def __init__(
         self,
         arrow_client: AuthenticatedArrowClient,
@@ -41,6 +43,7 @@ class PageRankArrowEndpoints(PageRankEndpoints):
         node_labels: list[str] = ALL_LABELS,
         sudo: bool = False,
         log_progress: bool = True,
+        username: str | None = None,
         concurrency: int | None = None,
         job_id: str | None = None,
         relationship_weight_property: str | None = None,
@@ -76,6 +79,8 @@ class PageRankArrowEndpoints(PageRankEndpoints):
             Disable the memory guard.
         log_progress
             Display progress logging.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
         concurrency
             Number of concurrent threads to use.
         job_id
@@ -110,6 +115,7 @@ class PageRankArrowEndpoints(PageRankEndpoints):
             source_nodes=source_nodes,
             sudo=sudo,
             tolerance=tolerance,
+            username=username,
         )
 
         return self._node_property_endpoints.run_job(G, "v2/centrality.pageRank", config)

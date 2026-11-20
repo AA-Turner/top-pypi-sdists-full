@@ -138,12 +138,17 @@ LANDED_STATUSES = frozenset(
 SOURCE_BRANCH = "branch"
 SOURCE_DECLARED = "declared"
 
-# Audit-log coordinates for the two events this feature emits. Both are
+# Audit-log coordinates for the events this feature emits. All three are
 # business tier: an order change to real dispatched work is a board decision,
 # not tick housekeeping, and it must survive `audit.level = business`.
 AUDIT_CATEGORY = "drive-queue"
 EVENT_PREDICTED = "overlap_predicted"
 EVENT_SCORED = "overlap_scored"
+#: A PREDICTED ``after=`` edge dropped by the board-doctor sweep because its
+#: target can no longer land soon (dequeued, blocked, parked, or stuck
+#: behind one of those transitively). See
+#: ``coord.drive_queue.record_predicted_after_drop``.
+EVENT_PREDICTED_DROPPED = "overlap_predicted_dropped"
 
 # Outcome verdicts from :func:`classify_outcome`.
 OUTCOME_CONFIRMED = "confirmed"
@@ -1111,3 +1116,56 @@ def predictions_from_audit(entries: Iterable[Mapping[str, Any]]) -> list[dict[st
                 }
             )
     return out
+
+
+def predicted_after_targets(
+    repo: str,
+    issue: int,
+    *,
+    query: Callable[..., Mapping[str, Any]] | None = None,
+) -> frozenset[str]:
+    """Which of *repo*#*issue*'s own ``after=`` keys the PREDICTOR wrote,
+    as opposed to an operator's ``--after`` or an epic's ``{after:}`` (#4037).
+
+    Reads the durable :data:`EVENT_PREDICTED` trail :func:`coord.commands.
+    drive_queue._record_overlap_prediction` / `._record_reverse_overlap_
+    prediction` already write on every ``add`` that applies a predicted
+    edge — no new column, no second write path. A forward record's own
+    ``applied_after`` names exactly the candidates THAT add call chained
+    (``details["after"]`` alone overclaims — it is every overlap the
+    predictor merely CONSIDERED, applied or not, see :meth:`Prediction.
+    audit_details`); a reversed record's ``after`` already names only the
+    one key #3395 actually wrote onto this row (see
+    ``_record_reverse_overlap_prediction``), under its own ``"reversed":
+    True`` marker.
+
+    Returns the UNION across every such record ever written for this
+    entry — a safe over-approximation of "currently predicted", not an
+    exact one: a key recorded here may since have been dropped (an
+    operator's ``--reject-after``, or :func:`coord.board_doctor.
+    drop_stale_predicted_after_edges` itself) or never actually applied.
+    Callers that care which edges are LIVE right now (every one today)
+    intersect this against the entry's current ``after=`` tuple
+    themselves — this function has no board/queue access to do that here.
+
+    *query* defaults to :func:`coord.audit.query_audit_log`; injectable so
+    a pure-logic caller (tests, :func:`coord.board_doctor.
+    drop_stale_predicted_after_edges`'s own tests) never needs a real DB.
+    """
+    if query is None:
+        from coord.audit import query_audit_log as query  # noqa: PLC0415
+
+    result = query(
+        event_type=EVENT_PREDICTED, category=AUDIT_CATEGORY, repo=repo, issue=issue,
+        limit=200,
+    )
+    predicted: set[str] = set()
+    for row in (result or {}).get("entries") or ():
+        details = row.get("details") if isinstance(row, Mapping) else None
+        if not isinstance(details, Mapping):
+            continue
+        if details.get("reversed"):
+            predicted.update(str(k) for k in (details.get("after") or ()))
+        else:
+            predicted.update(str(k) for k in (details.get("applied_after") or ()))
+    return frozenset(predicted)

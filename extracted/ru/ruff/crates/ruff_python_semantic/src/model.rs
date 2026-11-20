@@ -268,28 +268,13 @@ impl<'a> SemanticModel<'a> {
 
     /// Return `true` if the `Expr` is a reference to `typing.${target}`.
     pub fn match_typing_expr(&self, expr: &Expr, target: &str) -> bool {
-        if !self.seen_typing() {
-            return false;
-        }
-
-        if let Expr::Attribute(attr) = expr
-            && attr.attr.as_str() != target
-        {
-            return false;
-        }
-
-        // `from typing import Literal as L` allows `L` to match `Literal`.
-        // A name without a recorded binding still needs a scope lookup.
-        if let Expr::Name(name) = expr
-            && name.id.as_str() != target
-            && let Some(id) = self.resolve_name(name)
-            && !self.binding(id).is_alias()
-        {
-            return false;
-        }
-
-        self.resolve_qualified_name(expr)
-            .is_some_and(|qualified_name| self.match_typing_qualified_name(&qualified_name, target))
+        self.seen_typing()
+            && self.may_resolve_to_member(expr, target)
+            && self
+                .resolve_qualified_name(expr)
+                .is_some_and(|qualified_name| {
+                    self.match_typing_qualified_name(&qualified_name, target)
+                })
     }
 
     /// Return `true` if the call path is a reference to `typing.${target}`.
@@ -1182,6 +1167,36 @@ impl<'a> SemanticModel<'a> {
         })
     }
 
+    /// Returns whether `expr` resolves to exactly the given qualified-name segments.
+    #[inline]
+    pub fn matches_qualified_name(&self, expr: &Expr, target: &[&str]) -> bool {
+        let Some(&member) = target.last() else {
+            return false;
+        };
+
+        self.may_resolve_to_member(expr, member)
+            && self
+                .resolve_qualified_name(expr)
+                .is_some_and(|qualified_name| qualified_name.segments() == target)
+    }
+
+    /// Checks whether the spelling of `expr` can match the last segment of a qualified name.
+    #[inline]
+    fn may_resolve_to_member(&self, expr: &Expr, member: &str) -> bool {
+        match expr {
+            Expr::Attribute(attribute) => attribute.attr.as_str() == member,
+            // `from typing import Literal as L` allows `L` to match `Literal`.
+            // A name without a recorded binding still needs a scope lookup.
+            Expr::Name(name) => {
+                name.id.as_str() == member
+                    || self
+                        .resolve_name(name)
+                        .is_none_or(|id| self.binding(id).is_alias())
+            }
+            _ => false,
+        }
+    }
+
     /// Resolves the [`Expr`] to a fully-qualified symbol-name, if `value` resolves to an imported
     /// or builtin symbol.
     ///
@@ -1505,6 +1520,20 @@ impl<'a> SemanticModel<'a> {
     /// Return the grandparent [`Expr`] of the current [`Expr`], if any.
     pub fn current_expression_grandparent(&self) -> Option<&'a Expr> {
         self.current_expressions().nth(2)
+    }
+
+    /// Returns an [`Iterator`] over the current expression hierarchy represented as [`NodeId`],
+    /// from the current [`NodeId`] through to any parents.
+    fn current_expression_ids(&self) -> impl Iterator<Item = NodeId> + '_ {
+        self.node_id
+            .iter()
+            .flat_map(|id| self.nodes.ancestor_ids(*id))
+            .filter(|id| self.nodes[*id].is_expression())
+    }
+
+    /// Return the [`NodeId`] of the current [`Expr`], if any.
+    pub fn current_expression_id(&self) -> Option<NodeId> {
+        self.current_expression_ids().next()
     }
 
     /// Returns an [`Iterator`] over the current statement hierarchy represented as [`NodeId`],

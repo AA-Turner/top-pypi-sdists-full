@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from ..models.delete_completed_job_response_200_flow_status_retry import (
         DeleteCompletedJobResponse200FlowStatusRetry,
     )
+    from ..models.delete_completed_job_response_200_flow_status_test_subflows import (
+        DeleteCompletedJobResponse200FlowStatusTestSubflows,
+    )
 
 
 T = TypeVar("T", bound="DeleteCompletedJobResponse200FlowStatus")
@@ -39,6 +42,8 @@ class DeleteCompletedJobResponse200FlowStatus:
         continued_on_error (Union[Unset, List['DeleteCompletedJobResponse200FlowStatusContinuedOnErrorItem']]): On a
             root flow, the steps at any depth that failed and that the flow went past because of continue_on_error (at most
             100).
+        test_subflows (Union[Unset, DeleteCompletedJobResponse200FlowStatusTestSubflows]): In a flow test run, deployed
+            subflow path -> the flow value with the test's step overrides applied, run in place of the deployed subflow.
     """
 
     step: int
@@ -48,6 +53,7 @@ class DeleteCompletedJobResponse200FlowStatus:
     preprocessor_module: Union[Unset, "DeleteCompletedJobResponse200FlowStatusPreprocessorModule"] = UNSET
     retry: Union[Unset, "DeleteCompletedJobResponse200FlowStatusRetry"] = UNSET
     continued_on_error: Union[Unset, List["DeleteCompletedJobResponse200FlowStatusContinuedOnErrorItem"]] = UNSET
+    test_subflows: Union[Unset, "DeleteCompletedJobResponse200FlowStatusTestSubflows"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -77,6 +83,10 @@ class DeleteCompletedJobResponse200FlowStatus:
 
                 continued_on_error.append(continued_on_error_item)
 
+        test_subflows: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.test_subflows, Unset):
+            test_subflows = self.test_subflows.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -94,6 +104,8 @@ class DeleteCompletedJobResponse200FlowStatus:
             field_dict["retry"] = retry
         if continued_on_error is not UNSET:
             field_dict["continued_on_error"] = continued_on_error
+        if test_subflows is not UNSET:
+            field_dict["test_subflows"] = test_subflows
 
         return field_dict
 
@@ -113,6 +125,9 @@ class DeleteCompletedJobResponse200FlowStatus:
         )
         from ..models.delete_completed_job_response_200_flow_status_retry import (
             DeleteCompletedJobResponse200FlowStatusRetry,
+        )
+        from ..models.delete_completed_job_response_200_flow_status_test_subflows import (
+            DeleteCompletedJobResponse200FlowStatusTestSubflows,
         )
 
         d = src_dict.copy()
@@ -154,6 +169,13 @@ class DeleteCompletedJobResponse200FlowStatus:
 
             continued_on_error.append(continued_on_error_item)
 
+        _test_subflows = d.pop("test_subflows", UNSET)
+        test_subflows: Union[Unset, DeleteCompletedJobResponse200FlowStatusTestSubflows]
+        if isinstance(_test_subflows, Unset):
+            test_subflows = UNSET
+        else:
+            test_subflows = DeleteCompletedJobResponse200FlowStatusTestSubflows.from_dict(_test_subflows)
+
         delete_completed_job_response_200_flow_status = cls(
             step=step,
             modules=modules,
@@ -162,6 +184,7 @@ class DeleteCompletedJobResponse200FlowStatus:
             preprocessor_module=preprocessor_module,
             retry=retry,
             continued_on_error=continued_on_error,
+            test_subflows=test_subflows,
         )
 
         delete_completed_job_response_200_flow_status.additional_properties = d

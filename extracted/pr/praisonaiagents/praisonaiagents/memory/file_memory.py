@@ -229,7 +229,8 @@ class FileMemory:
             elif event_type == "search":
                 emitter.memory_search(agent_name, query, result_count, memory_type, top_score)
         except Exception:
-            pass  # Silent fail - tracing should never break memory operations
+            # Tracing must never break memory operations.
+            logger.debug("Could not emit memory %s trace event", event_type, exc_info=True)
     
     def _generate_id(self, content: str) -> str:
         """Generate a unique ID for content."""
@@ -1717,12 +1718,15 @@ Summary:"""
             "file_snapshots": {}
         }
         
-        # Optionally snapshot files
+        # Optionally snapshot files (only inside the working directory)
+        from praisonaiagents.tools.path_safety import resolve_within_root
         if include_files:
             for file_path in include_files:
                 try:
                     path = Path(file_path)
-                    if path.exists() and path.is_file():
+                    if resolve_within_root(file_path) is None:
+                        self._log(f"Skipped {file_path}: outside the working directory", logging.WARNING)
+                    elif path.exists() and path.is_file():
                         checkpoint_data["file_snapshots"][file_path] = path.read_text(encoding="utf-8")
                 except Exception as e:
                     self._log(f"Could not snapshot file {file_path}: {e}", logging.WARNING)
@@ -1756,10 +1760,13 @@ Summary:"""
         if "memory_export" in checkpoint_data:
             self.import_data(checkpoint_data["memory_export"])
         
-        # Optionally restore files
+        # Optionally restore files (only inside the working directory)
+        from praisonaiagents.tools.path_safety import resolve_within_root
         if restore_files and "file_snapshots" in checkpoint_data:
             for file_path, content in checkpoint_data["file_snapshots"].items():
                 try:
+                    if resolve_within_root(file_path) is None:
+                        raise ValueError("outside the working directory")
                     Path(file_path).write_text(content, encoding="utf-8")
                     self._log(f"Restored file: {file_path}")
                 except Exception as e:

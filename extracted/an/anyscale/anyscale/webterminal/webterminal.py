@@ -142,6 +142,15 @@ class AnyscaleTermSocket(TermSocket):  # type: ignore
         else:
             return cast(bool, origin == self.application.settings["host"])
 
+    def prepare(self) -> None:
+        # tornado 6.6+ skips check_origin for requests it treats as same-origin
+        # (Sec-Fetch-Site same-origin or none, or, when Sec-Fetch-Site is absent, an
+        # Origin equal to Host), so the origin restriction runs here, before tornado's
+        # own origin handling.
+        origin = self.request.headers.get("Origin")
+        if origin is not None and not self.check_origin(origin):
+            raise tornado.web.HTTPError(403, "Cross origin websockets not allowed")
+
     def open(self, url_component=None):
         # call the parent method that handles creation of the terminal
         super().open(url_component)

@@ -25,11 +25,37 @@ from collections.abc import Callable, Iterator
 from concurrent.futures import Executor, Future
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from deploy_agent import agent as agent_mod
 from deploy_agent import executor as executor_mod
+
+
+@pytest.fixture(autouse=True)
+def _no_recreate_window_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An agent built by an unrelated test carries no recreate window gate (OMN-25912).
+
+    The gate reads the checkout's rendered policy and the wall clock, so a test of the
+    converge rule would otherwise depend on the hour. A test that sets ``_recreate_gate``
+    on its agent gets the real window decision; every other agent is admitted.
+    """
+    real = agent_mod.load_dev_boot_guard
+
+    def loader(effect: str = "handler_dev_boot_guard") -> Any:
+        if effect != agent_mod.DEV_ROLL_EVENTS:
+            return real(effect)
+        module = real(effect)
+        return SimpleNamespace(
+            window_admits=lambda agent, who: (
+                module.window_admits(agent, who)
+                if hasattr(agent, "_recreate_gate")
+                else True
+            )
+        )
+
+    monkeypatch.setattr(agent_mod, "load_dev_boot_guard", loader)
 
 
 @pytest.fixture(autouse=True)
@@ -58,6 +84,26 @@ def _stub_cost_estimator_build_settings(
         "nodes.node_setup_local_provision_effect.runtime_cost_estimator_build"
     )
     monkeypatch.setattr(effect, "dev_lane_build_settings", lambda *args: None)
+
+
+@pytest.fixture(autouse=True)
+def _stub_product_clone_pin_write(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A unit test never writes the dev runtime's pin file under the host's registry root (OMN-25901).
+
+    ``runtime_overlay_revision.apply`` writes it from ``REPO_DIR``, a deploy host path.
+    The pin writer's own suite opts out with the ``product_clone_pin`` marker.
+    """
+    if request.node.get_closest_marker("product_clone_pin") is not None:
+        return
+    monkeypatch.setattr(
+        executor_mod.load_dev_boot_guard(
+            "nodes.node_setup_local_provision_effect.runtime_overlay_revision"
+        ),
+        "write_product_clone_pins",
+        lambda execution: None,
+    )
 
 
 @pytest.fixture(autouse=True)

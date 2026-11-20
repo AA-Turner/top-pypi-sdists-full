@@ -36,7 +36,8 @@ class TestDataPlaneCapabilities(unittest.TestCase):
         if include_optional:
             return DataPlaneCapabilities(
                 gen_ai_enabled = True,
-                discovery_source_test = True
+                discovery_source_test = True,
+                agent_task_sync = True
             )
         else:
             return DataPlaneCapabilities(

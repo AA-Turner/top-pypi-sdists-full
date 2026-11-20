@@ -208,16 +208,25 @@ _tens = [
 ]
 
 
+_scales = [
+    (10**12, "trillion"),
+    (10**9, "billion"),
+    (10**6, "million"),
+    (10**3, "thousand"),
+]
+
+
 def _number_to_words(n: int) -> str:
-    """Convert integer to English words (simplified, up to 999,999)."""
+    """Convert integer to English words."""
     if n == 0:
         return "zero"
     if n < 0:
         return "minus " + _number_to_words(-n)
     parts = []
-    if n >= 1000:
-        parts.append(_number_to_words(n // 1000) + " thousand")
-        n %= 1000
+    for value, name in _scales:
+        if n >= value:
+            parts.append(_number_to_words(n // value) + " " + name)
+            n %= value
     if n >= 100:
         parts.append(_ones[n // 100] + " hundred")
         n %= 100
@@ -236,6 +245,14 @@ _decimal_number_re = re.compile(r"(\d+\.\d+)")
 _ordinal_re = re.compile(r"(\d+)(st|nd|rd|th)\b")
 _currency_re = re.compile(r"([$£€¥])(\d+(?:\.\d+)?)")
 _number_re = re.compile(r"\d+")
+# A clock time, "3:30" or "15:05", with an optional "am", "p.m." and so on. Not
+# part of a longer time or ratio such as "1:30:45".
+_time_re = re.compile(
+    r"(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])(?:\s*([ap])\.?\s?m\b)?"
+)
+# A minus sign before a number: at the start, or after a space, an opening bracket
+# or a quote. A hyphen after a digit or a letter ("5-10", "covid-19") is not a sign.
+_minus_sign_re = re.compile(r"(?<![^\s(\[{\"'])-(?=\d)")
 
 _ordinal_words = {
     "one": "first",
@@ -297,6 +314,20 @@ def _expand_currency(m):
     return " ".join(parts) or "zero " + units
 
 
+def _expand_time(m):
+    hour, minute, am_pm = int(m.group(1)), int(m.group(2)), m.group(3)
+    if am_pm:
+        hour = hour - 12 if hour > 12 else hour or 12
+    words = [_number_to_words(hour)]
+    if minute:
+        if minute < 10:
+            words.append("oh")
+        words.append(_number_to_words(minute))
+    if am_pm:
+        words.append(am_pm + " m")
+    return " ".join(words)
+
+
 def _expand_number(m):
     return _number_to_words(int(m.group(0)))
 
@@ -331,8 +362,10 @@ def text_normalize(text: str) -> str:
     text = text.lower()
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
+    text = re.sub(_time_re, _expand_time, text)
     text = re.sub(_comma_number_re, _remove_commas, text)
     text = re.sub(_currency_re, _expand_currency, text)
+    text = re.sub(_minus_sign_re, "minus ", text)
     text = re.sub(_decimal_number_re, _expand_decimal, text)
     text = re.sub(_ordinal_re, _expand_ordinal, text)
     text = re.sub(_number_re, _expand_number, text)

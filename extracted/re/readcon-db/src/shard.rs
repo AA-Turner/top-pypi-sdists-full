@@ -15,6 +15,7 @@ use std::cell::Cell;
 
 use readcon_core::types::ConFrame;
 
+use crate::catalog::CatalogState;
 use crate::corpus::ConCorpus;
 use crate::error::{Error, Result};
 use crate::keys::{FrameKey, TrajId};
@@ -584,10 +585,13 @@ impl CorpusExportKind {
 }
 
 impl ShardedConCorpus {
-    /// **Join:** copy all frames from every shard into a **new single-env** corpus at `dst`
-    /// (traj_id preserved; collision if same traj_id appears on two shards is an error).
-    /// Secondary indexes built via normal append/prepare on each blob. Reversible with
-    /// [`Self::split_single_to_sharded`] using the same `n_shards` and traj routing.
+    /// **Join:** copy all frames, catalog records, and work claims from every shard into a
+    /// **new single-env** corpus at `dst`. Claim bytes are preserved unchanged. A traj_id,
+    /// catalog identity, or claim key appearing in two shards is an error detected before
+    /// the destination is created; duplicate catalog records and claims follow the same
+    /// refuse policy. Secondary indexes are built via normal append/prepare on each blob.
+    /// Frame traj_ids round-trip through [`Self::split_single_to_sharded`] with the same
+    /// routing; split places catalog records and unchanged work claims in shard zero.
     pub fn join_to_single_env(&mut self, dst: impl AsRef<Path>) -> Result<u32> {
         let dst = dst.as_ref();
         if dst.exists() {
@@ -597,21 +601,26 @@ impl ShardedConCorpus {
             )));
         }
         self.release_shards();
-        let mut preview = std::collections::BTreeMap::new();
+        let mut traj_preview = std::collections::BTreeMap::new();
+        let mut catalog_preview = CatalogStatePreview::default();
+        let mut states = std::collections::BTreeMap::new();
         for sid in 0..self.n_shards {
             if !self.shard_has_data(sid) {
                 continue;
             }
             let c = ConCorpus::open_readonly(self.shard_path(sid))?;
             for fk in c.list_frame_keys()? {
-                preview_traj(&mut preview, fk.traj_id, u64::from(sid))?;
+                preview_traj(&mut traj_preview, fk.traj_id, u64::from(sid))?;
             }
+            let state = c.catalog_state()?;
+            preview_catalog_state(&mut catalog_preview, &state)?;
+            states.insert(sid, state);
             c.close();
         }
         let n = (|| -> Result<u32> {
             let out = ConCorpus::open(dst)?;
             let mut seen_traj = std::collections::BTreeSet::new();
-            let n = append_sharded_into(self, &out, &mut seen_traj)?;
+            let n = append_sharded_into(self, &out, &mut seen_traj, &states)?;
             out.close();
             Ok(n)
         })();
@@ -619,6 +628,8 @@ impl ShardedConCorpus {
     }
 
     /// Join into a temp single-env, export extxyz, then remove the temp dest.
+    /// The join refuses duplicate traj ids, catalog identities, or work-claim
+    /// keys across shards before creating that destination.
     pub fn export_extxyz(
         &mut self,
         sel: &Select,
@@ -654,7 +665,8 @@ impl ShardedConCorpus {
     }
 
     /// **Split:** read a **single-env** corpus and write a new sharded root at `dst_root`
-    /// with `n_shards` (rewrites manifest). Traj_id preserved; routing is `traj_id % n_shards`.
+    /// with `n_shards` (rewrites manifest). Traj_id is preserved and routed by
+    /// `traj_id % n_shards`; catalog records and unchanged work claims live in shard zero.
     pub fn split_single_to_sharded(
         single: &ConCorpus,
         dst_root: impl AsRef<Path>,
@@ -670,6 +682,7 @@ impl ShardedConCorpus {
                 dst_root.display()
             )));
         }
+        let catalog_state = single.catalog_state()?;
         let n = (|| -> Result<u32> {
             let mut sharded = ShardedConCorpus::open(dst_root, n_shards)?;
             let keys = single.list_frame_keys()?;
@@ -688,16 +701,29 @@ impl ShardedConCorpus {
                 let nf = sharded.append_trajectory_str(tid, &concat, "split-from-single")?;
                 n += nf;
             }
+            let shard0 = sharded.shard_mut(0)?;
+            copy_catalog_state(&catalog_state, shard0)?;
             Ok(n)
         })();
         rollback_new_dest(dst_root, n)
     }
 }
 
+fn copy_catalog_state(state: &CatalogState, into: &ConCorpus) -> Result<()> {
+    for record in &state.records {
+        into.insert_copied_catalog_record(record)?;
+    }
+    for claim in &state.claims {
+        into.insert_copied_work_claim(claim)?;
+    }
+    Ok(())
+}
+
 fn append_sharded_into(
     sh: &mut ShardedConCorpus,
     out: &ConCorpus,
     seen_traj: &mut std::collections::BTreeSet<u64>,
+    states: &std::collections::BTreeMap<u32, CatalogState>,
 ) -> Result<u32> {
     let mut n = 0u32;
     for sid in 0..sh.n_shards {
@@ -724,13 +750,21 @@ fn append_sharded_into(
             }
             n += out.append_trajectory_str(tid, &concat, format!("join-from-shard-{sid}"))?;
         }
+        copy_catalog_state(
+            states
+                .get(&sid)
+                .ok_or_else(|| Error::Message(format!("missing shard {sid} catalog state")))?,
+            out,
+        )?;
         shard.close();
     }
     Ok(n)
 }
 
 /// Join several drained sharded roots (unique dests after refuse-overwrite)
-/// into one single-env corpus. Traj ids must be unique across sources.
+/// into one single-env corpus. Traj ids, catalog identities, and work-claim
+/// keys must be unique across sources; every conflict is found before `dst`
+/// is created.
 pub fn join_drained_roots(sources: &[PathBuf], dst: impl AsRef<Path>) -> Result<u32> {
     if sources.is_empty() {
         return Err(Error::Message("join-drained: no sources".into()));
@@ -750,30 +784,35 @@ pub fn join_drained_roots(sources: &[PathBuf], dst: impl AsRef<Path>) -> Result<
             )));
         }
     }
-    {
-        let mut preview = std::collections::BTreeMap::new();
-        for (si, src) in sources.iter().enumerate() {
-            let sh = ShardedConCorpus::open_existing(src)?;
-            for sid in 0..sh.n_shards {
-                if !sh.shard_has_data(sid) {
-                    continue;
-                }
-                let shard = ConCorpus::open_readonly(sh.shard_path(sid))?;
-                let owner = ((si as u64) << 32) | u64::from(sid);
-                for fk in shard.list_frame_keys()? {
-                    preview_traj(&mut preview, fk.traj_id, owner)?;
-                }
-                shard.close();
+    let mut traj_preview = std::collections::BTreeMap::new();
+    let mut catalog_preview = CatalogStatePreview::default();
+    let mut all_states = Vec::new();
+    for (si, src) in sources.iter().enumerate() {
+        let sh = ShardedConCorpus::open_existing(src)?;
+        let mut states = std::collections::BTreeMap::new();
+        for sid in 0..sh.n_shards {
+            if !sh.shard_has_data(sid) {
+                continue;
             }
+            let shard = ConCorpus::open_readonly(sh.shard_path(sid))?;
+            let owner = ((si as u64) << 32) | u64::from(sid);
+            for fk in shard.list_frame_keys()? {
+                preview_traj(&mut traj_preview, fk.traj_id, owner)?;
+            }
+            let state = shard.catalog_state()?;
+            preview_catalog_state(&mut catalog_preview, &state)?;
+            states.insert(sid, state);
+            shard.close();
         }
+        all_states.push(states);
     }
     let n = (|| -> Result<u32> {
         let out = ConCorpus::open(dst)?;
         let mut n = 0u32;
         let mut seen = std::collections::BTreeSet::new();
-        for src in sources {
+        for (src, states) in sources.iter().zip(&all_states) {
             let mut sh = ShardedConCorpus::open_existing(src)?;
-            n += append_sharded_into(&mut sh, &out, &mut seen)?;
+            n += append_sharded_into(&mut sh, &out, &mut seen, states)?;
         }
         out.close();
         Ok(n)
@@ -781,7 +820,9 @@ pub fn join_drained_roots(sources: &[PathBuf], dst: impl AsRef<Path>) -> Result<
     rollback_new_dest(dst, n)
 }
 
-/// Join any set of **single-env** corpus directories into one destination (traj_id must be unique).
+/// Join any set of **single-env** corpus directories into one destination.
+/// Traj ids, catalog identities, and work-claim keys must be unique across
+/// sources; every conflict is found before `dst` is created.
 pub fn join_corpus_dirs(sources: &[PathBuf], dst: impl AsRef<Path>) -> Result<u32> {
     let dst = dst.as_ref();
     if dst.exists() {
@@ -798,21 +839,24 @@ pub fn join_corpus_dirs(sources: &[PathBuf], dst: impl AsRef<Path>) -> Result<u3
             )));
         }
     }
-    {
-        let mut preview = std::collections::BTreeMap::new();
-        for (si, src) in sources.iter().enumerate() {
-            let c = ConCorpus::open_readonly(src)?;
-            for fk in c.list_frame_keys()? {
-                preview_traj(&mut preview, fk.traj_id, si as u64)?;
-            }
-            c.close();
+    let mut traj_preview = std::collections::BTreeMap::new();
+    let mut catalog_preview = CatalogStatePreview::default();
+    let mut states = Vec::new();
+    for (si, src) in sources.iter().enumerate() {
+        let c = ConCorpus::open_readonly(src)?;
+        for fk in c.list_frame_keys()? {
+            preview_traj(&mut traj_preview, fk.traj_id, si as u64)?;
         }
+        let state = c.catalog_state()?;
+        preview_catalog_state(&mut catalog_preview, &state)?;
+        states.push(state);
+        c.close();
     }
     let n = (|| -> Result<u32> {
         let out = ConCorpus::open(dst)?;
         let mut n = 0u32;
         let mut seen = std::collections::BTreeSet::new();
-        for src in sources {
+        for (src, state) in sources.iter().zip(&states) {
             let c = ConCorpus::open_readonly(src)?;
             let keys = c.list_frame_keys()?;
             let mut by_traj: std::collections::BTreeMap<u64, Vec<FrameKey>> =
@@ -833,6 +877,7 @@ pub fn join_corpus_dirs(sources: &[PathBuf], dst: impl AsRef<Path>) -> Result<u3
                 }
                 n += out.append_trajectory_str(tid, &concat, src.display().to_string())?;
             }
+            copy_catalog_state(state, &out)?;
             c.close();
         }
         out.close();
@@ -846,6 +891,47 @@ fn rollback_new_dest<T>(dst: &Path, r: Result<T>) -> Result<T> {
         let _ = std::fs::remove_dir_all(dst);
     }
     r
+}
+
+#[derive(Default)]
+struct CatalogStatePreview {
+    records: std::collections::BTreeSet<(Vec<u8>, Vec<u8>, Vec<u8>)>,
+    claims: std::collections::BTreeSet<(Vec<u8>, Vec<u8>)>,
+}
+
+fn quoted_component(value: &[u8]) -> String {
+    format!("{:?}", String::from_utf8_lossy(value))
+}
+
+fn preview_catalog_state(preview: &mut CatalogStatePreview, state: &CatalogState) -> Result<()> {
+    for record in &state.records {
+        let identity = (
+            record.namespace.clone(),
+            record.subject.clone(),
+            record.fingerprint.clone(),
+        );
+        if !preview.records.insert(identity) {
+            return Err(Error::Message(format!(
+                "catalog record conflict: namespace {}, subject {}, fingerprint {} appears in more than one source",
+                quoted_component(&record.namespace),
+                quoted_component(&record.subject),
+                quoted_component(&record.fingerprint),
+            )));
+        }
+    }
+    for claim in &state.claims {
+        if !preview
+            .claims
+            .insert((claim.namespace.clone(), claim.task.clone()))
+        {
+            return Err(Error::Message(format!(
+                "work claim conflict: namespace {}, key {} appears in more than one source",
+                quoted_component(&claim.namespace),
+                quoted_component(&claim.task),
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Record `traj_id` under `owner`. Extra frames of the same traj on the
@@ -904,6 +990,11 @@ mod compaction_tests {
                 s.append_trajectory_str(tid, &con_text, "t").unwrap();
             }
         }
+        let shard0 = ShardedConCorpus::open_shard(&sharded_root, 0).unwrap();
+        assert!(shard0
+            .insert_catalog_record(b"jobs", b"result", b"fp-1", b"value-1")
+            .unwrap());
+        shard0.close();
         let mut s = ShardedConCorpus::open(&sharded_root, 4).unwrap();
         let before = s.select(&Select::new()).unwrap();
         assert_eq!(before.len(), 4);
@@ -915,6 +1006,10 @@ mod compaction_tests {
         let joined_c = ConCorpus::open(&joined).unwrap();
         let mid = joined_c.select(&Select::new()).unwrap();
         assert_eq!(mid.len(), 4);
+        let records = joined_c.list_catalog_records(b"jobs", b"result").unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].fingerprint, b"fp-1");
+        assert_eq!(records[0].value, b"value-1");
 
         let split_root = dir.path().join("split_again");
         let n2 = ShardedConCorpus::split_single_to_sharded(&joined_c, &split_root, 4).unwrap();
@@ -928,6 +1023,14 @@ mod compaction_tests {
         bt.sort();
         at.sort();
         assert_eq!(bt, at);
+        let rejoined = dir.path().join("rejoined");
+        let n3 = s2.join_to_single_env(&rejoined).unwrap();
+        assert_eq!(n3, 4);
+        let rejoined_c = ConCorpus::open(&rejoined).unwrap();
+        let records_after = rejoined_c.list_catalog_records(b"jobs", b"result").unwrap();
+        assert_eq!(records_after.len(), 1);
+        assert_eq!(records_after[0].fingerprint, b"fp-1");
+        assert_eq!(records_after[0].value, b"value-1");
     }
 
     #[test]

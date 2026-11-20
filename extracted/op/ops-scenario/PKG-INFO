@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ops-scenario
-Version: 8.9.0
+Version: 8.10.0
 Summary: Python library providing a state-transition testing API for Operator Framework charms.
 Project-URL: Homepage, https://github.com/canonical/operator
 Project-URL: Bug Tracker, https://github.com/canonical/operator/issues
@@ -15,7 +15,7 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
-Requires-Dist: ops==3.9.0
+Requires-Dist: ops==3.10.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: typing-extensions>=4.9.0
 Description-Content-Type: text/markdown

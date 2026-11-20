@@ -113,11 +113,14 @@ class StreamLink:
                 trace = self._warm_trace = self._new_trace()
                 try:
                     asked = time.monotonic()
-                    stream = _stream.open_stream(self._base, self._verify, headers, timeout_s=max(0.001, bound),
-                                                 options=self._stream_options,
-                                                 quiet_s=quiet_s, on_quiet=on_quiet,
-                                                 on_push=driven.push if driven is not None else None,
-                                                 trace=trace)
+                    if getattr(self, "_lines", None):
+                        stream = self._open_lines(headers, max(0.001, bound), quiet_s, trace)
+                    else:
+                        stream = _stream.open_stream(self._base, self._verify, headers, timeout_s=max(0.001, bound),
+                                                     options=self._stream_options,
+                                                     quiet_s=quiet_s, on_quiet=on_quiet,
+                                                     on_push=driven.push if driven is not None else None,
+                                                     trace=trace)
                 except Exception as exc:
                     took = time.monotonic() - began
                     if isinstance(exc, (TimeoutError, socket.timeout)) and bound < left and not self._closed:
@@ -140,7 +143,12 @@ class StreamLink:
                 _log.debug("the connection to its worker: its stream did not open: %s", self._warm_failed)
                 return
             self._learn_formats(said)
-            self.outside.ping_ms = trace.ms("connect_tcp") or (time.monotonic() - asked) * 1000.0
+
+
+
+            opened_ms, tcp_ms = (time.monotonic() - asked) * 1000.0, trace.ms("connect_tcp")
+            self.outside.ping_ms = (max(tcp_ms, opened_ms - tcp_ms - (trace.ms("start_tls") or 0.0)) if tcp_ms
+                                    else opened_ms)
             with self._sends:
                 closed = self._closed
                 if not closed:
@@ -161,6 +169,25 @@ class StreamLink:
                 self._done()
 
         threading.Thread(target=run, daemon=True, name="seq-stream-open").start()
+
+    def _open_lines(self, headers: dict, timeout_s: float, quiet_s: Optional[float], trace: Any) -> Any:
+        """The robot's stream over each of its lines (lines_stream.LinesStream): a stream by each, its connection bound
+        to the line's interface - to the line's own address of the server, where `lines` gives one -, a line gone silent
+        for `quiet_s` closed and opened again; the first line's opening traced."""
+        from . import lines_stream as _lines
+
+        lines = self._lines
+        names = list(lines)
+        to = dict(lines) if isinstance(lines, dict) else {}
+
+        def open_line(name: str, bound: float, on_quiet: Callable[[], None]) -> "_stream.WorkerStream":
+            return _stream.open_stream((to.get(name) or self._base).rstrip("/"), self._verify, headers,
+                                       timeout_s=max(0.001, bound), options=self._stream_options,
+                                       quiet_s=quiet_s, on_quiet=on_quiet if quiet_s is not None else None,
+                                       trace=trace if name == names[0] else None, bind=name)
+
+        return _lines.LinesStream(names, open_line, timeout_s=timeout_s,
+                                  on_reopen=getattr(self, "on_line_reopen", None))
 
     def _open_stream(self, timeout_s: float) -> "_stream.WorkerStream":
         """The open stream: one that ended opened again, and one opening waited for, `timeout_s` at most. Past that, or

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-queryable-properties
-Version: 1.13.0
+Version: 1.14.0
 Summary: Write Django model properties that can be used in database queries.
 Home-page: https://github.com/W1ldPo1nter/django-queryable-properties
 Author: Marcus Klöpfel
@@ -48,6 +48,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 License-File: LICENSE
 License-File: AUTHORS.rst
@@ -106,6 +107,12 @@ Changelog
 
 master (unreleased)
 -------------------
+
+1.14.0 (2026-11-20)
+-------------------
+
+- Added support for Python 3.15
+- Added an option to compute aggregate values in subqueries to ``AggregateProperty``
 
 1.13.0 (2026-08-06)
 -------------------

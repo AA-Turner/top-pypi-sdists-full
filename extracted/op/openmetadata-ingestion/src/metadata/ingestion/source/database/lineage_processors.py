@@ -15,9 +15,9 @@ Mixin class with common Stored Procedures logic aimed at lineage.
 import re
 import time
 import traceback
+from collections.abc import Iterable
 from datetime import datetime
 from multiprocessing import Queue
-from typing import Dict, Iterable, List, Optional  # noqa: UP035
 
 import networkx as nx
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,6 +40,7 @@ from metadata.generated.schema.type.tableQuery import TableQuery
 from metadata.ingestion.api.models import Either
 from metadata.ingestion.lineage.models import Dialect
 from metadata.ingestion.lineage.sql_lineage import get_lineage_by_query
+from metadata.ingestion.lineage.tsql import TSQL_SWITCH_STATEMENT
 from metadata.ingestion.models.ometa_lineage import (
     LineageRequest,
     OMetaFQNLineageRequest,
@@ -49,7 +50,7 @@ from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.ingestion.ometa.utils import model_str
 from metadata.ingestion.source.models import TableView
 from metadata.utils import fqn
-from metadata.utils.db_utils import ViewLineageExtension, get_view_lineage
+from metadata.utils.db_utils import ViewLineageExtension, ViewLineageParserFactory, get_view_lineage
 from metadata.utils.logger import ingestion_logger
 from metadata.utils.time_utils import datetime_to_timestamp
 
@@ -63,17 +64,22 @@ class QueryByProcedure(BaseModel):
     Query(ies) executed by each stored procedure
     """
 
-    procedure_name: str = Field(None, alias="PROCEDURE_NAME")
+    # The name and the body are each optional because either one alone identifies the
+    # procedure: history that reports no name is resolved by parsing the body, and an
+    # engine that cannot return a body still reports the name. SQL Server returns a NULL
+    # body for encrypted and CLR modules, and the body feeds nothing but that name
+    # fallback, so requiring it would discard otherwise complete query history.
+    procedure_name: str | None = Field(None, alias="PROCEDURE_NAME")
     query_type: str = Field(..., alias="QUERY_TYPE")
-    query_database_name: Optional[str] = Field(None, alias="QUERY_DATABASE_NAME")  # noqa: UP045
-    query_schema_name: Optional[str] = Field(None, alias="QUERY_SCHEMA_NAME")  # noqa: UP045
-    procedure_text: str = Field(..., alias="PROCEDURE_TEXT")
+    query_database_name: str | None = Field(None, alias="QUERY_DATABASE_NAME")
+    query_schema_name: str | None = Field(None, alias="QUERY_SCHEMA_NAME")
+    procedure_text: str | None = Field(None, alias="PROCEDURE_TEXT")
     procedure_start_time: datetime = Field(..., alias="PROCEDURE_START_TIME")
     procedure_end_time: datetime = Field(..., alias="PROCEDURE_END_TIME")
-    query_start_time: Optional[datetime] = Field(None, alias="QUERY_START_TIME")  # noqa: UP045
-    query_duration: Optional[float] = Field(None, alias="QUERY_DURATION")  # noqa: UP045
+    query_start_time: datetime | None = Field(None, alias="QUERY_START_TIME")
+    query_duration: float | None = Field(None, alias="QUERY_DURATION")
     query_text: str = Field(..., alias="QUERY_TEXT")
-    query_user_name: Optional[str] = Field(None, alias="QUERY_USER_NAME")  # noqa: UP045
+    query_user_name: str | None = Field(None, alias="QUERY_USER_NAME")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -108,6 +114,9 @@ def is_lineage_query(query_type: str, query_text: str) -> bool:
     if query_type in ("MERGE", "UPDATE", "CREATE_TABLE_AS_SELECT"):
         return True
 
+    if TSQL_SWITCH_STATEMENT.match(query_text.strip()):
+        return True
+
     if query_type == "INSERT" and re.search("^.*insert.*into.*select.*$", query_text.replace("\n", " "), re.IGNORECASE):  # noqa: SIM103
         return True
 
@@ -119,11 +128,11 @@ def _yield_procedure_lineage(
     service_name: str,
     dialect: Dialect,
     processCrossDatabaseLineage: bool,  # noqa: N803
-    crossDatabaseServiceNames: List[str],  # noqa: N803, UP006
+    crossDatabaseServiceNames: list[str],  # noqa: N803
     parsingTimeoutLimit: int,  # noqa: N803
     query_by_procedure: QueryByProcedure,
     procedure: StoredProcedure,
-    procedure_graph_map: Dict[str, ProcedureAndProcedureGraph],  # noqa: UP006
+    procedure_graph_map: dict[str, ProcedureAndProcedureGraph],
     enableTempTableLineage: bool,  # noqa: N803
     parser_type: QueryParserType,
 ) -> Iterable[Either[LineageRequest]]:
@@ -176,15 +185,15 @@ def _yield_procedure_lineage(
 
 
 def procedure_lineage_processor(
-    procedure_and_queries: List[ProcedureAndQuery],  # noqa: UP006
+    procedure_and_queries: list[ProcedureAndQuery],
     queue: Queue,
     metadata: OpenMetadata,
     service_name: str,
     dialect: Dialect,
     processCrossDatabaseLineage: bool,  # noqa: N803
-    crossDatabaseServiceNames: List[str],  # noqa: N803, UP006
+    crossDatabaseServiceNames: list[str],  # noqa: N803
     parsingTimeoutLimit: int,  # noqa: N803
-    procedure_graph_map: Dict[str, ProcedureAndProcedureGraph],  # noqa: UP006
+    procedure_graph_map: dict[str, ProcedureAndProcedureGraph],
     enableTempTableLineage: bool,  # noqa: N803
     parser_type: QueryParserType,
 ) -> None:
@@ -333,13 +342,13 @@ def _checksums_with_intact_lineage(
 
 
 def query_lineage_processor(
-    table_queries: List[TableQuery],  # noqa: UP006
+    table_queries: list[TableQuery],
     queue: Queue,
     metadata: OpenMetadata,
     dialect: Dialect,
     graph: nx.DiGraph,
     processCrossDatabaseLineage: bool,  # noqa: N803
-    crossDatabaseServiceNames: List[str],  # noqa: N803, UP006
+    crossDatabaseServiceNames: list[str],  # noqa: N803
     parsingTimeoutLimit: int,  # noqa: N803
     serviceName: str,  # noqa: N803
     parser_type: QueryParserType,
@@ -421,17 +430,18 @@ def _writes_into_view(lineage_request: LineageRequest, view_fqn: str | None) -> 
 
 
 def view_lineage_processor(
-    views: List[TableView],  # noqa: UP006
+    views: list[TableView],
     queue: Queue,
     metadata: OpenMetadata,
     service_name: str,
     connectionType: str,  # noqa: N803
     processCrossDatabaseLineage: bool,  # noqa: N803
-    crossDatabaseServiceNames: List[str],  # noqa: N803, UP006
+    crossDatabaseServiceNames: list[str],  # noqa: N803
     parsingTimeoutLimit: int,  # noqa: N803
     overrideViewLineage: bool,  # noqa: N803
     parser_type: QueryParserType,
     extension: ViewLineageExtension | None = None,
+    parser_factory: ViewLineageParserFactory | None = None,
 ) -> None:
     """
     Generate lineage for a list of views
@@ -451,6 +461,7 @@ def view_lineage_processor(
                 timeout_seconds=parsingTimeoutLimit,
                 parser_type=parser_type,
                 extension=extension,
+                parser_factory=parser_factory,
             ):
                 if lineage.right is not None:
                     view_fqn = fqn.build(

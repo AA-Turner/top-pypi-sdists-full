@@ -26,7 +26,10 @@ __all__ = (
     "CertificateAssociationStatusType",
     "CertificateDisassociatedWaiterName",
     "ClientRoutingPolicyType",
+    "ConfigurableActionType",
     "ConnectivityTypeType",
+    "ErrorCodeType",
+    "FailureModeType",
     "FilterTypeType",
     "GatewayTypeType",
     "InboundExternalLinkActiveWaiterName",
@@ -38,11 +41,16 @@ __all__ = (
     "LinkRoutingRuleActiveWaiterName",
     "LinkRoutingRuleDeletedWaiterName",
     "LinkStatusType",
+    "ListAvailableModuleVersionsPaginatorName",
+    "ListAvailableModulesPaginatorName",
     "ListCertificateAssociationsPaginatorName",
     "ListLinkRoutingRulesPaginatorName",
     "ListLinksPaginatorName",
     "ListRequesterGatewaysPaginatorName",
     "ListResponderGatewaysPaginatorName",
+    "ListUpdatesPaginatorName",
+    "ModulePermissionType",
+    "ModuleVersionStatusType",
     "OutboundExternalLinkActiveWaiterName",
     "OutboundExternalLinkDeletedWaiterName",
     "PaginatorName",
@@ -59,6 +67,10 @@ __all__ = (
     "ResponderGatewayStatusType",
     "RuleStatusType",
     "ServiceName",
+    "SubscriptionStatusType",
+    "SubscriptionTypeType",
+    "UpdateStatusType",
+    "UpdateTypeType",
     "WaiterName",
 )
 
@@ -68,7 +80,19 @@ CertificateAssociationStatusType = Literal[
 ]
 CertificateDisassociatedWaiterName = Literal["certificate_disassociated"]
 ClientRoutingPolicyType = Literal["ANY_AVAILABILITY_ZONE", "AVAILABILITY_ZONE_AFFINITY"]
+ConfigurableActionType = Literal[
+    "ENRICH_REQUEST_EXT", "ENRICH_REQUEST_HEADERS", "FILTER", "OBSERVE"
+]
 ConnectivityTypeType = Literal["DEFAULT", "EXTERNAL_INBOUND", "PUBLIC_EGRESS", "PUBLIC_INGRESS"]
+ErrorCodeType = Literal[
+    "EC2_SECURITY_GROUP_NOT_FOUND",
+    "EC2_SUBNET_IP_EXHAUSTION",
+    "EC2_SUBNET_NOT_FOUND",
+    "IAM_ASSUME_ROLE_ACCESS_DENIED",
+    "INTERNAL_ERROR",
+    "VPC_NOT_FOUND",
+]
+FailureModeType = Literal["CLOSED", "OPEN"]
 FilterTypeType = Literal["EXCLUDE", "INCLUDE"]
 GatewayTypeType = Literal["EXTERNAL", "INTERNAL"]
 InboundExternalLinkActiveWaiterName = Literal["inbound_external_link_active"]
@@ -82,7 +106,9 @@ LinkRoutingRuleDeletedWaiterName = Literal["link_routing_rule_deleted"]
 LinkStatusType = Literal[
     "ACCEPTED",
     "ACTIVE",
+    "CREATE_FAILED",
     "DELETED",
+    "DELETE_FAILED",
     "FAILED",
     "ISOLATED",
     "PENDING_CREATION",
@@ -94,11 +120,23 @@ LinkStatusType = Literal[
     "REJECTED",
     "REQUESTED",
 ]
+ListAvailableModuleVersionsPaginatorName = Literal["list_available_module_versions"]
+ListAvailableModulesPaginatorName = Literal["list_available_modules"]
 ListCertificateAssociationsPaginatorName = Literal["list_certificate_associations"]
 ListLinkRoutingRulesPaginatorName = Literal["list_link_routing_rules"]
 ListLinksPaginatorName = Literal["list_links"]
 ListRequesterGatewaysPaginatorName = Literal["list_requester_gateways"]
 ListResponderGatewaysPaginatorName = Literal["list_responder_gateways"]
+ListUpdatesPaginatorName = Literal["list_updates"]
+ModulePermissionType = Literal[
+    "ENRICH_REQUEST_EXT",
+    "ENRICH_REQUEST_HEADERS",
+    "FILTER",
+    "MUTATE_REQUEST_BODY",
+    "READ_REQUEST_BODY",
+    "READ_REQUEST_HEADERS",
+]
+ModuleVersionStatusType = Literal["ACTIVE", "CREATE_FAILED", "CREATING", "DEPRECATED"]
 OutboundExternalLinkActiveWaiterName = Literal["outbound_external_link_active"]
 OutboundExternalLinkDeletedWaiterName = Literal["outbound_external_link_deleted"]
 ProtocolType = Literal["HTTP", "HTTPS"]
@@ -106,7 +144,9 @@ RequesterGatewayActiveWaiterName = Literal["requester_gateway_active"]
 RequesterGatewayDeletedWaiterName = Literal["requester_gateway_deleted"]
 RequesterGatewayStatusType = Literal[
     "ACTIVE",
+    "CREATE_FAILED",
     "DELETED",
+    "DELETE_FAILED",
     "ERROR",
     "ISOLATED",
     "PENDING_CREATION",
@@ -121,7 +161,9 @@ ResponderGatewayActiveWaiterName = Literal["responder_gateway_active"]
 ResponderGatewayDeletedWaiterName = Literal["responder_gateway_deleted"]
 ResponderGatewayStatusType = Literal[
     "ACTIVE",
+    "CREATE_FAILED",
     "DELETED",
+    "DELETE_FAILED",
     "ERROR",
     "ISOLATED",
     "PENDING_CREATION",
@@ -132,11 +174,19 @@ ResponderGatewayStatusType = Literal[
 ]
 RuleStatusType = Literal[
     "ACTIVE",
+    "CREATE_FAILED",
     "CREATION_IN_PROGRESS",
     "DELETED",
+    "DELETE_FAILED",
     "DELETION_IN_PROGRESS",
     "FAILED",
     "UPDATE_IN_PROGRESS",
+]
+SubscriptionStatusType = Literal["ACTIVE", "EXPIRED"]
+SubscriptionTypeType = Literal["AWS_BUILT_IN", "MARKETPLACE", "PRIVATE"]
+UpdateStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCESSFUL"]
+UpdateTypeType = Literal[
+    "GATEWAY_CONFIG_UPDATE", "LINK_CONFIG_UPDATE", "LINK_FLOW_UPDATE", "ROUTING_RULE_UPDATE"
 ]
 RTBFabricServiceName = Literal["rtbfabric"]
 ServiceName = Literal[
@@ -442,6 +492,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -584,11 +635,14 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_available_module_versions",
+    "list_available_modules",
     "list_certificate_associations",
     "list_link_routing_rules",
     "list_links",
     "list_requester_gateways",
     "list_responder_gateways",
+    "list_updates",
 ]
 WaiterName = Literal[
     "certificate_associated",

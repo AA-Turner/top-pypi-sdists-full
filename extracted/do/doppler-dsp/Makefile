@@ -276,7 +276,8 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                curl-fail \
                warnings-exempt stock-images uv-pin uv-lock tlm-name-join \
                ring-internals size-mul named-args acq-pfa-split \
-               finding-citations test-all-ci changelog-fragments dup-include
+               finding-citations test-all-ci changelog-fragments dup-include \
+               windows-macro-names
 FORMAT_TOOLS = ruff-format ruff mdformat named-args clang-format
 
 # ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
@@ -508,9 +509,15 @@ LINT_lgamma-reentrant = $(UV) run python scripts/check_lgamma_sites.py
 # native/inc headers where every one of those repeats was. No allowlist.
 LINT_dup-include = $(UV) run python scripts/check_dup_includes.py
 
+# <windows.h> defines near, far, IN, OUT, small and others as object-like
+# macros, so an identifier with one of those names breaks only the Windows
+# legs (PR #1975, PR #3071). Every tracked .c/.h except vendor/; uses that
+# predate the gate are scripts/.windows-macro-names-exempt, which only shrinks.
+LINT_windows-macro-names = $(UV) run python scripts/check_windows_macro_names.py
+
 # The acquisition engine prices a gate at three sites, and only the commit
 # site has an exact pin (test_correlator_search.c). Each must split pfa over the one
-# count, acq_band_cells(): a hand count of the native cells re-inlined at
+# count, search_band_cells(): a hand count of the native cells re-inlined at
 # the sizer or the non-coherent ascend fired the engine at about twice its
 # pfa and passed every test (doppler#2218).
 LINT_acq-pfa-split = $(UV) run python scripts/check_acq_pfa_split.py
@@ -890,7 +897,8 @@ PYTEST_BENCH_DIRS = $(wildcard src/doppler/*/benchmarks)
 # quietly redefine.
 TEST_PATHS      = src/
 TEST_PYTHON_CMD = $(MEM_GUARD_CMD) $(LEAK_CHECK) -- $(UV) run pytest $(TEST_PATHS) -v \
-                      $(PYTEST_SELECT) --benchmark-disable -n auto $(PYTEST_ARGS)
+                      $(PYTEST_SELECT) --benchmark-disable -n auto $(PYTEST_ARGS) \
+                      $(if $(BENCH_ROWS),--bench-rows=$(BENCH_ROWS_PY))
 # The standard target's own description is generic; this line wins in
 # `make help` (it is read before standard.mk) and names the knob.
 test-python: ## Run the Python test suite (TEST_PATHS=<files/dirs> to narrow)
@@ -1057,8 +1065,9 @@ GATES_DEPS    = lint changelog-check release-notes-size-check \
                 gen-c-api-check \
                 validate-check \
                 test-all test-sweep test-stubs test-snippets \
-                test-rust bench-run-check \
+                test-rust bench-run-check bench-labels-pr-check \
                 abi-check link-check installed-headers-check \
+                cxx-headers-check \
                 exported-link-check symbol-prefix-check export-check \
                 vendored-collision-check \
                 test-asan test-ubsan test-tsan warnings-check \
@@ -1981,11 +1990,13 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 compile_commands.json \
                 install-docs-deps install-deps-ci install-docs-deps-ci \
                 apt-stall-config deps-budget-check cargo-floor-check \
-                bench-coverage-check bench-run-check kwarg-parity-check \
+                bench-coverage-check bench-run-check bench-labels-pr-check \
+                kwarg-parity-check \
                 issues issues-check \
                 gates-extra-home-check \
                 doc-sections-check doc-symbols-check state-versions-check \
-                installed-headers-check exported-link-check symbol-prefix-check \
+                installed-headers-check cxx-headers-check \
+                exported-link-check symbol-prefix-check \
                 export-check public-symbols \
                 vendored-collision-check \
                 ci-image-refs-check \
@@ -1993,6 +2004,7 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 container-mount-check \
                 cargo-lock-check design-pages-check wfmgen-flag-matrix \
                 gallery-scripts-check user-docs-check surface-check bench-commits-check \
+                spine-check \
                 nats-vendor-fresh-check \
                 ci-run ci-gates ccache-stats \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
@@ -2105,6 +2117,7 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check mem-guard-check \
       design-pages-check gallery-scripts-check user-docs-check \
+      spine-check \
       surface-check bench-commits-check validate-spellings-check \
       drift-check doxygen-check
 
@@ -2144,7 +2157,39 @@ bench-commits-check: ## Fail when a published benchmark names a commit main cann
 # built tree and runs in CI right after `make test` (#2675). Stdlib-only,
 # so python3: the build-and-test-linux container has no uv.
 bench-run-check: ## Run every built C benchmark; fail on any nonzero exit
-	@python3 scripts/check_bench_runs.py $(BUILD_DIR)
+	@python3 scripts/check_bench_runs.py $(BUILD_DIR) --rows $(BENCH_ROWS_C)
+
+# The pull request half of the label gate (#2390). bench-coverage-check holds
+# the rows the newest RELEASE measured, so a row a PR adds was seen first at
+# `make bench-docs` on release day: v0.83.0 published five unlabelled rows
+# from #3029. This holds the rows the PR's own CI run measured, written by
+# the two steps that already run every benchmark untimed: bench-run-check
+# (C, with each row's recorded unit) and `make test-python BENCH_ROWS=1`
+# (Python; the scripts/pytest_bench_rows.py plugin, opt-in so a plain run
+# writes nothing). A Python row's unit is known only to a timed run, so only
+# its label is checked here. python3, not uv: the C leg's container has no
+# uv. A Python with no TOML parser fails, naming it, never skips.
+BENCH_ROWS_C  = $(BUILD_DIR)/bench-rows-c.json
+BENCH_ROWS_PY = $(BUILD_DIR)/bench-rows-py.json
+# BENCH_LABELS_SUITE picks which rows file(s): a CI job checks the suite it
+# measured (`c` on the build leg, `py` on the Python leg); `all`, for
+# `make gates`, both. Any other value names no file, and the checker
+# refuses an empty list.
+BENCH_LABELS_SUITE ?= all
+_bench_rows_c   = $(BENCH_ROWS_C)
+_bench_rows_py  = $(BENCH_ROWS_PY)
+_bench_rows_all = $(BENCH_ROWS_C) $(BENCH_ROWS_PY)
+bench-labels-pr-check: ## Fail on a row this run measured with no label (BENCH_LABELS_SUITE=c|py|all)
+	@python3 scripts/bench_report.py --check-pr-rows \
+	    $(_bench_rows_$(BENCH_LABELS_SUITE))
+
+# `make gates` reproduces CI's gate set, and CI's Python leg records its
+# rows; without this the local run's test-all would write no Python rows
+# file and bench-labels-pr-check would fail on its absence. Exported, so the
+# sub-make `gates` starts sees it.
+ifneq ($(filter gates,$(MAKECMDGOALS)),)
+export BENCH_ROWS = 1
+endif
 
 BENCH_LABELS_BASE ?= origin/main
 bench-coverage-check: ## Verify every tested component has a benchmark that runs
@@ -2220,6 +2265,51 @@ installed-headers-check: build ## Verify installed headers declare only what the
 	    echo "installed-headers-check: no python3 — this gate has not run,"; \
 	    echo "  so it has not passed."; exit 1; }
 	@python3 scripts/check_installed_headers.py
+
+# A C++ program is a consumer like any other, and for a third of the tree
+# `#include "doppler/<x>_core.h"` was a compile error nothing reported: the
+# build is `LANGUAGES C` on purpose, so no C++ compiler ever read a header
+# (doppler#3108). Two halves, because parsing is not meaning:
+#
+#   1. every installed header parses as C++ under g++ AND clang++, bar the
+#      shrink-only list scripts/.cxx-headers-exempt and the private or
+#      Python-only headers of scripts/.cxx-headers-not-cxx, which the gate
+#      checks no consumer's include reaches;
+#   2. a C++ program that includes the headers bare, hands std::complex
+#      buffers over by pointer and passes one complex BY VALUE both ways,
+#      prints exactly what its C twin prints.
+#
+# The C++ compilers are driven directly, never through CMake: adding CXX to
+# the project would make every configure need one, to test a header.
+# CXX_HEADER_COMPILERS is overridable so a box with one compiler can still
+# run half 1 on purpose; CI names both, and a missing one fails, not skips.
+# Linux only in CI: on macOS `g++` is clang++, so the pair proves less.
+CXX_HEADER_COMPILERS ?= g++ clang++
+CXX_HEADER_STD       ?= c++11
+cxx-headers-check: build ## Verify installed headers parse as C++, and a C++ consumer matches its C twin
+	@command -v python3 >/dev/null 2>&1 || { \
+	    echo "cxx-headers-check: no python3 — this gate has not run,"; \
+	    echo "  so it has not passed."; exit 1; }
+	@python3 scripts/check_cxx_headers.py --std $(CXX_HEADER_STD) \
+	    $(foreach c,$(CXX_HEADER_COMPILERS),--cxx $(c))
+	@t=$$(mktemp -d); d=tests/install/cxx-consumer; rc=0; \
+	 cc $$d/main.c -Inative/inc -I$(BUILD_DIR)/native/inc \
+	     $(BUILD_DIR)/libdoppler.a -lm -lpthread -o "$$t/c" \
+	   && "$$t/c" > "$$t/c.out" || rc=1; \
+	 for c in $(CXX_HEADER_COMPILERS); do \
+	   [ $$rc -eq 0 ] || break; \
+	   $$c -std=$(CXX_HEADER_STD) -Wall -Wextra -Werror $$d/main.cpp \
+	       -Inative/inc -I$(BUILD_DIR)/native/inc \
+	       $(BUILD_DIR)/libdoppler.a -lm -lpthread -o "$$t/cxx" \
+	     && "$$t/cxx" > "$$t/cxx.out" \
+	     && [ -s "$$t/cxx.out" ] \
+	     && cmp "$$t/c.out" "$$t/cxx.out" \
+	     || { echo "cxx-headers-check: FAIL -- the C++ consumer built" \
+	               "with $$c does not match its C twin"; rc=1; }; \
+	 done; \
+	 [ $$rc -ne 0 ] || echo "cxx-headers-check: OK -- the C++ consumer" \
+	     "matches its C twin under $(CXX_HEADER_COMPILERS)."; \
+	 rm -rf "$$t"; exit $$rc
 
 # The TEXT of the exported doppler-targets.cmake, because nothing that builds
 # a consumer on the build machine can see the defect: an absolute library path
@@ -2609,6 +2699,31 @@ surface-check: ## Python surface: every package declares __all__; the unrendered
 user-docs-check: ## Verify every class has API, guide and example, and every example a gallery decision
 	@$(UV) run python scripts/check_user_docs.py --base $(USER_DOCS_BASE) \
 	     $(USER_DOCS_FLAGS) $(GALLERY_SCRIPTS)
+
+# The lifecycle card (docs/dev/contributing/adding-algorithms.md) as a
+# table: for each object the branch touches, which of the card's phases are
+# present, missing, or skipped with a declared reason (#3140). Each row is
+# answered by the gate that owns it, and the phases are read from the card,
+# so the two cannot disagree. A gap fails unless scripts/.spine-gaps holds
+# it; that list only shrinks, and a new line needs a `Spine-skip:` trailer
+# in one of the branch's commits.
+#
+# BASE is the base issue-link-check and changelog-check measure against
+# (CHANGELOG_BASE, which CI sets to the pull request's base SHA), because
+# the Land row is those two gates' verdicts and all three must read one
+# branch. SPINE_FLAGS=--all prints every object. In CI the tables are also
+# appended to the job summary: GITHUB_STEP_SUMMARY is set there and nowhere
+# else.
+#
+# CLAUDE.md's copy of the card's principles is held to the page too, and
+# `make format` rewrites it (docs-relink runs `check_spine.py --fix`). The
+# markers are mandatory: a CLAUDE.md without them fails.
+BASE ?= $(CHANGELOG_BASE)
+SPINE_FLAGS ?=
+spine-check: ## Show each touched object's lifecycle phases; fail on an undeclared gap (BASE=<ref>)
+	@$(UV) run python scripts/check_spine.py --base $(BASE) $(SPINE_FLAGS) \
+	     $(if $(GITHUB_STEP_SUMMARY),--summary "$(GITHUB_STEP_SUMMARY)") \
+	     $(GALLERY_SCRIPTS)
 
 gallery-scripts-check: ## Verify every committed gallery plot has a script `make gallery` runs
 	@$(UV) run python scripts/check_gallery_scripts.py $(GALLERY_SCRIPTS)
@@ -3731,6 +3846,7 @@ docs-relink: ## Regenerate every generated doc region
 	$(UV) run python scripts/gen_doc_versions.py --write
 	$(UV) run python scripts/gen_jm_pin.py --write
 	$(UV) run python scripts/gen_changelog_links.py --write
+	$(UV) run python scripts/check_spine.py --fix
 
 # The pre-push half of docs-relink: the regions a source edit can drift
 # without touching the generated file. The hook dispatches HERE rather than

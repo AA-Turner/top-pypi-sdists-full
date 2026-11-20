@@ -52,8 +52,8 @@ from .._core.capacity import default_queue_notice as _default_queue_notice
 from .._core.capacity import queue_wait as _queue_wait
 from .._core import direct as _direct
 from .._core import gil as _gil
-from .._core import seat as _seat
 from .._core import marked_observe as _marked
+from .._core import seat as _seat
 from .._core.late import LateAnswers
 from .._core.heartbeat import Heartbeat
 from .._core.stale import Stale, StaleState, StaleWatch
@@ -70,6 +70,7 @@ from .._core.reporting import (
     error_of,
 )
 from .waits import Interrupted, _StartWait, _Waits, _gpu_said
+from .._core.latency_stats import LatencyStats, now_us
 from ..errors import NOT_THE_PLATFORM, InvalidRequest, SequencesError, Unavailable
 from .types import Ready
 
@@ -123,9 +124,6 @@ def _unanswered(exc: Unavailable) -> bool:
 _STAGE_WORDS = {"loading": "loading the model",
                 "waiting": "starting, slower than its start usually takes"}
 
-
-
-_NOTHING = object()
 
 
 
@@ -188,6 +186,9 @@ class Policy(_Waits):
                  on_resume: Callable[[Stale], None] | None = None) -> None:
         self._t = transport
         self._model = model
+
+
+        self._latency = LatencyStats(counters=["acts", "observations"], latencies=["act_us"])
 
 
         self._late = LateAnswers(on_run=self._report_run)
@@ -427,7 +428,9 @@ class Policy(_Waits):
 
             self._await_connect(self._startup_timeout_s)
         self._beat_start()
-        return observe(inputs, episode)
+        number = observe(inputs, episode)
+        self._latency.count("observations")
+        return number
 
     def ready(self) -> Ready:
         """
@@ -555,6 +558,11 @@ class Policy(_Waits):
         (connect(timeout_s=), 30 s by default). A connection that fails, or is still opening then, does not hold it: a
         warning says so, and the first act connects or opens its own.
 
+        With connect(pictures="keyframes"), the default, the encoders a first camera picture loads - sequence-base's
+        codec, PyAV and its H.264 encoder - load meanwhile, on a thread of their own, and this returns once they have
+        (within `timeout_s`; past it, the first picture waits for the rest): their first load after an install takes
+        seconds - 20 s on a Mac - which the robot's first act would wait for otherwise (marked_observe.warm).
+
         Interruptible: `interrupt()` during the wait raises out of it rather than making the
         caller sit through the remaining poll interval — a cold start is long enough that a stop
         issued inside one has to take effect inside it too.
@@ -565,10 +573,29 @@ class Policy(_Waits):
         - the deadline it says with each starting answer - and 1800 s while it says none; a line lasts until the
         platform's queue_timeout_s ends it.
         """
+        began = time.monotonic()
+
+        loading = _marked.warm() if getattr(self._t, "pictures", None) == "keyframes" else None
 
 
         with getattr(self._t, "waiting_ready", nullcontext)():
-            return self._poll_until_ready(timeout_s, poll_s)
+
+
+            poll_s = min(poll_s, getattr(getattr(self._t, "_gateway", None), "poll_s", poll_s))
+            self._poll_until_ready(timeout_s, poll_s)
+            if loading is not None:
+                self._wait_loaded(loading, None if timeout_s is None else began + timeout_s)
+        return time.monotonic() - began
+
+    def _wait_loaded(self, loading: threading.Event, deadline: float | None) -> None:
+        """wait_until_ready()'s wait for the picture encoders (marked_observe.warm) once the model is ready, to the wait's
+        own deadline at most - past it, the first picture waits for the rest - interrupt() raising out of it as out of
+        the wait for the model."""
+        while not loading.wait(0.05 if deadline is None else max(0.0, min(0.05, deadline - time.monotonic()))):
+            if self._interrupt.is_set():
+                raise Interrupted()
+            if deadline is not None and time.monotonic() >= deadline:
+                return
 
     def _nothing_of_ours_there(self, exc: Unavailable, started: float) -> bool:
         """Something other than the platform has answered this wait since it began, for _FIRST_ANSWER_S, and the
@@ -685,6 +712,9 @@ class Policy(_Waits):
                                + (f" ({body['seat_note']})" if body.get("seat_note") else ""))
                          if queued
                          else "still had no worker or place in line for this robot (cold)" if status == "cold"
+
+                         else (f"had no answer from {body.get('address') or 'its address'} (nothing listens there, or "
+                               "this machine's network does not reach it)") if status == "unreached"
                          else f"was still {_STAGE_WORDS.get(body.get('stage'), 'loading')}"
 
                               + (f"; it reports about {eta:.0f}s to go" if eta is not None else ""))
@@ -706,16 +736,16 @@ class Policy(_Waits):
             if self._interrupt.wait(wait):
                 raise Interrupted()
 
-    def act(self, observation: Any = _NOTHING, *, episode_id: str | None = None, seed: int | None = None) -> Any:
+    def act(self, *, episode_id: str | None = None, seed: int | None = None) -> Any:
         """
         One act: the policy's act function called, and what it returned - as it returned it.
 
             policy.observe(x)              # every input goes through observe()
             out = policy.act()             # the act function, once every observation before it has gone in
 
-        act() carries no data. Every input goes through observe(x), and act() calls the policy's act function once every observation the episode's
-        observe() handed over before it has gone in, in order (to its observe method, or kept as the latest for an act
-        function that reads it), taking no step: act(x) is refused before it goes. What comes back is what the act
+        act() carries no data. Every input goes through observe(x), and act() calls the policy's act function once
+        every observation the episode's observe() handed over before it has gone in, in order (to its observe method, or
+        kept as the latest for an act function that reads it), taking no step. What comes back is what the act
         function returned: an array as an array of its dtype and shape, bytes as bytes, a torch tensor as a numpy
         array.
 
@@ -750,11 +780,6 @@ class Policy(_Waits):
         stale = self._interrupt.is_set()
         self._assert_open()
         self._beat_start()
-        _reserved_keys(observation)
-        if _marked.holds(observation):
-
-            raise InvalidRequest("act(): a sequence_ai.Video, Depth or Tactile item goes in observe(), which sends it as "
-                                 "what it marks; act() sends no marker")
         with self._driving("act"):
 
 
@@ -777,13 +802,13 @@ class Policy(_Waits):
                     self._driven_here(driven, chunks)
                     return out
                 asked = driven.changes
-            if observation is _NOTHING and not isinstance(self._t, _direct.DirectConnection):
-                raise InvalidRequest("act() with nothing calls the policy's act function on its worker, which only a "
-                                     "direct connection reaches")
+            if not isinstance(self._t, _direct.DirectConnection):
+                raise InvalidRequest("act() calls the policy's act function on its worker, which only a direct "
+                                     "connection reaches")
             self._last_episode = options["episode_id"]
-            return self._answer(observation, options, asked)
+            return self._answer(options, asked)
 
-    def _answer(self, inputs: Any, options: dict[str, Any], asked: int | None = None) -> Any:
+    def _answer(self, options: dict[str, Any], asked: int | None = None) -> Any:
         """
         What one act returns: what the policy's act function returned, as it returned it
 . A worker that is starting - or a slot this robot waits in line for - is waited out
@@ -805,7 +830,10 @@ class Policy(_Waits):
         Driven.after).
 
         """
-        body, done = self._arm_watched(inputs, options)
+        asked_us = now_us()
+        body, done = self._arm_watched(options)
+        self._latency.since("act_us", asked_us)
+        self._latency.count("acts")
         self._served_once = True
         self._took(body)
         driven = getattr(self._t, "teleop", None)
@@ -824,6 +852,19 @@ class Policy(_Waits):
                 watch.resume(done)
         return body.get("outputs")
 
+    def stats(self) -> dict:
+        """The acts and observations so far, and each act's time from its call to its answer - its p50, p95 and p99 once
+        there are enough (latency_us.act_us). Connected by lines (connect(lines=)), "lines" too: each line's interface,
+        whether it is open, the acts sent on it, how many it answered first, its failed requests, and how much later
+        than the first its other answers came (lines_stream.LinesStream.stats)."""
+        out = self._latency.snapshot()
+        names = getattr(self._t, "_lines", None)
+        if names:
+            stream = getattr(getattr(self._t, "_worker", None), "_stream", None)
+            each = getattr(stream, "stats", None)
+            out["lines"] = each() if callable(each) else [{"line": name, "open": False} for name in names]
+        return out
+
     def teleop_metrics(self) -> dict:
         """A robot's side of how its consoles' commands came ("teleop" among its connect's names): {"latency_us": arrive_us (a
         command sent → this robot got it), actuate_us (got → act() handed it back), loop_us (the step its console had
@@ -834,14 +875,6 @@ class Policy(_Waits):
         straight to it now)}. {} for a robot connected without "teleop"."""
         driven = getattr(self._t, "teleop", None)
         return driven.metrics() if driven is not None else {}
-
-    def teleop_written(self) -> None:
-        """Say your code has written what act() last handed back of a person's to the motors: teleop_metrics() then says
-        written_us, act() handing it back to its being written - the last step of a command's way, which only your code
-        sees. Optional, and nothing for a robot connected without "teleop"."""
-        driven = getattr(self._t, "teleop", None)
-        if driven is not None:
-            driven.written()
 
     def _teleop_place(self, episode_id: Any) -> Any:
         """Where an act a person's chunk answers is - its worker-side episode and step (direct_observe.teleop_place) -
@@ -860,7 +893,7 @@ class Policy(_Waits):
             if driven.chunks != chunks:
                 watch.resume_owed()
 
-    def _arm_watched(self, inputs: Any, options: dict[str, Any]) -> tuple:
+    def _arm_watched(self, options: dict[str, Any]) -> tuple:
         """_predict_raw, the arm watched while it is on its way (_core/stale.py): asked while the answer the robot plays
         still has valid steps, it is watched to when that answer runs out, and its own answer after it - (its answer,
         the stretch with nothing to play it ended: None for none), that stretch resumed - on_resume - by _answer before
@@ -868,12 +901,12 @@ class Policy(_Waits):
         watch = getattr(self, "_stale", None)
         chunk_ends = getattr(self._t, "chunk_ends", None)
         if watch is None or not callable(chunk_ends):
-            return self._predict_raw(inputs, options), None
+            return self._predict_raw(options), None
         ends = chunk_ends()
         ahead = ends is not None and ends > time.monotonic()
         watch.asking(ends, options.get("episode_id"))
         try:
-            body = self._predict_raw(inputs, options)
+            body = self._predict_raw(options)
         except BaseException:
             watch.failed()
             raise
@@ -912,12 +945,12 @@ class Policy(_Waits):
             return
         note(metrics.total_ms - float(handler))
 
-    def _predict_raw(self, inputs: Any, options: dict[str, Any]) -> dict:
-        """act() of your own inputs, or of none (a call, L0): one /act carrying {inputs, seed, episode_id, params} -
-        none of the inputs for a call - and its worker's answer, its `outputs` untouched. A worker that is starting, or a
+    def _predict_raw(self, options: dict[str, Any]) -> dict:
+        """act() (a call, L0): one /act carrying {seed, episode_id, params} - no data: every input goes through
+        observe() - and its worker's answer, its `outputs` untouched. A worker that is starting, or a
         slot this robot waits in line for, is waited out as observe()'s first connect waits it out (_wait_out): each
         retry said, within `startup_timeout_s` - 0 raises at once."""
-        payload: dict[str, Any] = {"model": self._model, **({"inputs": inputs} if inputs is not _NOTHING else {})}
+        payload: dict[str, Any] = {"model": self._model}
         payload.update({k: v for k, v in options.items() if v is not None})
         wait_for = _StartWait(self._startup_timeout_s)
         while True:
@@ -1005,6 +1038,25 @@ class Policy(_Waits):
     @property
     def model(self) -> str:
         return self._model
+
+
+
+
+
+    @property
+    def hz(self) -> float | None:
+        """The policy's control rate, in steps a second, as its server declared it."""
+        return (getattr(self._t, "_plays", None) or {}).get("hz")
+
+    @property
+    def action_chunk_valid_len(self) -> int | None:
+        """How many steps of each answer may be played, as the policy's server declared it."""
+        return (getattr(self._t, "_plays", None) or {}).get("action_chunk_valid_len")
+
+    @property
+    def action_chunk_replan_at(self) -> int | None:
+        """The step of an answer at which the next one is asked for, as the policy's server declared it."""
+        return (getattr(self._t, "_plays", None) or {}).get("action_chunk_replan_at")
 
     def interrupt(self) -> None:
         """

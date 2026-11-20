@@ -3,12 +3,14 @@ version: 2.1
 jobs:
     test:
         docker:
-            - image: fpob/tox
+            - image: cimg/python:3.13
         steps:
             - checkout
             - run:
-                name: Run tests
-                command: tox
+                name: Run tox
+                # cimg/python bundles uv; tox-uv provides the other
+                # interpreters, including the Python 3.16 pre-release
+                command: uvx --with tox-uv tox
 
 workflows:
     test:

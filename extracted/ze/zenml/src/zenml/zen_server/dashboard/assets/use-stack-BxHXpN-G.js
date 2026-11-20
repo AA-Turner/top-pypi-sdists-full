@@ -1,0 +1,1 @@
+import{r as e}from"./contexts-DAYcB3yf.js";import{n as t}from"./queryOptions-p9T2pvoN.js";import{$ as n}from"./stack-components-O3sZr4Mm.js";function r(r,i){return t({...n.detail(e(),r),...i})}export{r as t};

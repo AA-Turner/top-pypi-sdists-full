@@ -1,7 +1,7 @@
-import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pydantic_ai.mcp import MCPServer
+from fastmcp.client.transports import StdioTransport
+from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.tools import ToolDefinition
 
 from marvin._internal.integrations.mcp import (
@@ -18,8 +18,8 @@ from marvin.thread import Thread
 
 class TestAgentMCPInstantiation:
     def test_agent_instantiation_with_mcp_servers(self):
-        mock_server_1 = MagicMock(spec=MCPServer)
-        mock_server_2 = MagicMock(spec=MCPServer)
+        mock_server_1 = MagicMock(spec=MCPToolset)
+        mock_server_2 = MagicMock(spec=MCPToolset)
 
         agent = Agent(name="TestMCPAgent", mcp_servers=[mock_server_1, mock_server_2])
 
@@ -66,11 +66,11 @@ async def test_discover_mcp_tools_success():
     )
 
     # Mock MCP Servers
-    mock_server_1 = MagicMock(spec=MCPServer)
+    mock_server_1 = MagicMock(spec=MCPToolset)
     mock_server_1.list_tools = AsyncMock(return_value=[mock_tool_def_1])
     mock_server_1.is_running = True  # Assume it's running
 
-    mock_server_2 = MagicMock(spec=MCPServer)
+    mock_server_2 = MagicMock(spec=MCPToolset)
     mock_server_2.list_tools = AsyncMock(return_value=[mock_tool_def_2])
     mock_server_2.is_running = True
 
@@ -96,7 +96,7 @@ async def test_discover_mcp_tools_server_not_running():
         name="tool_one", description="Desc", parameters_json_schema={}
     )
 
-    mock_server_1 = MagicMock(spec=MCPServer)
+    mock_server_1 = MagicMock(spec=MCPToolset)
     mock_server_1.list_tools = AsyncMock(return_value=[mock_tool_def_1])
     mock_server_1.is_running = False  # Explicitly set to False
 
@@ -116,12 +116,12 @@ async def test_discover_mcp_tools_discovery_error():
     )
 
     # Server 1 raises an exception during list_tools
-    mock_server_1 = MagicMock(spec=MCPServer)
+    mock_server_1 = MagicMock(spec=MCPToolset)
     mock_server_1.list_tools = AsyncMock(side_effect=RuntimeError("Discovery failed!"))
     mock_server_1.is_running = True
 
     # Server 2 works fine
-    mock_server_2 = MagicMock(spec=MCPServer)
+    mock_server_2 = MagicMock(spec=MCPToolset)
     mock_server_2.list_tools = AsyncMock(return_value=[mock_tool_def_2])
     mock_server_2.is_running = True
 
@@ -159,7 +159,7 @@ async def test_manage_mcp_servers_lazy_behavior():
 
     # Setup: Mock Agent with MCP servers
     mock_agent_with_servers = MagicMock(spec=Agent)
-    mock_server = MagicMock(spec=MCPServer)
+    mock_server = MagicMock(spec=MCPToolset)
     mock_agent_with_servers.get_mcp_servers.return_value = [mock_server]
 
     # We'll need to patch the MCPManager to avoid actual MCP server interaction
@@ -189,9 +189,7 @@ async def test_mcp_tools_not_duplicated():
 
     The fix: Remove Marvin's pre-discovery, let pydantic-ai handle MCP servers natively.
     """
-    from pydantic_ai.mcp import MCPServerStdio
-
-    git_mcp_server = MCPServerStdio(command="uvx", args=["mcp-server-git"])
+    git_mcp_server = MCPToolset(StdioTransport(command="uvx", args=["mcp-server-git"]))
     agent = Agent(mcp_servers=[git_mcp_server])
 
     agent_tools = agent.get_tools()
@@ -216,7 +214,7 @@ class TestMCPServerLifecycleInThreadContext:
     async def test_mcp_servers_reused_within_thread_context(self):
         """MCP servers should be started once and reused across multiple manage_mcp_servers calls."""
         # Setup: Create a mock server
-        mock_server = MagicMock(spec=MCPServer)
+        mock_server = MagicMock(spec=MCPToolset)
         mock_server.is_running = True
 
         # Create an agent with the mock server
@@ -268,64 +266,11 @@ class TestMCPServerLifecycleInThreadContext:
             # Cleanup
             await cleanup_thread_mcp_servers()
 
-    async def test_mcp_manager_merges_env_with_os_environ(self):
-        """MCPServerStdio with custom env should still inherit os.environ.
-
-        Regression test: when a user sets env={"FOO": "bar"} on an MCPServerStdio,
-        the subprocess needs PATH, HOME, etc. to function. The manager should
-        merge user env on top of os.environ, not use it as-is.
-        """
-        from pydantic_ai.mcp import MCPServerStdio
-
-        custom_env = {"HUE_BRIDGE_IP": "192.168.1.100", "HUE_BRIDGE_USERNAME": "test"}
-        server = MCPServerStdio(command="echo", args=["hello"], env=custom_env)
-        agent = MagicMock(spec=Agent)
-        agent.name = "TestAgent"
-        agent.get_mcp_servers.return_value = [server]
-
-        manager = MCPManager()
-
-        # Patch enter_async_context to avoid actually starting the server
-        manager.exit_stack.enter_async_context = AsyncMock()
-
-        with patch.dict(
-            os.environ, {"PATH": "/usr/bin", "HOME": "/home/test"}, clear=True
-        ):
-            await manager.start_servers(agent)
-
-        # The server's env should have both os.environ and custom vars
-        assert server.env is not None
-        assert server.env["PATH"] == "/usr/bin"
-        assert server.env["HOME"] == "/home/test"
-        # Custom vars should take precedence
-        assert server.env["HUE_BRIDGE_IP"] == "192.168.1.100"
-        assert server.env["HUE_BRIDGE_USERNAME"] == "test"
-
-    async def test_mcp_manager_sets_env_when_none(self):
-        """MCPServerStdio with env=None should get os.environ."""
-        from pydantic_ai.mcp import MCPServerStdio
-
-        server = MCPServerStdio(command="echo", args=["hello"])
-        assert server.env is None
-
-        agent = MagicMock(spec=Agent)
-        agent.name = "TestAgent"
-        agent.get_mcp_servers.return_value = [server]
-
-        manager = MCPManager()
-        manager.exit_stack.enter_async_context = AsyncMock()
-
-        with patch.dict(os.environ, {"PATH": "/usr/bin"}, clear=True):
-            await manager.start_servers(agent)
-
-        assert server.env is not None
-        assert server.env["PATH"] == "/usr/bin"
-
     async def test_mcp_manager_tracks_started_servers_by_id(self):
         """MCPManager should track servers by id to avoid restarting the same server."""
         manager = MCPManager()
 
-        mock_server = MagicMock(spec=MCPServer)
+        mock_server = MagicMock(spec=MCPToolset)
         server_id = id(mock_server)
 
         # Simulate starting the server
@@ -348,7 +293,7 @@ class TestMCPServerLifecycleInThreadContext:
         The orchestrator handles cleanup after the Thread context exits.
         """
         # Setup: Create a mock MCP manager with a server
-        mock_server = MagicMock(spec=MCPServer)
+        mock_server = MagicMock(spec=MCPToolset)
         mock_server.is_running = True
 
         manager = MCPManager()
@@ -424,7 +369,7 @@ class TestMCPServerLifecycleInThreadContext:
         Thread.__exit__ while already in an async context caused problems.
         The fix moves cleanup to orchestrator.run() which is already async.
         """
-        mock_server = MagicMock(spec=MCPServer)
+        mock_server = MagicMock(spec=MCPToolset)
         mock_server.is_running = True
 
         manager = MCPManager()

@@ -43,6 +43,7 @@ _IS_SYNC = True
 
 class CommandCursor(_AgnosticCommandCursorBase[_DocumentType], _CursorBase[_DocumentType]):
     """A cursor / iterator over command cursors.
+
     Used by :meth:`~pymongo.collection.Collection.aggregate`,
     :meth:`~pymongo.database.Database.aggregate`,
     :meth:`~pymongo.collection.Collection.list_indexes`,
@@ -109,7 +110,7 @@ class CommandCursor(_AgnosticCommandCursorBase[_DocumentType], _CursorBase[_Docu
         self._data = deque(documents)
 
     def _refresh(self) -> int:
-        """Refreshes the cursor with more data from the server.
+        """Refresh the cursor with more data from the server.
 
         Returns the length of self._data after refresh. Will exit early if
         self._data is already non-empty. Raises OperationFailure when the
@@ -179,8 +180,9 @@ class CommandCursor(_AgnosticCommandCursorBase[_DocumentType], _CursorBase[_Docu
                 result.extend(self._data)
                 self._data.clear()
             else:
+                # A list comprehension here is slower or uses more memory.
                 for _ in range(min(len(self._data), total)):
-                    result.append(self._data.popleft())
+                    result.append(self._data.popleft())  # noqa: PERF401
             return True
         else:
             return False

@@ -17,36 +17,53 @@ Usage::
 from __future__ import annotations
 
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
+    AggregatableFieldType,
     AwsClosedLostReasonType,
     AwsFundingUsedType,
     AwsMemberBusinessTitleType,
     AwsOpportunityStageType,
+    BulkJobStatusType,
+    BulkOperationTypeType,
+    BulkRecordStatusType,
+    BulkReportStatusType,
+    BulkReportTypeType,
     ChannelType,
     ClosedLostReasonType,
     CompetitorNameType,
+    ContactWindowType,
     CountryCodeType,
     CurrencyCodeType,
+    CustomerAccountFailureReasonType,
+    DayOfWeekType,
     DeliveryModelType,
     EngagementContextTypeType,
+    EngagementGroupSortNameType,
     EngagementInvitationPayloadTypeType,
     EngagementScoreType,
+    EngagementSearchFilterNameType,
+    EngagementSearchSortNameType,
+    EnrichmentStatusType,
+    FilterableFieldType,
     IndustryType,
     InvitationStatusType,
     InvolvementTypeChangeReasonType,
     MarketingSourceType,
     NationalSecurityType,
     OpportunityOriginType,
+    OpportunitySearchFilterNameType,
+    OpportunitySearchSortNameType,
     OpportunitySortNameType,
     OpportunityTypeType,
     ParticipantTypeType,
     PrimaryNeedFromAwsType,
     ProspectingFromEngagementTaskSortNameType,
     ProspectingTaskStatusType,
+    ReadinessLevelType,
     ReasonCodeType,
     ReceiverResponsibilityType,
     RelatedEntityTypeType,
@@ -55,8 +72,10 @@ from .literals import (
     ReviewStatusType,
     SalesActivityType,
     SalesInvolvementTypeType,
+    SearchEngagementScoreType,
     SolutionSortNameType,
     SolutionStatusType,
+    SortableFieldType,
     SortOrderType,
     StageType,
     TaskStatusType,
@@ -71,14 +90,26 @@ else:
 
 __all__ = (
     "AcceptEngagementInvitationRequestTypeDef",
+    "AccountCustomerTypeDef",
+    "AccountPlanningInvitationPayloadOutputTypeDef",
+    "AccountPlanningInvitationPayloadTypeDef",
+    "AccountPlanningInvitationPayloadUnionTypeDef",
     "AccountReceiverTypeDef",
     "AccountSummaryTypeDef",
     "AccountTypeDef",
     "AddressSummaryTypeDef",
     "AddressTypeDef",
+    "AggregationRequestTypeDef",
+    "AggregationResultTypeDef",
     "AssignOpportunityRequestTypeDef",
     "AssigneeContactTypeDef",
     "AssociateOpportunityRequestTypeDef",
+    "AwsEnrichmentCustomerSummaryTypeDef",
+    "AwsEnrichmentCustomerTypeDef",
+    "AwsEnrichmentInsightsSummaryTypeDef",
+    "AwsEnrichmentInsightsTypeDef",
+    "AwsEnrichmentSummaryTypeDef",
+    "AwsEnrichmentTypeDef",
     "AwsOpportunityCustomerTypeDef",
     "AwsOpportunityInsightsTypeDef",
     "AwsOpportunityLifeCycleTypeDef",
@@ -92,7 +123,15 @@ __all__ = (
     "AwsSoftwareRevenueTypeDef",
     "AwsSubmissionTypeDef",
     "AwsTeamMemberTypeDef",
+    "BestOutreachWindowTypeDef",
+    "BucketTypeDef",
+    "BulkJobResultTypeDef",
+    "ChannelRecommendationOutputTypeDef",
+    "ChannelRecommendationTypeDef",
+    "ChannelRecommendationUnionTypeDef",
     "ContactTypeDef",
+    "CreateCustomerAccountRequestTypeDef",
+    "CreateCustomerAccountResponseTypeDef",
     "CreateEngagementContextRequestTypeDef",
     "CreateEngagementContextResponseTypeDef",
     "CreateEngagementInvitationRequestTypeDef",
@@ -106,11 +145,19 @@ __all__ = (
     "CreateResourceSnapshotRequestTypeDef",
     "CreateResourceSnapshotResponseTypeDef",
     "CreatedDateFilterTypeDef",
+    "CustomerAccountBulkJobFilterTypeDef",
+    "CustomerAccountBulkJobSummaryTypeDef",
+    "CustomerAccountContextTypeDef",
+    "CustomerAccountDataTypeDef",
+    "CustomerAccountDetailsSummaryTypeDef",
+    "CustomerAccountSortTypeDef",
+    "CustomerAccountSummaryTypeDef",
     "CustomerOutputTypeDef",
     "CustomerProjectsContextTypeDef",
     "CustomerSummaryTypeDef",
     "CustomerTypeDef",
     "CustomerUnionTypeDef",
+    "DeleteCustomerAccountRequestTypeDef",
     "DeleteResourceSnapshotJobRequestTypeDef",
     "DisassociateOpportunityRequestTypeDef",
     "EmptyResponseMetadataTypeDef",
@@ -122,22 +169,44 @@ __all__ = (
     "EngagementContextPayloadUnionTypeDef",
     "EngagementCustomerProjectDetailsTypeDef",
     "EngagementCustomerTypeDef",
+    "EngagementGroupSortTypeDef",
+    "EngagementGroupSummaryTypeDef",
     "EngagementInvitationSummaryTypeDef",
     "EngagementMemberSummaryTypeDef",
     "EngagementMemberTypeDef",
     "EngagementProspectingResultTypeDef",
     "EngagementResourceAssociationSummaryTypeDef",
+    "EngagementSearchFilterPaginatorTypeDef",
+    "EngagementSearchFilterTypeDef",
+    "EngagementSearchFilterValueTypeDef",
+    "EngagementSearchPredicateTypeDef",
+    "EngagementSearchSortTypeDef",
+    "EngagementSearchSummaryTypeDef",
     "EngagementSortTypeDef",
     "EngagementSummaryTypeDef",
     "EnrichmentContextTypeDef",
     "ExpectedContractDurationTypeDef",
     "ExpectedCustomerSpendTypeDef",
+    "FilterConditionTypeDef",
+    "FilterPaginatorTypeDef",
+    "FilterTypeDef",
+    "FilterValueTypeDef",
     "GetAwsOpportunitySummaryRequestTypeDef",
     "GetAwsOpportunitySummaryResponseTypeDef",
+    "GetCustomerAccountBulkJobReportUrlRequestTypeDef",
+    "GetCustomerAccountBulkJobReportUrlResponseTypeDef",
+    "GetCustomerAccountBulkJobRequestTypeDef",
+    "GetCustomerAccountBulkJobResponseTypeDef",
+    "GetCustomerAccountRequestTypeDef",
+    "GetCustomerAccountResponseTypeDef",
+    "GetCustomerAccountStatisticsRequestTypeDef",
+    "GetCustomerAccountStatisticsResponseTypeDef",
     "GetEngagementInvitationRequestTypeDef",
     "GetEngagementInvitationResponseTypeDef",
     "GetEngagementRequestTypeDef",
     "GetEngagementResponseTypeDef",
+    "GetOpportunityBulkJobReportUrlRequestTypeDef",
+    "GetOpportunityBulkJobReportUrlResponseTypeDef",
     "GetOpportunityRequestTypeDef",
     "GetOpportunityResponseTypeDef",
     "GetProspectingFromEngagementTaskRequestTypeDef",
@@ -150,6 +219,7 @@ __all__ = (
     "GetSellingSystemSettingsResponseTypeDef",
     "InvitationProspectingResultAwsTypeDef",
     "InvitationTypeDef",
+    "IssueTypeDef",
     "LastModifiedDateTypeDef",
     "LeadAddressTypeDef",
     "LeadContactTypeDef",
@@ -157,7 +227,9 @@ __all__ = (
     "LeadContextTypeDef",
     "LeadContextUnionTypeDef",
     "LeadCustomerTypeDef",
+    "LeadInsightsOutputTypeDef",
     "LeadInsightsTypeDef",
+    "LeadInsightsUnionTypeDef",
     "LeadInteractionOutputTypeDef",
     "LeadInteractionTypeDef",
     "LeadInteractionUnionTypeDef",
@@ -169,6 +241,12 @@ __all__ = (
     "LifeCycleSummaryTypeDef",
     "LifeCycleTypeDef",
     "LifeCycleUnionTypeDef",
+    "ListCustomerAccountBulkJobResultsRequestPaginateTypeDef",
+    "ListCustomerAccountBulkJobResultsRequestTypeDef",
+    "ListCustomerAccountBulkJobResultsResponseTypeDef",
+    "ListCustomerAccountBulkJobsRequestPaginateTypeDef",
+    "ListCustomerAccountBulkJobsRequestTypeDef",
+    "ListCustomerAccountBulkJobsResponseTypeDef",
     "ListEngagementByAcceptingInvitationTaskSummaryTypeDef",
     "ListEngagementByAcceptingInvitationTasksRequestPaginateTypeDef",
     "ListEngagementByAcceptingInvitationTasksRequestTypeDef",
@@ -177,6 +255,9 @@ __all__ = (
     "ListEngagementFromOpportunityTasksRequestPaginateTypeDef",
     "ListEngagementFromOpportunityTasksRequestTypeDef",
     "ListEngagementFromOpportunityTasksResponseTypeDef",
+    "ListEngagementGroupsRequestPaginateTypeDef",
+    "ListEngagementGroupsRequestTypeDef",
+    "ListEngagementGroupsResponseTypeDef",
     "ListEngagementInvitationsRequestPaginateTypeDef",
     "ListEngagementInvitationsRequestTypeDef",
     "ListEngagementInvitationsResponseTypeDef",
@@ -192,6 +273,12 @@ __all__ = (
     "ListOpportunitiesRequestPaginateTypeDef",
     "ListOpportunitiesRequestTypeDef",
     "ListOpportunitiesResponseTypeDef",
+    "ListOpportunityBulkJobResultsRequestPaginateTypeDef",
+    "ListOpportunityBulkJobResultsRequestTypeDef",
+    "ListOpportunityBulkJobResultsResponseTypeDef",
+    "ListOpportunityBulkJobsRequestPaginateTypeDef",
+    "ListOpportunityBulkJobsRequestTypeDef",
+    "ListOpportunityBulkJobsResponseTypeDef",
     "ListOpportunityFromEngagementTaskSummaryTypeDef",
     "ListOpportunityFromEngagementTasksRequestPaginateTypeDef",
     "ListOpportunityFromEngagementTasksRequestTypeDef",
@@ -217,11 +304,29 @@ __all__ = (
     "MonetaryValueTypeDef",
     "NextStepsHistoryOutputTypeDef",
     "NextStepsHistoryTypeDef",
+    "OpportunityBulkJobSummaryTypeDef",
     "OpportunityEngagementInvitationSortTypeDef",
     "OpportunityInvitationPayloadOutputTypeDef",
     "OpportunityInvitationPayloadTypeDef",
     "OpportunityInvitationPayloadUnionTypeDef",
     "OpportunityQualityTypeDef",
+    "OpportunitySearchAccountTypeDef",
+    "OpportunitySearchAddressTypeDef",
+    "OpportunitySearchAwsSummaryTypeDef",
+    "OpportunitySearchCustomerTypeDef",
+    "OpportunitySearchExpectedCustomerSpendTypeDef",
+    "OpportunitySearchFilterPaginatorTypeDef",
+    "OpportunitySearchFilterTypeDef",
+    "OpportunitySearchFilterValueTypeDef",
+    "OpportunitySearchInsightsTypeDef",
+    "OpportunitySearchLifeCycleTypeDef",
+    "OpportunitySearchOpportunityQualityTypeDef",
+    "OpportunitySearchPredicateTypeDef",
+    "OpportunitySearchProjectTypeDef",
+    "OpportunitySearchRelatedEntityIdentifiersTypeDef",
+    "OpportunitySearchSortTypeDef",
+    "OpportunitySearchSummaryTypeDef",
+    "OpportunitySearchTeamMemberTypeDef",
     "OpportunitySortTypeDef",
     "OpportunitySummaryTypeDef",
     "OpportunitySummaryViewTypeDef",
@@ -229,6 +334,7 @@ __all__ = (
     "PayloadOutputTypeDef",
     "PayloadTypeDef",
     "PayloadUnionTypeDef",
+    "PreferredContactWindowTypeDef",
     "ProfileNextStepsHistoryTypeDef",
     "ProjectDetailsOutputTypeDef",
     "ProjectDetailsTypeDef",
@@ -260,15 +366,28 @@ __all__ = (
     "ResourceSnapshotPayloadTypeDef",
     "ResourceSnapshotSummaryTypeDef",
     "ResponseMetadataTypeDef",
+    "SearchCustomerAccountsRequestPaginateTypeDef",
+    "SearchCustomerAccountsRequestTypeDef",
+    "SearchCustomerAccountsResponseTypeDef",
+    "SearchEngagementsRequestPaginateTypeDef",
+    "SearchEngagementsRequestTypeDef",
+    "SearchEngagementsResponseTypeDef",
+    "SearchOpportunitiesRequestPaginateTypeDef",
+    "SearchOpportunitiesRequestTypeDef",
+    "SearchOpportunitiesResponseTypeDef",
     "SenderContactTypeDef",
     "SoftwareRevenueTypeDef",
     "SolutionBaseTypeDef",
     "SolutionSortTypeDef",
     "SortObjectTypeDef",
+    "StartCustomerAccountBulkJobRequestTypeDef",
+    "StartCustomerAccountBulkJobResponseTypeDef",
     "StartEngagementByAcceptingInvitationTaskRequestTypeDef",
     "StartEngagementByAcceptingInvitationTaskResponseTypeDef",
     "StartEngagementFromOpportunityTaskRequestTypeDef",
     "StartEngagementFromOpportunityTaskResponseTypeDef",
+    "StartOpportunityBulkJobRequestTypeDef",
+    "StartOpportunityBulkJobResponseTypeDef",
     "StartOpportunityFromEngagementTaskRequestTypeDef",
     "StartOpportunityFromEngagementTaskResponseTypeDef",
     "StartProspectingFromEngagementTaskRequestTypeDef",
@@ -281,6 +400,8 @@ __all__ = (
     "TargetCloseDateFilterTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateCustomerAccountRequestTypeDef",
+    "UpdateCustomerAccountResponseTypeDef",
     "UpdateEngagementContextPayloadTypeDef",
     "UpdateEngagementContextRequestTypeDef",
     "UpdateEngagementContextResponseTypeDef",
@@ -293,6 +414,26 @@ __all__ = (
 class AcceptEngagementInvitationRequestTypeDef(TypedDict):
     Catalog: str
     Identifier: str
+
+
+class AccountCustomerTypeDef(TypedDict):
+    CompanyName: str
+    Industry: NotRequired[str]
+    WebsiteUrl: NotRequired[str]
+    CountryCode: NotRequired[CountryCodeType]
+
+
+class PreferredContactWindowTypeDef(TypedDict):
+    Window: NotRequired[ContactWindowType]
+    Timezone: NotRequired[str]
+
+
+class SenderContactTypeDef(TypedDict):
+    Email: str
+    FirstName: NotRequired[str]
+    LastName: NotRequired[str]
+    BusinessTitle: NotRequired[str]
+    Phone: NotRequired[str]
 
 
 class AccountReceiverTypeDef(TypedDict):
@@ -315,6 +456,15 @@ class AddressTypeDef(TypedDict):
     StreetAddress: NotRequired[str]
 
 
+class AggregationRequestTypeDef(TypedDict):
+    GroupBy: Sequence[AggregatableFieldType]
+
+
+class BucketTypeDef(TypedDict):
+    Values: list[str]
+    Count: int
+
+
 class AssigneeContactTypeDef(TypedDict):
     Email: str
     FirstName: str
@@ -328,6 +478,43 @@ class AssociateOpportunityRequestTypeDef(TypedDict):
     OpportunityIdentifier: str
     RelatedEntityType: RelatedEntityTypeType
     RelatedEntityIdentifier: str
+
+
+class AwsEnrichmentCustomerSummaryTypeDef(TypedDict):
+    Industry: NotRequired[str]
+    AccountPlanningQualification: NotRequired[str]
+    EligiblePrograms: NotRequired[list[str]]
+    Geo: NotRequired[str]
+    Country: NotRequired[str]
+    Segment: NotRequired[str]
+
+
+class AwsEnrichmentCustomerTypeDef(TypedDict):
+    AccountName: NotRequired[str]
+    Industry: NotRequired[str]
+    SubIndustry: NotRequired[str]
+    Sector: NotRequired[str]
+    Segment: NotRequired[str]
+    CompanySize: NotRequired[str]
+    Region: NotRequired[str]
+    SubRegion: NotRequired[str]
+    Geo: NotRequired[str]
+    Country: NotRequired[str]
+    CustomerAccountPlanningQualification: NotRequired[str]
+    EligiblePrograms: NotRequired[list[str]]
+
+
+class AwsEnrichmentInsightsSummaryTypeDef(TypedDict):
+    MarketplaceEngagementScore: NotRequired[str]
+    SolutionCategory: NotRequired[str]
+    SolutionScore: NotRequired[str]
+
+
+class AwsEnrichmentInsightsTypeDef(TypedDict):
+    MarketplaceEngagementScore: NotRequired[str]
+    SolutionCategory: NotRequired[str]
+    SolutionScore: NotRequired[str]
+    SolutionSubCategory: NotRequired[str]
 
 
 class ContactTypeDef(TypedDict):
@@ -395,17 +582,31 @@ class AwsSubmissionTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
 
 
+class BestOutreachWindowTypeDef(TypedDict):
+    Day: DayOfWeekType
+    StartTimeUtc: str
+    EndTimeUtc: str
+
+
+class BulkJobResultTypeDef(TypedDict):
+    RequestId: str
+    Status: BulkRecordStatusType
+    ResourceIdentifier: NotRequired[str]
+    ErrorCode: NotRequired[str]
+    ErrorMessage: NotRequired[str]
+
+
+class TagTypeDef(TypedDict):
+    Key: str
+    Value: str
+
+
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
-
-
-class TagTypeDef(TypedDict):
-    Key: str
-    Value: str
 
 
 class CreateResourceSnapshotRequestTypeDef(TypedDict):
@@ -418,6 +619,35 @@ class CreateResourceSnapshotRequestTypeDef(TypedDict):
 
 
 TimestampTypeDef = Union[datetime, str]
+
+
+class CustomerAccountBulkJobFilterTypeDef(TypedDict):
+    Identifier: NotRequired[str]
+    Status: NotRequired[BulkJobStatusType]
+
+
+class CustomerAccountBulkJobSummaryTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Status: BulkJobStatusType
+    TotalRecords: int
+    ProcessedRecords: int
+    SuccessCount: int
+    FailureCount: int
+    DeletedCount: int
+    CreatedAt: datetime
+    FileName: NotRequired[str]
+    FailureReason: NotRequired[str]
+    CompletedAt: NotRequired[datetime]
+
+
+class CustomerAccountDetailsSummaryTypeDef(TypedDict):
+    CompanyName: str
+
+
+class CustomerAccountSortTypeDef(TypedDict):
+    SortBy: SortableFieldType
+    SortOrder: SortOrderType
 
 
 class EngagementCustomerProjectDetailsTypeDef(TypedDict):
@@ -433,6 +663,11 @@ class EngagementCustomerTypeDef(TypedDict):
     CountryCode: CountryCodeType
 
 
+class DeleteCustomerAccountRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+
+
 class DeleteResourceSnapshotJobRequestTypeDef(TypedDict):
     Catalog: str
     ResourceSnapshotJobIdentifier: str
@@ -443,6 +678,22 @@ class DisassociateOpportunityRequestTypeDef(TypedDict):
     OpportunityIdentifier: str
     RelatedEntityType: RelatedEntityTypeType
     RelatedEntityIdentifier: str
+
+
+class EngagementGroupSortTypeDef(TypedDict):
+    SortBy: EngagementGroupSortNameType
+    SortOrder: SortOrderType
+
+
+class EngagementGroupSummaryTypeDef(TypedDict):
+    Id: str
+    Arn: NotRequired[str]
+    Catalog: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    Count: NotRequired[int]
+    ReadinessLevel: NotRequired[ReadinessLevelType]
+    UpdatedAt: NotRequired[datetime]
 
 
 class EngagementMemberSummaryTypeDef(TypedDict):
@@ -472,6 +723,11 @@ class EngagementResourceAssociationSummaryTypeDef(TypedDict):
     CreatedBy: NotRequired[str]
 
 
+class EngagementSearchSortTypeDef(TypedDict):
+    SortBy: EngagementSearchSortNameType
+    SortOrder: SortOrderType
+
+
 class EngagementSortTypeDef(TypedDict):
     SortOrder: SortOrderType
     SortBy: Literal["CreatedDate"]
@@ -489,10 +745,6 @@ class EngagementSummaryTypeDef(TypedDict):
     ContextTypes: NotRequired[list[EngagementContextTypeType]]
 
 
-class LeadInsightsTypeDef(TypedDict):
-    LeadReadinessScore: NotRequired[str]
-
-
 class ExpectedContractDurationTypeDef(TypedDict):
     Term: Literal["Months"]
     Value: str
@@ -503,6 +755,28 @@ class GetAwsOpportunitySummaryRequestTypeDef(TypedDict):
     RelatedOpportunityIdentifier: str
 
 
+class GetCustomerAccountBulkJobReportUrlRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+    ReportType: NotRequired[BulkReportTypeType]
+
+
+class GetCustomerAccountBulkJobRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+
+
+class GetCustomerAccountRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+
+
+class IssueTypeDef(TypedDict):
+    Severity: NotRequired[str]
+    Code: NotRequired[str]
+    Message: NotRequired[str]
+
+
 class GetEngagementInvitationRequestTypeDef(TypedDict):
     Catalog: str
     Identifier: str
@@ -511,6 +785,13 @@ class GetEngagementInvitationRequestTypeDef(TypedDict):
 class GetEngagementRequestTypeDef(TypedDict):
     Catalog: str
     Identifier: str
+
+
+class GetOpportunityBulkJobReportUrlRequestTypeDef(TypedDict):
+    Catalog: str
+    JobId: str
+    ReportFormat: Literal["CSV"]
+    ReportType: NotRequired[BulkReportTypeType]
 
 
 class GetOpportunityRequestTypeDef(TypedDict):
@@ -633,6 +914,20 @@ class LifeCycleSummaryTypeDef(TypedDict):
     ReviewStatusReason: NotRequired[str]
 
 
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
+class ListCustomerAccountBulkJobResultsRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+    Status: NotRequired[BulkRecordStatusType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListEngagementByAcceptingInvitationTaskSummaryTypeDef(TypedDict):
     TaskId: NotRequired[str]
     TaskArn: NotRequired[str]
@@ -648,12 +943,6 @@ class ListEngagementByAcceptingInvitationTaskSummaryTypeDef(TypedDict):
 class ListTasksSortBaseTypeDef(TypedDict):
     SortOrder: SortOrderType
     SortBy: Literal["StartTime"]
-
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
 
 
 class ListEngagementFromOpportunityTaskSummaryTypeDef(TypedDict):
@@ -699,6 +988,37 @@ class OpportunitySortTypeDef(TypedDict):
 class TargetCloseDateFilterTypeDef(TypedDict):
     AfterTargetCloseDate: NotRequired[str]
     BeforeTargetCloseDate: NotRequired[str]
+
+
+class ListOpportunityBulkJobResultsRequestTypeDef(TypedDict):
+    Catalog: str
+    JobId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Status: NotRequired[BulkRecordStatusType]
+
+
+class ListOpportunityBulkJobsRequestTypeDef(TypedDict):
+    Catalog: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    JobId: NotRequired[str]
+    Status: NotRequired[BulkJobStatusType]
+
+
+class OpportunityBulkJobSummaryTypeDef(TypedDict):
+    JobId: str
+    Status: BulkJobStatusType
+    TotalRecords: int
+    ProcessedRecords: int
+    SuccessCount: int
+    FailureCount: int
+    CreatedAt: datetime
+    StartedAt: NotRequired[datetime]
+    CompletedAt: NotRequired[datetime]
+    FailureReason: NotRequired[str]
+    FileName: NotRequired[str]
+    OperationType: NotRequired[BulkOperationTypeType]
 
 
 class ListOpportunityFromEngagementTaskSummaryTypeDef(TypedDict):
@@ -790,12 +1110,42 @@ class MarketingTypeDef(TypedDict):
     AwsFundingUsed: NotRequired[AwsFundingUsedType]
 
 
-class SenderContactTypeDef(TypedDict):
-    Email: str
+class OpportunitySearchAddressTypeDef(TypedDict):
+    CountryCode: NotRequired[CountryCodeType]
+
+
+class OpportunitySearchExpectedCustomerSpendTypeDef(TypedDict):
+    CurrencyCode: CurrencyCodeType
+    Amount: NotRequired[str]
+
+
+class OpportunitySearchOpportunityQualityTypeDef(TypedDict):
+    Score: NotRequired[int]
+
+
+class OpportunitySearchLifeCycleTypeDef(TypedDict):
+    ReviewStatus: NotRequired[ReviewStatusType]
+    Stage: NotRequired[StageType]
+    NextSteps: NotRequired[str]
+    TargetCloseDate: NotRequired[str]
+
+
+class OpportunitySearchRelatedEntityIdentifiersTypeDef(TypedDict):
+    AwsMarketplaceOffers: NotRequired[list[str]]
+    AwsMarketplaceOfferSets: NotRequired[list[str]]
+    AwsMarketplaceSolutions: NotRequired[list[str]]
+    Solutions: NotRequired[list[str]]
+
+
+class OpportunitySearchSortTypeDef(TypedDict):
+    SortBy: OpportunitySearchSortNameType
+    SortOrder: SortOrderType
+
+
+class OpportunitySearchTeamMemberTypeDef(TypedDict):
     FirstName: NotRequired[str]
     LastName: NotRequired[str]
     BusinessTitle: NotRequired[str]
-    Phone: NotRequired[str]
 
 
 class ProspectingResultCustomerTypeDef(TypedDict):
@@ -821,6 +1171,19 @@ class RejectEngagementInvitationRequestTypeDef(TypedDict):
     Catalog: str
     Identifier: str
     RejectionReason: NotRequired[str]
+
+
+class StartCustomerAccountBulkJobRequestTypeDef(TypedDict):
+    Catalog: str
+    ClientToken: str
+    FileUri: str
+
+
+class StartOpportunityBulkJobRequestTypeDef(TypedDict):
+    Catalog: str
+    ClientToken: str
+    FileURI: str
+    FileFormat: Literal["CSV"]
 
 
 class StartProspectingFromEngagementTaskRequestTypeDef(TypedDict):
@@ -852,6 +1215,25 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
+class CustomerAccountContextTypeDef(TypedDict):
+    AccountIdentifier: NotRequired[str]
+    Customer: NotRequired[AccountCustomerTypeDef]
+
+
+class AccountPlanningInvitationPayloadOutputTypeDef(TypedDict):
+    AccountIdentifier: NotRequired[str]
+    Customer: NotRequired[AccountCustomerTypeDef]
+    SenderContacts: NotRequired[list[SenderContactTypeDef]]
+    PreferredContact: NotRequired[PreferredContactWindowTypeDef]
+
+
+class AccountPlanningInvitationPayloadTypeDef(TypedDict):
+    AccountIdentifier: NotRequired[str]
+    Customer: NotRequired[AccountCustomerTypeDef]
+    SenderContacts: NotRequired[Sequence[SenderContactTypeDef]]
+    PreferredContact: NotRequired[PreferredContactWindowTypeDef]
+
+
 class ReceiverTypeDef(TypedDict):
     Account: NotRequired[AccountReceiverTypeDef]
 
@@ -874,10 +1256,37 @@ class AccountTypeDef(TypedDict):
     Duns: NotRequired[str]
 
 
+class CustomerAccountDataTypeDef(TypedDict):
+    CompanyName: str
+    WebsiteUrl: NotRequired[str]
+    Duns: NotRequired[str]
+    Address: NotRequired[AddressTypeDef]
+    Industry: NotRequired[str]
+    OtherIndustry: NotRequired[str]
+    Domain: NotRequired[str]
+    ParentCompanyName: NotRequired[str]
+
+
+class AggregationResultTypeDef(TypedDict):
+    GroupBy: list[AggregatableFieldType]
+    Buckets: list[BucketTypeDef]
+    OtherCount: int
+
+
 class AssignOpportunityRequestTypeDef(TypedDict):
     Catalog: str
     Identifier: str
     Assignee: AssigneeContactTypeDef
+
+
+class AwsEnrichmentSummaryTypeDef(TypedDict):
+    Customer: NotRequired[AwsEnrichmentCustomerSummaryTypeDef]
+    Insights: NotRequired[AwsEnrichmentInsightsSummaryTypeDef]
+
+
+class AwsEnrichmentTypeDef(TypedDict):
+    Customer: NotRequired[AwsEnrichmentCustomerTypeDef]
+    Insights: NotRequired[AwsEnrichmentInsightsTypeDef]
 
 
 class AwsOpportunityCustomerTypeDef(TypedDict):
@@ -935,6 +1344,64 @@ class SoftwareRevenueTypeDef(TypedDict):
     ExpirationDate: NotRequired[str]
 
 
+class ChannelRecommendationOutputTypeDef(TypedDict):
+    RecommendedChannel: str
+    BestOutreachWindows: NotRequired[list[BestOutreachWindowTypeDef]]
+
+
+class ChannelRecommendationTypeDef(TypedDict):
+    RecommendedChannel: str
+    BestOutreachWindows: NotRequired[Sequence[BestOutreachWindowTypeDef]]
+
+
+class CreateResourceSnapshotJobRequestTypeDef(TypedDict):
+    Catalog: str
+    ClientToken: str
+    EngagementIdentifier: str
+    ResourceType: Literal["Opportunity"]
+    ResourceIdentifier: str
+    ResourceSnapshotTemplateIdentifier: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class StartEngagementByAcceptingInvitationTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    ClientToken: str
+    Identifier: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class StartEngagementFromOpportunityTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    ClientToken: str
+    Identifier: str
+    AwsSubmission: AwsSubmissionTypeDef
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class StartOpportunityFromEngagementTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    ClientToken: str
+    Identifier: str
+    ContextIdentifier: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class TagResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Tags: Sequence[TagTypeDef]
+
+
+class CreateCustomerAccountResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Status: EnrichmentStatusType
+    Catalog: str
+    PartnerAccountIdentifier: str
+    CreatedDate: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateEngagementContextResponseTypeDef(TypedDict):
     EngagementId: str
     EngagementArn: str
@@ -979,6 +1446,41 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetCustomerAccountBulkJobReportUrlResponseTypeDef(TypedDict):
+    ReportStatus: BulkReportStatusType
+    ReportType: BulkReportTypeType
+    Url: str
+    ExpiresAt: datetime
+    FailureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetCustomerAccountBulkJobResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Status: BulkJobStatusType
+    FileName: str
+    TotalRecords: int
+    ProcessedRecords: int
+    SuccessCount: int
+    FailureCount: int
+    DeletedCount: int
+    FailureReason: str
+    CreatedAt: datetime
+    CompletedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetOpportunityBulkJobReportUrlResponseTypeDef(TypedDict):
+    ReportStatus: BulkReportStatusType
+    ReportType: BulkReportTypeType
+    ReportFormat: Literal["CSV"]
+    Url: str
+    ExpiresAt: datetime
+    FailureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetResourceSnapshotJobResponseTypeDef(TypedDict):
     Catalog: str
     Id: str
@@ -1001,9 +1503,34 @@ class GetSellingSystemSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListCustomerAccountBulkJobResultsResponseTypeDef(TypedDict):
+    Results: list[BulkJobResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListOpportunityBulkJobResultsResponseTypeDef(TypedDict):
+    Results: list[BulkJobResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class PutSellingSystemSettingsResponseTypeDef(TypedDict):
     Catalog: str
     ResourceSnapshotJobRoleArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartCustomerAccountBulkJobResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Status: BulkJobStatusType
+    CreatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1034,6 +1561,11 @@ class StartEngagementFromOpportunityTaskResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartOpportunityBulkJobResponseTypeDef(TypedDict):
+    JobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StartOpportunityFromEngagementTaskResponseTypeDef(TypedDict):
     TaskId: str
     TaskArn: str
@@ -1060,6 +1592,17 @@ class StartProspectingFromEngagementTaskResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateCustomerAccountResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Status: EnrichmentStatusType
+    Catalog: str
+    PartnerAccountIdentifier: str
+    CreatedDate: datetime
+    LastModifiedDate: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateEngagementContextResponseTypeDef(TypedDict):
     EngagementId: str
     EngagementArn: str
@@ -1074,52 +1617,23 @@ class UpdateOpportunityResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateResourceSnapshotJobRequestTypeDef(TypedDict):
-    Catalog: str
-    ClientToken: str
-    EngagementIdentifier: str
-    ResourceType: Literal["Opportunity"]
-    ResourceIdentifier: str
-    ResourceSnapshotTemplateIdentifier: str
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class StartEngagementByAcceptingInvitationTaskRequestTypeDef(TypedDict):
-    Catalog: str
-    ClientToken: str
-    Identifier: str
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class StartEngagementFromOpportunityTaskRequestTypeDef(TypedDict):
-    Catalog: str
-    ClientToken: str
-    Identifier: str
-    AwsSubmission: AwsSubmissionTypeDef
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class StartOpportunityFromEngagementTaskRequestTypeDef(TypedDict):
-    Catalog: str
-    ClientToken: str
-    Identifier: str
-    ContextIdentifier: str
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class TagResourceRequestTypeDef(TypedDict):
-    ResourceArn: str
-    Tags: Sequence[TagTypeDef]
-
-
 class CreatedDateFilterTypeDef(TypedDict):
     AfterCreatedDate: NotRequired[TimestampTypeDef]
     BeforeCreatedDate: NotRequired[TimestampTypeDef]
+
+
+class EngagementSearchFilterValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+    StringListValue: NotRequired[Sequence[str]]
+    LongValue: NotRequired[int]
+    DateValue: NotRequired[TimestampTypeDef]
+
+
+class FilterValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+    StringListValue: NotRequired[Sequence[str]]
+    LongValue: NotRequired[int]
+    DateValue: NotRequired[TimestampTypeDef]
 
 
 class LastModifiedDateTypeDef(TypedDict):
@@ -1132,9 +1646,45 @@ class NextStepsHistoryTypeDef(TypedDict):
     Time: TimestampTypeDef
 
 
+class OpportunitySearchFilterValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+    StringListValue: NotRequired[Sequence[str]]
+    LongValue: NotRequired[int]
+    DoubleValue: NotRequired[float]
+    DateValue: NotRequired[TimestampTypeDef]
+
+
+class ListCustomerAccountBulkJobsRequestTypeDef(TypedDict):
+    Catalog: str
+    Filter: NotRequired[CustomerAccountBulkJobFilterTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListCustomerAccountBulkJobsResponseTypeDef(TypedDict):
+    items: list[CustomerAccountBulkJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class CustomerProjectsContextTypeDef(TypedDict):
     Customer: NotRequired[EngagementCustomerTypeDef]
     Project: NotRequired[EngagementCustomerProjectDetailsTypeDef]
+
+
+class ListEngagementGroupsRequestTypeDef(TypedDict):
+    Catalog: str
+    ReadinessLevel: NotRequired[ReadinessLevelType]
+    Sort: NotRequired[EngagementGroupSortTypeDef]
+    EngagementGroupIdentifiers: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListEngagementGroupsResponseTypeDef(TypedDict):
+    EngagementGroupSummaries: list[EngagementGroupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListEngagementMembersResponseTypeDef(TypedDict):
@@ -1288,63 +1838,24 @@ class LifeCycleOutputTypeDef(TypedDict):
     NextStepsHistory: NotRequired[list[NextStepsHistoryOutputTypeDef]]
 
 
-class ListEngagementByAcceptingInvitationTasksResponseTypeDef(TypedDict):
-    TaskSummaries: list[ListEngagementByAcceptingInvitationTaskSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListEngagementByAcceptingInvitationTasksRequestTypeDef(TypedDict):
+class ListCustomerAccountBulkJobResultsRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-    Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskStatus: NotRequired[Sequence[TaskStatusType]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
-    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
-    TaskIdentifier: NotRequired[Sequence[str]]
-
-
-class ListEngagementFromOpportunityTasksRequestTypeDef(TypedDict):
-    Catalog: str
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-    Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskStatus: NotRequired[Sequence[TaskStatusType]]
-    TaskIdentifier: NotRequired[Sequence[str]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
-    EngagementIdentifier: NotRequired[Sequence[str]]
-
-
-class ListOpportunityFromEngagementTasksRequestTypeDef(TypedDict):
-    Catalog: str
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-    Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskStatus: NotRequired[Sequence[TaskStatusType]]
-    TaskIdentifier: NotRequired[Sequence[str]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
-    EngagementIdentifier: NotRequired[Sequence[str]]
-    ContextIdentifier: NotRequired[Sequence[str]]
-
-
-class ListEngagementByAcceptingInvitationTasksRequestPaginateTypeDef(TypedDict):
-    Catalog: str
-    Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskStatus: NotRequired[Sequence[TaskStatusType]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
-    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
-    TaskIdentifier: NotRequired[Sequence[str]]
+    Identifier: str
+    Status: NotRequired[BulkRecordStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListEngagementFromOpportunityTasksRequestPaginateTypeDef(TypedDict):
+class ListCustomerAccountBulkJobsRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskStatus: NotRequired[Sequence[TaskStatusType]]
-    TaskIdentifier: NotRequired[Sequence[str]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
-    EngagementIdentifier: NotRequired[Sequence[str]]
+    Filter: NotRequired[CustomerAccountBulkJobFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListEngagementGroupsRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    ReadinessLevel: NotRequired[ReadinessLevelType]
+    Sort: NotRequired[EngagementGroupSortTypeDef]
+    EngagementGroupIdentifiers: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1374,14 +1885,17 @@ class ListEngagementsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListOpportunityFromEngagementTasksRequestPaginateTypeDef(TypedDict):
+class ListOpportunityBulkJobResultsRequestPaginateTypeDef(TypedDict):
     Catalog: str
-    Sort: NotRequired[ListTasksSortBaseTypeDef]
-    TaskStatus: NotRequired[Sequence[TaskStatusType]]
-    TaskIdentifier: NotRequired[Sequence[str]]
-    OpportunityIdentifier: NotRequired[Sequence[str]]
-    EngagementIdentifier: NotRequired[Sequence[str]]
-    ContextIdentifier: NotRequired[Sequence[str]]
+    JobId: str
+    Status: NotRequired[BulkRecordStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListOpportunityBulkJobsRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    JobId: NotRequired[str]
+    Status: NotRequired[BulkJobStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1393,6 +1907,77 @@ class ListResourceSnapshotsRequestPaginateTypeDef(TypedDict):
     ResourceSnapshotTemplateIdentifier: NotRequired[str]
     CreatedBy: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListEngagementByAcceptingInvitationTasksResponseTypeDef(TypedDict):
+    TaskSummaries: list[ListEngagementByAcceptingInvitationTaskSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListEngagementByAcceptingInvitationTasksRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    Sort: NotRequired[ListTasksSortBaseTypeDef]
+    TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListEngagementByAcceptingInvitationTasksRequestTypeDef(TypedDict):
+    Catalog: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Sort: NotRequired[ListTasksSortBaseTypeDef]
+    TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementInvitationIdentifier: NotRequired[Sequence[str]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+
+
+class ListEngagementFromOpportunityTasksRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    Sort: NotRequired[ListTasksSortBaseTypeDef]
+    TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListEngagementFromOpportunityTasksRequestTypeDef(TypedDict):
+    Catalog: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Sort: NotRequired[ListTasksSortBaseTypeDef]
+    TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
+
+
+class ListOpportunityFromEngagementTasksRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    Sort: NotRequired[ListTasksSortBaseTypeDef]
+    TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
+    ContextIdentifier: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListOpportunityFromEngagementTasksRequestTypeDef(TypedDict):
+    Catalog: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Sort: NotRequired[ListTasksSortBaseTypeDef]
+    TaskStatus: NotRequired[Sequence[TaskStatusType]]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    OpportunityIdentifier: NotRequired[Sequence[str]]
+    EngagementIdentifier: NotRequired[Sequence[str]]
+    ContextIdentifier: NotRequired[Sequence[str]]
 
 
 class ListEngagementFromOpportunityTasksResponseTypeDef(TypedDict):
@@ -1422,6 +2007,12 @@ class ListEngagementInvitationsRequestTypeDef(TypedDict):
     Status: NotRequired[Sequence[InvitationStatusType]]
     EngagementIdentifier: NotRequired[Sequence[str]]
     SenderAwsAccountId: NotRequired[Sequence[str]]
+
+
+class ListOpportunityBulkJobsResponseTypeDef(TypedDict):
+    OpportunityBulkJobSummaries: list[OpportunityBulkJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListOpportunityFromEngagementTasksResponseTypeDef(TypedDict):
@@ -1514,8 +2105,31 @@ class ListSolutionsResponseTypeDef(TypedDict):
 
 
 MarketingUnionTypeDef = Union[MarketingTypeDef, MarketingOutputTypeDef]
+
+
+class OpportunitySearchAccountTypeDef(TypedDict):
+    CompanyName: NotRequired[str]
+    Industry: NotRequired[IndustryType]
+    AwsAccountId: NotRequired[str]
+    Address: NotRequired[OpportunitySearchAddressTypeDef]
+
+
+class OpportunitySearchProjectTypeDef(TypedDict):
+    Title: NotRequired[str]
+    ApnPrograms: NotRequired[list[str]]
+    ExpectedCustomerSpend: NotRequired[list[OpportunitySearchExpectedCustomerSpendTypeDef]]
+
+
+class OpportunitySearchInsightsTypeDef(TypedDict):
+    EngagementScore: NotRequired[SearchEngagementScoreType]
+    OpportunityQuality: NotRequired[OpportunitySearchOpportunityQualityTypeDef]
+
+
 ProspectingResultCustomerUnionTypeDef = Union[
     ProspectingResultCustomerTypeDef, ProspectingResultCustomerOutputTypeDef
+]
+AccountPlanningInvitationPayloadUnionTypeDef = Union[
+    AccountPlanningInvitationPayloadTypeDef, AccountPlanningInvitationPayloadOutputTypeDef
 ]
 
 
@@ -1549,11 +2163,64 @@ class CustomerTypeDef(TypedDict):
     Contacts: NotRequired[Sequence[ContactTypeDef]]
 
 
+class CreateCustomerAccountRequestTypeDef(TypedDict):
+    Catalog: str
+    Account: CustomerAccountDataTypeDef
+    PartnerAccountIdentifier: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
+
+
+class UpdateCustomerAccountRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+    Account: CustomerAccountDataTypeDef
+    LastModifiedDate: TimestampTypeDef
+    PartnerAccountIdentifier: NotRequired[str]
+
+
+class GetCustomerAccountStatisticsResponseTypeDef(TypedDict):
+    TotalCount: int
+    Aggregations: list[AggregationResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CustomerAccountSummaryTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Catalog: str
+    EnrichmentStatus: EnrichmentStatusType
+    CreatedDate: datetime
+    LastModifiedDate: datetime
+    CustomerAccount: CustomerAccountDetailsSummaryTypeDef
+    PartnerAccountIdentifier: NotRequired[str]
+    AwsEnrichment: NotRequired[AwsEnrichmentSummaryTypeDef]
+
+
+class GetCustomerAccountResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Catalog: str
+    EnrichmentStatus: EnrichmentStatusType
+    PartnerAccountIdentifier: str
+    CreatedDate: datetime
+    LastModifiedDate: datetime
+    Issues: list[IssueTypeDef]
+    AwsEnrichment: AwsEnrichmentTypeDef
+    ReasonCode: CustomerAccountFailureReasonType
+    Message: str
+    ExistingCustomerAccountArn: str
+    Account: CustomerAccountDataTypeDef
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class OpportunityInvitationPayloadOutputTypeDef(TypedDict):
     ReceiverResponsibilities: list[ReceiverResponsibilityType]
     Customer: EngagementCustomerTypeDef
     Project: ProjectDetailsOutputTypeDef
     SenderContacts: NotRequired[list[SenderContactTypeDef]]
+    OpportunityType: NotRequired[OpportunityTypeType]
 
 
 ProjectDetailsUnionTypeDef = Union[ProjectDetailsTypeDef, ProjectDetailsOutputTypeDef]
@@ -1567,6 +2234,26 @@ class AwsProductInsightsTypeDef(TypedDict):
     TotalAmount: NotRequired[str]
     TotalOptimizedAmount: NotRequired[str]
     TotalPotentialSavingsAmount: NotRequired[str]
+
+
+class LeadInsightsOutputTypeDef(TypedDict):
+    LeadReadinessScore: NotRequired[str]
+    ChannelRecommendation: NotRequired[ChannelRecommendationOutputTypeDef]
+
+
+ChannelRecommendationUnionTypeDef = Union[
+    ChannelRecommendationTypeDef, ChannelRecommendationOutputTypeDef
+]
+
+
+class EngagementSearchPredicateTypeDef(TypedDict):
+    Key: EngagementSearchFilterNameType
+    Value: EngagementSearchFilterValueTypeDef
+
+
+class FilterConditionTypeDef(TypedDict):
+    Key: FilterableFieldType
+    Value: FilterValueTypeDef
 
 
 class ListOpportunitiesRequestPaginateTypeDef(TypedDict):
@@ -1607,26 +2294,29 @@ class LifeCycleTypeDef(TypedDict):
     NextStepsHistory: NotRequired[Sequence[NextStepsHistoryTypeDef]]
 
 
+class OpportunitySearchPredicateTypeDef(TypedDict):
+    Key: OpportunitySearchFilterNameType
+    Value: OpportunitySearchFilterValueTypeDef
+
+
 ProjectUnionTypeDef = Union[ProjectTypeDef, ProjectOutputTypeDef]
-
-
-class EnrichmentContextTypeDef(TypedDict):
-    ProspectingResultAws: NotRequired[InvitationProspectingResultAwsTypeDef]
-    LeadInsights: NotRequired[LeadInsightsTypeDef]
 
 
 class ProspectingResultOutputTypeDef(TypedDict):
     Aws: NotRequired[ProspectingResultAwsOutputTypeDef]
 
 
-class LeadContextOutputTypeDef(TypedDict):
-    Customer: LeadCustomerTypeDef
-    Interactions: list[LeadInteractionOutputTypeDef]
-    Insights: NotRequired[LeadInsightsTypeDef]
-    QualificationStatus: NotRequired[str]
-
-
 LeadInteractionUnionTypeDef = Union[LeadInteractionTypeDef, LeadInteractionOutputTypeDef]
+
+
+class OpportunitySearchCustomerTypeDef(TypedDict):
+    Account: NotRequired[OpportunitySearchAccountTypeDef]
+
+
+class OpportunitySearchAwsSummaryTypeDef(TypedDict):
+    Origin: NotRequired[OpportunityOriginType]
+    CosellMotion: NotRequired[str]
+    Insights: NotRequired[OpportunitySearchInsightsTypeDef]
 
 
 class ProspectingResultAwsTypeDef(TypedDict):
@@ -1691,9 +2381,16 @@ class OpportunitySummaryViewTypeDef(TypedDict):
 CustomerUnionTypeDef = Union[CustomerTypeDef, CustomerOutputTypeDef]
 
 
+class SearchCustomerAccountsResponseTypeDef(TypedDict):
+    CustomerAccountSummaries: list[CustomerAccountSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class PayloadOutputTypeDef(TypedDict):
     OpportunityInvitation: NotRequired[OpportunityInvitationPayloadOutputTypeDef]
     LeadInvitation: NotRequired[LeadInvitationPayloadTypeDef]
+    AccountPlanningInvitation: NotRequired[AccountPlanningInvitationPayloadOutputTypeDef]
 
 
 class OpportunityInvitationPayloadTypeDef(TypedDict):
@@ -1701,6 +2398,7 @@ class OpportunityInvitationPayloadTypeDef(TypedDict):
     Customer: EngagementCustomerTypeDef
     Project: ProjectDetailsUnionTypeDef
     SenderContacts: NotRequired[Sequence[SenderContactTypeDef]]
+    OpportunityType: NotRequired[OpportunityTypeType]
 
 
 class AwsProductsSpendInsightsBySourceTypeDef(TypedDict):
@@ -1708,27 +2406,117 @@ class AwsProductsSpendInsightsBySourceTypeDef(TypedDict):
     AWS: NotRequired[AwsProductInsightsTypeDef]
 
 
+class EnrichmentContextTypeDef(TypedDict):
+    ProspectingResultAws: NotRequired[InvitationProspectingResultAwsTypeDef]
+    LeadInsights: NotRequired[LeadInsightsOutputTypeDef]
+
+
+class LeadContextOutputTypeDef(TypedDict):
+    Customer: LeadCustomerTypeDef
+    Interactions: list[LeadInteractionOutputTypeDef]
+    Insights: NotRequired[LeadInsightsOutputTypeDef]
+    QualificationStatus: NotRequired[str]
+
+
+class LeadInsightsTypeDef(TypedDict):
+    LeadReadinessScore: NotRequired[str]
+    ChannelRecommendation: NotRequired[ChannelRecommendationUnionTypeDef]
+
+
+class EngagementSearchFilterPaginatorTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    NotFilter: NotRequired[Mapping[str, Any]]
+    EqualsTo: NotRequired[EngagementSearchPredicateTypeDef]
+    ContainsAny: NotRequired[EngagementSearchPredicateTypeDef]
+    ContainsAll: NotRequired[EngagementSearchPredicateTypeDef]
+    GreaterThan: NotRequired[EngagementSearchPredicateTypeDef]
+    GreaterThanOrEquals: NotRequired[EngagementSearchPredicateTypeDef]
+    LessThan: NotRequired[EngagementSearchPredicateTypeDef]
+    LessThanOrEquals: NotRequired[EngagementSearchPredicateTypeDef]
+
+
+class EngagementSearchFilterTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    NotFilter: NotRequired[Mapping[str, Any]]
+    EqualsTo: NotRequired[EngagementSearchPredicateTypeDef]
+    ContainsAny: NotRequired[EngagementSearchPredicateTypeDef]
+    ContainsAll: NotRequired[EngagementSearchPredicateTypeDef]
+    GreaterThan: NotRequired[EngagementSearchPredicateTypeDef]
+    GreaterThanOrEquals: NotRequired[EngagementSearchPredicateTypeDef]
+    LessThan: NotRequired[EngagementSearchPredicateTypeDef]
+    LessThanOrEquals: NotRequired[EngagementSearchPredicateTypeDef]
+
+
+class FilterPaginatorTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    NotFilter: NotRequired[Mapping[str, Any]]
+    EqualsTo: NotRequired[FilterConditionTypeDef]
+    ContainsAny: NotRequired[FilterConditionTypeDef]
+    ContainsAll: NotRequired[FilterConditionTypeDef]
+    GreaterThan: NotRequired[FilterConditionTypeDef]
+    GreaterThanOrEquals: NotRequired[FilterConditionTypeDef]
+    LessThan: NotRequired[FilterConditionTypeDef]
+    LessThanOrEquals: NotRequired[FilterConditionTypeDef]
+
+
+class FilterTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    NotFilter: NotRequired[Mapping[str, Any]]
+    EqualsTo: NotRequired[FilterConditionTypeDef]
+    ContainsAny: NotRequired[FilterConditionTypeDef]
+    ContainsAll: NotRequired[FilterConditionTypeDef]
+    GreaterThan: NotRequired[FilterConditionTypeDef]
+    GreaterThanOrEquals: NotRequired[FilterConditionTypeDef]
+    LessThan: NotRequired[FilterConditionTypeDef]
+    LessThanOrEquals: NotRequired[FilterConditionTypeDef]
+
+
 LifeCycleUnionTypeDef = Union[LifeCycleTypeDef, LifeCycleOutputTypeDef]
 
 
-class EngagementContextPayloadOutputTypeDef(TypedDict):
-    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
-    Lead: NotRequired[LeadContextOutputTypeDef]
-    ProspectingResult: NotRequired[ProspectingResultOutputTypeDef]
+class OpportunitySearchFilterPaginatorTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    NotFilter: NotRequired[Mapping[str, Any]]
+    EqualsTo: NotRequired[OpportunitySearchPredicateTypeDef]
+    ContainsAny: NotRequired[OpportunitySearchPredicateTypeDef]
+    ContainsAll: NotRequired[OpportunitySearchPredicateTypeDef]
+    GreaterThan: NotRequired[OpportunitySearchPredicateTypeDef]
+    GreaterThanOrEquals: NotRequired[OpportunitySearchPredicateTypeDef]
+    LessThan: NotRequired[OpportunitySearchPredicateTypeDef]
+    LessThanOrEquals: NotRequired[OpportunitySearchPredicateTypeDef]
 
 
-class LeadContextTypeDef(TypedDict):
-    Customer: LeadCustomerTypeDef
-    Interactions: Sequence[LeadInteractionUnionTypeDef]
-    Insights: NotRequired[LeadInsightsTypeDef]
-    QualificationStatus: NotRequired[str]
+class OpportunitySearchFilterTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    NotFilter: NotRequired[Mapping[str, Any]]
+    EqualsTo: NotRequired[OpportunitySearchPredicateTypeDef]
+    ContainsAny: NotRequired[OpportunitySearchPredicateTypeDef]
+    ContainsAll: NotRequired[OpportunitySearchPredicateTypeDef]
+    GreaterThan: NotRequired[OpportunitySearchPredicateTypeDef]
+    GreaterThanOrEquals: NotRequired[OpportunitySearchPredicateTypeDef]
+    LessThan: NotRequired[OpportunitySearchPredicateTypeDef]
+    LessThanOrEquals: NotRequired[OpportunitySearchPredicateTypeDef]
 
 
-class UpdateLeadContextTypeDef(TypedDict):
-    Customer: LeadCustomerTypeDef
-    QualificationStatus: NotRequired[str]
-    Interaction: NotRequired[LeadInteractionUnionTypeDef]
-    Insights: NotRequired[LeadInsightsTypeDef]
+class OpportunitySearchSummaryTypeDef(TypedDict):
+    Id: str
+    LastModifiedDate: datetime
+    CreatedDate: datetime
+    OpportunityType: NotRequired[OpportunityTypeType]
+    PartnerOpportunityIdentifier: NotRequired[str]
+    LifeCycle: NotRequired[OpportunitySearchLifeCycleTypeDef]
+    Customer: NotRequired[OpportunitySearchCustomerTypeDef]
+    Project: NotRequired[OpportunitySearchProjectTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+    RelatedEntityIdentifiers: NotRequired[OpportunitySearchRelatedEntityIdentifiersTypeDef]
+    OpportunityTeam: NotRequired[list[OpportunitySearchTeamMemberTypeDef]]
+    AwsOpportunitySummary: NotRequired[OpportunitySearchAwsSummaryTypeDef]
 
 
 ProspectingResultAwsUnionTypeDef = Union[
@@ -1740,6 +2528,19 @@ class ListOpportunitiesResponseTypeDef(TypedDict):
     OpportunitySummaries: list[OpportunitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+OpportunityInvitationPayloadUnionTypeDef = Union[
+    OpportunityInvitationPayloadTypeDef, OpportunityInvitationPayloadOutputTypeDef
+]
+
+
+class AwsOpportunityInsightsTypeDef(TypedDict):
+    NextBestActions: NotRequired[str]
+    EngagementScore: NotRequired[EngagementScoreType]
+    AwsProductsSpendInsightsBySource: NotRequired[AwsProductsSpendInsightsBySourceTypeDef]
+    OpportunityQuality: NotRequired[OpportunityQualityTypeDef]
+    Recommendations: NotRequired[list[RecommendationTypeDef]]
 
 
 class GetEngagementInvitationResponseTypeDef(TypedDict):
@@ -1764,17 +2565,55 @@ class GetEngagementInvitationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-OpportunityInvitationPayloadUnionTypeDef = Union[
-    OpportunityInvitationPayloadTypeDef, OpportunityInvitationPayloadOutputTypeDef
-]
+class EngagementContextPayloadOutputTypeDef(TypedDict):
+    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
+    Lead: NotRequired[LeadContextOutputTypeDef]
+    ProspectingResult: NotRequired[ProspectingResultOutputTypeDef]
+    CustomerAccount: NotRequired[CustomerAccountContextTypeDef]
 
 
-class AwsOpportunityInsightsTypeDef(TypedDict):
-    NextBestActions: NotRequired[str]
-    EngagementScore: NotRequired[EngagementScoreType]
-    AwsProductsSpendInsightsBySource: NotRequired[AwsProductsSpendInsightsBySourceTypeDef]
-    OpportunityQuality: NotRequired[OpportunityQualityTypeDef]
-    Recommendations: NotRequired[list[RecommendationTypeDef]]
+LeadInsightsUnionTypeDef = Union[LeadInsightsTypeDef, LeadInsightsOutputTypeDef]
+
+
+class SearchEngagementsRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    Keyword: NotRequired[str]
+    Filter: NotRequired[EngagementSearchFilterPaginatorTypeDef]
+    GroupId: NotRequired[str]
+    Sort: NotRequired[EngagementSearchSortTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchEngagementsRequestTypeDef(TypedDict):
+    Catalog: str
+    Keyword: NotRequired[str]
+    Filter: NotRequired[EngagementSearchFilterTypeDef]
+    GroupId: NotRequired[str]
+    Sort: NotRequired[EngagementSearchSortTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class SearchCustomerAccountsRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    Filter: NotRequired[FilterPaginatorTypeDef]
+    Sort: NotRequired[CustomerAccountSortTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetCustomerAccountStatisticsRequestTypeDef(TypedDict):
+    Catalog: str
+    Filter: NotRequired[FilterTypeDef]
+    Aggregations: NotRequired[Sequence[AggregationRequestTypeDef]]
+    IncludeMissing: NotRequired[bool]
+
+
+class SearchCustomerAccountsRequestTypeDef(TypedDict):
+    Catalog: str
+    Filter: NotRequired[FilterTypeDef]
+    Sort: NotRequired[CustomerAccountSortTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class CreateOpportunityRequestTypeDef(TypedDict):
@@ -1809,15 +2648,27 @@ class UpdateOpportunityRequestTypeDef(TypedDict):
     LifeCycle: NotRequired[LifeCycleUnionTypeDef]
 
 
-EngagementContextDetailsOutputTypeDef = TypedDict(
-    "EngagementContextDetailsOutputTypeDef",
-    {
-        "Type": EngagementContextTypeType,
-        "Id": NotRequired[str],
-        "Payload": NotRequired[EngagementContextPayloadOutputTypeDef],
-    },
-)
-LeadContextUnionTypeDef = Union[LeadContextTypeDef, LeadContextOutputTypeDef]
+class SearchOpportunitiesRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    Keyword: NotRequired[str]
+    Filter: NotRequired[OpportunitySearchFilterPaginatorTypeDef]
+    Sort: NotRequired[OpportunitySearchSortTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchOpportunitiesRequestTypeDef(TypedDict):
+    Catalog: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Keyword: NotRequired[str]
+    Filter: NotRequired[OpportunitySearchFilterTypeDef]
+    Sort: NotRequired[OpportunitySearchSortTypeDef]
+
+
+class SearchOpportunitiesResponseTypeDef(TypedDict):
+    OpportunitySearchSummaries: list[OpportunitySearchSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ProspectingResultTypeDef(TypedDict):
@@ -1827,6 +2678,7 @@ class ProspectingResultTypeDef(TypedDict):
 class PayloadTypeDef(TypedDict):
     OpportunityInvitation: NotRequired[OpportunityInvitationPayloadUnionTypeDef]
     LeadInvitation: NotRequired[LeadInvitationPayloadTypeDef]
+    AccountPlanningInvitation: NotRequired[AccountPlanningInvitationPayloadUnionTypeDef]
 
 
 class AwsOpportunitySummaryFullViewTypeDef(TypedDict):
@@ -1842,6 +2694,7 @@ class AwsOpportunitySummaryFullViewTypeDef(TypedDict):
     Customer: NotRequired[AwsOpportunityCustomerTypeDef]
     Project: NotRequired[AwsOpportunityProjectTypeDef]
     CosellMotion: NotRequired[str]
+    CosellMotionReason: NotRequired[str]
     SoftwareRevenue: NotRequired[AwsSoftwareRevenueTypeDef]
 
 
@@ -1858,9 +2711,56 @@ class GetAwsOpportunitySummaryResponseTypeDef(TypedDict):
     Customer: AwsOpportunityCustomerTypeDef
     Project: AwsOpportunityProjectTypeDef
     CosellMotion: str
+    CosellMotionReason: str
     SoftwareRevenue: AwsSoftwareRevenueTypeDef
     Catalog: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+EngagementContextDetailsOutputTypeDef = TypedDict(
+    "EngagementContextDetailsOutputTypeDef",
+    {
+        "Type": EngagementContextTypeType,
+        "Id": NotRequired[str],
+        "Payload": NotRequired[EngagementContextPayloadOutputTypeDef],
+    },
+)
+
+
+class LeadContextTypeDef(TypedDict):
+    Customer: LeadCustomerTypeDef
+    Interactions: Sequence[LeadInteractionUnionTypeDef]
+    Insights: NotRequired[LeadInsightsUnionTypeDef]
+    QualificationStatus: NotRequired[str]
+
+
+class UpdateLeadContextTypeDef(TypedDict):
+    Customer: LeadCustomerTypeDef
+    QualificationStatus: NotRequired[str]
+    Interaction: NotRequired[LeadInteractionUnionTypeDef]
+    Insights: NotRequired[LeadInsightsUnionTypeDef]
+
+
+ProspectingResultUnionTypeDef = Union[ProspectingResultTypeDef, ProspectingResultOutputTypeDef]
+PayloadUnionTypeDef = Union[PayloadTypeDef, PayloadOutputTypeDef]
+
+
+class ResourceSnapshotPayloadTypeDef(TypedDict):
+    OpportunitySummary: NotRequired[OpportunitySummaryViewTypeDef]
+    AwsOpportunitySummaryFullView: NotRequired[AwsOpportunitySummaryFullViewTypeDef]
+
+
+class EngagementSearchSummaryTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Arn: NotRequired[str]
+    Title: NotRequired[str]
+    Description: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
+    MemberCount: NotRequired[int]
+    ModifiedAt: NotRequired[datetime]
+    ModifiedBy: NotRequired[str]
+    Contexts: NotRequired[list[EngagementContextDetailsOutputTypeDef]]
 
 
 class GetEngagementResponseTypeDef(TypedDict):
@@ -1877,19 +2777,7 @@ class GetEngagementResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-ProspectingResultUnionTypeDef = Union[ProspectingResultTypeDef, ProspectingResultOutputTypeDef]
-PayloadUnionTypeDef = Union[PayloadTypeDef, PayloadOutputTypeDef]
-
-
-class ResourceSnapshotPayloadTypeDef(TypedDict):
-    OpportunitySummary: NotRequired[OpportunitySummaryViewTypeDef]
-    AwsOpportunitySummaryFullView: NotRequired[AwsOpportunitySummaryFullViewTypeDef]
-
-
-class EngagementContextPayloadTypeDef(TypedDict):
-    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
-    Lead: NotRequired[LeadContextUnionTypeDef]
-    ProspectingResult: NotRequired[ProspectingResultUnionTypeDef]
+LeadContextUnionTypeDef = Union[LeadContextTypeDef, LeadContextOutputTypeDef]
 
 
 class UpdateEngagementContextPayloadTypeDef(TypedDict):
@@ -1919,9 +2807,19 @@ class GetResourceSnapshotResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-EngagementContextPayloadUnionTypeDef = Union[
-    EngagementContextPayloadTypeDef, EngagementContextPayloadOutputTypeDef
-]
+class SearchEngagementsResponseTypeDef(TypedDict):
+    EngagementSearchSummaries: list[EngagementSearchSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class EngagementContextPayloadTypeDef(TypedDict):
+    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
+    Lead: NotRequired[LeadContextUnionTypeDef]
+    ProspectingResult: NotRequired[ProspectingResultUnionTypeDef]
+    CustomerAccount: NotRequired[CustomerAccountContextTypeDef]
+
+
 UpdateEngagementContextRequestTypeDef = TypedDict(
     "UpdateEngagementContextRequestTypeDef",
     {
@@ -1942,6 +2840,9 @@ class CreateEngagementInvitationRequestTypeDef(TypedDict):
     Invitation: InvitationTypeDef
 
 
+EngagementContextPayloadUnionTypeDef = Union[
+    EngagementContextPayloadTypeDef, EngagementContextPayloadOutputTypeDef
+]
 CreateEngagementContextRequestTypeDef = TypedDict(
     "CreateEngagementContextRequestTypeDef",
     {

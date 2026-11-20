@@ -713,7 +713,7 @@ def list_audit_records(ctx, show_column, **kwargs):
 
 
 @cli.command(name="list-auth-audit-records")
-@click.option("--limit", type=int, default=None)
+@click.option("--limit", type=int, default=500)
 @click.option("--org-id", default=None)
 @click.option("--dt-from", default=None)
 @click.option("--dt-to", default=None)

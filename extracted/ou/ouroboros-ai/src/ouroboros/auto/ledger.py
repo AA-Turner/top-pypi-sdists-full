@@ -48,10 +48,9 @@ class DecisionProvenance(StrEnum):
     user-confirmed one, so degraded seeds (whose contract fields contained raw
     question text) executed silently.
 
-    The two gated classes — :data:`MODEL_INFERRED` and :data:`TIMEOUT_DEFAULT` —
-    must pass a low-ambiguity criterion (see :mod:`ouroboros.auto.grading`)
-    before the ledger can become an executable Seed. The other three are
-    grounded/human-authorized and pass the gate unconditionally.
+    :data:`MODEL_INFERRED` and :data:`TIMEOUT_DEFAULT` mark decisions no human
+    confirmed; the other three are grounded/human-authorized. The counts are
+    surfaced on ``SeedMetadata.decision_provenance`` for audit.
     """
 
     USER_CONFIRMED = "user_confirmed"
@@ -93,6 +92,20 @@ REQUESTER_KEY_SUFFIX = ".requester"
 # (``auto/investigator.py``): ``<facet key>.repo_fact.<round>``. Such an entry
 # settles its section but reaches the worker only as ``Seed.repo_facts``.
 REPO_FACT_KEY_INFIX = ".repo_fact."
+
+# Key infix of an entry written for a question the investigator did not find:
+# ``<facet key>.investigated.<round>``, one per question, so two questions'
+# answers for one facet neither reuse nor contradict each other.
+INVESTIGATED_KEY_INFIX = ".investigated."
+# The interview round a per-round key names (``.repo_fact.<n>``, ``.investigated.<n>``).
+_ROUND_IN_KEY = re.compile(
+    rf"(?:{re.escape(REPO_FACT_KEY_INFIX)}|{re.escape(INVESTIGATED_KEY_INFIX)})(\d+)(?:\.|$)"
+)
+
+# Fixed value of the ledger entry ``auto/investigator.py`` writes for a question
+# about the current code that the code does not settle. It keeps the entry
+# active and states that fact without guessing; it decides nothing.
+NOT_SETTLED_VALUE = "The repository code does not settle this interview question."
 
 # Key of the ledger entry holding the user's request verbatim, written once by
 # ``SeedDraftLedger.from_goal``. It is the goal the worker sees (``Seed.sourced_scope``).
@@ -218,9 +231,10 @@ class LedgerEntry:
     provenance: DecisionProvenance | str | None = None
     # The interviewer's question this entry answers, when it came from one.
     # Empty for entries no interview question produced (templated fills,
-    # gap reopening, legacy sessions). An entry that does not bind is kept as
-    # this open question (``Seed.open_questions``), never as its drafted value,
-    # and neither reaches the worker.
+    # gap reopening, legacy sessions). An entry that does not bind and holds
+    # no answer auto chose (``refined``) is kept as this open question
+    # (``Seed.open_questions``), never as its drafted value, and neither
+    # reaches the worker.
     question: str = ""
     # True for auto's draft kept because the requester was asked this question
     # and gave no answer (``auto/requester.py``). The requester already said the
@@ -228,6 +242,14 @@ class LedgerEntry:
     # question; the question is kept in ``Seed.open_questions``. Omitted from
     # ``to_dict`` when False.
     requester_unanswered: bool = False
+    # True when the answer refiner wrote this value for the interview question
+    # (``investigator.settle``): a concrete answer for this goal, in the goal's
+    # language, not the answerer's fixed template or the refiner's fixed
+    # fallback (``mark_refined``). Such an answer to an
+    # interviewer question is auto's choice: it still does not bind, but it
+    # reaches the worker as a labelled assumption (``Seed.sourced_scope``) and
+    # its question is no longer open. Omitted from ``to_dict`` when False.
+    refined: bool = False
 
     def __post_init__(self) -> None:
         self.source = LedgerSource(str(self.source))
@@ -283,6 +305,8 @@ class LedgerEntry:
             data.pop("question", None)
         if not self.requester_unanswered:
             data.pop("requester_unanswered", None)
+        if not self.refined:
+            data.pop("refined", None)
         return data
 
     @classmethod
@@ -318,6 +342,9 @@ class LedgerEntry:
         if not isinstance(data.get("requester_unanswered", False), bool):
             msg = "ledger entry requester_unanswered must be a boolean"
             raise ValueError(msg)
+        if not isinstance(data.get("refined", False), bool):
+            msg = "ledger entry refined must be a boolean"
+            raise ValueError(msg)
         try:
             confidence = float(data["confidence"])
         except (TypeError, ValueError) as exc:
@@ -334,6 +361,12 @@ class LedgerEntry:
                 msg = f"ledger entry provenance is not a valid decision provenance: {provenance!r}"
                 raise ValueError(msg) from exc
         return cls(**data)
+
+
+def _key_round(key: str) -> int:
+    """The interview round a per-round key names, or 0 for any other key."""
+    match = _ROUND_IN_KEY.search(key)
+    return int(match.group(1)) if match else 0
 
 
 class ConflictResolution(StrEnum):
@@ -570,7 +603,11 @@ class SeedDraftLedger:
         ``INFERRED``), one per ``(section, key)`` keeping the latest active
         value, with the goal echo excluded (the goal is surfaced to the refiner
         separately). ``WEAK`` / ``CONFLICTING`` / ``BLOCKED`` / ``MISSING``
-        entries are omitted because they are superseded or unresolved.
+        entries are omitted because they are superseded or unresolved, and so is
+        an entry holding :data:`NOT_SETTLED_VALUE`, which records that the code
+        does not settle a question and decides nothing. The list is oldest
+        first: entries keyed by interview round come after the others, in round
+        order, so the most recent answer is last.
 
         The answer refiner consumes this snapshot to stay CONSISTENT with prior
         rounds instead of re-deciding the same facet differently every round —
@@ -584,9 +621,14 @@ class SeedDraftLedger:
             if name in exclude_sections:
                 continue
             for entry in section.entries:
-                if entry.status in active and entry.value.strip():
+                if (
+                    entry.status in active
+                    and entry.value.strip()
+                    and entry.value != NOT_SETTLED_VALUE
+                ):
                     decided[(name, entry.key)] = entry.value
-        return [(section, key, value) for (section, key), value in decided.items()]
+        ordered = sorted(decided.items(), key=lambda item: _key_round(item[0][1]))
+        return [(section, key, value) for (section, key), value in ordered]
 
     def open_gaps(self) -> list[str]:
         """Return required sections that are not Seed-ready."""
@@ -606,8 +648,8 @@ class SeedDraftLedger:
         """Return the count of entries currently flagged as CONFLICTING.
 
         Used by the deterministic_floor computation in :mod:`grading` so the
-        A-grade gate can see objective conflict pressure even when the LLM
-        under-reports ``ambiguity_score``.
+        Seed's ``ambiguity_score`` reflects objective conflict pressure even
+        when the LLM under-reports it.
         """
         return sum(
             1

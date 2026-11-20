@@ -30,6 +30,7 @@ from .paginator import (
     ListFirewallConfigsPaginator,
     ListFirewallDomainListsPaginator,
     ListFirewallDomainsPaginator,
+    ListFirewallRuleDomainsPaginator,
     ListFirewallRuleGroupAssociationsPaginator,
     ListFirewallRuleGroupsPaginator,
     ListFirewallRulesPaginator,
@@ -134,6 +135,8 @@ from .type_defs import (
     ListFirewallDomainListsResponseTypeDef,
     ListFirewallDomainsRequestTypeDef,
     ListFirewallDomainsResponseTypeDef,
+    ListFirewallRuleDomainsRequestTypeDef,
+    ListFirewallRuleDomainsResponseTypeDef,
     ListFirewallRuleGroupAssociationsRequestTypeDef,
     ListFirewallRuleGroupAssociationsResponseTypeDef,
     ListFirewallRuleGroupsRequestTypeDef,
@@ -713,6 +716,16 @@ class Route53ResolverClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#list_firewall_domains)
         """
 
+    def list_firewall_rule_domains(
+        self, **kwargs: Unpack[ListFirewallRuleDomainsRequestTypeDef]
+    ) -> ListFirewallRuleDomainsResponseTypeDef:
+        """
+        Retrieves the domains of an AutoAllowlist firewall rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/list_firewall_rule_domains.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#list_firewall_rule_domains)
+        """
+
     def list_firewall_rule_group_associations(
         self, **kwargs: Unpack[ListFirewallRuleGroupAssociationsRequestTypeDef]
     ) -> ListFirewallRuleGroupAssociationsResponseTypeDef:
@@ -1035,6 +1048,17 @@ class Route53ResolverClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_firewall_domains"]
     ) -> ListFirewallDomainsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_firewall_rule_domains"]
+    ) -> ListFirewallRuleDomainsPaginator:
         """
         Create a paginator for an operation.
 

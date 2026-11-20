@@ -83,7 +83,7 @@ class CovalentInhibitorScanSettings(Base):
     protein_restraint_constant: _RoundedPositiveFloat = 100.0
     restraints: list[MDRestraints] = []
     calc_settings: Settings = Settings(method=Method.ORB_V3_CONSERVATIVE_OMOL, engine=Engine.ORB)
-    frame_save_interval_ps: PositiveFloat = 10
+    frame_save_interval_ps: PositiveFloat = 1
     scan_coordinates: Annotated[list[ScanSettings], Field(min_length=1, max_length=2)]
     reactive_region: Annotated[UniqueList[ResidueRef], Field(min_length=1)]
     ligand: ResidueRef

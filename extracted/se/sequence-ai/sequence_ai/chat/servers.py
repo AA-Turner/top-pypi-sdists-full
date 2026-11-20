@@ -2,7 +2,7 @@
 chat() against a language-model server of your choosing: `server="openrouter"` with your own OpenRouter key, or the
 address of a server of your own with the OpenAI chat completions API, given as `server`.
 
-    result = sequence_ai.chat("qwen/qwen3-8b", messages, server="openrouter")      # $OPENROUTER_API_KEY
+    result = sequence_ai.chat("qwen/qwen3-next-80b-a3b-instruct", messages, server="openrouter")  # $OPENROUTER_API_KEY
     result = sequence_ai.chat("my-model", messages, server="http://localhost:8000/v1")
 
 In one sentence: chat(server=...) builds the request under the API's own names → POST `<address>/chat/completions`, the

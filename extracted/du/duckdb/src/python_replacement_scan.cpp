@@ -71,13 +71,18 @@ ArrowObjectKind PythonReplacementScan::ClassifyArrowObject(const nb::handle &ent
 	return ArrowObjectKind::NONE;
 }
 
-//! Whether the object is a dict, a list or a numpy array, the containers pandas_scan reads as columns
+//! Whether the object is a dict, a list, a tuple or a numpy array, the containers pandas_scan reads as columns
 static bool IsNumpyContainer(const nb::handle &entry) {
-	if (PyDict_Check(entry.ptr()) || PyList_Check(entry.ptr())) {
+	if (PyDict_Check(entry.ptr()) || PyList_Check(entry.ptr()) || PyTuple_Check(entry.ptr())) {
 		return true;
 	}
 	return ModuleIsLoaded<NumpyCacheItem>() &&
 	       duckdb::PyUtil::IsInstance(entry, DuckDBPyConnection::ImportCache()->numpy.ndarray());
+}
+
+static bool IsPandasSeries(const nb::handle &entry) {
+	return ModuleIsLoaded<PandasCacheItem>() &&
+	       duckdb::PyUtil::IsInstance(entry, DuckDBPyConnection::ImportCache()->pandas.Series());
 }
 
 static unique_ptr<TableRef> CreateArrowScan(const nb::handle &entry, const string &name, ArrowSourceKind kind) {
@@ -216,8 +221,9 @@ static unique_ptr<TableRef> PythonRelationRef(ClientContext &context, const nb::
 }
 
 unique_ptr<TableRef> PythonReplacementScan::ReplacementObject(const nb::object &entry, const string &name,
-                                                              ClientContext &context, ArrowSourceKind kind) {
-	auto replacement = TryReplacementObject(entry, name, context, kind);
+                                                              ClientContext &context, ArrowSourceKind kind,
+                                                              vector<LogicalType> declared_types) {
+	auto replacement = TryReplacementObject(entry, name, context, kind, std::move(declared_types));
 	if (!replacement) {
 		ThrowScanFailureError(entry, name);
 	}
@@ -225,7 +231,7 @@ unique_ptr<TableRef> PythonReplacementScan::ReplacementObject(const nb::object &
 }
 
 static unique_ptr<TableRef> ReplacementFor(const nb::object &entry, const string &name, ClientContext &context,
-                                           ArrowSourceKind kind) {
+                                           ArrowSourceKind kind, vector<LogicalType> declared_types = {}) {
 	auto table_function = make_uniq<TableFunctionRef>();
 	vector<unique_ptr<ParsedExpression>> children;
 	NumpyObjectType numpytype;
@@ -236,7 +242,7 @@ static unique_ptr<TableRef> ReplacementFor(const nb::object &entry, const string
 			string name = "df_" + StringUtil::GenerateRandomName();
 			auto new_df = PandasScanFunction::PandasReplaceCopiedNames(entry);
 			table_function->function = make_uniq<FunctionExpression>("pandas_scan", std::move(children));
-			table_function->bind_info = make_shared_ptr<PandasScanInfo>(std::move(new_df));
+			table_function->bind_info = make_shared_ptr<PandasScanInfo>(std::move(new_df), std::move(declared_types));
 			auto dependency = make_uniq<ExternalDependency>();
 			dependency->AddDependency("replacement_cache", PythonDependencyItem::Create(entry));
 			table_function->external_dependency = std::move(dependency);
@@ -260,6 +266,11 @@ static unique_ptr<TableRef> ReplacementFor(const nb::object &entry, const string
 			break;
 		}
 	}
+	if (IsPandasSeries(entry)) {
+		// A pandas 2 Series exports no Arrow stream, so it reads as the one column pandas 3 exports, without its index
+		auto frame = entry.attr("to_frame")(nb::arg("name") = "value").attr("reset_index")(nb::arg("drop") = true);
+		return ReplacementFor(frame, name, context, kind);
+	}
 	if (DuckDBPyConnection::IsAcceptedNumpyObject(entry) != NumpyObjectType::INVALID) {
 		numpytype = DuckDBPyConnection::IsAcceptedNumpyObject(entry);
 		string np_name = "np_" + StringUtil::GenerateRandomName();
@@ -280,7 +291,7 @@ static unique_ptr<TableRef> ReplacementFor(const nb::object &entry, const string
 		}
 		case NumpyObjectType::LIST:
 			idx = 0;
-			for (auto item : nb::cast<nb::list>(entry)) {
+			for (auto item : entry) {
 				data[("column" + std::to_string(idx)).c_str()] = item;
 				idx++;
 			}
@@ -305,8 +316,9 @@ static unique_ptr<TableRef> ReplacementFor(const nb::object &entry, const string
 }
 
 unique_ptr<TableRef> PythonReplacementScan::TryReplacementObject(const nb::object &entry, const string &name,
-                                                                 ClientContext &context, ArrowSourceKind kind) {
-	return ReplacementFor(entry, name, context, kind);
+                                                                 ClientContext &context, ArrowSourceKind kind,
+                                                                 vector<LogicalType> declared_types) {
+	return ReplacementFor(entry, name, context, kind, std::move(declared_types));
 }
 
 static bool IsBuiltinFunction(const nb::object &object) {

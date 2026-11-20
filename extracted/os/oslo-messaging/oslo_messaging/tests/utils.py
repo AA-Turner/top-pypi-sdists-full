@@ -24,6 +24,7 @@ import threading
 from oslo_config import cfg
 from oslo_context.context import RequestContext
 from oslo_utils import eventletutils
+from oslo_utils import importutils
 from oslotest import base
 
 
@@ -31,17 +32,21 @@ TRUE_VALUES = ('true', '1', 'yes')
 
 
 class BaseTestCase(base.BaseTestCase):
-
     def setUp(self, conf=cfg.CONF):
         super().setUp()
 
         from oslo_messaging import conffixture
+
         self.messaging_conf = self.useFixture(conffixture.ConfFixture(conf))
         self.messaging_conf.transport_url = 'fake:/'
         self.conf = self.messaging_conf.conf
 
         self.conf.project = 'project'
         self.conf.prog = 'prog'
+
+    def _require_library(self, lib_name):
+        if not importutils.try_import(lib_name):
+            self.skipTest(f'{lib_name} is not available')
 
     def config(self, **kw):
         """Override some configuration values.

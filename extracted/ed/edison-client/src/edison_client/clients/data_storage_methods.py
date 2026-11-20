@@ -26,12 +26,7 @@ from httpx import (
 )
 from lmi.utils import gather_with_concurrency
 from pydantic import HttpUrl
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 
 from edison_client.clients.exceptions import (
@@ -42,7 +37,7 @@ from edison_client.clients.exceptions import (
     DataStoragePermissionError,
     DataStorageRetrievalError,
     DataStorageValidationError,
-    RestClientError,  # noqa: F401 - re-exported for backward compatibility
+    RestClientError,  # ruff: ignore[unused-import] - re-exported for backward compatibility
 )
 from edison_client.clients.multipart_upload import (
     _aupload_file_multipart,
@@ -76,7 +71,7 @@ from edison_client.utils.general import retry_if_connection_error
 try:
     import yaml
 except ImportError:
-    yaml = None  # type: ignore[assignment]
+    yaml = None
 
 
 logger = logging.getLogger(__name__)
@@ -177,7 +172,7 @@ def _read_ignore_file(dir_path: Path, ignore_filename: str = ".gitignore") -> li
     ignore_file = dir_path / ignore_filename
     if ignore_file.exists():
         try:
-            with open(ignore_file, encoding="utf-8") as f:
+            with Path(ignore_file).open(encoding="utf-8") as f:
                 return [line.strip() for line in f]
         except Exception as e:
             logger.warning(f"Failed to read {ignore_filename}: {e}")
@@ -287,14 +282,13 @@ def _extract_text_from_file(file_path: Path) -> str | None:
         return None
 
 
-class DataStorageMethods:  # noqa: PLR0904
+class DataStorageMethods:  # ruff: ignore[too-many-public-methods]
     """Data storage methods for RestClient.
 
     This class contains methods for interacting with the data storage API endpoints.
     """
 
-    # needed for mypy `NoReturn`
-    def _handle_http_errors(self, e: HTTPStatusError, operation: str) -> NoReturn:  # noqa: PLR6301
+    def _handle_http_errors(self, e: HTTPStatusError, operation: str) -> NoReturn:  # ruff: ignore[no-self-use]
         """Handle common HTTP errors for data storage operations."""
         if e.response.status_code == codes.FORBIDDEN:
             raise DataStoragePermissionError(
@@ -316,14 +310,14 @@ class DataStorageMethods:  # noqa: PLR0904
             f"Error {operation} data storage entry: {e.response.status_code} - {e.response.text}"
         ) from e
 
-    def _validate_file_path(self, file_path: str | Path) -> Path:  # noqa: PLR6301
+    def _validate_file_path(self, file_path: str | Path) -> Path:  # ruff: ignore[no-self-use]
         """Validate file path exists and return Path object."""
         file_path = Path(file_path)
         if not file_path.exists():
             raise DataStorageError(f"File or directory not found: {file_path}")
         return file_path
 
-    def _build_zip_path(  # noqa: PLR6301
+    def _build_zip_path(  # ruff: ignore[no-self-use]
         self, name: str, path_override: str | Path | None
     ) -> str | Path:
         """Build GCS path for zip file."""
@@ -336,7 +330,7 @@ class DataStorageMethods:  # noqa: PLR0904
 
     # TODO: [PLA-1162] methods in here need to be moved to fh tools
     # =====================================
-    def _is_zip_file(self, file_path: Path) -> bool:  # noqa: PLR6301
+    def _is_zip_file(self, file_path: Path) -> bool:  # ruff: ignore[no-self-use]
         """Check if a file is a zip file by checking its magic bytes and excluding known packaged document formats."""
         # File extensions that should not be treated as ZIP archives even if they have PK magic bytes
         PACKAGED_ZIP_EXTENSIONS = {
@@ -362,13 +356,13 @@ class DataStorageMethods:  # noqa: PLR0904
 
         # Then check magic bytes for actual ZIP files
         try:
-            with open(file_path, "rb") as f:
+            with Path(file_path).open("rb") as f:
                 magic = f.read(2)
                 return magic == b"PK"
         except Exception:
             return False
 
-    def _extract_zip_file(self, zip_path: Path, extract_to: Path) -> Path:  # noqa: PLR6301
+    def _extract_zip_file(self, zip_path: Path, extract_to: Path) -> Path:  # ruff: ignore[no-self-use]
         """Extract a zip file and return the path to the extracted content.
 
         Args:
@@ -399,12 +393,8 @@ class DataStorageMethods:  # noqa: PLR0904
             return extracted_items[0]
         return extract_dir
 
-    async def _adownload_attempt(  # noqa: PLR6301
-        self,
-        signed_url: str,
-        temp_file: Path,
-        offset: int,
-        file_name: str,
+    async def _adownload_attempt(  # ruff: ignore[no-self-use]
+        self, signed_url: str, temp_file: Path, offset: int, file_name: str
     ) -> tuple[Path, int]:
         """Perform a single async HTTP GET attempt, appending to temp_file from offset.
 
@@ -528,12 +518,8 @@ class DataStorageMethods:  # noqa: PLR0904
         else:
             return temp_file
 
-    def _download_attempt(  # noqa: PLR6301
-        self,
-        signed_url: str,
-        temp_file: Path,
-        offset: int,
-        file_name: str,
+    def _download_attempt(  # ruff: ignore[no-self-use]
+        self, signed_url: str, temp_file: Path, offset: int, file_name: str
     ) -> tuple[Path, int]:
         """Perform a single HTTP GET attempt, appending to temp_file from offset.
 
@@ -568,7 +554,7 @@ class DataStorageMethods:  # noqa: PLR0904
             mode = "ab" if offset > 0 else "wb"
             safe_path = temp_file.resolve()
             safe_path.relative_to(temp_file.parent.resolve())
-            with open(safe_path, mode) as f:
+            with Path(safe_path).open(mode) as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
@@ -658,7 +644,7 @@ class DataStorageMethods:  # noqa: PLR0904
         else:
             return temp_file
 
-    def _prepare_single_file_upload(  # noqa: PLR0917, PLR6301
+    def _prepare_single_file_upload(  # ruff: ignore[too-many-positional-arguments, no-self-use]
         self,
         name: str,
         file_path: Path,
@@ -722,7 +708,7 @@ class DataStorageMethods:  # noqa: PLR0904
         response.raise_for_status()
         return DataStorageResponse.model_validate(response.json())
 
-    def _generate_folder_description_from_files(  # noqa: PLR6301
+    def _generate_folder_description_from_files(  # ruff: ignore[no-self-use]
         self, dir_path: Path, manifest: DirectoryManifest
     ) -> str:
         """Generate folder description by concatenating descriptions of top-level files."""
@@ -743,7 +729,7 @@ class DataStorageMethods:  # noqa: PLR0904
             return f"Directory containing: {', '.join(descriptions)}"
         return f"Directory: {dir_path.name}"
 
-    def _load_manifest(  # noqa: PLR6301
+    def _load_manifest(  # ruff: ignore[no-self-use]
         self, dir_path: Path, manifest_filename: str | None
     ) -> DirectoryManifest:
         """Load and parse a manifest file (JSON or YAML) into a structured model."""
@@ -758,7 +744,7 @@ class DataStorageMethods:  # noqa: PLR0904
             )
 
         try:
-            with open(manifest_path, encoding="utf-8") as f:
+            with Path(manifest_path).open(encoding="utf-8") as f:
                 data = {}
                 if manifest_filename.lower().endswith(".json"):
                     data = json.load(f)
@@ -782,7 +768,7 @@ class DataStorageMethods:  # noqa: PLR0904
 
         return DirectoryManifest()
 
-    def _upload_data_directory(  # noqa: PLR0917
+    def _upload_data_directory(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         dir_path: Path,
@@ -872,7 +858,7 @@ class DataStorageMethods:  # noqa: PLR0904
             )
             return DataStorageResponse.model_validate(status_response.json())
 
-    async def _aupload_data_directory(  # noqa: PLR0917
+    async def _aupload_data_directory(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         dir_path: Path,
@@ -959,7 +945,7 @@ class DataStorageMethods:  # noqa: PLR0904
             )
             return DataStorageResponse.model_validate(status_response.json())
 
-    def _upload_data_single_file(  # noqa: PLR0917
+    def _upload_data_single_file(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         file_path: Path,
@@ -1062,7 +1048,7 @@ class DataStorageMethods:  # noqa: PLR0904
 
         return DataStorageResponse.model_validate(status_response.json())
 
-    async def _aupload_data_single_file(  # noqa: PLR0917
+    async def _aupload_data_single_file(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         file_path: Path,
@@ -1141,7 +1127,7 @@ class DataStorageMethods:  # noqa: PLR0904
 
         return DataStorageResponse.model_validate(status_response.json())
 
-    def _upload_data_single_file_with_parent(  # noqa: PLR0917
+    def _upload_data_single_file_with_parent(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         file_path: Path,
@@ -1215,7 +1201,7 @@ class DataStorageMethods:  # noqa: PLR0904
 
         return DataStorageResponse.model_validate(status_response.json())
 
-    def _process_file_item(  # noqa: PLR0917
+    def _process_file_item(  # ruff: ignore[too-many-positional-arguments]
         self,
         item: Path,
         dir_manifest: DirectoryManifest,
@@ -1249,7 +1235,7 @@ class DataStorageMethods:  # noqa: PLR0904
             logger.error(f"Failed to upload file {item}: {e}")
             return None
 
-    def _upload_directory_hierarchically(  # noqa: PLR0917
+    def _upload_directory_hierarchically(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         dir_path: Path,
@@ -1362,10 +1348,7 @@ class DataStorageMethods:  # noqa: PLR0904
         return responses
 
     def _load_directory_manifest(
-        self,
-        manifest_filename: str | None,
-        parent_id: UUID | None,
-        dir_path: Path,
+        self, manifest_filename: str | None, parent_id: UUID | None, dir_path: Path
     ) -> DirectoryManifest:
         """Load directory manifest if available."""
         if manifest_filename and not parent_id:
@@ -1389,7 +1372,7 @@ class DataStorageMethods:  # noqa: PLR0904
             return DirectoryManifest()
         return DirectoryManifest()
 
-    async def _aupload_data_single_file_with_parent(  # noqa: PLR0917
+    async def _aupload_data_single_file_with_parent(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         file_path: Path,
@@ -1492,7 +1475,7 @@ class DataStorageMethods:  # noqa: PLR0904
             logger.error(f"Failed to upload file {item}: {e}")
             return None
 
-    async def _aupload_directory_hierarchically(  # noqa: PLR0917
+    async def _aupload_directory_hierarchically(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         dir_path: Path,
@@ -1541,7 +1524,7 @@ class DataStorageMethods:  # noqa: PLR0904
             current_parent_id = parent_id
             current_dataset_id = dataset_id
 
-        for item in dir_path.iterdir():  # noqa: ASYNC240
+        for item in dir_path.iterdir():  # ruff: ignore[blocking-path-method-in-async-function]
             if base_dir and _should_ignore_file(item, base_dir, all_ignore_patterns):
                 continue
 
@@ -1618,7 +1601,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def store_text_content(  # noqa: PLR0917
+    def store_text_content(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         content: str,
@@ -1705,7 +1688,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def astore_text_content(  # noqa: PLR0917
+    async def astore_text_content(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         content: str,
@@ -1792,7 +1775,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def astore_link(  # noqa: PLR0917
+    async def astore_link(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         url: HttpUrl,
@@ -1858,7 +1841,7 @@ class DataStorageMethods:  # noqa: PLR0904
                 f"An unexpected error occurred: {e!r}"
             ) from e
 
-    def store_link(  # noqa: PLR0917
+    def store_link(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         url: HttpUrl,
@@ -1931,7 +1914,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def store_file_content(  # noqa: PLR0917
+    def store_file_content(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         file_path: str | Path,
@@ -2072,7 +2055,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def astore_file_content(  # noqa: PLR0917
+    async def astore_file_content(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         file_path: str | Path,
@@ -2207,7 +2190,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def register_existing_data_source(  # noqa: PLR0917
+    def register_existing_data_source(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         existing_location: DataStorageLocationPayload,
@@ -2304,7 +2287,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def aregister_existing_data_source(  # noqa: PLR0917
+    async def aregister_existing_data_source(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         existing_location: DataStorageLocationPayload,
@@ -2401,7 +2384,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def search_data_storage(  # noqa: PLR0917
+    def search_data_storage(  # ruff: ignore[too-many-positional-arguments]
         self,
         criteria: list[SearchCriterion] | None = None,
         limit: int = 10,
@@ -2459,8 +2442,7 @@ class DataStorageMethods:  # noqa: PLR0904
             )
 
             response = self.client.post(
-                "/v0.1/data-storage/search",
-                json=payload.model_dump(mode="json"),
+                "/v0.1/data-storage/search", json=payload.model_dump(mode="json")
             )
             response.raise_for_status()
             return response.json()
@@ -2483,7 +2465,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def asearch_data_storage(  # noqa: PLR0917
+    async def asearch_data_storage(  # ruff: ignore[too-many-positional-arguments]
         self,
         criteria: list[SearchCriterion] | None = None,
         limit: int = 10,
@@ -2541,8 +2523,7 @@ class DataStorageMethods:  # noqa: PLR0904
             )
 
             response = await self.async_client.post(
-                "/v0.1/data-storage/search",
-                json=payload.model_dump(mode="json"),
+                "/v0.1/data-storage/search", json=payload.model_dump(mode="json")
             )
             response.raise_for_status()
             return response.json()
@@ -2565,7 +2546,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def similarity_search_data_storage(  # noqa: PLR0917
+    def similarity_search_data_storage(  # ruff: ignore[too-many-positional-arguments]
         self,
         embedding: list[float],
         size: int = 10,
@@ -2601,11 +2582,7 @@ class DataStorageMethods:  # noqa: PLR0904
                 raise DataStorageCreationError("Embedding must be a list of numbers")
 
             # Build request payload
-            payload = {
-                "embedding": embedding,
-                "size": size,
-                "min_score": min_score,
-            }
+            payload = {"embedding": embedding, "size": size, "min_score": min_score}
 
             # Add optional filters
             if dataset_id is not None:
@@ -2641,7 +2618,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def asimilarity_search_data_storage(  # noqa: PLR0917
+    async def asimilarity_search_data_storage(  # ruff: ignore[too-many-positional-arguments]
         self,
         embedding: list[float],
         size: int = 10,
@@ -2677,11 +2654,7 @@ class DataStorageMethods:  # noqa: PLR0904
                 raise DataStorageCreationError("Embedding must be a list of numbers")
 
             # Build request payload
-            payload = {
-                "embedding": embedding,
-                "size": size,
-                "min_score": min_score,
-            }
+            payload = {"embedding": embedding, "size": size, "min_score": min_score}
 
             # Add optional filters
             if dataset_id is not None:
@@ -2953,8 +2926,7 @@ class DataStorageMethods:  # noqa: PLR0904
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def aget_data_storage_status(
-        self,
-        data_storage_id: UUID | str,
+        self, data_storage_id: UUID | str
     ) -> DataStorageEntryStatusResponse:
         try:
             response = await self.async_client.get(
@@ -2977,10 +2949,7 @@ class DataStorageMethods:  # noqa: PLR0904
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def acreate_dataset(
-        self,
-        name: str,
-        description: str | None = None,
-        dataset_id: UUID | None = None,
+        self, name: str, description: str | None = None, dataset_id: UUID | None = None
     ) -> CreateDatasetPayload:
         """Asynchronously create a new dataset.
 
@@ -3000,9 +2969,7 @@ class DataStorageMethods:  # noqa: PLR0904
         """
         try:
             payload = CreateDatasetPayload(
-                name=name,
-                description=description,
-                id=dataset_id,
+                name=name, description=description, id=dataset_id
             )
             response = await self.async_client.post(
                 "/v0.1/data-storage/datasets",
@@ -3025,10 +2992,7 @@ class DataStorageMethods:  # noqa: PLR0904
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def create_dataset(
-        self,
-        name: str,
-        description: str | None = None,
-        dataset_id: UUID | None = None,
+        self, name: str, description: str | None = None, dataset_id: UUID | None = None
     ) -> CreateDatasetPayload:
         """Create a new dataset.
 
@@ -3048,9 +3012,7 @@ class DataStorageMethods:  # noqa: PLR0904
         """
         try:
             payload = CreateDatasetPayload(
-                name=name,
-                description=description,
-                id=dataset_id,
+                name=name, description=description, id=dataset_id
             )
             response = self.client.post(
                 "/v0.1/data-storage/datasets",
@@ -3072,7 +3034,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def adelete_dataset(self, dataset_id: UUID):
+    async def adelete_dataset(self, dataset_id: UUID) -> None:
         """Delete a dataset.
 
         Note: This will delete all data storage entries associated with the dataset.
@@ -3097,7 +3059,7 @@ class DataStorageMethods:  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def delete_dataset(self, dataset_id: UUID):
+    def delete_dataset(self, dataset_id: UUID) -> None:
         """Delete a dataset.
 
         Note: This will delete all data storage entries associated with the dataset.
@@ -3490,7 +3452,7 @@ class DataStorageMethods:  # noqa: PLR0904
                 f"/v0.1/data-storage/data-entries/{data_storage_id}",
                 json={
                     "share_status": share_status,
-                    "permitted_accessors": permitted_accessors.model_dump(),
+                    "permitted_accessors": permitted_accessors.model_dump(mode="json"),
                 },
             )
             response.raise_for_status()
@@ -3519,7 +3481,7 @@ class DataStorageMethods:  # noqa: PLR0904
                 f"/v0.1/data-storage/data-entries/{data_storage_id}",
                 json={
                     "share_status": share_status,
-                    "permitted_accessors": permitted_accessors.model_dump(),
+                    "permitted_accessors": permitted_accessors.model_dump(mode="json"),
                 },
             )
             response.raise_for_status()
@@ -3537,9 +3499,7 @@ class DataStorageMethods:  # noqa: PLR0904
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def update_entry_tags(
-        self,
-        data_storage_id: UUID | str,
-        tags: list[str],
+        self, data_storage_id: UUID | str, tags: list[str]
     ) -> DataStorageResponse:
         """Update the tags of a data storage entry."""
         try:
@@ -3562,9 +3522,7 @@ class DataStorageMethods:  # noqa: PLR0904
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def aupdate_entry_tags(
-        self,
-        data_storage_id: UUID | str,
-        tags: list[str],
+        self, data_storage_id: UUID | str, tags: list[str]
     ) -> DataStorageResponse:
         """Update the tags of a data storage entry (async)."""
         try:

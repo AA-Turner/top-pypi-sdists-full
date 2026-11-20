@@ -2,9 +2,10 @@
 Data quality validation utility functions.
 """
 
-import math
+import json
 from ast import literal_eval
-from typing import Any, Callable, List, Optional, TypeVar, Union  # noqa: UP035
+from collections.abc import Callable
+from typing import Any, TypeVar
 from urllib.parse import quote
 
 from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
@@ -26,24 +27,28 @@ R = TypeVar("R")
 USERNAME_RESERVED_CHARACTERS = ":/?#"
 
 
-def is_unbounded(bound: Any) -> bool:
-    """Whether that side of a between window lets everything through
-
-    An unset bound resolves to -inf/+inf; only a float can be infinite, so a datetime window
-    compares as a real bound.
-    """
-    return bound is None or (isinstance(bound, float) and math.isinf(bound))
-
-
 def parse_set_values(raw: str, column_type) -> list:
     """Parse an allowed or forbidden set; on a boolean column "true"/"false" strings become booleans
 
     Only "true"/"false" (any case) are mapped: "1"/"0", "t"/"f" and "yes"/"no" stay as written.
     """
-    values = literal_eval(raw)
+    values = _parse_literal(raw)
     if not isinstance(values, (list, tuple, set)):
         raise ValueError(f"A set of values must be a list, got {raw}")  # noqa: TRY004 the set validators abort on ValueError
     return [_as_boolean(value) for value in values] if is_boolean(column_type) else list(values)
+
+
+def _parse_literal(raw: str) -> Any:
+    """A Python literal, or JSON when literal_eval rejects it: JSON writes booleans and null in lowercase
+
+    literal_eval runs first, so a value it read before reads the same. Its ValueError and
+    SyntaxError fall through to JSON; any other error it raises propagates.
+    """
+    try:
+        value = literal_eval(raw)
+    except (ValueError, SyntaxError):
+        value = json.loads(raw)
+    return value
 
 
 def _as_boolean(value):
@@ -51,12 +56,12 @@ def _as_boolean(value):
 
 
 def get_test_case_param_value(
-    test_case_param_vals: List[TestCaseParameterValue],  # noqa: UP006
+    test_case_param_vals: list[TestCaseParameterValue],
     name: str,
     type_: T,
-    default: Optional[R] = None,  # noqa: UP045
-    pre_processor: Optional[Callable] = None,  # noqa: UP045
-) -> Optional[Union[R, T]]:  # noqa: UP007, UP045
+    default: R | None = None,
+    pre_processor: Callable | None = None,
+) -> R | T | None:
     """Return a test case parameter value with the appropriate type casting for the test case definition.
 
     Args:
@@ -79,9 +84,9 @@ def get_test_case_param_value(
 
 
 def get_bool_test_case_param(
-    test_case_param_vals: List[TestCaseParameterValue],  # noqa: UP006
+    test_case_param_vals: list[TestCaseParameterValue],
     name: str,
-) -> Optional[Union[R, T]]:  # noqa: UP007, UP045
+) -> R | T | None:
     """Return a test case parameter value as a boolean. Boolean values are always False by default.
 
     Args:

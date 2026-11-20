@@ -532,9 +532,10 @@ static PyStructSequence_Field AsyncDsssReceiverObj_status_fields[] = {
                   "was when lost). Only as good as `locked`: with the carrier "
                   "unlocked, loop 1 free-runs and this wanders." },
   { "chip_phase",
-    "Code phase, chips: the live Dll's; while refining, the seed's advanced "
-    "by the clock dilation since (what the hand-over starts from), so a "
-    "refining receiver's signal can be excluded too." },
+    "Code phase, chips, at the sample after the last one fed: the live Dll's, "
+    "carried over the partial period the chain holds; while refining, the "
+    "seed's advanced by the clock dilation since (what the hand-over starts "
+    "from), so a refining receiver's signal can be excluded too." },
   { "code_rate",
     "The Dll's code rate, chips per nominal chip (~1.0 at lock), without the "
     "carrier aid; a coasting Dll's is its held rate." },
@@ -1560,11 +1561,15 @@ static PyGetSetDef AsyncDsssReceiver_getset[] = {
   { "n", (getter)AsyncDsssReceiver_getprop_n, NULL,
     "MpskReceiver's terminal outputs per symbol (even, 2..8).\n", NULL },
   { "chip_phase", (getter)AsyncDsssReceiver_getprop_chip_phase, NULL,
-    "The live Dll's code phase, chips, in the Dll's instantaneous convention "
-    "-- the mirror of dp_correlator_hit_t::code_phase's correlation-lag "
-    "convention (dp_correlator_build_handoff()). While refining there is no "
-    "live Dll: it is the seed's phase advanced by the clock dilation since, "
-    "the phase the hand-over starts the live chain from.\n",
+    "The code phase, chips, at the sample after the last one fed, in the "
+    "Dll's instantaneous convention -- the mirror of "
+    "dp_correlator_hit_t::code_phase's correlation-lag convention "
+    "(dp_correlator_build_handoff()). Tracking, it is the live Dll's phase "
+    "carried over the partial period the chain holds (it runs whole periods), "
+    "so it names the same sample a search's picks are carried to at any "
+    "sample rate (#3063). While refining there is no live Dll: it is the "
+    "seed's phase advanced by the clock dilation since, the phase the "
+    "hand-over starts the live chain from.\n",
     NULL },
   { "code_rate", (getter)AsyncDsssReceiver_getprop_code_rate, NULL,
     "The Dll's code rate, chips per nominal chip (~1.0 at lock), without the "
@@ -2142,9 +2147,9 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "- \"<prefix>.car\" -- the chip-domain carrier loop\n"
     "  (dp_costas_set_telemetry(): \".lock\", \".e\", \".freq\", "
     "\".locked\",\n"
-    "  \".nco\"), once per carrier update: once a code period, except while "
-    "it\n"
-    "  coasts, when loop 1 is held;\n"
+    "  \".nco\", \".freq_rate\", \".order\"), once per carrier update: once a "
+    "code\n"
+    "  period, except while it coasts, when loop 1 is held;\n"
     "- \"<prefix>.code\" -- the code loop (dp_dll_set_telemetry(): \".e\",\n"
     "  \".rate\", \".lock\", \".locked\", \".nco\"), once per discriminator "
     "update;\n"
@@ -2216,9 +2221,9 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     ">>> tlm = Telemetry(1 << 12)\n"
     ">>> rx.set_telemetry(tlm, \"rx\")\n"
     ">>> sorted(p for p in tlm.probe_names if p.startswith(\"rx.c\"))\n"
-    "['rx.car.e', 'rx.car.freq', 'rx.car.lock', 'rx.car.locked', "
-    "'rx.car.nco', 'rx.code.e', 'rx.code.lock', 'rx.code.locked', "
-    "'rx.code.nco', 'rx.code.rate']\n"
+    "['rx.car.e', 'rx.car.freq', 'rx.car.freq_rate', 'rx.car.lock', "
+    "'rx.car.locked', 'rx.car.nco', 'rx.car.order', 'rx.code.e', "
+    "'rx.code.lock', 'rx.code.locked', 'rx.code.nco', 'rx.code.rate']\n"
     ">>> sorted(p for p in tlm.probe_names if p.startswith((\"rx.s\", "
     "\"rx.h\",\n"
     "...                                                    \"rx.r\")))\n"
@@ -2237,10 +2242,10 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "receivers in parallel sets each one to 1. A mutator's value, so it\n"
     "travels in the state blob (#2022). The blob carries the count that RAN,\n"
     "not the request: set_threads(0) on a writer restores as the count the\n"
-    "writer ran (its online cores, at most one worker a tile) on any reader,\n"
-    "by design -- a resumed receiver runs as the one that was checkpointed,\n"
-    "and a pool's 1 is 1 everywhere. Setup path; not while another thread is\n"
-    "inside steps().\n"
+    "writer ran (its online cores, capped at the tiles at D = 1) on any\n"
+    "reader, by design -- a resumed receiver runs as the one that was\n"
+    "checkpointed, and a pool's 1 is 1 everywhere. Setup path; not while\n"
+    "another thread is inside steps().\n"
     "\n"
     "Parameters\n"
     "----------\n"

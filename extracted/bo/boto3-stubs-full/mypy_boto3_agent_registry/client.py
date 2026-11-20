@@ -20,13 +20,16 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListDiscoverableRegistryRecordsPaginator
+from .paginator import (
+    ListDiscoverableRegistryRecordsPaginator,
+    SearchDiscoverableRegistryRecordsPaginator,
+)
 from .type_defs import (
     BatchGetDiscoverableRegistryRecordRequestTypeDef,
     BatchGetDiscoverableRegistryRecordResponseTypeDef,
@@ -121,9 +124,21 @@ class AgentRegistryClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry/client/#search_discoverable_registry_records)
         """
 
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_discoverable_registry_records"]
     ) -> ListDiscoverableRegistryRecordsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_discoverable_registry_records"]
+    ) -> SearchDiscoverableRegistryRecordsPaginator:
         """
         Create a paginator for an operation.
 

@@ -10,11 +10,12 @@ from bisect import bisect_left
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum, IntFlag, auto
-from math import ceil, floor, isinf, isnan, log
+from math import isinf, isnan
 from pathlib import Path
 from typing import Dict, Final, Iterable, List, Optional, Set, Tuple, Union
 from xml.etree import ElementTree as et
 
+from .decimal_format import format_decimal
 from .plural_rules import OTHER, PluralType, get_plural_category
 
 DEFAULT_TOLERANCE: Final = 1e-8
@@ -23,6 +24,11 @@ SKIP_RULESETS: Final = {"lenient-parse"}
 _LANG_DIR = Path(__file__).parent / "rbnf"
 _LOGGER = logging.getLogger()
 _MULTIPLE_SPACES: Final = re.compile(r" {2,}")
+
+# A =...= replacement whose target is a DecimalFormat pattern (e.g. =#,##0=)
+# rather than a ruleset name. Patterns contain only #, 0, grouping commas and
+# a decimal point; ruleset names always have letters (spellout-numbering).
+_DECIMAL_FORMAT_PATTERN: Final = re.compile(r"^[#0,.]+$")
 
 # Don't load these XML files
 _EXCLUDED_XML_NAMES: Set[str] = {"root", "es_419", "en_001", "nb"}
@@ -245,6 +251,12 @@ class RbnfRule:
     radix: int = 10
     """Radix used when calculating divisor."""
 
+    def __post_init__(self) -> None:
+        # The divisor is the largest power of the radix <= the rule's value,
+        # which only exists (and is only found in finite time) for radix >= 2.
+        if self.radix < 2:
+            raise ValueError(f"Rule radix must be at least 2, got {self.radix}")
+
     @staticmethod
     def parse(value_str: str, text: str, radix: int = 10) -> "Optional[RbnfRule]":
         """Parse RBNF rule for a value."""
@@ -259,12 +271,14 @@ class RbnfRule:
             rule = RbnfRule(value=RbnfSpecialRule.INFINITY)
         else:
             try:
-                rule = RbnfRule(value=int(value_str), radix=radix)
+                value = int(value_str)
             except ValueError:
                 _LOGGER.debug(
                     "Unrecognized special rule: value=%s, text=%s", value_str, text
                 )
                 return None
+
+            rule = RbnfRule(value=value, radix=radix)
 
         state = ParseState.TEXT
         part: Optional[RbnfRulePart] = None
@@ -789,11 +803,14 @@ class RbnfEngine:
             else:
                 _LOGGER.warning("Unhandled special rule: %s", rule.value)
         elif rule.value > 0:
-            if len(str(rule.value)) > 1 and str(rule.value)[0] != "1":
-                rule.value = int("1" + str(rule.value)[1:])
-            power_below = rule.radix ** int(floor(log(rule.value, rule.radix)))
-            power_above = rule.radix ** int(ceil(log(rule.value, rule.radix)))
-            divisor = power_above if (number >= power_above) else power_below
+            # ICU divisor: the largest power of the radix that is <= the rule's
+            # base value. A rule like 2001 (<<mila<< in Italian) splits on 1000,
+            # not 10000. Computed by integer multiplication so exact powers such
+            # as 1000 are not pushed up by log()'s float error, and without
+            # mutating the shared rule.value (the rule is cached and reused).
+            divisor = 1
+            while (divisor * rule.radix) <= rule.value:
+                divisor *= rule.radix
             q, r = divmod(int(number), divisor)
 
         # Substitution that was left out, along with its [optional] group
@@ -906,11 +923,18 @@ class RbnfEngine:
                     if part.text_after:
                         yield part.text_after
             elif isinstance(part, ReplaceRulePart):
-                yield from self.iter_format_number(
-                    number,
-                    ruleset_name=part.ruleset_name,
-                    tolerance=tolerance,
-                )
+                if _DECIMAL_FORMAT_PATTERN.match(part.ruleset_name):
+                    # =#,##0= emits the number through a DecimalFormat pattern,
+                    # not another ruleset. CLDR uses this as the fallback once a
+                    # language runs out of words (en at 1e18) and for digit forms
+                    # such as Hindi's digits-ordinal ("7" -> "7वाँ").
+                    yield format_decimal(number, part.ruleset_name)
+                else:
+                    yield from self.iter_format_number(
+                        number,
+                        ruleset_name=part.ruleset_name,
+                        tolerance=tolerance,
+                    )
 
     def _format_fraction(
         self,

@@ -1,4 +1,4 @@
-# ruff: noqa: PLR0915
+# ruff: file-ignore[too-many-statements]
 import ast
 import asyncio
 import atexit
@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 import warnings
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from http import HTTPStatus
 from pathlib import Path
 from types import ModuleType
@@ -30,17 +30,15 @@ from httpx import (
     CloseError,
     HTTPStatusError,
     Response,
+    Timeout,
     codes,
 )
 from ldp.agent import AgentConfig
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from pydantic import TypeAdapter
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm as sync_tqdm
 from tqdm.asyncio import tqdm
+from typing_extensions import override
 
 from edison_client.clients.chat_methods import ChatMethods
 from edison_client.clients.clone_methods import CloneMethods
@@ -65,10 +63,7 @@ from edison_client.models.app import (
     TaskResponseVerbose,
     TrajectoryQueryParams,
 )
-from edison_client.models.data_storage_methods import (
-    PermittedAccessors,
-    ShareStatus,
-)
+from edison_client.models.data_storage_methods import PermittedAccessors, ShareStatus
 from edison_client.models.job_event import (
     ExecutionType,
     JobEventBatchCreateRequest,
@@ -88,6 +83,7 @@ from edison_client.models.rest import (
     WorldModelCreateResponse,
     WorldModelResponse,
     WorldModelSearchPayload,
+    WorldModelSearchResult,
 )
 from edison_client.utils.auth import RefreshingJWT
 from edison_client.utils.general import (
@@ -109,6 +105,9 @@ logging.basicConfig(
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
 TaskRequest.model_rebuild()
+
+_WORLD_MODEL_SEARCH_ADAPTER = TypeAdapter(list[WorldModelSearchResult])
+_TASK_ID_ADAPTER = TypeAdapter(str)
 
 FILE_UPLOAD_IGNORE_PARTS = {
     ".ruff_cache",
@@ -197,7 +196,7 @@ retry_if_connection_error = create_retry_if_connection_error(FileUploadError)
 DEFAULT_AGENT_TIMEOUT: int = 2400  # seconds
 
 
-class RestClient(  # noqa: PLR0904
+class RestClient(  # ruff: ignore[too-many-public-methods]
     DataStorageMethods,
     ChatMethods,
     DirectiveMethods,
@@ -216,7 +215,7 @@ class RestClient(  # noqa: PLR0904
     DEFAULT_POLLING_TIME: ClassVar[int] = 5  # seconds
     CHUNK_SIZE: ClassVar[int] = 16 * 1024 * 1024  # 16MB chunks
 
-    def __init__(  # noqa: PLR0917
+    def __init__(  # ruff: ignore[too-many-positional-arguments]
         self,
         stage: str | Stage = Stage.PROD,
         service_uri: str | None = None,
@@ -227,7 +226,7 @@ class RestClient(  # noqa: PLR0904
         headers: dict[str, str] | None = None,
         verbose_logging: bool = False,
         cleanup_on_exit: bool = True,
-    ):
+    ) -> None:
         if verbose_logging:
             logger.setLevel(logging.INFO)
         else:
@@ -274,11 +273,13 @@ class RestClient(  # noqa: PLR0904
         _ = self.organizations
 
     @property
+    @override
     def client(self) -> Client:
         """Authenticated HTTP client for regular API calls."""
         return self.get_client("application/json", authenticated=True)
 
     @property
+    @override
     def async_client(self) -> AsyncClient:
         """Authenticated async HTTP client for regular API calls."""
         return self.get_client(
@@ -393,7 +394,7 @@ class RestClient(  # noqa: PLR0904
 
         return self._clients[key]
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Remove sync httpx clients."""
         if getattr(self, "_closed", True):
             return
@@ -409,7 +410,7 @@ class RestClient(  # noqa: PLR0904
                         "Error closing sync client in __del__: %s", e, exc_info=True
                     )
 
-    def close(self):
+    def close(self) -> None:
         """Explicitly close all cached clients (sync clients immediately, async best-effort)."""
         with self._close_lock:
             if self._closed:
@@ -422,14 +423,14 @@ class RestClient(  # noqa: PLR0904
 
         # Close outside the lock
         for client in clients_to_close.values():
-            if isinstance(client, Client):
-                with contextlib.suppress(RuntimeError, CloseError):
-                    client.close()
-            elif isinstance(client, AsyncClient):
-                # Best-effort async close from sync context
-                self._schedule_async_close(client)
+            match client:
+                case Client():
+                    with contextlib.suppress(RuntimeError, CloseError):
+                        client.close()
+                case AsyncClient():
+                    self._schedule_async_close(client)
 
-    def _schedule_async_close(self, client: AsyncClient):
+    def _schedule_async_close(self, client: AsyncClient) -> None:
         """Schedule async client close - best effort from sync context."""
         try:
             loop = asyncio.get_running_loop()
@@ -445,7 +446,7 @@ class RestClient(  # noqa: PLR0904
             with contextlib.suppress(RuntimeError):
                 asyncio.run(self._safe_aclose(client))
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Asynchronously close all cached clients."""
         with self._close_lock:
             if self._closed:
@@ -458,11 +459,12 @@ class RestClient(  # noqa: PLR0904
         # Separate sync and async clients
         async_close_tasks = []
         for client in clients_to_close.values():
-            if isinstance(client, AsyncClient):
-                async_close_tasks.append(self._safe_aclose(client))
-            elif isinstance(client, Client):
-                with contextlib.suppress(RuntimeError, CloseError):
-                    client.close()
+            match client:
+                case AsyncClient():
+                    async_close_tasks.append(self._safe_aclose(client))
+                case Client():
+                    with contextlib.suppress(RuntimeError, CloseError):
+                        client.close()
 
         # Close all async clients concurrently
         # return_exceptions=True will act as suppression here for errors
@@ -523,28 +525,6 @@ class RestClient(  # noqa: PLR0904
         """
         if not path.is_dir():
             raise JobFetchError(f"Path {path} is not a directory.")
-
-    @staticmethod
-    def _validate_template_path(template_path: str | os.PathLike) -> None:
-        """
-        Validates that a template path exists and is a file.
-
-        Args:
-            template_path: Path to validate
-
-        Raises:
-            FileNotFoundError: If the template path doesn't exist
-            ValueError: If the path exists but isn't a file
-        """
-        template_path = Path(template_path)
-        if not template_path.exists():
-            raise FileNotFoundError(
-                f"Markdown template file not found: {template_path}"
-            )
-        if not template_path.is_file():
-            raise ValueError(
-                f"Markdown template path exists but is not a file: {template_path}"
-            )
 
     @staticmethod
     def _validate_files(files: list, path: str | os.PathLike) -> None:
@@ -641,11 +621,7 @@ class RestClient(  # noqa: PLR0904
         return self._build_task_response(data, verbose=verbose, lite=lite)
 
     def _fetch_task_payload(
-        self,
-        url: str,
-        task_id: str,
-        *,
-        params: dict[str, Any],
+        self, url: str, task_id: str, *, params: dict[str, Any]
     ) -> dict[str, Any]:
         with self.client.stream("GET", url, params=params) as response:
             if response.status_code in {codes.UNAUTHORIZED, codes.FORBIDDEN}:
@@ -665,11 +641,7 @@ class RestClient(  # noqa: PLR0904
         return data
 
     async def _afetch_task_payload(
-        self,
-        url: str,
-        task_id: str,
-        *,
-        params: dict[str, Any],
+        self, url: str, task_id: str, *, params: dict[str, Any]
     ) -> dict[str, Any]:
         """Async counterpart of `_fetch_task_payload`."""
         async with self.async_client.stream("GET", url, params=params) as response:
@@ -861,10 +833,8 @@ class RestClient(  # noqa: PLR0904
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def create_task(
-        self,
-        task_data: TaskRequest | dict[str, Any],
-        files: list[str] | None = None,
-    ):
+        self, task_data: TaskRequest | dict[str, Any], files: list[str] | None = None
+    ) -> str:
         """Create a new futurehouse task.
 
         Args:
@@ -877,10 +847,7 @@ class RestClient(  # noqa: PLR0904
         self._validate_and_add_file_uris(files, task_data)
 
         if isinstance(task_data.name, JobNames):
-            task_data.name = task_data.name.from_stage(
-                task_data.name.name,
-                self.stage,
-            )
+            task_data.name = task_data.name.from_stage(task_data.name.name, self.stage)
 
         response = self.client.post(
             "/v0.1/crows", json=task_data.model_dump(mode="json", by_alias=True)
@@ -890,8 +857,10 @@ class RestClient(  # noqa: PLR0904
                 f"Error creating task: Permission denied for task {task_data.name}."
             )
         response.raise_for_status()
-        trajectory_id = response.json()["trajectory_id"]
-        self.trajectory_id = trajectory_id  # pylint: disable=attribute-defined-outside-init
+        trajectory_id = _TASK_ID_ADAPTER.validate_python(
+            response.json()["trajectory_id"]
+        )
+        self.trajectory_id = trajectory_id
         return trajectory_id
 
     @retry(
@@ -902,10 +871,8 @@ class RestClient(  # noqa: PLR0904
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def acreate_task(
-        self,
-        task_data: TaskRequest | dict[str, Any],
-        files: list[str] | None = None,
-    ):
+        self, task_data: TaskRequest | dict[str, Any], files: list[str] | None = None
+    ) -> str:
         """Create a new futurehouse task.
 
         Args:
@@ -918,10 +885,7 @@ class RestClient(  # noqa: PLR0904
         self._validate_and_add_file_uris(files, task_data)
 
         if isinstance(task_data.name, JobNames):
-            task_data.name = task_data.name.from_stage(
-                task_data.name.name,
-                self.stage,
-            )
+            task_data.name = task_data.name.from_stage(task_data.name.name, self.stage)
 
         response = await self.async_client.post(
             "/v0.1/crows", json=task_data.model_dump(mode="json", by_alias=True)
@@ -931,8 +895,10 @@ class RestClient(  # noqa: PLR0904
                 f"Error creating task: Permission denied for task {task_data.name}."
             )
         response.raise_for_status()
-        trajectory_id = response.json()["trajectory_id"]
-        self.trajectory_id = trajectory_id  # pylint: disable=attribute-defined-outside-init
+        trajectory_id = _TASK_ID_ADAPTER.validate_python(
+            response.json()["trajectory_id"]
+        )
+        self.trajectory_id = trajectory_id
         return trajectory_id
 
     def _warmpool_request(
@@ -1015,7 +981,9 @@ class RestClient(  # noqa: PLR0904
         return SetWarmPoolResponse.model_validate(response.json())
 
     @staticmethod
-    def _validate_and_add_file_uris(files, task_data):
+    def _validate_and_add_file_uris(
+        files: list[str] | None, task_data: TaskRequest
+    ) -> None:
         if files:
             # Add files into environment_config if provided
             if task_data.runtime_config is None:
@@ -1052,9 +1020,9 @@ class RestClient(  # noqa: PLR0904
             task_data, Collection
         )
         all_tasks: Collection[TaskRequest | dict[str, Any]] = (
-            cast(Collection[TaskRequest | dict[str, Any]], [task_data])
+            cast("Collection[TaskRequest | dict[str, Any]]", [task_data])
             if is_single_task
-            else cast(Collection[TaskRequest | dict[str, Any]], task_data)
+            else cast("Collection[TaskRequest | dict[str, Any]]", task_data)
         )
 
         trajectory_ids = await gather_with_concurrency(
@@ -1066,10 +1034,11 @@ class RestClient(  # noqa: PLR0904
         start_time = time.monotonic()
         completed_tasks: dict[str, LiteTaskResponse | TaskResponse] = {}
 
-        if progress_bar:
-            progress = tqdm(
-                total=len(trajectory_ids), desc="Waiting for tasks to finish", ncols=0
-            )
+        progress = (
+            tqdm(total=len(trajectory_ids), desc="Waiting for tasks to finish", ncols=0)
+            if progress_bar
+            else None
+        )
 
         while timeout is None or (time.monotonic() - start_time) < timeout:
             task_results = await gather_with_concurrency(
@@ -1089,11 +1058,9 @@ class RestClient(  # noqa: PLR0904
                 ):
                     # on completion fetches the full state and messages of the task
                     completed_tasks[task_id] = await self.aget_task(
-                        task_id=task_id,
-                        lite=False,
-                        verbose=verbose,
+                        task_id=task_id, lite=False, verbose=verbose
                     )
-                    if progress_bar:
+                    if progress is not None:
                         progress.update(1)
 
             all_done = len(completed_tasks) == len(trajectory_ids)
@@ -1107,7 +1074,7 @@ class RestClient(  # noqa: PLR0904
                 f"Timed out waiting for tasks to finish after {timeout} seconds. Returning with {len(completed_tasks)} completed tasks and {len(trajectory_ids)} total tasks."
             )
 
-        if progress_bar:
+        if progress is not None:
             progress.close()
 
         return [
@@ -1147,9 +1114,9 @@ class RestClient(  # noqa: PLR0904
             task_data, Collection
         )
         all_tasks: Collection[TaskRequest | dict[str, Any]] = (
-            cast(Collection[TaskRequest | dict[str, Any]], [task_data])
+            cast("Collection[TaskRequest | dict[str, Any]]", [task_data])
             if is_single_task
-            else cast(Collection[TaskRequest | dict[str, Any]], task_data)
+            else cast("Collection[TaskRequest | dict[str, Any]]", task_data)
         )
 
         # If files are provided and it's a single task, pass files to create_task
@@ -1158,10 +1125,13 @@ class RestClient(  # noqa: PLR0904
         start_time = time.monotonic()
         completed_tasks: dict[str, LiteTaskResponse | TaskResponse] = {}
 
-        if progress_bar:
-            progress = sync_tqdm(
+        progress = (
+            sync_tqdm(
                 total=len(trajectory_ids), desc="Waiting for tasks to finish", ncols=0
             )
+            if progress_bar
+            else None
+        )
 
         while timeout is None or (time.monotonic() - start_time) < timeout:
             all_done = True
@@ -1176,11 +1146,9 @@ class RestClient(  # noqa: PLR0904
                     all_done = False
                 elif task_id not in completed_tasks:
                     completed_tasks[task_id] = self.get_task(
-                        task_id=task_id,
-                        lite=False,
-                        verbose=verbose,
+                        task_id=task_id, lite=False, verbose=verbose
                     )
-                    if progress_bar:
+                    if progress is not None:
                         progress.update(1)
 
             if all_done:
@@ -1192,7 +1160,7 @@ class RestClient(  # noqa: PLR0904
                 f"Timed out waiting for tasks to finish after {timeout} seconds. Returning with {len(completed_tasks)} completed tasks and {len(trajectory_ids)} total tasks."
             )
 
-        if progress_bar:
+        if progress is not None:
             progress.close()
 
         return [
@@ -1222,7 +1190,7 @@ class RestClient(  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def create_job(self, config: JobDeploymentConfig) -> dict[str, Any]:  # noqa: PLR0914
+    def create_job(self, config: JobDeploymentConfig) -> dict[str, Any]:  # ruff: ignore[too-many-locals]
         """Creates a futurehouse job deployment from the environment and environment files.
 
         Args:
@@ -1232,20 +1200,22 @@ class RestClient(  # noqa: PLR0904
             A response object containing metadata of the build.
 
         """
-        task_description: str = config.task_description or str(
-            fetch_environment_function_docstring(
-                config.environment,
-                config.path,  # type: ignore[arg-type]
-                "from_task",
-            )
-            if config.functional_environment is None
-            else config.functional_environment.start_fn.__doc__
-        )
+        path = Path(config.path) if config.path is not None else None
+        task_description = config.task_description
+        if not task_description:
+            if config.functional_environment is not None:
+                task_description = str(config.functional_environment.start_fn.__doc__)
+            elif path is not None:
+                task_description = str(
+                    fetch_environment_function_docstring(
+                        config.environment, path, "from_task"
+                    )
+                )
         if not task_description or not task_description.strip():
             raise InvalidTaskDescriptionError(
                 "Task description cannot be None or empty. Ensure your from_task environment function has a valid docstring."
                 " If you are deploying with your Environment as a dependency, "
-                "you must add a `task_description` to your `JobDeploymentConfig`.",
+                "you must add a `task_description` to your `JobDeploymentConfig`."
             )
         selected_org = OrganizationSelector.select_organization(self.organizations)
         if selected_org is None:
@@ -1282,65 +1252,48 @@ class RestClient(  # noqa: PLR0904
                 encoded_pickle = base64.b64encode(pickled_env).decode("utf-8")
             files = []
             ignore_parts = set(FILE_UPLOAD_IGNORE_PARTS) | set(config.ignore_dirs or [])
-            for file_path in Path(config.path).rglob("*") if config.path else []:
+            for file_path in path.rglob("*") if path is not None else []:
                 if any(ignore in file_path.parts for ignore in ignore_parts):
                     continue
 
                 if file_path.is_file():
+                    assert path is not None
                     relative_path = (
-                        f"{config.module_name}/{file_path.relative_to(config.path)}"  # type: ignore[arg-type]
+                        f"{config.module_name}/{file_path.relative_to(path)}"
                     )
-                    files.append(
+                    files.append((
+                        "files",
                         (
-                            "files",
-                            (
-                                relative_path,
-                                file_path.read_bytes(),
-                                "application/octet-stream",
-                            ),
+                            relative_path,
+                            file_path.read_bytes(),
+                            "application/octet-stream",
                         ),
-                    )
+                    ))
             if (
                 config.functional_environment is not None
                 and config.requirements is not None
             ):
                 requirements_content = "\n".join(config.requirements)
-                files.append(
-                    (
-                        "files",
-                        (
-                            f"{config.environment}/requirements.txt",
-                            requirements_content.encode(),
-                            "text/plain",
-                        ),
-                    ),
-                )
-            if config.requirements_path:
-                requirements_path = Path(config.requirements_path)
-                files.append(
-                    (
-                        "files",
-                        (
-                            f"{config.module_name}/{requirements_path.name}",
-                            requirements_path.read_bytes(),
-                            "application/octet-stream",
-                        ),
-                    ),
-                )
-            if config.path:
-                self._validate_files(files, config.path)
-            markdown_template_file = None
-            if config.markdown_template_path:
-                self._validate_template_path(config.markdown_template_path)
-                template_path = Path(config.markdown_template_path)
-                markdown_template_file = (
+                files.append((
                     "files",
                     (
-                        "markdown_template",
-                        template_path.read_bytes(),
+                        f"{config.environment}/requirements.txt",
+                        requirements_content.encode(),
+                        "text/plain",
+                    ),
+                ))
+            if config.requirements_path:
+                requirements_path = Path(config.requirements_path)
+                files.append((
+                    "files",
+                    (
+                        f"{config.module_name}/{requirements_path.name}",
+                        requirements_path.read_bytes(),
                         "application/octet-stream",
                     ),
-                )
+                ))
+            if config.path:
+                self._validate_files(files, config.path)
             logger.debug(f"Sending files: {[f[1][0] for f in files]}")
             data = {
                 "agent": (
@@ -1365,13 +1318,6 @@ class RestClient(  # noqa: PLR0904
                     else None
                 ),
                 "timeout": config.timeout,
-                "frame_paths": (
-                    json.dumps(
-                        [fp.model_dump() for fp in config.frame_paths],
-                    )
-                    if config.frame_paths
-                    else None
-                ),
                 "task_queues_config": (
                     config.task_queues_config.model_dump_json()
                     if config.task_queues_config
@@ -1404,18 +1350,14 @@ class RestClient(  # noqa: PLR0904
             response = self.multipart_client.post(
                 "/v0.1/builds",
                 data=data,
-                files=(
-                    [*files, markdown_template_file]
-                    if markdown_template_file
-                    else files
-                ),
+                files=files,
                 headers={"Accept": "application/json"},
                 params={"internal-deps": config.requires_aviary_internal},
             )
             try:
                 response.raise_for_status()
                 build_context = response.json()
-                self.build_id = build_context["build_id"]  # pylint: disable=attribute-defined-outside-init
+                self.build_id = build_context["build_id"]
             except HTTPStatusError as e:
                 error_detail = response.json()
                 error_message = error_detail.get("detail", str(e))
@@ -1435,7 +1377,7 @@ class RestClient(  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def upload_file(  # noqa: PLR0917
+    def upload_file(  # ruff: ignore[too-many-positional-arguments]
         self,
         file_path: str | os.PathLike,
         name: str | None = None,
@@ -1496,10 +1438,7 @@ class RestClient(  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def list_files(
-        self,
-        trajectory_id: str,
-    ) -> dict[str, Any]:
+    def list_files(self, trajectory_id: str) -> dict[str, Any]:
         """List files associated with a trajectory using the provenance API.
 
         Args:
@@ -1541,10 +1480,7 @@ class RestClient(  # noqa: PLR0904
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def alist_files(
-        self,
-        trajectory_id: str,
-    ) -> dict[str, Any]:
+    async def alist_files(self, trajectory_id: str) -> dict[str, Any]:
         """List files associated with a trajectory using the provenance API.
 
         Args:
@@ -1707,7 +1643,7 @@ class RestClient(  # noqa: PLR0904
         limit: int = 150,
         offset: int = 0,
         sort_order: str = "asc",
-    ) -> list[WorldModelResponse]:
+    ) -> list[dict[str, Any]]:
         """List world models with different behavior based on filters.
 
         When filtering by name: returns only the latest version for that name.
@@ -1759,7 +1695,7 @@ class RestClient(  # noqa: PLR0904
         size: int = 10,
         project_id: UUID | str | None = None,
         search_all_versions: bool = False,
-    ) -> list[WorldModelResponse]:
+    ) -> list[WorldModelSearchResult]:
         """Search world models using structured criteria.
 
         Args:
@@ -1769,7 +1705,7 @@ class RestClient(  # noqa: PLR0904
             search_all_versions: Whether to search all versions or just latest.
 
         Returns:
-            A list of world model responses.
+            A list of world model summaries.
 
         Example:
             from edison_client.models.rest import SearchCriterion, SearchOperator
@@ -1788,11 +1724,10 @@ class RestClient(  # noqa: PLR0904
             )
 
             response = self.client.post(
-                "/v0.1/world-models/search",
-                json=payload.model_dump(mode="json"),
+                "/v0.1/world-models/search", json=payload.model_dump(mode="json")
             )
             response.raise_for_status()
-            return response.json()
+            return _WORLD_MODEL_SEARCH_ADAPTER.validate_python(response.json())
         except HTTPStatusError as e:
             raise WorldModelFetchError(
                 f"Error searching world models: {e.response.status_code} - {e.response.text}"
@@ -1881,10 +1816,7 @@ class RestClient(  # noqa: PLR0904
             The UUID of the created world model.
         """
         # Store original content and metadata for GCS upload
-        dss_content = {
-            "content": payload.content,
-            "metadata": payload.model_metadata,
-        }
+        dss_content = {"content": payload.content, "metadata": payload.model_metadata}
 
         # Create modified payload without content/metadata for the API call
         api_payload = payload.model_dump(mode="json")
@@ -1984,10 +1916,7 @@ class RestClient(  # noqa: PLR0904
             The UUID of the created world model.
         """
         # Store original content and metadata for GCS upload
-        dss_content = {
-            "content": payload.content,
-            "metadata": payload.model_metadata,
-        }
+        dss_content = {"content": payload.content, "metadata": payload.model_metadata}
 
         # Create modified payload without content/metadata for the API call
         api_payload = payload.model_dump(mode="json")
@@ -2062,10 +1991,7 @@ class RestClient(  # noqa: PLR0904
         reraise=True,
     )
     def get_project_by_name(
-        self,
-        name: str,
-        limit: int = 2,
-        persona_id: UUID | None = None,
+        self, name: str, limit: int = 2, persona_id: UUID | None = None
     ) -> UUID | list[UUID]:
         """Get a project UUID by name.
 
@@ -2084,10 +2010,7 @@ class RestClient(  # noqa: PLR0904
                 if persona_id is not None
                 else "/v0.1/projects"
             )
-            response = self.client.get(
-                path,
-                params={"limit": limit, "name": name},
-            )
+            response = self.client.get(path, params={"limit": limit, "name": name})
             response.raise_for_status()
             projects = response.json()
         except HTTPStatusError as e:
@@ -2115,10 +2038,7 @@ class RestClient(  # noqa: PLR0904
         reraise=True,
     )
     async def aget_project_by_name(
-        self,
-        name: str,
-        limit: int = 2,
-        persona_id: UUID | None = None,
+        self, name: str, limit: int = 2, persona_id: UUID | None = None
     ) -> UUID | list[UUID]:
         """Asynchronously get a project UUID by name.
 
@@ -2138,8 +2058,7 @@ class RestClient(  # noqa: PLR0904
                 else "/v0.1/projects"
             )
             response = await self.async_client.get(
-                path,
-                params={"limit": limit, "name": name},
+                path, params={"limit": limit, "name": name}
             )
             response.raise_for_status()
             projects = response.json()
@@ -2184,8 +2103,7 @@ class RestClient(  # noqa: PLR0904
             if name is not None:
                 params["name"] = name
             response = self.client.get(
-                f"/v0.1/personas/{persona_id}/projects",
-                params=params,
+                f"/v0.1/personas/{persona_id}/projects", params=params
             )
             response.raise_for_status()
             return response.json()
@@ -2225,8 +2143,7 @@ class RestClient(  # noqa: PLR0904
             if name is not None:
                 params["name"] = name
             response = await self.async_client.get(
-                f"/v0.1/personas/{persona_id}/projects",
-                params=params,
+                f"/v0.1/personas/{persona_id}/projects", params=params
             )
             response.raise_for_status()
             return response.json()
@@ -2241,7 +2158,7 @@ class RestClient(  # noqa: PLR0904
         retry=retry_if_connection_error_not_idempotent,
         reraise=True,
     )
-    def create_project(  # noqa: PLR0917
+    def create_project(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         share_status: ShareStatus = ShareStatus.PRIVATE,
@@ -2251,6 +2168,7 @@ class RestClient(  # noqa: PLR0904
         persona_id: UUID | None = None,
         handoff_message: str | None = None,
         job_name: str | None = None,
+        timeout: float | Timeout | None = None,
     ) -> UUID:
         """Create a new project.
 
@@ -2267,6 +2185,7 @@ class RestClient(  # noqa: PLR0904
                 agent at creation. Requires ``persona_id``.
             job_name: Job for the new project's intro session. Requires
                 ``persona_id``. When omitted, the owning persona's job is used.
+            timeout: HTTP request timeout override. None uses the client's default.
 
         Returns:
             UUID of the created project.
@@ -2290,18 +2209,23 @@ class RestClient(  # noqa: PLR0904
                 "metadata": request_metadata,
             }
             if permitted_accessors is not None:
-                data["permitted_accessors"] = permitted_accessors.model_dump()
+                data["permitted_accessors"] = permitted_accessors.model_dump(
+                    mode="json"
+                )
             if handoff_message is not None:
                 data["handoff_message"] = handoff_message
             if job_name is not None:
                 data["job_name"] = job_name
+            request_kwargs: dict[str, Any] = (
+                {"timeout": timeout} if timeout is not None else {}
+            )
             if persona_id is not None:
                 response = self.client.post(
-                    f"/v0.1/personas/{persona_id}/projects", json=data
+                    f"/v0.1/personas/{persona_id}/projects", json=data, **request_kwargs
                 )
                 response.raise_for_status()
                 return UUID(response.json()["id"])
-            response = self.client.post("/v0.1/projects", json=data)
+            response = self.client.post("/v0.1/projects", json=data, **request_kwargs)
             response.raise_for_status()
             return UUID(response.json())
         except HTTPStatusError as e:
@@ -2358,7 +2282,7 @@ class RestClient(  # noqa: PLR0904
         retry=retry_if_connection_error_not_idempotent,
         reraise=True,
     )
-    async def acreate_project(  # noqa: PLR0917
+    async def acreate_project(  # ruff: ignore[too-many-positional-arguments]
         self,
         name: str,
         share_status: ShareStatus = ShareStatus.PRIVATE,
@@ -2368,6 +2292,7 @@ class RestClient(  # noqa: PLR0904
         persona_id: UUID | None = None,
         handoff_message: str | None = None,
         job_name: str | None = None,
+        timeout: float | Timeout | None = None,
     ) -> UUID:
         """Async variant of ``create_project``. See it for arg semantics."""
         if persona_id is None:
@@ -2386,18 +2311,25 @@ class RestClient(  # noqa: PLR0904
                 "metadata": request_metadata,
             }
             if permitted_accessors is not None:
-                data["permitted_accessors"] = permitted_accessors.model_dump()
+                data["permitted_accessors"] = permitted_accessors.model_dump(
+                    mode="json"
+                )
             if handoff_message is not None:
                 data["handoff_message"] = handoff_message
             if job_name is not None:
                 data["job_name"] = job_name
+            request_kwargs: dict[str, Any] = (
+                {"timeout": timeout} if timeout is not None else {}
+            )
             if persona_id is not None:
                 response = await self.async_client.post(
-                    f"/v0.1/personas/{persona_id}/projects", json=data
+                    f"/v0.1/personas/{persona_id}/projects", json=data, **request_kwargs
                 )
                 response.raise_for_status()
                 return UUID(response.json()["id"])
-            response = await self.async_client.post("/v0.1/projects", json=data)
+            response = await self.async_client.post(
+                "/v0.1/projects", json=data, **request_kwargs
+            )
             response.raise_for_status()
             return UUID(response.json())
         except HTTPStatusError as e:
@@ -2454,6 +2386,44 @@ class RestClient(  # noqa: PLR0904
         retry=retry_if_connection_error,
         reraise=True,
     )
+    def get_project(self, project_id: UUID | str) -> dict[str, Any]:
+        """Get a project by id.
+
+        Args:
+            project_id: The UUID of the project to fetch.
+
+        Returns:
+            The project row as a dict (includes ``id``, ``name``, ``metadata``,
+            ``owner``, ``share_status``, timestamps, ...).
+
+        Raises:
+            ProjectError: If the project does not exist or access is denied.
+        """
+        try:
+            response = self.client.get(f"/v0.1/projects/{project_id}")
+            response.raise_for_status()
+            return response.json()
+        except HTTPStatusError as e:
+            if e.response.status_code == codes.NOT_FOUND:
+                raise ProjectError(f"Project {project_id} not found") from e
+            if e.response.status_code == codes.FORBIDDEN:
+                raise ProjectError(
+                    f"Permission denied to view project {project_id}"
+                ) from e
+            raise ProjectError(
+                f"Error getting project: {e.response.status_code} - {e.response.text}"
+            ) from e
+        except _BASE_CONNECTION_ERRORS:
+            raise  # Let tenacity handle retries for transient errors
+        except Exception as e:
+            raise ProjectError(f"Error getting project: {e}") from e
+
+    @retry(
+        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT),
+        retry=retry_if_connection_error,
+        reraise=True,
+    )
     async def aget_project(self, project_id: UUID | str) -> dict[str, Any]:
         """Asynchronously get a project by id.
 
@@ -2492,19 +2462,21 @@ class RestClient(  # noqa: PLR0904
         retry=retry_if_connection_error,
         reraise=True,
     )
-    async def aupdate_project(
+    def update_project(
         self,
         project_id: UUID | str,
         *,
         name: str | None = None,
         metadata: dict | None = None,
+        heartbeat: bool | None = None,
     ) -> None:
-        """Asynchronously update a project's name and/or metadata.
+        """Update a project's name, metadata, or heartbeat setting.
 
         Args:
             project_id: The UUID of the project to update.
             name: New display name for the project. None leaves it unchanged.
             metadata: Full replacement metadata dict. None leaves it unchanged.
+            heartbeat: Whether heartbeats are enabled. None leaves the setting unchanged.
         """
         try:
             data: dict[str, Any] = {}
@@ -2512,6 +2484,55 @@ class RestClient(  # noqa: PLR0904
                 data["name"] = name
             if metadata is not None:
                 data["metadata"] = metadata
+            if heartbeat is not None:
+                data["heartbeat"] = {"enabled": heartbeat}
+            response = self.client.patch(f"/v0.1/projects/{project_id}", json=data)
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            if e.response.status_code == codes.NOT_FOUND:
+                raise ProjectError(f"Project {project_id} not found") from e
+            if e.response.status_code == codes.FORBIDDEN:
+                raise ProjectError(
+                    f"Permission denied to update project {project_id}"
+                ) from e
+            raise ProjectError(
+                f"Error updating project: {e.response.status_code} - {e.response.text}"
+            ) from e
+        except _BASE_CONNECTION_ERRORS:
+            raise  # Let tenacity handle retries for transient errors
+        except Exception as e:
+            raise ProjectError(f"Error updating project: {e}") from e
+
+    @retry(
+        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, max=MAX_RETRY_WAIT),
+        retry=retry_if_connection_error,
+        reraise=True,
+    )
+    async def aupdate_project(
+        self,
+        project_id: UUID | str,
+        *,
+        name: str | None = None,
+        metadata: dict | None = None,
+        heartbeat: bool | None = None,
+    ) -> None:
+        """Asynchronously update a project's name, metadata, or heartbeat setting.
+
+        Args:
+            project_id: The UUID of the project to update.
+            name: New display name for the project. None leaves it unchanged.
+            metadata: Full replacement metadata dict. None leaves it unchanged.
+            heartbeat: Whether heartbeats are enabled. None leaves the setting unchanged.
+        """
+        try:
+            data: dict[str, Any] = {}
+            if name is not None:
+                data["name"] = name
+            if metadata is not None:
+                data["metadata"] = metadata
+            if heartbeat is not None:
+                data["heartbeat"] = {"enabled": heartbeat}
             response = await self.async_client.patch(
                 f"/v0.1/projects/{project_id}", json=data
             )
@@ -2697,8 +2718,7 @@ class RestClient(  # noqa: PLR0904
         """
         try:
             response = await self.async_client.delete(
-                f"/v0.1/sandboxes/{claim_name}",
-                params={"trajectory_id": trajectory_id},
+                f"/v0.1/sandboxes/{claim_name}", params={"trajectory_id": trajectory_id}
             )
             response.raise_for_status()
         except HTTPStatusError as e:
@@ -2852,7 +2872,7 @@ class RestClient(  # noqa: PLR0904
         except Exception as e:
             raise TaskFetchError(f"Error getting trajectories: {e!r}") from e
 
-    def create_discovery(  # noqa: PLR0917
+    def create_discovery(  # ruff: ignore[too-many-positional-arguments]
         self,
         project_id: UUID,
         world_model_id: UUID,
@@ -3271,10 +3291,10 @@ def get_referenced_globals_from_source(source_code: str) -> set[str]:
 
 
 def get_used_global_imports(
-    func,
+    func: Callable[..., object],
     global_imports: dict[str, str],
     global_scope: dict,
-    visited=None,
+    visited: set[Callable[..., object]] | None = None,
 ) -> set[str]:
     """Retrieve global imports used by a function."""
     if visited is None:
@@ -3295,11 +3315,8 @@ def get_used_global_imports(
             if callable(ref_func):
                 used_imports.update(
                     get_used_global_imports(
-                        ref_func,
-                        global_imports,
-                        global_scope,
-                        visited,
-                    ),
+                        ref_func, global_imports, global_scope, visited
+                    )
                 )
     return used_imports
 
@@ -3310,20 +3327,17 @@ def get_used_modules(env_builder: EnvironmentBuilder, global_scope: dict) -> set
         raise TypeError("The provided object is not an instance of EnvironmentBuilder.")
     global_imports = get_global_imports(global_scope)
     used_imports = get_used_global_imports(
-        env_builder.start_fn,
-        global_imports,
-        global_scope,
+        env_builder.start_fn, global_imports, global_scope
     )
     for tool in env_builder.tools:
         used_imports.update(
-            get_used_global_imports(tool._tool_fn, global_imports, global_scope),
+            get_used_global_imports(tool._tool_fn, global_imports, global_scope)
         )
     return used_imports
 
 
 def generate_requirements(
-    env_builder: EnvironmentBuilder,
-    global_scope: dict,
+    env_builder: EnvironmentBuilder, global_scope: dict
 ) -> list[str]:
     """Generates a list of modules to install based on loaded modules."""
     used_modules = get_used_modules(env_builder, global_scope)

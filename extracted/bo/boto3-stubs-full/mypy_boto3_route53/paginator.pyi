@@ -15,6 +15,8 @@ Usage::
         ListCidrBlocksPaginator,
         ListCidrCollectionsPaginator,
         ListCidrLocationsPaginator,
+        ListHealthCheckSourcesPaginator,
+        ListHealthChecksBySourcePaginator,
         ListHealthChecksPaginator,
         ListHostedZonesPaginator,
         ListQueryLoggingConfigsPaginator,
@@ -29,6 +31,8 @@ Usage::
     list_cidr_blocks_paginator: ListCidrBlocksPaginator = client.get_paginator("list_cidr_blocks")
     list_cidr_collections_paginator: ListCidrCollectionsPaginator = client.get_paginator("list_cidr_collections")
     list_cidr_locations_paginator: ListCidrLocationsPaginator = client.get_paginator("list_cidr_locations")
+    list_health_check_sources_paginator: ListHealthCheckSourcesPaginator = client.get_paginator("list_health_check_sources")
+    list_health_checks_by_source_paginator: ListHealthChecksBySourcePaginator = client.get_paginator("list_health_checks_by_source")
     list_health_checks_paginator: ListHealthChecksPaginator = client.get_paginator("list_health_checks")
     list_hosted_zones_paginator: ListHostedZonesPaginator = client.get_paginator("list_hosted_zones")
     list_query_logging_configs_paginator: ListQueryLoggingConfigsPaginator = client.get_paginator("list_query_logging_configs")
@@ -52,6 +56,10 @@ from .type_defs import (
     ListCidrCollectionsResponseTypeDef,
     ListCidrLocationsRequestPaginateTypeDef,
     ListCidrLocationsResponseTypeDef,
+    ListHealthChecksBySourceRequestPaginateTypeDef,
+    ListHealthChecksBySourceResponseTypeDef,
+    ListHealthCheckSourcesRequestPaginateTypeDef,
+    ListHealthCheckSourcesResponseTypeDef,
     ListHealthChecksRequestPaginateTypeDef,
     ListHealthChecksResponseTypeDef,
     ListHostedZonesRequestPaginateTypeDef,
@@ -75,6 +83,8 @@ __all__ = (
     "ListCidrBlocksPaginator",
     "ListCidrCollectionsPaginator",
     "ListCidrLocationsPaginator",
+    "ListHealthCheckSourcesPaginator",
+    "ListHealthChecksBySourcePaginator",
     "ListHealthChecksPaginator",
     "ListHostedZonesPaginator",
     "ListQueryLoggingConfigsPaginator",
@@ -135,6 +145,42 @@ class ListCidrLocationsPaginator(_ListCidrLocationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListCidrLocations.html#Route53.Paginator.ListCidrLocations.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listcidrlocationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListHealthCheckSourcesPaginatorBase = Paginator[ListHealthCheckSourcesResponseTypeDef]
+else:
+    _ListHealthCheckSourcesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListHealthCheckSourcesPaginator(_ListHealthCheckSourcesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListHealthCheckSources.html#Route53.Paginator.ListHealthCheckSources)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listhealthchecksourcespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListHealthCheckSourcesRequestPaginateTypeDef]
+    ) -> PageIterator[ListHealthCheckSourcesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListHealthCheckSources.html#Route53.Paginator.ListHealthCheckSources.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listhealthchecksourcespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListHealthChecksBySourcePaginatorBase = Paginator[ListHealthChecksBySourceResponseTypeDef]
+else:
+    _ListHealthChecksBySourcePaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListHealthChecksBySourcePaginator(_ListHealthChecksBySourcePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListHealthChecksBySource.html#Route53.Paginator.ListHealthChecksBySource)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listhealthchecksbysourcepaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListHealthChecksBySourceRequestPaginateTypeDef]
+    ) -> PageIterator[ListHealthChecksBySourceResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/paginator/ListHealthChecksBySource.html#Route53.Paginator.ListHealthChecksBySource.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/paginators/#listhealthchecksbysourcepaginator)
         """
 
 if TYPE_CHECKING:

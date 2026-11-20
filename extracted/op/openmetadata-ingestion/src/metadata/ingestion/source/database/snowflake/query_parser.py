@@ -14,7 +14,6 @@ Snowflake Query parser module
 
 from abc import ABC
 from datetime import datetime
-from typing import Optional
 
 from metadata.generated.schema.entity.services.connections.database.snowflakeConnection import (
     SnowflakeConnection,
@@ -25,6 +24,9 @@ from metadata.generated.schema.metadataIngestion.workflow import (
 from metadata.ingestion.api.steps import InvalidSourceException
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.ingestion.source.database.query_parser_source import QueryParserSource
+from metadata.ingestion.source.database.snowflake.identifiers import (
+    quote_account_usage_schema,
+)
 from metadata.utils.logger import ingestion_logger
 
 logger = ingestion_logger()
@@ -38,7 +40,7 @@ class SnowflakeQueryParserSource(QueryParserSource, ABC):
     """
 
     @classmethod
-    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None):  # noqa: UP045
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: str | None = None):
         config: WorkflowSource = WorkflowSource.model_validate(config_dict)
         connection: SnowflakeConnection = config.serviceConnection.root.config
         if not isinstance(connection, SnowflakeConnection):
@@ -62,12 +64,12 @@ class SnowflakeQueryParserSource(QueryParserSource, ABC):
             end_time=end_time,
             result_limit=limit,
             filters=self.get_filters(),
-            account_usage=self.service_connection.accountUsageSchema,
+            account_usage=quote_account_usage_schema(self.service_connection.accountUsageSchema),
             credit_cost=self.service_connection.creditCost * self.service_connection.creditCost,
             offset=offset,
         )
 
-    def check_life_cycle_query(self, query_type: Optional[str], query_text: Optional[str]) -> bool:  # noqa: UP045
+    def check_life_cycle_query(self, query_type: str | None, query_text: str | None) -> bool:
         """
         returns true if query is to be used for life cycle processing.
 

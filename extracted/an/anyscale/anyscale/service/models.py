@@ -751,12 +751,21 @@ primary_version:
             raise TypeError("created_at must be a datetime.")
 
     config: Union[ServiceConfig, Dict] = field(
-        repr=False, metadata={"docstring": "Configuration of this service version."}
+        repr=False,
+        metadata={
+            "docstring": "Configuration of this service version. For a version of a cluster-submitted KubeRay service this is the RayService's Serve config, kept as a dict when it does not fit `ServiceConfig`."
+        },
     )
 
-    def _validate_config(self, config: Union[ServiceConfig, Dict]) -> ServiceConfig:
+    def _validate_config(self, config: Union[ServiceConfig, Dict]) -> Union[ServiceConfig, Dict]:
         if isinstance(config, dict):
-            config = ServiceConfig.from_dict(config)
+            try:
+                config = ServiceConfig.from_dict(config)
+            except (TypeError, ValueError, AttributeError, KeyError):
+                # A cluster-submitted KubeRay version's Serve config was written by the
+                # customer and never went through deploy-time validation (a dotted import
+                # path, say); the status shows it as given rather than failing.
+                return config
 
         if not isinstance(config, ServiceConfig):
             raise TypeError("'config' must be a ServiceConfig or corresponding dict.")

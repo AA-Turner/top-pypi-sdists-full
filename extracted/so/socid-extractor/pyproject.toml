@@ -41,7 +41,7 @@ classifiers = [
 # can't silently jump major versions that may break our parsing.
 dependencies = [
     "requests>=2.32.4,<3.0",
-    "python-dateutil>=2.8.1,<3.0",
+    "python-dateutil>=2.8.1,<4.0",
     "beautifulsoup4>=4.14.3,<5.0",
 ]
 
@@ -63,6 +63,10 @@ dev = [
     "mypy>=1.14,<3.0",
     "black>=25.1,<27.0",
 ]
+# Install with: pip install 'socid-extractor[ai]'
+# Enables the AI fallback extractor: extract(page, use_ai_fallback=True).
+# Optional — `openai` is imported lazily, only when the flag is on and a key is set.
+ai = ["openai>=1.0,<4.0"]
 
 [project.urls]
 Homepage = "https://github.com/soxoj/socid-extractor"
@@ -74,6 +78,9 @@ Funding = "https://www.patreon.com/soxoj"
 [project.scripts]
 # Run with: socid_extractor <url>
 socid_extractor = "socid_extractor.cli:run"
+# The package installs as socid-extractor and the repo is named that way too,
+# so that is what people type. The import name has to keep the underscore.
+socid-extractor = "socid_extractor.cli:run"
 
 [tool.setuptools.dynamic]
 version = {attr = "socid_extractor.__version__"}
@@ -96,6 +103,7 @@ module = [
     "requests.*",
     "dateutil.*",
     "bs4.*",
+    "openai.*",
 ]
 ignore_missing_imports = true
 
@@ -120,4 +128,5 @@ markers = [
     "github_failed: requests from GitHub Actions CI servers are blocked",
     "rate_limited: anti-bot / captcha / rate limiting from the site",
     "requires_cookies: cookies are required to get content",
+    "ai_eval: hits the real OpenAI API; needs OPENAI_API_KEY (skipped otherwise)",
 ]

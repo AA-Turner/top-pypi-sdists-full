@@ -29,7 +29,6 @@ the visitors' runtime, makes the agent a visitor's token names when it is not
 made yet — an application at its address — and says it and the application
 it runs: what a visitor's page asks before it follows the application here.
 
-
 Every route checks who is calling before anything else
 (`agent_runtimes.apps.callers`): a person for `configure`; for the
 others, a person or an embed token for the application — and a browser only
@@ -2447,6 +2446,43 @@ async def session_settings(
         return _stream(live.change_settings(body.values, head=live.session_event()))
     except SessionRefused as refused:
         raise _refused(refused) from None
+
+
+@router.get("/sessions/{uid}/switches")
+async def session_switches(uid: str, request: Request) -> Dict[str, Any]:
+    """What the conversation switched of its agent's MCP tools and skills.
+
+    Only what it switched: the rest is as the agent has it. Read by whoever
+    may drive the session — its visitor, its person — and nobody else.
+    """
+    live, _ = await _held(uid, request)
+    return live.switches.as_dict()
+
+
+@router.put("/sessions/{uid}/switches")
+async def switch_in_session(
+    uid: str, body: Dict[str, Any], request: Request
+) -> Dict[str, Any]:
+    """Switch, for this conversation alone, what its agent's runtime offers.
+
+    ``kind`` is ``server`` (all of a server's tools), ``tool``,
+    ``tool_approval``, ``skill``, ``skills`` (several at once),
+    ``skill_approval`` or ``codemode``; with ``server``, ``tool``, ``skill``
+    or ``skills`` as it names, and ``enabled`` or ``approved``
+    (`agent_runtimes.apps.switches`). In force for the conversation's turns
+    alone: never the agent's, the deployment's, nor anybody else's
+    conversation. What the runtime does not offer — a server not running, a
+    tool it does not list, a skill not active, codemode — is a 422 in a
+    sentence. Answers the conversation's switches.
+    """
+    from agent_runtimes.apps import switches
+
+    live, _ = await _held(uid, request)
+    try:
+        live.switches.switch(body, switches.offered_of(live.agent_id))
+    except switches.SwitchRefused as refused:
+        raise _refused(refused) from None
+    return live.switches.as_dict()
 
 
 @router.post("/sessions/{uid}/window")

@@ -6,7 +6,7 @@ specifications, including paths, operations, parameters, and request/response bo
 
 from __future__ import annotations
 
-import fnmatch  # noqa: F401  # Preserve the established parser.openapi export.
+import fnmatch as fnmatch
 import re
 from collections import defaultdict
 from contextlib import contextmanager, nullcontext
@@ -59,7 +59,8 @@ from datamodel_code_generator.parser._rw_split import update_field_refs_for_vari
 from datamodel_code_generator.parser._schema_dispatch import Default, DispatchTable, Row, SchemaSite
 from datamodel_code_generator.parser._schema_graph import keep_resolved_ref, validate_resolved_ref
 from datamodel_code_generator.parser._schema_object import _has_map_key_keywords, _located_model_schema
-from datamodel_code_generator.parser._schema_refs import read_ref_value, ref_file_document  # noqa: F401  # Preserve the established parser.openapi export.
+from datamodel_code_generator.parser._schema_refs import read_ref_value as read_ref_value
+from datamodel_code_generator.parser._schema_refs import ref_file_document as ref_file_document
 from datamodel_code_generator.parser.base import Result, get_special_path
 from datamodel_code_generator.parser.jsonschema import (
     Discriminator,
@@ -77,8 +78,8 @@ from datamodel_code_generator.parser.jsonschema import (
     _parse_combined_root,
     _parse_root_type_site,
     _ref_applies,
-    get_model_by_path,  # noqa: F401  # Preserve the established parser.openapi export.
 )
+from datamodel_code_generator.parser.jsonschema import get_model_by_path as get_model_by_path
 from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import (
     FIELD_ORIGIN_KEY,
@@ -89,9 +90,9 @@ from datamodel_code_generator.reference import (
 )
 from datamodel_code_generator.types import (
     DataType,
-    EmptyDataType,  # noqa: F401  # Preserve the established parser.openapi export.
     build_union,
 )
+from datamodel_code_generator.types import EmptyDataType as EmptyDataType
 from datamodel_code_generator.util import BaseModel, YamlStringKeywords
 
 if TYPE_CHECKING:
@@ -1046,6 +1047,20 @@ class OpenAPIParser(JsonSchemaParser):
             return item_schema, True
         return None
 
+    def _declared(self, value: object) -> SchemaLocation:
+        """Return the location L0 recorded for a JSON object of a loaded document; a value below it is ``.child()``."""
+        return cast("SchemaLocation", self._raw_location(value))
+
+    def _reference_use(self, raw: YamlValue, path: list[str]) -> tuple[str | None, JsonSchemaObject | None]:
+        """Return the reference ``raw`` is used as, if any, and ``raw`` validated when a reference has siblings.
+
+        A reference is used as the model it names unless a sibling keyword constrains it.
+        """
+        if not isinstance(raw, dict) or not isinstance(ref := raw.get("$ref"), str):
+            return None, None
+        validated = self._validate_schema_object(raw, path) if len(raw) > 1 else None
+        return (None if validated and validated.has_ref_with_schema_keywords else ref), validated
+
     def _get_media_schema(self, media_obj: MediaObject) -> MediaSchemaSource | None:
         """Return the schema represented by an OpenAPI media type object.
 
@@ -1178,7 +1193,7 @@ class OpenAPIParser(JsonSchemaParser):
         if isinstance(ref := parameter.get("$ref"), str):
             parameter = self.get_ref_model(ref, "parameter")
         if not isinstance(name := parameter.get("name"), str) or not isinstance(location := parameter.get("in"), str):
-            return None  # pragma: no cover - OpenAPI validation rejects malformed parameters
+            return None
         return name, location
 
     def parse_schema(
@@ -1688,7 +1703,7 @@ class OpenAPIParser(JsonSchemaParser):
                         else [*resolver.current_root, "#/components", "schemas", schema_name],
                         self._member_location(schemas, schema_name),
                     )
-                    continue  # pragma: no cover - validation always raises for non-schema values
+                    continue
             local_ref = (
                 "#" + _pointer_fragment(("components", "schemas", schema_name))
                 if scan.canonical_keys

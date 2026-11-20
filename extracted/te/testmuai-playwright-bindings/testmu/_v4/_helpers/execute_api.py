@@ -77,6 +77,7 @@ def _record_api_call(method, url, headers, body, params, authorization,
     rb = response.get("response_body")
     if isinstance(rb, str) and len(rb) > _API_BODY_CAP:
         response["response_body"] = rb[:_API_BODY_CAP]
+    response.setdefault("status_code", response.get("status"))
     if len(_api_call_log) >= _MAX_API_CALLS_ENTRIES:
         del _api_call_log[:_MAX_API_CALLS_ENTRIES // 10]
     _api_call_log.append(ApiCallEntry(

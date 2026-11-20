@@ -13,8 +13,6 @@
 Python Dependencies
 """
 
-from typing import Dict, List, Set  # noqa: UP035
-
 from setuptools import setup
 
 # Add here versions required for multiple plugins
@@ -28,9 +26,13 @@ VERSIONS = {
     # every Dag with no per-Dag authorization filter (both need 3.3.2)
     "airflow": "apache-airflow==3.3.2",
     "adlfs": "adlfs>=2023.1.0",
-    "aiobotocore": "aiobotocore~=2.26.0",
+    "aiobotocore": "aiobotocore~=3.9.2",
+    # authlib >=1.6.9 required for: CVE-2026-27962 (critical, JWS JWK header injection),
+    # CVE-2026-28490 (RSA1_5 Bleichenbacher), CVE-2026-28498 (OIDC hash fail-open),
+    # CVE-2026-28802 (alg:none bypass).
+    "authlib": "authlib>=1.6.9",
     "avro": "avro>=1.11.4,<1.12",
-    "boto3": "boto3~=1.41.5",
+    "boto3": "boto3>=1.43.101,<2",
     "cloud-sql-python-connector-pymysql": "cloud-sql-python-connector[pymysql]>=1.0.0,<2.0.0",
     "geoalchemy2": "GeoAlchemy2~=0.12",
     "google-cloud-monitoring": "google-cloud-monitoring>=2.0.0",
@@ -42,7 +44,7 @@ VERSIONS = {
     "grpc-tools": "grpcio-tools>=1.47.2",
     "ijson": "ijson~=3.4",
     "msal": "msal~=1.2",
-    "neo4j": "neo4j~=5.3",
+    "neo4j": "neo4j~=5.7",
     "pandas": "pandas>=2.2.2,<3",
     # pyarrow 26 needs Python >=3.11, so 3.10 stays on the 23.0.1+ range. Every consumer lists
     # both entries: their markers are mutually exclusive.
@@ -60,7 +62,7 @@ VERSIONS = {
     "pymysql": "pymysql~=1.0",
     "pyodbc": "pyodbc~=5.3.0",
     "numpy": "numpy>=2,<3",
-    "opentelemetry-exporter-otlp": "opentelemetry-exporter-otlp==1.45.1",
+    "opentelemetry-exporter-otlp": "opentelemetry-exporter-otlp==1.45.2",  # CVE-2026-126360 (opentelemetry-api 1.45.2)
     "scikit-learn": "scikit-learn>=1.4.2,<2",
     "packaging": "packaging",
     "azure-storage-blob": "azure-storage-blob~=12.14",
@@ -77,9 +79,9 @@ VERSIONS = {
     "pyhive": "pyhive[hive_pure_sasl]~=0.7",
     "thrift": "thrift>=0.25.0,<1",  # CVE-2026-66858 / CVE-2026-85494: protocol recursion and size limits
     "mongo": "pymongo>=4.18.2,<5",  # CVE-2026-96747/96748/96749: endpoint redirection and BSON buffer overflow
+    "simple-salesforce": "simple_salesforce~=1.11",
     "snowflake": "snowflake-sqlalchemy>=1.11.0",  # CVE-2026-15736 SQL/DDL injection; <1.8 also caps the connector below pyOpenSSL 26 support (CVE-2026-27459)
-    "elasticsearch": "elasticsearch>=8.10,<9",  # Airflow must share transport 8 with elasticsearch8
-    "elasticsearch8": "elasticsearch8~=8.9.0",
+    "elasticsearch": "elasticsearch>=8.19.3,<9",
     "giturlparse": "giturlparse",
     "validators": "validators~=0.22.0",
     "teradata": "teradatasqlalchemy==20.0.0.9",
@@ -93,6 +95,9 @@ VERSIONS = {
     "pyathena": "pyathena~=3.35.4",  # <3.35.4 routes DELETE/CTAS to the Hive escaper -> SQL injection (CVE-2026-65321)
     "s3fs": "s3fs~=2026.3",
     "sqlalchemy-bigquery": "sqlalchemy-bigquery>=1.15.0",
+    # <1.0: 1.0.0 is a SQLAlchemy-2.0 rewrite (first release since 0.0.5 in 2020) that drops
+    # get_all_table_comments and retypes the dialect methods vertica/metadata.py patches onto it
+    "sqlalchemy-vertica": "sqlalchemy-vertica[vertica-python]>=0.0.5,<1.0",
     "presidio-analyzer": "presidio-analyzer==2.2.358",
     "asammdf": "asammdf>=8.2,<8.8",  # 8.8+ requires chardet>=7, conflicting with the chardet==4.0.0 profiler pin
     "canmatrix": "canmatrix<1.3",  # 1.3 breaks importing asammdf: https://github.com/ebroecker/canmatrix/issues/926
@@ -157,6 +162,12 @@ COMMONS = {
         VERSIONS["geoalchemy2"],
         VERSIONS["packaging"],
     },  # Adding as Postgres SQL & GreenPlum are using common packages.
+    # Shared by the Salesforce CRM connector and both Data 360 connectors, which all
+    # talk to Salesforce through simple_salesforce's OAuth (authlib) flow.
+    "salesforce": {
+        VERSIONS["simple-salesforce"],
+        VERSIONS["authlib"],
+    },
 }
 
 DATA_DIFF = {
@@ -223,7 +234,7 @@ base_requirements = {
     "packaging",  # For version parsing
     "setuptools>=83",  # CVE-2026-59890: MANIFEST.in exclusion bypass through Unicode normalization
     "shapely",
-    "collate-data-diff>=0.11.17",  # get_stats_dict(retain_rows=...), DataDiffDuplicateKeyError
+    "collate-data-diff>=0.11.18",  # get_stats_dict(sample_size=...) and UTC on every pooled connection
     # Floor on dbt-extractor (transitive via collate-data-diff -> dbt-core).
     # Pre-0.5 versions ship no cp310-manylinux_2_17_aarch64 wheel, forcing a
     # Rust/Cargo source build on ARM runners. 0.5+ uses cp38-abi3 wheels.
@@ -232,9 +243,13 @@ base_requirements = {
     "jaraco.context>=6.1.0",
     "httpx~=0.28.0",
     "urllib3>=2.8.0",  # CVE-2026-97687/97688/97689: proxy TLS configuration and streaming DoS
+    "oauthlib>=4.0.1",  # GHSA-3jp2-3mrg-2vxc: device-code grant issues a token for any device_code
+    # The fixes below need Python 3.11, so the Python 3.10 fork keeps the vulnerable releases.
+    'dnspython>=2.9.2; python_version >= "3.11"',  # GHSA-45c3-73f7-pv4m: name decompression CPU DoS; CVE-2026-128089
+    'filelock>=4.2.1; python_version >= "3.11"',  # GHSA-v4x8-3wr5-3wq8: ReadWriteLock follows planted symlinks
 }
 
-plugins: Dict[str, Set[str]] = {  # noqa: UP006
+plugins: dict[str, set[str]] = {
     "airflow": {
         VERSIONS["opentelemetry-exporter-otlp"],
         "attrs",
@@ -244,8 +259,9 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         "apache-airflow-providers-http>=6.0.0",  # CVE-2025-69219 unsafe pickle RCE
         "apache-airflow-providers-opensearch>=1.9.1",  # CVE-2026-43826 credential leak
         "apache-airflow-providers-elasticsearch>=6.5.3",  # CVE-2026-41018 credential leak
-        VERSIONS["elasticsearch"],
         "tornado>=6.5.9",  # CVE-2026-49853/49854/49855, GHSA-pw6j-qg29-8w7f; CVE-2026-103261/103262/103263 query/curl DoS and symlink traversal
+        # GHSA-pcg2-g6cj-q92c / GHSA-r4j5-9xpp-3985 / GHSA-pw9p-v7r6-gx4p: 6.6 needs Python 3.11, no 6.5.x backport
+        'tornado>=6.6.1; python_version >= "3.11"',  # CVE-2026-126347
         "Werkzeug>=3.0.6",  # CVE-2024-34069 debugger RCE
         "starlette>=0.49.1",  # CVE-2025-62727 O(n^2) DoS; Airflow 3.2.1 lifts the fastapi<0.118 cap
         "python-multipart>=0.0.31",  # CVE-2026-53537/53538/53539 param smuggling + querystring DoS + CVE-2026-53540 negative Content-Length OOM
@@ -277,6 +293,10 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         "clickhouse-sqlalchemy>=0.3",
         DATA_DIFF["clickhouse"],
     },
+    "clickzetta": {
+        "clickzetta-sqlalchemy==0.8.65.4",
+        "clickzetta-connector==1.0.30",
+    },
     "dagster": {
         # No croniter ceiling here: dagster 1.13 declares no croniter dependency at all,
         # nothing under ingestion/ imports it, and apache-airflow-core 3.3.1 raised its
@@ -291,7 +311,7 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         "google-cloud",
         VERSIONS["boto3"],
         VERSIONS["google-cloud-storage"],
-        "collate-dbt-artifacts-parser",
+        "collate-dbt-artifacts-parser>=0.1.5",
         VERSIONS["azure-storage-blob"],
         VERSIONS["azure-identity"],
     },
@@ -301,6 +321,10 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         # Its SA-1.x call sites are adapted at runtime by
         # metadata.ingestion.source.database.db2.utils.patch_ibmi_dialect
     },
+    "databend": {
+        "databend-driver==0.33.7",
+        "databend-sqlalchemy==0.5.5",
+    },
     "databricks": {
         VERSIONS["databricks-sqlalchemy"],
         VERSIONS["databricks-sdk"],
@@ -308,7 +332,7 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         VERSIONS["thrift"],
         "ndg-httpsclient~=0.5.1",
         "pyOpenSSL>=26.0.0",  # CVE-2026-27459 DTLS cookie callback BoF
-        "pyasn1>=0.6.3",  # CVE-2026-30922 DoS via unbounded recursion
+        "pyasn1>=0.6.5",  # CVE-2026-30922, GHSA-2qm8-x737-gmw5 / -9m75-vc3g-4x39 / -fm9c-5rcf-2q5p / -mm57-4v3p-rchx
     },
     "datalake-azure": {
         VERSIONS["azure-storage-blob"],
@@ -329,22 +353,15 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         VERSIONS["aiobotocore"],
         *COMMONS["datalake"],
     },
-    "deltalake": {
-        "delta-spark>=3.0.0,<4.0.0",
-        "deltalake>=0.19.0,<0.20",
-        "pyspark==3.5.6",
-    },  # TODO: remove pinning to under 0.20 after https://github.com/open-metadata/OpenMetadata/issues/17909
     "s3": {*COMMONS["storage-archive"]},
     "gcs": {VERSIONS["google-cloud-storage"], *COMMONS["storage-archive"]},
-    "deltalake-storage": {"deltalake>=0.19.0,<0.20"},
-    "deltalake-spark": {"delta-spark>=3.0.0,<4.0.0", "pyspark==3.5.6"},
     "domo": {VERSIONS["pydomo"]},
     "doris": {VERSIONS["pydoris"]},
     "starrocks": {VERSIONS["pymysql"]},
     "druid": {"pydruid>=0.6.5"},
     "dynamodb": {VERSIONS["boto3"]},
     "elasticsearch": {
-        VERSIONS["elasticsearch8"],
+        VERSIONS["elasticsearch"],
     },  # also requires requests-aws4auth which is in base
     "opensearch": {VERSIONS["opensearch"]},
     "exasol": {
@@ -383,13 +400,14 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
     "kafka": {*COMMONS["kafka"]},
     "kafkaconnect": {VERSIONS["kafka-connect"]},
     "kinesis": {VERSIONS["boto3"]},
+    "nats": {"nats-py[nkeys]>=2.7.0,<3.0.0"},
     "pubsub": {VERSIONS["google-cloud-pubsub"]},
     "looker": {
         VERSIONS["looker-sdk"],
         VERSIONS["lkml"],
         "gitpython>=3.2.1",  # CVE-2026-114145: submodule clone path validation before filesystem writes
         VERSIONS["giturlparse"],
-        "python-liquid",
+        "python-liquid~=2.3",  # 3.x removed Template(source); Looker renders sql_table_name with it
     },
     # >=3.13.0 closes CVE-2026-2635 (default creds) + CVE-2026-8147 (missing authz);
     # retains the CVE-2026-4137 (insecure tmp dir) fix from the prior >=3.11.1 floor.
@@ -414,9 +432,10 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         VERSIONS["cloud-sql-python-connector-pymysql"],
         DATA_DIFF["mysql"],
     },
+    "neo4j": {VERSIONS["neo4j"]},
     "nifi": {},  # uses requests
     "openlineage": {*COMMONS["kafka"]},
-    "oracle": {"cx_Oracle>=8.3.0,<9", "oracledb~=1.2", DATA_DIFF["oracle"]},
+    "oracle": {"oracledb>=3.4.2,<4", DATA_DIFF["oracle"]},
     "pgspider": {"psycopg2-binary", "sqlalchemy-pgspider"},
     "pinotdb": {"pinotdb~=5.0"},
     "postgres": {*COMMONS["postgres"]},
@@ -441,10 +460,9 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
         VERSIONS["geoalchemy2"],
     },
     "sagemaker": {VERSIONS["boto3"]},
-    # authlib >=1.6.9 required for: CVE-2026-27962 (critical, JWS JWK header injection),
-    # CVE-2026-28490 (RSA1_5 Bleichenbacher), CVE-2026-28498 (OIDC hash fail-open),
-    # CVE-2026-28802 (alg:none bypass).
-    "salesforce": {"simple_salesforce~=1.11", "authlib>=1.6.9"},
+    "salesforce": {*COMMONS["salesforce"]},
+    "data360": {*COMMONS["salesforce"]},
+    "data360pipeline": {*COMMONS["salesforce"]},
     "sample-data": {
         VERSIONS["avro"],
         VERSIONS["grpc-tools"],
@@ -466,9 +484,14 @@ plugins: Dict[str, Set[str]] = {  # noqa: UP006
     "ssrs": {"requests-ntlm"},
     "superset": {},  # uses requests
     "tableau": {VERSIONS["tableau"], VERSIONS["validators"], VERSIONS["packaging"]},
+    "tableaupipeline": {
+        VERSIONS["tableau"],
+        VERSIONS["validators"],
+        VERSIONS["packaging"],
+    },
     "teradata": {VERSIONS["teradata"], "teradatasql>=20.0.0.72"},
     "trino": {VERSIONS["trino"], DATA_DIFF["trino"]},
-    "vertica": {"sqlalchemy-vertica[vertica-python]>=0.0.5", DATA_DIFF["vertica"]},
+    "vertica": {VERSIONS["sqlalchemy-vertica"], DATA_DIFF["vertica"]},
     # SDK Data Quality: Required for DataFrame validation (DataFrameValidator)
     # Install with: pip install 'openmetadata-ingestion[pandas]'
     "pandas": {VERSIONS["pandas"], VERSIONS["numpy"]},
@@ -497,6 +520,7 @@ dev = {
     "nox",
     "pre-commit",
     "basedpyright==1.39.3",
+    "import-linter~=2.13",
     # For publishing
     "twine",
     "build",
@@ -505,7 +529,7 @@ dev = {
 
 # Dependencies for unit testing in addition to dev dependencies and plugins
 test_unit = {
-    "pytest==7.0.1",
+    "pytest==9.0.3",
     "pytest-cov",
     "pytest-order",
     "pytest-rerunfailures",
@@ -534,14 +558,14 @@ test = {
     "coverage",
     # Install GE because it's not in the `all` plugin
     VERSIONS["great-expectations"],
-    "pytest==7.0.1",
+    "pytest==9.0.3",
     "pytest-cov",
     "pytest-xdist~=3.5",
     "pytest-order",
     "pytest-timeout~=2.4",
     "dirty-equals",
     # install dbt dependency
-    "collate-dbt-artifacts-parser",
+    "collate-dbt-artifacts-parser>=0.1.5",
     "freezegun",
     VERSIONS["databricks-sdk"],
     VERSIONS["databricks-sql-connector"],
@@ -558,7 +582,7 @@ test = {
     VERSIONS["mongo"],
     VERSIONS["cassandra"],
     VERSIONS["snowflake"],
-    VERSIONS["elasticsearch8"],
+    VERSIONS["elasticsearch"],
     VERSIONS["giturlparse"],
     VERSIONS["avro"],  # Sample Data
     VERSIONS["grpc-tools"],
@@ -578,17 +602,17 @@ test = {
     *plugins["pii-processor"],
     "requests>=2.33.0,<3",
     f"{DATA_DIFF['mysql']}",
-    *plugins["deltalake"],
     *plugins["datalake-gcs"],
     *plugins["pgspider"],
     *plugins["clickhouse"],
+    *plugins["databend"],
     *plugins["dagster"],
     *plugins["oracle"],
     *plugins["mssql"],
     *plugins["sftp"],
     VERSIONS["validators"],
     VERSIONS["pyathena"],
-    "python-liquid",
+    "python-liquid~=2.3",  # 3.x removed Template(source); Looker renders sql_table_name with it
     VERSIONS["google-cloud-bigtable"],
     *plugins["bigquery"],
     "faker==37.1.0",  # The version needs to be fixed to prevent flaky tests!
@@ -633,7 +657,7 @@ playwright_dependencies = {
 }
 
 
-def filter_requirements(filtered: Set[str]) -> List[str]:  # noqa: UP006
+def filter_requirements(filtered: set[str]) -> list[str]:
     """Filter out requirements from base_requirements"""
     return list(
         base_requirements.union(*[requirements for plugin, requirements in plugins.items() if plugin not in filtered])
@@ -662,8 +686,6 @@ setup(
                 "airflow",
                 "db2",
                 "great-expectations",
-                "deltalake",
-                "deltalake-spark",
                 "sklearn",
             }
         ),

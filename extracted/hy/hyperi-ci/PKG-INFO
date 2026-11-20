@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hyperi-ci
-Version: 2.14.82
+Version: 2.15.0
 Summary: HyperI CI/CD CLI tool - multi-language build, test, and publish automation
 Project-URL: Homepage, https://github.com/hyperi-io/hyperi-ci
 Project-URL: Repository, https://github.com/hyperi-io/hyperi-ci
@@ -126,6 +126,8 @@ hyperi-ci push
 # That's it. Quality and test run unless the pushed range changed only docs.
 # Nothing compiles, no image is built, no tag, no registry is touched.
 ```
+
+In a Rust repo, the checks `hyperi-ci push` runs first go to the offload host when `hyperi-ai` is installed and its `remote.host` is set (`hyperi-ai remote run -- hyperi-ci check`). If that host never starts them, the push skips them with a warning and CI runs them.
 
 ## Releasing
 

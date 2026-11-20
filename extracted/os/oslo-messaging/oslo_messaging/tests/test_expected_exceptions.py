@@ -18,9 +18,7 @@ from oslo_messaging.tests import utils as test_utils
 
 
 class TestExpectedExceptions(test_utils.BaseTestCase):
-
     def test_exception(self):
-        e = None
         try:
             try:
                 raise ValueError()

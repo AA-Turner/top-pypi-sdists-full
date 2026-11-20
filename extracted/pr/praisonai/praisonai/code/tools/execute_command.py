@@ -86,7 +86,8 @@ def execute_command(
         workspace: Workspace root (for security validation)
         timeout: Command timeout in seconds
         capture_output: Whether to capture stdout/stderr
-        shell: DEPRECATED - shell=True is no longer supported for security reasons
+        shell: Unsupported. Passing shell=True returns an error result
+            (success=False) and runs nothing; invoke the executable directly.
         env: Additional environment variables
         allow_dangerous: Allow execution of known dangerous commands
         
@@ -200,7 +201,11 @@ def execute_command(
             # For security reasons, shell=True is no longer supported
             return {
                 'success': False,
-                'error': "shell=True is no longer supported for security reasons. Use shell=False (default) with direct command execution.",
+                'error': (
+                    "shell=True is no longer supported for security reasons. "
+                    "Drop the shell argument (default shell=False) and invoke the executable "
+                    "directly, one command per call."
+                ),
                 'command': command,
                 'exit_code': -1,
                 'stdout': '',
@@ -374,6 +379,8 @@ def run_python(
     # newlines, backslashes and quotes are handed to the child Python verbatim,
     # identically on POSIX and Windows.
     import sys
+    from praisonaiagents.tools.shell_tools import build_subprocess_env
+
     python_cmd = sys.executable
     work_dir = cwd or os.getcwd()
 
@@ -384,6 +391,7 @@ def run_python(
             capture_output=True,
             timeout=timeout,
             text=True,
+            env=build_subprocess_env(),  # same scrubbed env as execute_command
         )
         return {
             'success': result.returncode == 0,

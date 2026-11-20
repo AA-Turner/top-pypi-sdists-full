@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from weakref import WeakValueDictionary
 
@@ -19,6 +20,7 @@ from braintrust.logger import NOOP_SPAN, Span, SpanTypeAttribute, current_span
 from ._agent import AgentTracker
 from ._common import LOG, SpanFactory, is_pipeline_sink, processor_kind, start_span
 from ._context import ContextLinker
+from ._live import LiveTracker, is_live_service
 from ._user import UserTracker
 
 
@@ -33,7 +35,7 @@ else:
     try:
         import pipecat
         from pipecat.frames import frames
-        from pipecat.observers.base_observer import BaseObserver
+        from pipecat.observers.base_observer import BaseObserver, FrameProcessed
     except ImportError:  # pragma: no cover - Pipecat is an optional dependency.
         _USES_NATIVE_FRAME_DEDUPLICATION = False
 
@@ -43,6 +45,9 @@ else:
 
             async def cleanup(self) -> None:
                 pass
+
+        class FrameProcessed:
+            pass
     else:
         _USES_NATIVE_FRAME_DEDUPLICATION = version_satisfies(detect_module_version(pipecat, ("pipecat",)), ">=1.12.0")
 
@@ -55,6 +60,8 @@ _TERMINAL_FRAME_TYPES = {"EndFrame", "StopFrame", "CancelFrame"}
 _UPSTREAM_IGNORED_FRAME_TYPES = {
     "UserStartedSpeakingFrame",
     "UserStoppedSpeakingFrame",
+    "ProposedUserStartedSpeakingFrame",
+    "ProposedUserStoppedSpeakingFrame",
     "VADUserStartedSpeakingFrame",
     "VADUserStoppedSpeakingFrame",
     "BotStartedSpeakingFrame",
@@ -81,6 +88,8 @@ class _Session:
     agent: AgentTracker
     # Without playback, a model response end is the agent completion boundary.
     has_output_transport: bool = False
+    live: LiveTracker | None = None
+    live_mode: bool = False
 
 
 class _FrameAdmission:
@@ -109,6 +118,18 @@ class _FrameAdmission:
 _FrameAction = Callable[
     ["BraintrustPipecatObserver", _Session, Any, "FrameProcessor | None", bool], Awaitable[None] | None
 ]
+
+
+class _ControllerObservation(FrameProcessed):
+    """Instrumentation-only queue item; never submitted to the pipeline.
+
+    Both supported WorkerObservers route FrameProcessed items to the same
+    observer task as frames. No pipeline operation waits for this callback.
+    """
+
+    def __init__(self, action: Callable[[], None]) -> None:
+        super().__init__(processor=None, frame=None, direction=None, timestamp=0)
+        self.action = action
 
 
 class BraintrustPipecatObserver(BaseObserver):
@@ -144,6 +165,8 @@ class BraintrustPipecatObserver(BaseObserver):
         self._phase = _SessionPhase.NEW
         self._session: _Session | None = None
         self._finish_task: asyncio.Task[RecordingResult] | None = None
+        self._controllers: dict[Any, Any] = {}
+        self._controller_queue: asyncio.Queue | None = None
         # Response start frame ID -> its llm_response span, for the service.
         self._response_waiters: dict[int, asyncio.Future[Span | None]] = {}
 
@@ -157,6 +180,9 @@ class BraintrustPipecatObserver(BaseObserver):
         if self._phase is _SessionPhase.CLOSED:
             return
         try:
+            if isinstance(data, _ControllerObservation):
+                data.action()
+                return
             frame, processor = data.frame, data.processor
             session = self._start_session()
             kind = processor_kind(type(processor))
@@ -203,6 +229,36 @@ class BraintrustPipecatObserver(BaseObserver):
     async def cleanup(self) -> None:
         await self._finish()
         await super().cleanup()
+
+    def _live_event(self, service: Any, event: Any) -> None:
+        if self._phase is _SessionPhase.CLOSED:
+            return
+        try:
+            session = self._start_session()
+            if session.live is None:
+                # The model span represents an observed remote session, not
+                # whichever notification happens to arrive first.
+                if event.type != "session.started":
+                    return
+                session.live_mode = True
+                session.live = LiveTracker(session, service)
+            session.live.event(event)
+        except Exception:
+            LOG.warning("Unable to trace Pipecat Live event", exc_info=True)
+
+    def _live_event_processed(self, event: Any) -> None:
+        try:
+            if self._session is not None and self._session.live is not None:
+                self._session.live.event_processed(event)
+        except Exception:
+            LOG.warning("Unable to finish Pipecat Live response processing", exc_info=True)
+
+    def _live_client_event(self, event: Any) -> None:
+        try:
+            if self._session is not None and self._session.live is not None:
+                self._session.live.client_event(event)
+        except Exception:
+            LOG.warning("Unable to trace Pipecat Live client event", exc_info=True)
 
     async def _response_span(self, frame: "Frame", push: Callable[[], Awaitable[Any]]) -> tuple[Any, Span | None]:
         """Push a service's response start frame, then return its span.
@@ -269,6 +325,21 @@ class BraintrustPipecatObserver(BaseObserver):
         finally:
             span.unset_current()
 
+    def _controller(self, controller):
+        from ._eou import ControllerWait
+
+        if self._phase is _SessionPhase.CLOSED:
+            return None
+        if controller not in self._controllers:
+            self._controllers[controller] = ControllerWait(controller, self._start_session(), self._enqueue_controller)
+        return self._controllers[controller]
+
+    def _enqueue_controller(self, action: Callable[[], None]) -> None:
+        if self._controller_queue is None:
+            action()  # Directly used observer, without a native worker proxy.
+        else:
+            self._controller_queue.put_nowait(_ControllerObservation(action))
+
     # Session lifecycle
 
     def _start_session(self) -> _Session:
@@ -317,10 +388,16 @@ class BraintrustPipecatObserver(BaseObserver):
         if session is None:
             return
         end_ms = session.clock.now_ms()
+        ended = session.clock.wall(end_ms)
+        controllers, self._controllers = self._controllers, {}
+        self._controller_queue = None
         closers: tuple[Callable[[], None], ...] = (
+            *(partial(controller.close, ended) for controller in controllers.values()),
+            lambda: session.live.close(end_ms) if session.live is not None else None,
             lambda: session.user.close(end_ms),
             lambda: session.agent.interrupt(interrupted=False, end_ms=end_ms),
-            lambda: session.span.end(end_time=session.clock.wall(end_ms)),
+            session.linker.clear,
+            lambda: session.span.end(end_time=ended),
         )
         for close in closers:
             try:
@@ -340,6 +417,37 @@ class BraintrustPipecatObserver(BaseObserver):
         self, session: _Session, frame: "Frame", processor: "FrameProcessor | None", *, played: bool
     ) -> None:
         kind = type(frame).__name__
+        live_service = is_live_service(processor)
+        if live_service:
+            # Even without compatible event hooks, never reinterpret Live's
+            # compatibility frames as cascade inference/TTS or speech ownership.
+            session.live_mode = True
+            session.agent.report_uninterrupted_playback = False
+        if live_service and kind in {
+            "ProposedUserStartedSpeakingFrame",
+            "ProposedUserStoppedSpeakingFrame",
+            "InterimTranscriptionFrame",
+            "LLMFullResponseStartFrame",
+            "LLMFullResponseEndFrame",
+            "LLMTextFrame",
+            "TTSStartedFrame",
+            "TTSStoppedFrame",
+            "TTSTextFrame",
+            "TranscriptionFrame",
+            "MetricsFrame",
+        }:
+            # Live's public frames delimit transcript groups, not backend
+            # inference or generated TTS. Speech stays transport-owned.
+            if session.live is not None and self._admission.admit(frame):
+                session.live.frame(frame)
+            return
+        if session.live_mode and kind in {
+            "UserStartedSpeakingFrame",
+            "UserStoppedSpeakingFrame",
+            "LLMContextUserTurnFrame",
+            "LLMContextAssistantTurnFrame",
+        }:
+            return
         action = self._FRAME_ACTIONS.get(kind)
         if action is None or (kind in _TERMINAL_FRAME_TYPES and not is_pipeline_sink(processor)):
             return
@@ -353,7 +461,7 @@ class BraintrustPipecatObserver(BaseObserver):
         if isinstance(frame, frames.OutputAudioRawFrame):
             self._record_audio(session, "agent-output", frame)
             session.agent.played_audio(frame)
-        elif isinstance(frame, frames.TTSTextFrame):
+        elif isinstance(frame, frames.TTSTextFrame) and not session.live_mode:
             session.agent.played_text(frame)
 
     def _record_audio(self, session: _Session, source: _AudioSource, frame: "AudioRawFrame") -> None:
@@ -404,10 +512,12 @@ class BraintrustPipecatObserver(BaseObserver):
         return self._finish() if frame.fatal else None
 
     def _on_user_turn_started(self, s: _Session, _f: "Frame", _p: "FrameProcessor | None", _played: bool) -> None:
-        s.user.start_turn()
+        if not self._controllers:
+            s.user.start_turn()
 
     def _on_user_turn_stopped(self, s: _Session, _f: "Frame", _p: "FrameProcessor | None", _played: bool) -> None:
-        s.user.stop_turn()
+        if not self._controllers:
+            s.user.stop_turn()
 
     def _on_vad_started(self, s: _Session, frame: "Frame", _p: "FrameProcessor | None", _played: bool) -> None:
         s.user.start_speech(s.clock.from_wall_ms(frame.timestamp - getattr(frame, "start_secs", 0)))
@@ -470,11 +580,17 @@ class BraintrustPipecatObserver(BaseObserver):
         self, s: _Session, frame: "frames.FunctionCallResultFrame", _p: "FrameProcessor | None", _played: bool
     ) -> None:
         s.agent.finish_tool(frame, s.linker)
+        if s.live is not None and getattr(getattr(frame, "properties", None), "is_final", True):
+            # Frame observation is queued separately from Live's result
+            # submission. Both must finish before the parent task closes.
+            s.live.tool_finished(frame.tool_call_id)
 
     def _on_tool_cancelled(
         self, s: _Session, frame: "frames.FunctionCallCancelFrame", _p: "FrameProcessor | None", _played: bool
     ) -> None:
         s.agent.cancel_tool(frame.tool_call_id)
+        if s.live is not None:
+            s.live.tool_finished(frame.tool_call_id)
 
     def _on_tts_started(
         self, s: _Session, frame: "frames.TTSStartedFrame", processor: "FrameProcessor | None", _played: bool

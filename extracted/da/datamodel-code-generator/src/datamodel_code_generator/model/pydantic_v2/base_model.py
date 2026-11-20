@@ -29,8 +29,8 @@ from datamodel_code_generator._free_names import first_free
 from datamodel_code_generator._graph import reach, reaching
 from datamodel_code_generator._graph_links import clear_parents, drop_tree
 from datamodel_code_generator._message_text import for_count
+from datamodel_code_generator._model_keys import FIELDLESS_SITE_KEY as FIELDLESS_SITE_KEY
 from datamodel_code_generator._model_keys import (
-    FIELDLESS_SITE_KEY,  # noqa: F401  # Preserve the established model.pydantic_v2.base_model export.
     is_fieldless_site,
 )
 from datamodel_code_generator._python_syntax import call_text, holds_lone_surrogate
@@ -99,10 +99,6 @@ from datamodel_code_generator.model.pydantic_base import Constraints as _Constra
 from datamodel_code_generator.model.pydantic_base import (
     DataModelField as _PydanticBaseDataModelField,
 )
-from datamodel_code_generator.model.pydantic_v2._annotated_types import (
-    AnnotatedConstraintDataType,
-    annotated_constraint_metadata,
-)
 from datamodel_code_generator.model.pydantic_v2._config import (
     ConfigAttribute,
     build_base_config_parameters,
@@ -117,24 +113,25 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
     IMPORT_ALIAS_GENERATOR_TO_PASCAL,
     IMPORT_ALIAS_GENERATOR_TO_SNAKE,
     IMPORT_BASE_MODEL,
-    IMPORT_CONBYTES,
-    IMPORT_CONDECIMAL,
     IMPORT_CONFIG_DICT,
-    IMPORT_CONFLOAT,
-    IMPORT_CONINT,
     IMPORT_CONSTR,
     IMPORT_FIELD,
     IMPORT_FIELD_VALIDATOR,
     IMPORT_MISSING,
     IMPORT_MODEL_VALIDATOR,
-    IMPORT_MULTIPLE_OF,
     IMPORT_PYDANTIC_MISSING,
     IMPORT_STRING_CONSTRAINTS,
     IMPORT_TYPE_ADAPTER,
     IMPORT_VALIDATION_INFO,
     IMPORT_VALIDATOR_FUNCTION_WRAP_HANDLER,
 )
-from datamodel_code_generator.model.pydantic_v2.types import DataTypeManager, EncodedTextDataType, PydanticV2DataType
+from datamodel_code_generator.model.pydantic_v2.types import (
+    AnnotatedConstraintDataType,
+    DataTypeManager,
+    EncodedTextDataType,
+    PydanticV2DataType,
+    constrained_base,
+)
 from datamodel_code_generator.model.pydantic_v2.version import _includes_dict_key_reference_classes, model_target_meets
 from datamodel_code_generator.model.runtime_validation import (
     IndependentDeclaredPatternPropertiesRule,
@@ -170,7 +167,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator._regex_syntax import PatternEngine
     from datamodel_code_generator._requirements import PydanticConstruct
     from datamodel_code_generator.enums import TargetPydanticVersion
-    from datamodel_code_generator.imports import Imports, _ImportKey
+    from datamodel_code_generator.imports import Imports
     from datamodel_code_generator.model._decisions.assignment import WrittenAssignment
     from datamodel_code_generator.model.pydantic_v2._schema_runtime_validation import (
         SchemaRuntimeValidationModulePlan,
@@ -182,13 +179,6 @@ if TYPE_CHECKING:
 
 _CONSTRAINED_STRING_IMPORTS = frozenset({IMPORT_CONSTR, IMPORT_STRING_CONSTRAINTS, IMPORT_FIELD})
 _IMPORT_JSON_VALUE = Import.from_full_path(form_path("pydantic.json_value"))
-_ANNOTATED_CONSTRAINT_BASES: dict[_ImportKey, str] = {
-    _import_key(IMPORT_CONSTR): "str",
-    _import_key(IMPORT_CONINT): "int",
-    _import_key(IMPORT_CONFLOAT): "float",
-    _import_key(IMPORT_CONDECIMAL): "Decimal",
-    _import_key(IMPORT_CONBYTES): "bytes",
-}
 
 
 def _constraint_base(data_type: DataType, *, annotated_string: bool = False, encoded: bool = False) -> str | None:
@@ -201,7 +191,7 @@ def _constraint_base(data_type: DataType, *, annotated_string: bool = False, enc
         return "str"
     if encoded and (base := getattr(data_type, "encoded_base", None)):
         return base
-    return None if (import_ := data_type.import_) is None else _ANNOTATED_CONSTRAINT_BASES.get(_import_key(import_))
+    return constrained_base(data_type)
 
 
 class _RawRepr:
@@ -651,29 +641,20 @@ def _copy_alias_data_type(
         if kwargs and prepared is not None
         else None
     )
-    base = _constraint_base(data_type) if data_type.is_func and kwargs else None
+    base = (
+        _constraint_base(data_type)
+        if data_type.is_func and kwargs and not isinstance(data_type, AnnotatedConstraintDataType)
+        else None
+    )
     if pattern is None and base is None and dict_key is None and not any(nested):
         return None
     runtime_imports = data_type.runtime_expression_imports
     if base is None:
         copied = data_type.model_copy()
     else:
-        values: dict[str, Any] = {
-            **dict(data_type),
-            "type": None,
-            "parent": None,
-            "children": [],
-            "constrained_base": base,
-        }
-        copied = AnnotatedConstraintDataType.model_construct(**values)
+        copied = AnnotatedConstraintDataType.of_call(data_type, base)
         keep_node_records(copied, data_type)
-        field_keywords, multiple_of = annotated_constraint_metadata(base, cast("dict[str, Any]", kwargs))
-        annotation_imports = (IMPORT_FIELD,) if field_keywords else ()
-        if multiple_of is not None:
-            annotation_imports = (*annotation_imports, IMPORT_MULTIPLE_OF)
-        if annotation_imports:
-            annotation_imports = (IMPORT_ANNOTATED, *annotation_imports)
-        runtime_imports = (*annotation_imports, *runtime_imports)
+        runtime_imports = (*copied.runtime_expression_imports, *runtime_imports)
     if pattern is not None:
         copied.kwargs = {**cast("dict[str, Any]", kwargs), "pattern": pattern}
         runtime_imports = (*runtime_imports, pattern.import_)

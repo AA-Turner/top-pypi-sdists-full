@@ -398,9 +398,9 @@ class CostExplorerClient(BaseClient):
     ) -> GetReservationCoverageResponseTypeDef:
         """
         Retrieves the reservation coverage for your account, which you can use to see
-        how much of your Amazon Elastic Compute Cloud, Amazon ElastiCache, Amazon
-        Relational Database Service, or Amazon Redshift usage is covered by a
-        reservation.
+        how much of your Amazon Elastic Compute Cloud, Amazon Relational Database
+        Service, Amazon ElastiCache, Amazon MemoryDB, Amazon Redshift, Amazon
+        Elasticsearch Service, or Amazon OpenSearch Service usage is covered by a r...
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_reservation_coverage.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/client/#get_reservation_coverage)

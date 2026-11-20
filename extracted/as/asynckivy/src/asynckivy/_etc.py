@@ -193,7 +193,7 @@ class sync_attr:
         self._from = from_
         self._sync = partial(self._synchronize, setattr, *to_)
         self._bind_uid = None
-        self.eager = eager
+        self.eager = eager  #:  :meta private:
 
     @staticmethod
     def _synchronize(setattr, to_obj, to_attr, from_obj, from_value):
@@ -216,19 +216,22 @@ class sync_attr:
 
 class sync_attrs:
     '''
-    When multiple :class:`sync_attr` calls take the same ``from_`` argument, they can be merged into a single
-    :class:`sync_attrs` call. For instance, the following code:
+    When multiple :class:`sync_attr` calls use the same ``from_`` argument, they can be merged into a single
+    :class:`sync_attrs` call for better performance. For example, the following code:
 
     .. code-block::
 
-        with sync_attr((widget, 'x'), (obj1, 'x')), sync_attr((widget, 'x'), (obj2, 'xx')):
+        with (
+            sync_attr((widget, "x"), (obj1, "x")),
+            sync_attr((widget, "x"), (obj2, "xx")),
+        ):
             ...
 
-    can be replaced with the following one:
+    can be replaced with:
 
     .. code-block::
 
-        with sync_attrs((widget, 'x'), (obj1, 'x'), (obj2, 'xx')):
+        with sync_attrs((widget, "x"), (obj1, "x"), (obj2, "xx")):
             ...
 
     A real-world example:
@@ -278,7 +281,7 @@ class sync_attrs:
         self._from = from_
         self._sync = partial(self._synchronize, setattr, tos)
         self._bind_uid = None
-        self.eager = eager
+        self.eager = eager  #:  :meta private:
 
     @staticmethod
     def _synchronize(setattr, tos, from_obj, from_value):
@@ -424,9 +427,9 @@ def stencil_mask(widget, *, canvas_layer: CanvasLayer="inner") -> Iterator[Instr
         from kivy.graphics import Rectangle
         import asynckivy as ak
 
-        rect = Rectangle()
+        rect = Rectangle(size=widget.size)
         with (
-            ak.sync_attr(from_=(widget, 'pos'), to_=(rect, 'pos')),  # A
+            ak.sync_attr(from_=(widget, "pos"), to_=(rect, "pos"), eager=True),  # A
             ak.sync_attr(from_=(widget, 'size'), to_=(rect, 'size')),
             ak.stencil_mask(widget) as drawable_area,
         ):
@@ -468,7 +471,7 @@ def stencil_widget_mask(widget, *, canvas_layer="inner", relative=False) -> Iter
         with stencil_widget_mask(widget):
             ...
 
-    :param relative: Must be set to True if the ``widget`` is a relative-type widget.
+    :param relative: Must be set to True if the ``widget`` uses relative coordinates.
     :param canvas_layer: Controls which part of the widget's canvas is affected by the restriction.
         See :func:`sandwich_canvas` for details.
 
@@ -476,9 +479,12 @@ def stencil_widget_mask(widget, *, canvas_layer="inner", relative=False) -> Iter
     .. versionchanged:: 0.10.0
         The ``use_outer_canvas`` parameter was replaced with the ``canvas_layer`` parameter.
     '''
-    rect = Rectangle()
+    relative = relative and canvas_layer != "outer"
+    rect = Rectangle(size=widget.size)
+    if not relative:
+        rect.pos = widget.pos
     with (
-        sync_attr((widget, "pos"), (rect, "pos")) if (not relative) or canvas_layer == "outer" else nullcontext(),
+        nullcontext() if relative else sync_attr((widget, "pos"), (rect, "pos")),
         sync_attr((widget, "size"), (rect, "size")),
         stencil_mask(widget, canvas_layer=canvas_layer) as drawable_area,
     ):

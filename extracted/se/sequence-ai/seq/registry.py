@@ -40,9 +40,6 @@ from seq.weights import validate_weights_uri
 
 _REG_ATTR = "__seq_registration__"
 
-
-_RES_ATTR = "__seq_resources__"
-
 _CTX_ATTR = "__seq_image_context__"
 
 _LOCALS_ATTR = "__seq_image_locals__"
@@ -120,10 +117,6 @@ def _register(cls: type, policy_kwargs: dict[str, Any], bindings: dict[SeqFlags,
 
 
     _validate(cls, spec, bindings)
-    if SeqFlags.PLAN in bindings:
-        why = plan_layout(spec.gpu)
-        if why:
-            raise PolicyDefinitionError(f"{cls.__name__}: {why}")
 
 
 
@@ -250,18 +243,8 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
 
     """
 
-    if "gpu" not in kw:
 
-
-        raise PolicyDefinitionError('@seq.policy requires gpu=...: the one card it runs on, e.g. gpu="L4" '
-                                    '("H100:2" is two of them), or "cpu"')
-    gpu = kw["gpu"]
-    if isinstance(gpu, (list, tuple)):
-
-
-        first = str(gpu[0]) if gpu else "L4"
-        raise PolicyDefinitionError(f'@seq.policy gpu= takes one card, not a list: write gpu="{first}", the card it runs '
-                                    'on ("H100:2" is two of one type, "cpu" none)')
+    gpu = "cpu"
 
 
 
@@ -328,13 +311,7 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
 
 
 
-    cpu, cpu_limit = _size(kw, "cpu")
-    memory_gb, memory_limit_gb = _size(kw, "memory")
-    setattr(cls, _RES_ATTR, {"cpu": cpu, "cpu_limit": cpu_limit, "memory_gb": memory_gb,
-                             "memory_limit_gb": memory_limit_gb})
-    _check_scaling(kw)
-    concurrency = _concurrency(cls, kw, bindings or {})
-    _check_card_split(gpu, concurrency)
+    concurrency = _concurrency(cls, bindings or {})
     setattr(cls, _CTX_ATTR, image.context if isinstance(image, Image) else None)
     setattr(cls, _LOCALS_ATTR, (image.local_files, image.python_sources) if isinstance(image, Image) else ((), ()))
     setattr(cls, _MODELS_ATTR, _models(kw))
@@ -352,7 +329,6 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
 
 
     for declared, field in (
-        ("min_workers", "min_containers"), ("buffer_workers", "buffer_containers"), ("max_gpus", "max_gpus"),
         ("hz", "hz"), ("action_chunk_valid_len", "action_chunk_valid_len"),
         ("action_chunk_replan_at", "action_chunk_replan_at"), ("max_wait_for_batch", "max_wait_for_batch"),
         ("robot", "robot"),
@@ -390,7 +366,6 @@ def _name(kw: dict[str, Any], cls: type) -> str:
     """
     v = kw.get("name")
     if v is None:
-        from seq.adapter import default_name
 
         return default_name(cls.__name__)
     return check_new_name(v)
@@ -403,61 +378,41 @@ def _name(kw: dict[str, Any], cls: type) -> str:
 _SIZE_RANGE = {"cpu": (0.125, 64.0, 64.0), "memory": (0.125, 336.0, 336.0)}
 
 
-def _size(kw: dict[str, Any], name: str) -> tuple[float | None, float | None]:
-    """cpu= (cores) / memory= (GiB) as (request, limit): a number is the request, `(request, limit)` adds a hard cap.
-
-    Without a limit the worker may use more than it requested. A policy's worker is billed its whole machine's CPU and
-    memory, one that holds at least this; a benchmark's machine the greater of the request and actual use where it
-    shares a machine, its request on one of its own. Undeclared →
-    (None, None): the platform requests its minimum, 0.125 cores and 0.125 GiB — never a guessed 8 / 32 that every
-    worker would pay for."""
-    v = kw.get(name)
-    if v is None:
-        return None, None
+def check_size(name: str, value: Any) -> float | None:
+    """`--cpu` (cores) / `--memory` (GiB), a worker's request: without a limit the worker may use more than it
+    requested, and a policy's worker is billed its whole machine's CPU and memory, one that holds at least this. Unset
+    → None: the platform requests its minimum, 0.125 cores and 0.125 GiB - never a guessed 8 / 32 that every worker
+    would pay for."""
+    if value is None:
+        return None
     unit = "cores" if name == "cpu" else "GiB"
-    low, top, limit_top = _SIZE_RANGE[name]
-    if isinstance(v, (tuple, list)) and len(v) != 2:
-        raise PolicyDefinitionError(f"{name}= is a number of {unit}, or (request, limit); got {v!r}")
-    request, limit = (v[0], v[1]) if isinstance(v, (tuple, list)) else (v, None)
-    for what, x, high in (("request", request, top), ("limit", limit, limit_top)):
-        if what == "limit" and x is None:
-            continue
-        if isinstance(x, bool) or not isinstance(x, (int, float)) or not low <= x <= high:
-            raise PolicyDefinitionError(f"{name}= {what} must be a number of {unit} from {low:g} to {high:g}, got {x!r}")
-    if limit is not None and limit < request:
-        raise PolicyDefinitionError(f"{name}=({request!r}, {limit!r}): the limit must be at least the request")
-    return float(request), (float(limit) if limit is not None else None)
+    low, top, _ = _SIZE_RANGE[name]
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= top:
+        raise PolicyDefinitionError(f"{name} must be a number of {unit} from {low:g} to {top:g}, got {value!r}")
+    return float(value)
 
 
-def _check_scaling(kw: dict[str, Any]) -> None:
-    """max_gpus= / min_workers= / buffer_workers=, refused where they are written with what each means.
-    """
-    v = kw.get("max_gpus")
+def check_scaling(*, max_gpus: Any = None, min_workers: Any = None, buffer_workers: Any = None) -> None:
+    """A deployment's scaling (`seq deploy --max-gpus / --min-workers / --buffer-workers`, deployment_request's
+    max_gpus= / min_workers= / buffer_workers=), refused with what each means."""
+    v = max_gpus
 
 
     if v is not None and (isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 256):
-        raise PolicyDefinitionError(f"max_gpus= is the most GPUs this deployment may hold at once (counted in cards), "
-                                    f"a whole number from 1 up to your account's limit (`seq account` shows it), which "
-                                    f"a GPU policy must declare; got {v!r}")
+        raise PolicyDefinitionError(f"max_gpus is the most GPUs this deployment may hold at once (counted in cards), a "
+                                    f"whole number from 1 up to your account's limit (`seq account` shows it); got {v!r}")
+
+    for knob, v, what in (("min_workers", min_workers, "warm workers kept running, robot or not"),
+                          ("buffer_workers", buffer_workers, "spare workers kept running while robots are connected")):
+        if v is not None and (isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= MAX_WARM_WORKERS):
+            raise PolicyDefinitionError(f"{knob} is the {what}, a whole number from 0 to {MAX_WARM_WORKERS}; got {v!r}")
 
 
-
-    for knob, what in (("min_workers", "warm workers kept running, robot or not"),
-                       ("buffer_workers", "spare workers kept running while robots are connected")):
-        if knob in kw:
-            v = kw[knob]
-            if isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= MAX_WARM_WORKERS:
-                raise PolicyDefinitionError(f"{knob}= is the {what}, a whole number from 0 to {MAX_WARM_WORKERS}; "
-                                            f"got {v!r}")
-
-
-def _concurrency(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str]) -> Concurrency | None:
-    """How a worker serves robots, for the deploy request: `@seq.concurrent(sizes=[...])` from the infer method, and
-    the layout of a worker of several cards from `@seq.policy(gpus_per_replica=..., replica_start=...)` - the wire
-    keeps them in PolicySpec.concurrency. None when none is declared: one robot a copy, as ever.
-    `@seq.concurrent` on any other method would be read by nothing, so it is refused.
-
-    """
+def _concurrency(cls: type, bindings: dict[SeqFlags, str]) -> Concurrency | None:
+    """How a worker serves robots, for the deploy request: `@seq.concurrent(sizes=[...])` from the infer method - the
+    wire keeps it in PolicySpec.concurrency, and a deploy adds a worker's card groups (with_layout). None when none is
+    declared: one robot a copy, as ever. `@seq.concurrent` on any other method would be read by nothing, so it is
+    refused."""
     infer = bindings.get(SeqFlags.INFER)
     for name, member in vars(cls).items():
         if name != infer and getattr(member, "__seq_concurrent__", None):
@@ -470,13 +425,7 @@ def _concurrency(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str]) -
         from seq.policy import policy_sizes
 
         declared["sizes"] = policy_sizes(declared["sizes"])
-    per, start = kw.get("gpus_per_replica"), kw.get("replica_start")
-    if per is not None and (isinstance(per, bool) or not isinstance(per, int) or per < 1):
-        raise PolicyDefinitionError(f"@seq.policy(gpus_per_replica=...) must be a positive whole number, got {per!r}")
-    if start is not None and start not in ("together", "one_by_one"):
-        raise PolicyDefinitionError(f'@seq.policy(replica_start=...) is "together" or "one_by_one", got {start!r}')
-    fields = {**declared, "gpus_per_replica": per, "replica_start": start}
-    fields = {k: v for k, v in fields.items() if v is not None}
+    fields = {k: v for k, v in declared.items() if v is not None}
     if not fields:
         return None
     try:
@@ -485,18 +434,35 @@ def _concurrency(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str]) -
         raise PolicyDefinitionError(f"invalid concurrency declaration: {exc}") from exc
 
 
+def with_layout(concurrency: Concurrency | None, gpus_per_replica: Any = None, replica_start: Any = None) -> Concurrency:
+    """A deployment's card groups on its policy's concurrency: the cards one copy of the model spans (`seq deploy
+    --gpus-per-replica`) and whether its copies start together or one by one (`--replica-start`) - the layout of one
+    model on a worker of several cards, nothing to do with robots sharing a worker."""
+    per, start = gpus_per_replica, replica_start
+    if per is not None and (isinstance(per, bool) or not isinstance(per, int) or per < 1):
+        raise PolicyDefinitionError(f"gpus_per_replica must be a positive whole number, got {per!r}")
+    if start is not None and start not in ("together", "one_by_one"):
+        raise PolicyDefinitionError(f'replica_start is "together" or "one_by_one", got {start!r}')
+    base = concurrency.model_dump(exclude_none=True) if concurrency is not None else {}
+    fields = {**base, **{k: v for k, v in (("gpus_per_replica", per), ("replica_start", start)) if v is not None}}
+    try:
+        return Concurrency(**fields)
+    except Exception as exc:
+        raise PolicyDefinitionError(f"invalid card groups: {exc}") from exc
+
+
 
 
 
 
 def _cards(gpu: Any) -> int:
-    """The cards a worker holds: N of `gpu="TYPE:N"`, one for a single card or "cpu"."""
+    """The cards a worker holds: N of `--gpu TYPE:N`, one for a single card or "cpu"."""
     _, sep, n = str(gpu).partition(":")
     return int(n) if sep and n.strip().isdigit() else 1
 
 
-def _check_card_split(gpu: Any, concurrency: Any) -> None:
-    """gpus_per_replica must divide a worker's cards (`gpu="TYPE:N"`): a worker splits its cards into groups of that
+def check_card_split(gpu: Any, concurrency: Any) -> None:
+    """gpus_per_replica must divide a worker's cards (`--gpu TYPE:N`): a worker splits its cards into groups of that
     size, one model copy per group."""
     per = getattr(concurrency, "gpus_per_replica", None)
     if not per or per == 1:
@@ -505,6 +471,28 @@ def _check_card_split(gpu: Any, concurrency: Any) -> None:
     if cards % per:
         raise PolicyDefinitionError(f"gpus_per_replica={per} does not divide {gpu!r}'s {cards} card(s): a worker "
                                     "splits its cards into groups of gpus_per_replica, one model copy per group")
+
+
+def check_gpu(gpu: Any) -> str:
+    """The card a deployment runs on (`seq deploy --gpu`, deployment_request(gpu=)): one card type, "TYPE:N" for N of
+    one type, or "cpu" - one card a deployment, which a start waits for and never switches from
+. A list was a fallback order until a deployment ran on its
+    first card alone; it is refused in words that say how to write it."""
+    if gpu is None or (isinstance(gpu, str) and not gpu.strip()):
+        raise PolicyDefinitionError('a deployment needs its card: gpu="L4" ("H100:2" is two of one type, "cpu" none)')
+    if isinstance(gpu, (list, tuple)):
+        first = str(gpu[0]) if gpu else "L4"
+        raise PolicyDefinitionError(f'gpu takes one card, not a list: write "{first}", the card it runs on ("H100:2" '
+                                    'is two of one type, "cpu" none)')
+    return str(gpu).strip()
+
+
+def one_worker(gpu: str) -> int | None:
+    """The most GPUs a deployment holds when its deploy names none: the cards of one worker (`--gpu L4`: 1, `--gpu
+    H100:2`: 2) - the least a GPU deployment may run on, which `seq policy set <name> max_gpus=N` raises without a
+    redeploy; None on "cpu", which holds none. The platform refuses a GPU deployment without a cap (billing_settings
+    require_max_gpus), and the decorator no longer names one."""
+    return None if str(gpu).lower() == "cpu" else _cards(gpu)
 
 
 def _models(kw: dict[str, Any]) -> tuple[str, ...]:
@@ -530,13 +518,6 @@ def _models(kw: dict[str, Any]) -> tuple[str, ...]:
 def models_declared(cls: type) -> list[str] | None:
     """The full catalogue ids of the models the policy declared it calls, or None when it declared none."""
     return list(getattr(cls, _MODELS_ATTR, ()) or ()) or None
-
-
-def resources_declared(cls: type) -> dict[str, Any]:
-    """The worker size the policy declared ({"cpu", "cpu_limit", "memory_gb", "memory_limit_gb"}, None where it
-    declared nothing)."""
-    return {"cpu": None, "cpu_limit": None, "memory_gb": None, "memory_limit_gb": None,
-            **(getattr(cls, _RES_ATTR, None) or {})}
 
 
 def locals_declared(cls: type) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
@@ -589,16 +570,6 @@ def _validate(cls: type, spec: PolicySpec, bindings: dict[SeqFlags, str]) -> Non
                 "[(\"observe\", what a robot's observe() sends), (\"act\",), ...], with @seq.sample")
 
 
-
-def _accepts_named(fn: Any, name: str) -> bool:
-    """Whether `fn` takes an argument called `name`, by name or **kwargs - as the worker hands it one (its _accepts)."""
-    try:
-        params = inspect.signature(fn).parameters
-    except (TypeError, ValueError):
-        return False
-    return name in params or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
-
-
 def _check_infer_signature(cls: type, method_name: str) -> None:
     """Verify the infer method can receive an observation argument (beyond `self`)."""
     fn = hook(cls, method_name)
@@ -625,11 +596,11 @@ def _check_infer_signature(cls: type, method_name: str) -> None:
 
 
 def plan_one_machine(card: str) -> str:
-    """Why a policy with a @seq.plan does not run across several machines, `card` the type it declared: every machine
+    """Why a policy with a @seq.plan does not run across several machines, `card` the type its deploy names: every machine
     of the copy has a `self` of its own and would plan its robots apart. The worker and the platform
     say the same."""
-    return (f"a policy with a @seq.plan runs on one machine: across several, each machine would plan apart. Declare at "
-            f'most {MACHINE_CARDS} cards (gpu="{card}:{MACHINE_CARDS}")')
+    return (f"a policy with a @seq.plan runs on one machine: across several, each machine would plan apart. Deploy it "
+            f"on at most {MACHINE_CARDS} cards (--gpu {card}:{MACHINE_CARDS})")
 
 
 def plan_layout(gpu: Any) -> str | None:
@@ -693,30 +664,9 @@ def _infer_params(cls: type, left: list[str] | None = None) -> dict[str, InferPa
                           left=left)
 
 
-def _handler_ref(cls: type, applied: tuple[str, dict] | None = None) -> str:
-    """Build and validate the importable `module.path:ClassName` reference. `applied`: the module that applied the
-    decorator at its top level (applied_by) - when that is not the class's own, the decorator applied there by hand to
-    a class it imported (`from awomo.policy import Awomo` → `seq.policy(...)(Awomo)`, the one file that declares a
-    class left as it is), the reference is that module's and the name it holds the class by: the worker imports that
-    module, which applies the decorator, and finds the class there.
-
-
-    WHY validate importability: the harness loads the class from this string with importlib; a class in `__main__`,
-    a REPL, a function local, or an unloadable module yields a string that would only blow up at load time. Caught
-    with a readable message - for a @seq.policy class where it is deployed (_ref_kept keeps it on the class;
-    importable raises it), never where the class is written, which runs there as before the decorator.
-
-
-
-    """
-    module, qualname = _applied_name(cls, applied)
-    _check_importable(module, qualname)
-    return f"{module}:{qualname}"
-
-
 def _applied_name(cls: type, applied: tuple[str, dict] | None) -> tuple[str, str]:
     """(module, qualname) the worker finds `cls` by: its own, or - the decorator applied by hand at the top of
-    another module (_handler_ref) - that module's and the name it holds the class by. A declaring file that holds it by
+    another module - that module's and the name it holds the class by. A declaring file that holds it by
     no name is refused where it is written, saying how to import it there: the fix is that file's, and nothing later
     would say it (`seq deploy` reads the folder and finds no class to deploy)."""
     module = cls.__module__
@@ -767,7 +717,7 @@ _UNIMPORTABLE_ATTR = "__seq_unimportable__"
 
 
 def _ref_kept(cls: type, applied: tuple[str, dict] | None = None) -> str:
-    """`cls`'s handler_ref (_handler_ref), for a @seq.policy, @seq.benchmark or @seq.adapter class -
+    """`cls`'s handler_ref, for a @seq.policy, @seq.benchmark or @seq.adapter class -
     and, for one no other process can import (written in a script run as `python file.py` or in a notebook, __main__;
     inside a function; in a module that cannot be imported), its module:qualname as written, the refusal kept on the
     class (_UNIMPORTABLE_ATTR) and raised where the platform needs the import (importable: seq deploy and its dry run,
@@ -791,3 +741,10 @@ def importable(cls: type) -> None:
     why = cls.__dict__.get(_UNIMPORTABLE_ATTR)
     if why is not None:
         raise why.with_traceback(None)
+
+
+def default_name(class_name: str) -> str:
+    """The name an adapter registers under when it gives none: its class name, lower-case with hyphens —
+    ToyAdapter → toy-adapter, _To_Arm → to-arm."""
+    kebab = re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "-", class_name.strip("_"))
+    return re.sub(r"[_-]+", "-", kebab).lower()

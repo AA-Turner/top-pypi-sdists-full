@@ -41,6 +41,8 @@ __all__ = (
     "PermissionType",
     "PermissionTypeType",
     "QueryStateStringType",
+    "RLSPolicyStatusReasonType",
+    "RLSPolicyStatusType",
     "RegionName",
     "ResourceServiceName",
     "ResourceShareTypeType",
@@ -106,6 +108,8 @@ PermissionTypeType = Literal[
     "CELL_FILTER_PERMISSION", "COLUMN_PERMISSION", "NESTED_CELL_PERMISSION", "NESTED_PERMISSION"
 ]
 QueryStateStringType = Literal["ERROR", "EXPIRED", "FINISHED", "PENDING", "WORKUNITS_AVAILABLE"]
+RLSPolicyStatusReasonType = Literal["REFERENCED_LOOKUP_TABLE_DELETED", "REFERENCED_UDF_DELETED"]
+RLSPolicyStatusType = Literal["INVALID", "VALID"]
 ResourceShareTypeType = Literal["ALL", "FOREIGN"]
 ResourceTypeType = Literal["DATABASE", "TABLE"]
 SearchDatabasesByLFTagsPaginatorName = Literal["search_databases_by_lf_tags"]
@@ -117,6 +121,7 @@ TransactionTypeType = Literal["READ_AND_WRITE", "READ_ONLY"]
 VerificationStatusType = Literal["NOT_VERIFIED", "VERIFICATION_FAILED", "VERIFIED"]
 LakeFormationServiceName = Literal["lakeformation"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -225,6 +230,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -409,6 +415,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -416,6 +423,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -476,6 +484,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

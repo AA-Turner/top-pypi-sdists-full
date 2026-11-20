@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: typeguard
-Version: 4.6.0
+Version: 4.6.1
 Summary: Run-time type checker for Python
 Author-email: Alex Grönholm <alex.gronholm@nextday.fi>
+Maintainer-email: "Jason R. Coombs" <jaraco@jaraco.com>, André Théo LAURET <andre.lauret@eclipse-technology.eu>
 License-Expression: MIT
 Project-URL: Documentation, https://typeguard.readthedocs.io/en/latest/
 Project-URL: Change log, https://typeguard.readthedocs.io/en/latest/versionhistory.html

@@ -280,7 +280,7 @@ class TestLiteral:
         )
 
     def test_literal_nested(self):
-        annotation = Literal[1, Literal["x", "a", Literal["z"]], 6, 8]
+        annotation = Literal[1, Literal["x", "a", Literal["z"]], 6, 8]  # noqa: RUF041
         check_type("z", annotation)
         pytest.raises(TypeCheckError, check_type, 4, annotation).match(
             r"int is not any of \(1, 'x', 'a', 'z', 6, 8\)$"
@@ -305,7 +305,7 @@ class TestLiteral:
 
 class TestMapping:
     class DummyMapping(collections.abc.Mapping):
-        _values = {"a": 1, "b": 10, "c": 100}
+        _values: ClassVar[dict[str, int]] = {"a": 1, "b": 10, "c": 100}
 
         def __getitem__(self, index: str):
             return self._values[index]
@@ -360,7 +360,7 @@ class TestMapping:
 
 class TestMutableMapping:
     class DummyMutableMapping(collections.abc.MutableMapping):
-        _values = {"a": 1, "b": 10, "c": 100}
+        _values: ClassVar[dict[str, int]] = {"a": 1, "b": 10, "c": 100}
 
         def __getitem__(self, index: str):
             return self._values[index]
@@ -539,6 +539,87 @@ class TestTypedDict:
             TypeCheckError, match=r"value of key 'z' of dict is not an instance of int"
         ):
             check_type({"x": 1, "y": 6, "z": "foo"}, DummyDict)
+
+    def test_readonly_pass(self, typing_provider):
+        try:
+            ReadOnly = typing_provider.ReadOnly
+        except AttributeError:
+            pytest.skip(f"'ReadOnly' not found in {typing_provider.__name__!r}")
+
+        class DummyDict(typing_provider.TypedDict):
+            x: ReadOnly[int]
+            y: "ReadOnly[int]"
+
+        check_type({"x": 1, "y": 2}, DummyDict)
+
+    def test_readonly_fail(self, typing_provider):
+        try:
+            ReadOnly = typing_provider.ReadOnly
+        except AttributeError:
+            pytest.skip(f"'ReadOnly' not found in {typing_provider.__name__!r}")
+
+        class DummyDict(typing_provider.TypedDict):
+            x: ReadOnly[int]
+            y: "ReadOnly[int]"
+
+        with pytest.raises(
+            TypeCheckError, match=r"value of key 'x' of dict is not an instance of int"
+        ):
+            check_type({"x": "foo", "y": 2}, DummyDict)
+
+        with pytest.raises(
+            TypeCheckError, match=r"value of key 'y' of dict is not an instance of int"
+        ):
+            check_type({"x": 1, "y": "foo"}, DummyDict)
+
+    def test_readonly_nested_qualifiers(self, typing_provider):
+        # Exercise the iterative qualifier unwrapping: ReadOnly nested with
+        # Required/NotRequired in either order must be stripped down to the
+        # underlying type, and the Required/NotRequired-ness preserved.
+        try:
+            ReadOnly = typing_provider.ReadOnly
+            Required = typing_provider.Required
+            NotRequired = typing_provider.NotRequired
+        except AttributeError:
+            pytest.skip(
+                f"'ReadOnly'/'Required'/'NotRequired' not found in "
+                f"{typing_provider.__name__!r}"
+            )
+
+        class DummyDict(typing_provider.TypedDict, total=False):
+            a: ReadOnly[Required[int]]
+            b: Required[ReadOnly[int]]
+            c: ReadOnly[NotRequired[int]]
+            d: "NotRequired[ReadOnly[int]]"
+
+        # a and b are required (through the nesting); c and d are optional.
+        check_type({"a": 1, "b": 2}, DummyDict)
+        check_type({"a": 1, "b": 2, "c": 3, "d": 4}, DummyDict)
+
+        # The underlying type is still checked through every nesting order.
+        with pytest.raises(
+            TypeCheckError, match=r"value of key 'a' of dict is not an instance of int"
+        ):
+            check_type({"a": "foo", "b": 2}, DummyDict)
+
+        with pytest.raises(
+            TypeCheckError, match=r"value of key 'b' of dict is not an instance of int"
+        ):
+            check_type({"a": 1, "b": "foo"}, DummyDict)
+
+        with pytest.raises(
+            TypeCheckError, match=r"value of key 'c' of dict is not an instance of int"
+        ):
+            check_type({"a": 1, "b": 2, "c": "foo"}, DummyDict)
+
+        with pytest.raises(
+            TypeCheckError, match=r"value of key 'd' of dict is not an instance of int"
+        ):
+            check_type({"a": 1, "b": 2, "d": "foo"}, DummyDict)
+
+        # Required-ness survives the unwrapping: a missing required key errors.
+        with pytest.raises(TypeCheckError, match=r'is missing required key\(s\): "a"'):
+            check_type({"b": 2}, DummyDict)
 
     def test_required_pass(self, typing_provider):
         try:
@@ -1151,12 +1232,12 @@ class TestIO:
 
 
 class TestIntersectingProtocol:
-    SIT = TypeVar("SIT", covariant=True)
+    SIT_co = TypeVar("SIT_co", covariant=True)
 
     class SizedIterable(
         Sized,
-        Iterable[SIT],
-        Protocol[SIT],
+        Iterable[SIT_co],
+        Protocol[SIT_co],
     ): ...
 
     @pytest.mark.parametrize(
@@ -1648,7 +1729,7 @@ def test_forward_reference_policy(
     policy: ForwardRefPolicy, contextmanager: ContextManager
 ):
     with contextmanager:
-        check_type(1, ForwardRef("Foo"), forward_ref_policy=policy)  # noqa: F821
+        check_type(1, ForwardRef("Foo"), forward_ref_policy=policy)
 
 
 def test_any():

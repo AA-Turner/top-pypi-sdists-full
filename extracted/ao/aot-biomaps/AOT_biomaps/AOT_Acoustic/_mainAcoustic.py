@@ -492,9 +492,7 @@ class AcousticField(ABC):
         if backend is None:
             backend = "python"
         if backend == "cpp" and not KWAVE_BINARIES_AVAILABLE:
-            print(
-                "[AOT-biomaps] Warning: k-Wave binaries unavailable. Falling back to python backend."
-            )
+            print("[AOT-biomaps] Warning: k-Wave binaries unavailable. Falling back to python backend.")
             backend = "python"
 
         data_path = None
@@ -526,9 +524,7 @@ class AcousticField(ABC):
                 GPUdevice = config.select_best_gpu()
 
             if isGPU and not CUPY_AVAILABLE:
-                print(
-                    "[AOT-biomaps] Warning: CuPy not available -> CPU fallback."
-                )
+                print("[AOT-biomaps] Warning: CuPy not available -> CPU fallback.")
                 isGPU = False
             if isGPU and CUPY_AVAILABLE:
                 cp.cuda.Device(GPUdevice).use()
@@ -536,23 +532,12 @@ class AcousticField(ABC):
 
             # --- 1. Source and sensor setup (simulation grid) ------------
             source = kSource()
-            source.p_mask = np.zeros(
-                (self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool
-            )
+            source.p_mask = np.zeros((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
             source = self._set_up_source(source, burst=burst)
-
             sensor = kSensor()
-            sensor.mask = np.ones(
-                (self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool
-            )
-
+            sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
             pml_val = self.params.acoustic["medium"].get("pml_size", 0)
-            pml_size = (
-                [pml_val, pml_val]
-                if isinstance(pml_val, int)
-                else list(pml_val)
-            )
-
+            pml_size = ([pml_val, pml_val] if isinstance(pml_val, int) else list(pml_val))
             medium_copy = copy.deepcopy(self.medium)
 
             # =============================================================
@@ -568,28 +553,18 @@ class AcousticField(ABC):
                 source.p = (source.p / G).astype(np.float32)
 
                 if show_log:
-                    print(
-                        f"[AOT-biomaps] C++ scaling applied: source divided by 2*c0^2 (G={G:.4e})"
-                    )
+                    print(f"[AOT-biomaps] C++ scaling applied: source divided by 2*c0^2 (G={G:.4e})")
 
             # =============================================================
-            # FIX EXPERT : Neutraliser alpha_mode='no_absorption' pour le C++
-            # Le binaire C++ bloque bêtement là-dessus alors qu'il gère les zéros nativement.
+            # WORKAROUND: Neutralize alpha_mode='no_absorption' for the C++ backend. The C++ binary refuses it even though it handles zero-absorption media natively.
             # =============================================================
             if backend == "cpp" and hasattr(medium_copy, "kmedium") and medium_copy.kmedium is not None:
                 if getattr(medium_copy.kmedium, "alpha_mode", None) is not None:
                     medium_copy.kmedium.alpha_mode = None
 
             # --- 2. Simulation execution ---------------------------------
-            sim_kwargs = dict(
-                pml_size=pml_size,
-                use_sg=False,
-                use_kspace=True,
-                smooth_p0=True,
-                backend=backend,
-                device="gpu" if isGPU else "cpu",
-                quiet=not show_log,
-            )
+            sim_kwargs = dict(pml_size=pml_size, use_sg=False, use_kspace=True, smooth_p0=True, backend=backend, device="gpu" if isGPU else "cpu", quiet=not show_log,
+                              )
             if isGPU:
                 sim_kwargs["device_num"] = GPUdevice
             if backend == "python":
@@ -597,28 +572,16 @@ class AcousticField(ABC):
             else:
                 sim_kwargs["data_path"] = data_path
 
-            sensor_data = kspaceFirstOrder(
-                medium_copy.kgrid,
-                medium_copy.kmedium,
-                source,
-                sensor,
-                **sim_kwargs,
-            )
+            sensor_data = kspaceFirstOrder(medium_copy.kgrid, medium_copy.kmedium, source, sensor, **sim_kwargs,)
 
             # =============================================================
             # FIX 2: Early NaN detection guard
             # =============================================================
             p_raw = sensor_data["p"]
-            if CUPY_AVAILABLE and isinstance(p_raw, cp.ndarray):
-                n_nan = int(cp.count_nonzero(cp.isnan(p_raw)))
-            else:
-                n_nan = int(np.count_nonzero(np.isnan(p_raw)))
+            n_nan = int(cp.count_nonzero(cp.isnan(p_raw))) if CUPY_AVAILABLE and isinstance(p_raw, cp.ndarray) else int(np.count_nonzero(np.isnan(p_raw)))
 
             if n_nan > 0:
-                raise ValueError(
-                    f"[AOT-biomaps] k-Wave ({backend}) returned {n_nan} NaNs. "
-                    f"Simulation diverged -- field {tempFileName} was not saved."
-                )
+                raise ValueError(f"[AOT-biomaps] k-Wave ({backend}) returned {n_nan} NaNs. Simulation diverged -- field {tempFileName} was not saved.")
 
             # --- 3. Layout reconstruction and memory cleanup -------------
             Nx, Nz = self.medium.Nx_reshaped, self.medium.Nz_reshaped
@@ -626,11 +589,11 @@ class AcousticField(ABC):
             # =============================================================
             # FIX 3: Backend-specific layout handling (C-order vs Fortran)
             # =============================================================
-            g = sensor_data_to_grid(
-                sensor_data["p"], Nx, Nz, backend=backend, xp=xp
-            )
+            g = sensor_data_to_grid(sensor_data["p"], Nx, Nz, backend=backend, xp=xp)
             Nt = g.shape[-1]
             del sensor_data
+            if CUPY_AVAILABLE and isGPU:
+                cp.get_default_memory_pool().free_all_blocks()
 
             if data_path is not None:
                 shutil.rmtree(data_path, ignore_errors=True)
@@ -641,32 +604,20 @@ class AcousticField(ABC):
             dz = float(getattr(self.medium, "dz_reshaped", dx))
             dt = float(medium_copy.kgrid.dt)
 
-            sizes, steps = compute_target_sizes(
-                Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz
-            )
-            self.last_decimation = dict(zip(("Nt", "Nz", "Nx"), sizes)) | dict(
-                zip(("dt", "dz", "dx"), steps)
-            )
+            sizes, steps = compute_target_sizes(Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz)
+            self.last_decimation = dict(zip(("Nt", "Nz", "Nx"), sizes)) | dict(zip(("dt", "dz", "dx"), steps))
 
             if show_log:
-                print(
-                    f"Resampling: ({Nx},{Nz},{Nt}) -> {tuple(reversed(sizes))} | "
-                    f"dt {dt*1e9:.1f}->{steps[0]*1e9:.1f} ns, "
-                    f"dx {dx*1e6:.0f}->{steps[2]*1e6:.1f} um, "
-                    f"dz {dz*1e6:.0f}->{steps[1]*1e6:.1f} um"
-                )
+                print(f"Resampling: ({Nx},{Nz},{Nt}) -> {tuple(reversed(sizes))} | dt {dt*1e9:.1f}->{steps[0]*1e9:.1f} ns, dz {dz*1e6:.0f}->{steps[1]*1e6:.1f} um")
 
             if generation_type == "envelope_squared":
-                out = calculate_envelope_squared(g, xp=xp)
+                out = calculate_envelope_squared(g, xp=xp, show_log=show_log)
             elif generation_type == "envelope":
-                out = calculate_envelope(g, xp=xp)
+                out = calculate_envelope(g, xp=xp, show_log=show_log)
             elif generation_type == "field":
                 out = g
             else:
-                raise ValueError(
-                    f"[AOT-biomaps] Invalid generation_type: {generation_type}. "
-                    "Supported: 'envelope_squared', 'envelope', 'field'."
-                )
+                raise ValueError(f"[AOT-biomaps] Invalid generation_type: {generation_type}. Supported: 'envelope_squared', 'envelope', 'field'.")
 
             if generation_type != "field":
                 del g
@@ -677,11 +628,7 @@ class AcousticField(ABC):
             if keep_on_gpu:
                 return out
 
-            if CUPY_AVAILABLE and isinstance(out, cp.ndarray):
-                out_np = cp.asnumpy(out)
-            else:
-                out_np = np.asarray(out)
-            del out
+            out_np = cp.asnumpy(out) if CUPY_AVAILABLE and isinstance(out, cp.ndarray) else np.asarray(out)
 
             if free_vram and CUPY_AVAILABLE and isGPU:
                 cp.get_default_memory_pool().free_all_blocks()

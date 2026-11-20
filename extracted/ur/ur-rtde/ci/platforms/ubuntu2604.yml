@@ -1,0 +1,19 @@
+build-ubuntu-2604:
+  extends: .linux-build
+  image: registry.gitlab.sdu.dk/sdurobotics/docker-images/ur_rtde-build:ubuntu-2604
+
+local-pip-ubuntu-2604:
+  extends: .linux-local-pip
+  image: registry.gitlab.sdu.dk/sdurobotics/docker-images/ur_rtde-build:ubuntu-2604
+
+examples-ubuntu-2604:
+  extends: .linux-build-examples
+  image: registry.gitlab.sdu.dk/sdurobotics/docker-images/ur_rtde-build:ubuntu-2604
+  dependencies:
+    - build-ubuntu-2604
+  needs: ["build-ubuntu-2604"]
+
+build_docs:
+  extends: .linux-doc
+  image: registry.gitlab.sdu.dk/sdurobotics/docker-images/ur_rtde-build:ubuntu-2604-doc
+

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: stac-geoparquet
-Version: 0.8.3
+Version: 0.9.0
 Dynamic: Summary
 Project-URL: Home, https://github.com/stac-utils/stac-geoparquet
 Author-email: Tom Augspurger <taugspurger@microsoft.com>
@@ -48,8 +48,8 @@ Requires-Dist: typing-extensions; python_version < '3.11'
 Provides-Extra: deltalake
 Requires-Dist: deltalake<1; extra == 'deltalake'
 Provides-Extra: pgstac
-Requires-Dist: psycopg-pool; extra == 'pgstac'
-Requires-Dist: psycopg[binary]; extra == 'pgstac'
+Requires-Dist: psycopg-pool>=3.3; extra == 'pgstac'
+Requires-Dist: psycopg[binary]>=3.2; extra == 'pgstac'
 Requires-Dist: pypgstac; extra == 'pgstac'
 Description-Content-Type: text/markdown
 

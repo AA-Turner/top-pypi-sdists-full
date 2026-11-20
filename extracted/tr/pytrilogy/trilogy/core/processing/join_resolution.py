@@ -64,6 +64,7 @@ from trilogy.core.processing.utility import (
     join_left_sources,
     joined_right_ids,
     left_deep_joins,
+    padded_before,
     padded_by,
 )
 from trilogy.utility import string_to_hash
@@ -127,28 +128,24 @@ def prune_outer_join_pairs(joins: list[SourceJoin | UnnestJoin]) -> None:
     coalesce IS the key, and all pairs stay. A join keyed off other lefts
     than it was typed against keeps no type of its own to restore: the left
     walked first, now pruned, decided it (`restore_unpadded_joins`)."""
-    padded: set[str] = set()
-    for join, left in left_deep_joins(joins):
+    for join, _, padded in padded_before(joins):
         if join.pairs and join.join_type in DIRECTIONAL_OUTER_JOIN_TYPES:
             kept = preserved_key_pairs(join.pairs, padded, _pair_source)
             if len(kept) < len(join.pairs):
                 join.own_type = None
             join.pairs = kept
-        padded |= padded_by(join, left)
 
 
 def restore_unpadded_joins(joins: list[SourceJoin | UnnestJoin]) -> None:
     """A join widened to keep the rows an earlier join padded takes back its
     own type once narrowing made every such earlier join pad nothing: the
     widening only held rows that no longer arrive."""
-    padded: set[str] = set()
-    for join, left in left_deep_joins(joins):
+    for join, _, padded in padded_before(joins):
         own = join.own_type
         if own is not None and own != join.join_type:
             lefts = {source.identifier for source in join_left_sources(join)}
             if not lefts & padded and own in _NARROWER.get(join.join_type, ()):
                 join.join_type = own
-        padded |= padded_by(join, left)
 
 
 _NARROWER: dict[JoinType, frozenset[JoinType]] = {
@@ -785,8 +782,13 @@ def _nullable_join(
     left_facts, right_facts = facts.side(left), facts.side(right)
     if _gate_passes_padding(left_facts, right_facts, facts.applied):
         return JoinType.INNER
-    left_is_nullable = bool(keys & left_facts.nullables)
-    right_is_nullable = bool(keys & right_facts.nullables)
+    # a NULL key on one side is a row the other side's own filters rejected
+    left_is_nullable = bool(
+        keys & left_facts.nullables - _rejected_nulls(right_facts, left_facts)
+    )
+    right_is_nullable = bool(
+        keys & right_facts.nullables - _rejected_nulls(left_facts, right_facts)
+    )
     if left_is_nullable and right_is_nullable:
         # Null-pairing is only sound when the padded rows name the same thing.
         # The host's padding is the grain-bearing extension family; the feeder's
@@ -851,6 +853,20 @@ def _nullable_join(
     if unfiltered is not None:
         return _preserving(unfiltered)
     return JoinType.INNER
+
+
+def _rejected_nulls(passed: SideFacts, skipped: SideFacts) -> set[str]:
+    """The keys, as join nodes, that filters `passed` went through and
+    `skipped` did not force non-null: a NULL there is a row they rejected."""
+    # local import: grain_utility imports this module
+    from trilogy.core.processing.grain_utility import non_null_proofs
+
+    return {
+        f"c~{a}"
+        for atom in passed.filters
+        if not any(atom == b for b in skipped.filters)
+        for a in non_null_proofs(atom)
+    }
 
 
 def _gate_passes_padding(
@@ -978,6 +994,22 @@ def _trace_join_type(
     )
 
 
+def _independent_full_keys(
+    left: str, right: str, keys: set[str], facts: JoinFacts
+) -> bool:
+    """A FULL-declared key the pair joins on as an axis of its own. One both
+    sides' grains, among the pair's other keys, determine (`parent` beside
+    `id`) pairs no row the grain does not, and the pairing drops it."""
+    full = keys & facts.full_join_keys
+    if not full:
+        return False
+    rest = keys - full
+    return not all(
+        side.grain and side.grain <= rest and full <= side.determined
+        for side in (facts.side(left), facts.side(right))
+    )
+
+
 def _decide_join_type(
     left: str,
     right: str,
@@ -989,7 +1021,7 @@ def _decide_join_type(
     # UNION-declared keys (query-scoped `full join` / `union join`, non-partial
     # merges): neither domain contains the other, so FULL with the key
     # coalesced; the registry also vetoes narrowing, and keeps the key complete.
-    if all_connecting_keys & facts.full_join_keys:
+    if _independent_full_keys(left, right, all_connecting_keys, facts):
         return JoinType.FULL, "full_join_keys"
 
     region_type, region_hosts_equally = _region_contract_join(
@@ -2941,6 +2973,10 @@ def get_node_joins(
         is_coalescing_axis,
     )
 
+    # an EQUAL key (`merge a into b`, `merge equal a = b`) declares one domain,
+    # not that every side carries all of it: the join preserves both until each
+    # side proves complete, which the optimizer checks (a side built from part
+    # of the domain pads the rest, `test_unnest_filter_laws`)
     full_join_keys = {
         canon_node(a) for a in environment.domain_graph.outer_relation_keys()
     }

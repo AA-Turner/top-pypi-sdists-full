@@ -49,11 +49,8 @@ def encode(frame: Any, *, quality: int = DEFAULT_JPEG_QUALITY) -> str:
 
     `frame` may be a numpy array, a PIL image, raw `bytes` already encoded, or a `str` already base64
     — the last two pass through untouched, so a caller with their own pipeline is not forced through
-    this one. Codec is JPEG at `quality`, unconditionally, at the frame's own size.
-
-    Before 0.34.12 a frame over 640 px on its long edge was scaled down to 640 here, and the policy
-    resized it again on the worker. Now the robot fits its frames itself, with `resize_image`, the way its
-    policy was trained.
+    this one. Codec is JPEG at `quality`, unconditionally, at the frame's own size: the robot fits its frames
+    itself first, with `resize_image`, the way its policy was trained.
     """
     if isinstance(frame, str):
         return frame

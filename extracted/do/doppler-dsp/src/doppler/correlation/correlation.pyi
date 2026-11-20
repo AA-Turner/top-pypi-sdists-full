@@ -79,8 +79,8 @@ class Correlator:
     ValueError
         If construction fails. The exception message is the reason the
         constructor gives, or ``Correlator: refused, or out of memory
-        (docs/design/correlator-python.md section 17: a value the flavor would
-        not honor is refused)`` when it gives none.
+        (docs/design/correlator.md section 3: a value the flavor would not
+        honor is refused)`` when it gives none.
 
     Warns
     -----
@@ -919,6 +919,79 @@ class Correlator:
 
         """
 
+    def set_peak_zone(self, all_doppler: int, half_chips: float) -> None:
+        """The exclusion zone each listed peak marks before the next is sought:
+        how far it reaches along Doppler and along the lags.
+
+        By default a listed peak masks one native Doppler row (its `interp`
+        surface rows either side) by the template's correlation mainlobe across
+        the lags (`shape.zone`), so the next peak may sit at the same lag in
+        another Doppler row: a second emitter at that code phase, or the first
+        one's own slow-time sidelobes, its alias in a neighbouring roll, or the
+        spread its data puts on its own lag inside a coherent dwell. One strong
+        emitter can then take every slot of the list with its own lag, and a
+        weaker one elsewhere is never listed (doppler#3067).
+
+        `all_doppler` = 1 makes the zone cover every Doppler bin of every roll
+        at the peak's lags, so an emitter is listed once a dwell, at its
+        strongest cell. `half_chips` > 0 sets the zone's half-width across the
+        lags in the search's chips: the most whole lag columns within it,
+        floor(half_chips * lag_bins / sf), so the zone is never wider than
+        asked (sf is a code's chips a period on the continuous search; on the
+        burst search it is the template's samples, so a "chip" there is a
+        sample); <= 0 keeps the mainlobe's. The receiver asks for (1,
+        DP_CORRELATOR_SAME_PHASE_CHIPS / 2), half the width its pick treats as
+        one signal (§7.2 rule 1): the zone is a lag, and with a carrier set the
+        pick's key carries each hit on by its own Doppler's dilation, off the
+        lag grid, so only a zone inside the key never masks what the pick
+        keeps. A half_chips under one lag column (0.5 chip below two lag
+        columns a chip) marks the peak's own lag alone. A caller that never
+        calls this gets today's list exactly. The two-epoch twin rule
+        (async-dsss-receiver.md §7.1) keeps the mainlobe's width whatever this
+        sets, so a peak past a narrower zone but inside the mainlobe -- an
+        emitter's shoulder off the lag grid -- is still held a dwell as a twin.
+
+        Both values are mutators' (#2022): they travel in the state blob and a
+        restore applies them.
+
+        Parameters
+        ----------
+        all_doppler : int
+            1 = every Doppler bin of every roll; 0 = one row.
+        half_chips : float
+            Half-width across the lags, chips; <= 0 = the template's mainlobe.
+            Finite.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns ``DP_ERR_UNSUPPORTED``. The exception message
+            is the reason the C call gives, or ``set_peak_zone: only a search
+            (framing='continuous' or 'burst') lists peaks; Correlator.flavor
+            says which this is`` when it gives none.
+        ValueError
+            If the C call returns ``DP_ERR_INVALID``. The exception message is
+            the reason the C call gives, or ``set_peak_zone: all_doppler must
+            be 0 or 1 and half_chips finite`` when it gives none.
+        ValueError
+            If the C call returns any other non-zero status. The exception
+            message is the reason the C call gives, or ``set_peak_zone
+            failed``, with the return code appended (gh-869), when it gives
+            none.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.correlation import Correlator
+        >>> code = (np.arange(31) * 5 % 2).astype(np.uint8)
+        >>> ref = np.where(code & 1, -1, 1).astype(np.complex64)
+        >>> a = Correlator(ref, framing="continuous", sample_rate=2e6, chip_rate=1e6, symbol_rate=1e3,
+        ...                 cn0_dbhz=50.0, doppler_uncertainty=50e3)
+        >>> a.set_max_peaks(8)
+        >>> a.set_peak_zone(1, 1.0)
+
+        """
+
     def set_carrier_freq_hz(self, carrier_freq_hz: float) -> None:
         """Couple the code clock to the carrier: the chip rate dilates by
         `doppler_hz / carrier_freq_hz`, and the engine accounts for it.
@@ -957,8 +1030,8 @@ class Correlator:
         ----------
         carrier_freq_hz : float
             RF carrier, Hz; 0.0 = uncoupled. Refused (DP_ERR_UNSUPPORTED) on
-            every flavor but the continuous search
-            (docs/design/correlator-python.md section 18).
+            every flavor but the continuous search (docs/design/correlator.md
+            section 4).
 
         Raises
         ------
@@ -998,24 +1071,27 @@ class Correlator:
         """
 
     def set_threads(self, n: int) -> None:
-        """Set how many threads the searcher fans its tiles across
-        (docs/design/acq-surface.md §13: a roll per thread on persistent
-        workers).
+        """Set how many threads the searcher fans its stages across
+        (docs/design/acq-surface.md §13, §18.3: persistent workers).
 
         A continuous engine is created with a pool of the machine's online
         cores when it has more than one tile; a burst engine, and a single-tile
         one, run serially. This sets the count: 0 auto-selects the online core
         count, 1 runs everything on the calling thread, n runs on n workers
-        (the caller included) -- but never more than `window_bins`: every fan
-        hands out one tile a task, so a worker past that only wakes and waits.
-        The request is kept, and every regrid re-applies it, so an engine
-        narrowed to one tile and widened again runs on min(n, tiles), not on
-        the 1 the narrow grid ran on. The workers are created here, once, and
-        parked between pushes; nothing is created per push. The surface is
-        bit-identical at every count -- the tiles are independent after the one
-        forward transform and each writes its own rows -- so this changes the
-        cost of a push and nothing about its result. Setup path, never hot; not
-        while another thread is inside push().
+        (the caller included). At a depth of one epoch (D = 1) the count is
+        capped at `window_bins`: every per-epoch fan hands out one tile a task,
+        so a worker past that only wakes and waits. At D > 1 every stage fans
+        finer than tiles (epochs, capture bins, rows, chunks of rows), so the
+        count is taken whole, and each worker holds its own FFT plans and
+        scratch: memory grows with the count. The request is kept, and every
+        regrid re-applies it, so an engine narrowed to one tile and widened
+        again runs on the request, not on the 1 the narrow grid ran on. The
+        workers are created here, once, and parked between pushes; nothing is
+        created per push. The surface is bit-identical at every count -- every
+        output row and every decide chunk is computed whole by one worker, and
+        the chunk count is the grid's -- so this changes the cost of a push and
+        nothing about its result. Setup path, never hot; not while another
+        thread is inside push().
 
         Parameters
         ----------
@@ -1046,7 +1122,7 @@ class Correlator:
         >>> ref = np.where(code & 1, -1, 1).astype(np.complex64)
         >>> a = Correlator(ref, framing="continuous", sample_rate=2e6, chip_rate=1e6, cn0_dbhz=50.0,
         ...                 doppler_uncertainty=4000.0)
-        >>> a.threads >= 1               # at most one worker a tile
+        >>> a.threads >= 1               # the online cores (capped at D = 1)
         True
         >>> a.set_threads(1)
         >>> a.threads
@@ -1095,7 +1171,7 @@ class Correlator:
         decim : int
             Emit every decim-th decided dwell; >= 1. Refused
             (DP_ERR_UNSUPPORTED) on every flavor but the continuous search
-            (docs/design/correlator-python.md section 18).
+            (docs/design/correlator.md section 4).
 
         Raises
         ------

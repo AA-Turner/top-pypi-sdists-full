@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-quickjs
-Version: 0.3.12
+Version: 0.4.0
 Summary: JavaScript REPL middleware for deepagents
 Project-URL: Homepage, https://github.com/langchain-ai/deepagents/tree/main/libs/partners/quickjs
 Project-URL: Repository, https://github.com/langchain-ai/deepagents
@@ -17,11 +17,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4.0,>=3.11
 Requires-Dist: bsdiff4>=1.3.0
-Requires-Dist: deepagents<0.8.0,>=0.7.34
-Requires-Dist: langchain-core<2.0.0,>=1.7.6
-Requires-Dist: langchain<2.0.0,>=1.4.9
-Requires-Dist: langgraph<2.0.0,>=1.2.20
-Requires-Dist: quickjs-rs<0.3.0,>=0.2.6
+Requires-Dist: deepagents<0.8.0,>=0.7.40
+Requires-Dist: langchain-core<2.0.0,>=1.8.3
+Requires-Dist: langchain<2.0.0,>=1.5.2
+Requires-Dist: langgraph<2.0.0,>=1.2.22
+Requires-Dist: quickjs-rs<0.4.0,>=0.3.0
 Description-Content-Type: text/markdown
 
 # langchain-quickjs
@@ -299,7 +299,7 @@ for call in run.tool_calls:
 
 This visibility does not route PTC calls through `ToolNode` or add per-call human-in-the-loop approval; the configured PTC allowlist remains the security boundary. The inner calls are not added as synthetic graph messages.
 
-- Tool return values retain JS-native scalar, list, and object shapes where possible. `ToolMessage` and `Command` envelopes are unwrapped at the bridge boundary, and nested non-native Python values are stringified in place.
+- Tool return values retain JS-native scalar, list, and object shapes where possible. `ToolMessage` and `Command` envelopes are unwrapped at the bridge boundary, and nested non-native Python values are stringified in place. A `Command`'s dict `update` is applied to agent state, except `messages`, and later `tools.*` calls in the same eval read it. A `Command` that eval cannot apply fails it; see `UnsupportedCommand` below.
 
 ## Configuration reference
 
@@ -326,6 +326,7 @@ CodeInterpreterMiddleware(
 | `Timeout` | Call exceeded `timeout=` (only when a deadline is set). |
 | `OutOfMemory` | Runtime hit `memory_limit=`. |
 | `PTCCallBudgetExceeded` | Uncaught `tools.*` call-budget overflow in one eval (`max_ptc_calls=`). |
+| `UnsupportedCommand` | A `tools.*` call returned a `Command` that sets `goto`, `graph`, or `resume`, or whose update is not a dict. Nothing from that result is written. |
 | `Deadlock` | Top-level promise never resolved with no async host work in flight. |
 | `ConcurrentEval` | Shouldn't happen under locks; defensive mapping for QuickJS `ConcurrentEvalError`. |
 

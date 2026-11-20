@@ -1,6 +1,8 @@
 #include "_accel_common.h"
+#include "_int_groups_core.h"
 
 #include <cstring>
+#include <memory>
 #include <limits>
 #include <stdexcept>
 #ifdef _OPENMP
@@ -35,16 +37,7 @@
 // hazards of the numeric TUs (momwire#1194) do not apply; its own TU anyway,
 // so nothing here can move another kernel's codegen.
 
-// A read prefetch: a hint only. It never faults and changes no value, so a
-// stale one (a slot since filled, a key vector since moved) costs nothing.
-#if defined(__GNUC__) || defined(__clang__)
-#define MW_PREFETCH(p) __builtin_prefetch(static_cast<const void *>(p))
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
-#include <xmmintrin.h>
-#define MW_PREFETCH(p) _mm_prefetch(reinterpret_cast<const char *>(p), _MM_HINT_T0)
-#else
-#define MW_PREFETCH(p) ((void)(p))
-#endif
+// MW_PREFETCH, a read prefetch, comes from `_int_groups_core.h`.
 
 namespace factorize {
 
@@ -1277,6 +1270,50 @@ class RowGroups {
     std::vector<uint64_t> table_;
 };
 
+// `factorize_ints` over a sequence of calls, on 1 to 8 int64 columns: the
+// running grouping `_int_groups_core.h` holds (its comment has the contract),
+// which the C++ fill's sinusoidal pair-reuse census folds into as well
+// (`_sin_pair_reuse_core.cpp`), so the two routes number and count alike.
+class IntGroups {
+  public:
+    explicit IntGroups(py::ssize_t width) : core_(static_cast<size_t>(width < 1 ? 1 : width)) {
+        if (width < 1 || width > 8)
+            throw std::runtime_error("IntGroups: 1 to 8 columns");
+    }
+
+    py::array_t<int64_t> add(std::vector<py::array_t<int64_t, py::array::forcecast>> arrs,
+                             uintptr_t cancel_flag = 0) {
+        if (arrs.size() != core_.width())
+            throw std::runtime_error("IntGroups.add: one array per column");
+        std::vector<mw::int_groups::Col> cols;
+        py::ssize_t n = arrs[0].shape(0);
+        for (const auto &a : arrs) {
+            if (a.ndim() != 1 || a.shape(0) != n)
+                throw std::runtime_error("IntGroups.add: equal-length 1-D columns");
+            cols.push_back(mw::int_groups::Col{reinterpret_cast<const char *>(a.data()), a.strides(0)});
+        }
+        if (n_groups() + n >= static_cast<py::ssize_t>(std::numeric_limits<int32_t>::max()))
+            throw std::runtime_error("IntGroups: too many groups");
+        py::array_t<int64_t> ids(n);
+        int64_t *out = ids.mutable_data();
+        {
+            py::gil_scoped_release nogil;
+            MW_CANCEL_SERIAL_SETUP(cancel_flag);
+            // Between blocks the grouping is whole; an abort leaves the rows
+            // added so far, and the caller discards the object.
+            core_.add(cols.data(), n, out, [&] { MW_CANCEL_SERIAL_POLL(); });
+        }
+        return ids;
+    }
+
+    py::ssize_t n_groups() const { return core_.n_groups(); }
+
+    py::ssize_t nbytes() const { return core_.nbytes(); }
+
+  private:
+    mw::int_groups::IntGroups core_;
+};
+
 // Each row's `factorize_ints` of a (groups, line) table of non-negative ids
 // below `n_id` (the crossing plan's global key ids, `_product_plan`), in one
 // pass: per row g, `rank[g, l]` is the local id of kid[g, l] in first-
@@ -1531,6 +1568,13 @@ void register_factorize(py::module_ &m) {
              py::arg("cancel_flag") = 0)
         .def("rows", &factorize::RowGroups::rows)
         .def("__len__", &factorize::RowGroups::n_groups);
+    py::class_<factorize::IntGroups>(m, "IntGroups")
+        .def(py::init<py::ssize_t>(), py::arg("width"))
+        .def("add", &factorize::IntGroups::add, py::arg("cols"),
+             py::arg("cancel_flag") = 0)
+        .def("nbytes", &factorize::IntGroups::nbytes)
+        .def("__len__", &factorize::IntGroups::n_groups);
+    m.attr("int_groups") = true;
     m.def("group_first_ranks", &factorize::group_first_ranks,
           "Per row of a (groups, line) int32 id table, `factorize_ints` of "
           "the row in one pass: (rank (groups, line) int32, n (groups,), "

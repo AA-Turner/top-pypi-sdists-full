@@ -58,6 +58,12 @@ namespace kiwi
 {
 	namespace nst
 	{
+		// Mask of the lowest size bits. Shifting a size_t by its full width is undefined.
+		inline size_t lowBitsMask(size_t size)
+		{
+			return size >= sizeof(size_t) * 8 ? ~(size_t)0 : ((size_t)1 << size) - 1;
+		}
+
 		template<class KeyTy>
 		Vector<size_t> getBstOrder(const KeyTy* keys, size_t size)
 		{
@@ -213,10 +219,11 @@ namespace kiwi
 			template<class IntTy, class ValueTy>
 			static ValueTy searchKV(const void* kv, size_t size, IntTy target)
 			{
+				// prepareKV reorders the keys (and their values) into BST order.
 				size_t idx;
 				const IntTy* keys = reinterpret_cast<const IntTy*>(kv);
 				const ValueTy* values = reinterpret_cast<const ValueTy*>(keys + size);
-				if (search(keys, size, target, idx))
+				if (bstSearch(keys, size, target, idx))
 				{
 					return values[idx];
 				}
@@ -559,7 +566,7 @@ namespace kiwi
 			{
 				__m128i parr = _mm_loadu_si128(reinterpret_cast<const __m128i*>(arr));
 				__m128i pcmp = _mm_cmpeq_epi8(pkey, parr);
-				return (size_t)_mm_movemask_epi8(pcmp) & (((size_t)1 << size) - 1);
+				return (size_t)_mm_movemask_epi8(pcmp) & lowBitsMask(size);
 			}
 			else if (size <= 32)
 			{
@@ -567,7 +574,7 @@ namespace kiwi
 				__m128i parr1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(arr + 16));
 				__m128i pcmp0 = _mm_cmpeq_epi8(pkey, parr0);
 				__m128i pcmp1 = _mm_cmpeq_epi8(pkey, parr1);
-				return ((size_t)_mm_movemask_epi8(pcmp0) | ((size_t)_mm_movemask_epi8(pcmp1) << 16)) & (((size_t)1 << size) - 1);
+				return ((size_t)_mm_movemask_epi8(pcmp0) | ((size_t)_mm_movemask_epi8(pcmp1) << 16)) & lowBitsMask(size);
 			}
 			else if (size <= 48)
 			{
@@ -577,7 +584,7 @@ namespace kiwi
 				__m128i pcmp0 = _mm_cmpeq_epi8(pkey, parr0);
 				__m128i pcmp1 = _mm_cmpeq_epi8(pkey, parr1);
 				__m128i pcmp2 = _mm_cmpeq_epi8(pkey, parr2);
-				return ((size_t)_mm_movemask_epi8(pcmp0) | ((size_t)_mm_movemask_epi8(pcmp1) << 16) | ((size_t)_mm_movemask_epi8(pcmp2) << 32)) & (((size_t)1 << size) - 1);
+				return ((size_t)_mm_movemask_epi8(pcmp0) | ((size_t)_mm_movemask_epi8(pcmp1) << 16) | ((size_t)_mm_movemask_epi8(pcmp2) << 32)) & lowBitsMask(size);
 			}
 			else
 			{
@@ -589,7 +596,7 @@ namespace kiwi
 				__m128i pcmp1 = _mm_cmpeq_epi8(pkey, parr1);
 				__m128i pcmp2 = _mm_cmpeq_epi8(pkey, parr2);
 				__m128i pcmp3 = _mm_cmpeq_epi8(pkey, parr3);
-				return ((size_t)_mm_movemask_epi8(pcmp0) | ((size_t)_mm_movemask_epi8(pcmp1) << 16) | ((size_t)_mm_movemask_epi8(pcmp2) << 32) | ((size_t)_mm_movemask_epi8(pcmp3) << 48)) & (((size_t)1 << size) - 1);
+				return ((size_t)_mm_movemask_epi8(pcmp0) | ((size_t)_mm_movemask_epi8(pcmp1) << 16) | ((size_t)_mm_movemask_epi8(pcmp2) << 32) | ((size_t)_mm_movemask_epi8(pcmp3) << 48)) & lowBitsMask(size);
 			}
 		}
 
@@ -953,7 +960,7 @@ namespace kiwi
 				__m256i pkey = _mm256_set1_epi8(key);
 				__m256i parr = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(arr));
 				__m256i pcmp = _mm256_cmpeq_epi8(pkey, parr);
-				return (size_t)_mm256_movemask_epi8(pcmp) & (((size_t)1 << size) - 1);
+				return (size_t)_mm256_movemask_epi8(pcmp) & lowBitsMask(size);
 			}
 			else
 			{
@@ -962,7 +969,7 @@ namespace kiwi
 				__m256i parr1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(arr + 32));
 				__m256i pcmp0 = _mm256_cmpeq_epi8(pkey, parr0);
 				__m256i pcmp1 = _mm256_cmpeq_epi8(pkey, parr1);
-				return ((size_t)_mm256_movemask_epi8(pcmp0) | ((size_t)_mm256_movemask_epi8(pcmp1) << 32)) & (((size_t)1 << size) - 1);
+				return ((size_t)_mm256_movemask_epi8(pcmp0) | ((size_t)_mm256_movemask_epi8(pcmp1) << 32)) & lowBitsMask(size);
 			}
 		}
 
@@ -1263,7 +1270,7 @@ namespace kiwi
 			__m512i pkey = _mm512_set1_epi8(key);
 			__m512i parr = _mm512_loadu_si512(reinterpret_cast<const __m512i*>(arr));
 			__mmask64 pcmp = _mm512_cmpeq_epi8_mask(pkey, parr);
-			return (size_t)pcmp & (((size_t)1 << size) - 1);
+			return (size_t)pcmp & lowBitsMask(size);
 		}
 
 		template<>
@@ -1709,7 +1716,7 @@ namespace kiwi
 				pmasked = vandq_u8(pcmp, mask);
 				uint8_t mm0 = vaddv_u8(vget_low_u8(pmasked));
 				uint8_t mm1 = vaddv_u8(vget_high_u8(pmasked));
-				return (mm0 | ((size_t)mm1 << 8)) & (((size_t)1 << size) - 1);
+				return (mm0 | ((size_t)mm1 << 8)) & lowBitsMask(size);
 			}
 			else if (size <= 32)
 			{
@@ -1725,7 +1732,7 @@ namespace kiwi
 				mm0 = vaddv_u8(vget_low_u8(pmasked));
 				mm1 = vaddv_u8(vget_high_u8(pmasked));
 				size_t r1 = mm0 | ((size_t)mm1 << 8);
-				return (r0 | (r1 << 16)) & (((size_t)1 << size) - 1);
+				return (r0 | (r1 << 16)) & lowBitsMask(size);
 			}
 			else if (size <= 48)
 			{
@@ -1747,7 +1754,7 @@ namespace kiwi
 				mm0 = vaddv_u8(vget_low_u8(pmasked));
 				mm1 = vaddv_u8(vget_high_u8(pmasked));
 				size_t r2 = mm0 | ((size_t)mm1 << 8);
-				return (r0 | (r1 << 16) | (r2 << 32)) & (((size_t)1 << size) - 1);
+				return (r0 | (r1 << 16) | (r2 << 32)) & lowBitsMask(size);
 			}
 			else
 			{
@@ -1775,7 +1782,7 @@ namespace kiwi
 				mm0 = vaddv_u8(vget_low_u8(pmasked));
 				mm1 = vaddv_u8(vget_high_u8(pmasked));
 				size_t r3 = mm0 | ((size_t)mm1 << 8);
-				return (r0 | (r1 << 16) | (r2 << 32) | (r3 << 48)) & (((size_t)1 << size) - 1);
+				return (r0 | (r1 << 16) | (r2 << 32) | (r3 << 48)) & lowBitsMask(size);
 			}
 		}
 

@@ -47,21 +47,6 @@ class MLFlowLogger(BaseDashboardLogger):
         run = self.client.create_run(experiment_id=self.experiment_id, tags=resolve_tags(tags))
         self.run_id = run.info.run_id
 
-    def model_weights(self, model: torch.nn.Module, step: int) -> None:
-        layer_num = 1
-        for name, param in model.named_parameters():
-            if param.numel() == 1:
-                self.client.log_metric(self.run_id, f"layer{layer_num}-{name}/value", param.max().item(), step=step)
-            else:
-                self.client.log_metric(self.run_id, f"layer{layer_num}-{name}/max", param.max().item(), step=step)
-                self.client.log_metric(self.run_id, f"layer{layer_num}-{name}/min", param.min().item(), step=step)
-                self.client.log_metric(self.run_id, f"layer{layer_num}-{name}/mean", param.mean().item(), step=step)
-                self.client.log_metric(self.run_id, f"layer{layer_num}-{name}/std", param.std().item(), step=step)
-                # MlFlow does not support histograms
-                # self.client.add_histogram("layer{}-{}/param".format(layer_num, name), param, step)
-                # self.client.add_histogram("layer{}-{}/grad".format(layer_num, name), param.grad, step)
-            layer_num += 1
-
     def add_scalar(self, title: str, value: float, step: int) -> None:
         if torch.is_tensor(value):
             value = value.item()
@@ -76,15 +61,18 @@ class MLFlowLogger(BaseDashboardLogger):
     def add_artifact(
         self, file_or_dir: str | os.PathLike[Any], name: str, artifact_type: str, aliases: list[str] | None = None
     ) -> None:
-        self.client.log_artifacts(self.run_id, str(file_or_dir))
+        if Path(file_or_dir).is_file():
+            self.client.log_artifact(self.run_id, str(file_or_dir))
+        else:
+            self.client.log_artifacts(self.run_id, str(file_or_dir))
 
     def add_audio(self, title: str, audio: Audio, step: int, sample_rate: int) -> None:
         if audio.dtype == "float16":
             audio = audio.astype("float32")
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            sf.write(f.name, audio, sample_rate)
-            self.client.log_artifact(self.run_id, f.name, f"{title}/{step}.wav")
-            Path(f.name).unlink()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            audio_path = Path(tmp_dir) / "audio.wav"
+            sf.write(audio_path, audio, sample_rate)
+            self.client.log_artifact(self.run_id, str(audio_path), f"{title}/{step}.wav")
 
     def train_step_stats(self, step: int, stats: dict[str, float]) -> None:
         self.client.set_tag(self.run_id, "Mode", "training")

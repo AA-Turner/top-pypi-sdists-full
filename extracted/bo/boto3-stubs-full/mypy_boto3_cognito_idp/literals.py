@@ -34,6 +34,7 @@ __all__ = (
     "AttributeDataTypeType",
     "AuthFactorTypeType",
     "AuthFlowTypeType",
+    "CIMDCacheActionTypeType",
     "ChallengeNameType",
     "ChallengeNameTypeType",
     "ChallengeResponseType",
@@ -62,6 +63,8 @@ __all__ = (
     "IssuedTokenTypeIdentifierTypeType",
     "IssuerTypeType",
     "LimitClassType",
+    "ListCIMDPoliciesPaginatorName",
+    "ListClientMetadataURLsPaginatorName",
     "ListGroupsPaginatorName",
     "ListIdentityProvidersPaginatorName",
     "ListResourceServersPaginatorName",
@@ -147,6 +150,7 @@ AuthFlowTypeType = Literal[
     "USER_PASSWORD_AUTH",
     "USER_SRP_AUTH",
 ]
+CIMDCacheActionTypeType = Literal["INVALIDATE", "REFRESH"]
 ChallengeNameType = Literal["Mfa", "Password"]
 ChallengeNameTypeType = Literal[
     "ADMIN_NO_SRP_AUTH",
@@ -205,6 +209,8 @@ InboundFederationLambdaVersionTypeType = Literal["V1_0"]
 IssuedTokenTypeIdentifierTypeType = Literal["ACCESS_TOKEN", "ID_TOKEN"]
 IssuerTypeType = Literal["ORIGINAL", "UPDATED"]
 LimitClassType = Literal["API_CATEGORY"]
+ListCIMDPoliciesPaginatorName = Literal["list_cimd_policies"]
+ListClientMetadataURLsPaginatorName = Literal["list_client_metadata_urls"]
 ListGroupsPaginatorName = Literal["list_groups"]
 ListIdentityProvidersPaginatorName = Literal["list_identity_providers"]
 ListResourceServersPaginatorName = Literal["list_resource_servers"]
@@ -572,6 +578,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -716,6 +723,8 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "admin_list_groups_for_user",
     "admin_list_user_auth_events",
+    "list_cimd_policies",
+    "list_client_metadata_urls",
     "list_groups",
     "list_identity_providers",
     "list_resource_servers",

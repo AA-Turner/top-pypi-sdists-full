@@ -15,7 +15,7 @@ External Table Lineage Mixin
 import re
 import traceback
 from abc import ABC
-from typing import Iterable, List, Optional  # noqa: UP035
+from collections.abc import Iterable
 
 from metadata.generated.schema.api.lineage.addLineage import AddLineageRequest
 from metadata.generated.schema.entity.data.container import ContainerDataModel
@@ -37,8 +37,15 @@ logger = ingestion_logger()
 
 # Anchored, so a key that happens to contain "s3a://" further along is left alone.
 _SCHEME_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*)://")
-# Hadoop-era names for the bucket that the S3 storage connector always records as s3://.
-_SCHEME_ALIASES = {"s3a": "s3", "s3n": "s3"}
+# Catalogs may use different schemes from the storage connector's indexed path.
+_SCHEME_ALIASES = {
+    "s3a": "s3",
+    "s3n": "s3",
+    "gcs": "gs",
+    "abfs": "abfss",
+    "wasb": "abfss",
+    "wasbs": "abfss",
+}
 
 
 def container_lookup_paths(location: str | None) -> list[str]:
@@ -48,8 +55,9 @@ def container_lookup_paths(location: str | None) -> list[str]:
     The search matches a container's fullPath exactly, and the storage connectors record it with
     a lower case scheme and no trailing separator (s3://bucket/events), while catalogs report
     locations such as s3a://bucket/events/. Only the scheme and one trailing separator are
-    rewritten, since object keys are case sensitive and a//b is not a/b. The location as reported
-    comes last, so a container that matched it before still does.
+    rewritten, since object keys are case sensitive and a//b is not a/b. The location as reported,
+    with and without one trailing separator, follows the canonical form, and a gs:// location
+    also tries gcs://, so a container recorded with either scheme still matches.
     """
     if not location or not location.strip():
         return []
@@ -62,7 +70,12 @@ def container_lookup_paths(location: str | None) -> list[str]:
     if not path.strip("/"):
         return []
     canonical = canonical.removesuffix("/")
-    return list(dict.fromkeys((canonical, f"{canonical}/", location)))
+    original = location.removesuffix("/")
+    candidates = [canonical, f"{canonical}/", location, original, f"{original}/"]
+    if canonical.startswith("gs://"):
+        alias = f"gcs://{canonical[len('gs://') :]}"
+        candidates.extend((alias, f"{alias}/"))
+    return list(dict.fromkeys(candidates))
 
 
 class ExternalTableLineageMixin(ABC):  # noqa: B024
@@ -136,15 +149,21 @@ class ExternalTableLineageMixin(ABC):  # noqa: B024
                 logger.error(f"Failed to yield external table lineage due to - {exc}")
                 logger.debug(traceback.format_exc())
 
-    def _get_data_model_column_fqn(self, data_model_entity: ContainerDataModel, column: str) -> Optional[str]:  # noqa: UP045
+    def _get_data_model_column_fqn(self, data_model_entity: ContainerDataModel, column: str) -> str | None:
         """
         Get fqn of column if exist in data model entity
         """
         if not data_model_entity:
             return None
+        target = column.lower()
         for entity_column in data_model_entity.columns:
-            # Storage connectors leave displayName unset on partition columns, so fall back to the name.
-            if (entity_column.displayName or model_str(entity_column.name)).lower() == column.lower():
+            # Storage connectors leave displayName unset on partition columns, so fall back to the
+            # name. Other connectors (e.g. the datalake/Glue parsers via truncate_column_name) set
+            # displayName to the raw column name while name holds the truncated copy, so a name
+            # that matches name must still be matched even when displayName is set to something else.
+            if (entity_column.displayName and entity_column.displayName.lower() == target) or model_str(
+                entity_column.name
+            ).lower() == target:
                 return model_str(entity_column.fullyQualifiedName) if entity_column.fullyQualifiedName else None
         return None
 
@@ -152,8 +171,8 @@ class ExternalTableLineageMixin(ABC):  # noqa: B024
         self,
         data_model_entity: ContainerDataModel,
         table_entity: Table,
-        columns_list: List[str],  # noqa: UP006
-    ) -> List[ColumnLineage]:  # noqa: UP006
+        columns_list: list[str],
+    ) -> list[ColumnLineage]:
         """
         Get the column lineage, resolving each column on its own so one that fails costs only its own edge
         """

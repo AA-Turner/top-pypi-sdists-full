@@ -52,6 +52,7 @@ from langchain_aws.chat_models.bedrock_converse import (
     _extract_response_metadata,
     _extract_thinking_tokens,
     _extract_usage_metadata,
+    _finish_reason_fields,
     _format_data_content_block,
     _format_tools,
     _has_tool_use_or_result_blocks,
@@ -561,8 +562,8 @@ def test_llama_bind_tools_tool_choice_variants(
     "model,expected_values",
     [
         ("us.deepseek.r1-v1:0", ()),
-        ("deepseek.v3-v1:0", ("auto", "any")),
-        ("deepseek.v3.2", ("auto", "any")),
+        ("deepseek.v3-v1:0", ("auto", "any", "tool")),
+        ("deepseek.v3.2", ("auto", "any", "tool")),
     ],
 )
 def test_deepseek_supports_tool_choice_values(
@@ -584,9 +585,9 @@ def test_xai_supports_tool_choice_values() -> None:
     [
         ("us.zai.glm-5.3", ("auto", "any", "tool")),
         ("global.zai.glm-5.3", ("auto", "any", "tool")),
-        ("zai.glm-5", ("auto", "any")),
-        ("zai.glm-4.7", ("auto", "any")),
-        ("zai.glm-4.7-flash", ("auto", "any")),
+        ("zai.glm-5", ("auto", "any", "tool")),
+        ("zai.glm-4.7", ("auto", "any", "tool")),
+        ("zai.glm-4.7-flash", ("auto", "any", "tool")),
     ],
 )
 def test_zai_glm_supports_tool_choice_values(
@@ -646,8 +647,12 @@ def test_deepseek_v3_bind_tools_tool_choice_variants(model: str) -> None:
         "auto": {}
     }
 
-    with pytest.raises(ValueError):
-        chat_model.bind_tools([GetWeather], tool_choice="GetWeather")
+    chat_model_with_tools = chat_model.bind_tools(
+        [GetWeather], tool_choice="GetWeather"
+    )
+    assert cast(RunnableBinding, chat_model_with_tools).kwargs["tool_choice"] == {
+        "tool": {"name": "GetWeather"}
+    }
 
 
 @pytest.mark.parametrize("model", ["deepseek.v3-v1:0", "deepseek.v3.2"])
@@ -6279,7 +6284,7 @@ def test_service_tier_parameter() -> None:
 
 @pytest.mark.parametrize(
     "service_tier",
-    ["priority", "default", "flex", "reserved"],
+    ["priority", "default", "flex", "reserved", "ultrafast"],
 )
 def test_service_tier_valid_values(service_tier: str) -> None:
     """Test that all valid service_tier values are accepted."""
@@ -6312,6 +6317,37 @@ def test_service_tier_none_not_in_params() -> None:
 
     params = llm._converse_params()
     assert "serviceTier" not in params
+
+
+def test_service_tier_ultrafast_sent_in_additional_fields() -> None:
+    """Converse's serviceTier rejects 'ultrafast', so it goes in the request body."""
+    llm = ChatBedrockConverse(
+        model="us.openai.gpt-6.2-astra",
+        region_name="us-east-1",
+        service_tier="ultrafast",
+        additional_model_request_fields={"reasoning": {"effort": "low"}},
+    )
+
+    params = llm._converse_params()
+    assert "serviceTier" not in params
+    assert params["additionalModelRequestFields"] == {
+        "reasoning": {"effort": "low"},
+        "service_tier": "ultrafast",
+    }
+    assert llm.additional_model_request_fields == {"reasoning": {"effort": "low"}}
+
+
+def test_service_tier_ultrafast_keeps_explicit_body_value() -> None:
+    """A service_tier already set in additional_model_request_fields wins."""
+    llm = ChatBedrockConverse(
+        model="us.openai.gpt-6.2-astra",
+        region_name="us-east-1",
+        service_tier="ultrafast",
+        additional_model_request_fields={"service_tier": "default"},
+    )
+
+    params = llm._converse_params()
+    assert params["additionalModelRequestFields"] == {"service_tier": "default"}
 
 
 def test_temperature_omitted_when_unsupported() -> None:
@@ -6373,6 +6409,27 @@ def test_service_tier_passed_to_converse() -> None:
     # Verify converse was called with serviceTier in the correct format
     call_kwargs = mocked_client.converse.call_args[1]
     assert call_kwargs["serviceTier"] == {"type": "priority"}
+
+
+def test_service_tier_ultrafast_passed_to_converse() -> None:
+    """'ultrafast' reaches converse as additionalModelRequestFields.service_tier."""
+    mocked_client = mock.MagicMock()
+    mocked_client.converse.return_value = {
+        "output": {"message": {"content": [{"text": "Hello!"}]}},
+        "usage": {"inputTokens": 10, "outputTokens": 5, "totalTokens": 15},
+    }
+
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="us.openai.gpt-6.2-astra",
+        region_name="us-east-1",
+        service_tier="ultrafast",
+    )
+    llm.invoke([HumanMessage(content="Hi")])
+
+    call_kwargs = mocked_client.converse.call_args[1]
+    assert "serviceTier" not in call_kwargs
+    assert call_kwargs["additionalModelRequestFields"] == {"service_tier": "ultrafast"}
 
 
 def test_service_tier_passed_to_converse_stream() -> None:
@@ -6851,6 +6908,98 @@ def test_closing_stream_early_does_not_report_incomplete_response() -> None:
     stream.close()
 
     transport.close.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "expected"),
+    [
+        ("end_turn", "stop"),
+        ("stop_sequence", "stop"),
+        ("max_tokens", "length"),
+        ("tool_use", "tool_call"),
+        ("guardrail_intervened", "content_filter"),
+        ("content_filtered", "content_filter"),
+        ("model_context_window_exceeded", "context_exceeded"),
+        ("malformed_model_output", "error"),
+        ("malformed_tool_use", "error"),
+        ("some_future_reason", "other"),
+    ],
+)
+def test__finish_reason_fields(stop_reason: str, expected: str) -> None:
+    assert _finish_reason_fields(stop_reason) == {
+        "finish_reason": stop_reason,
+        "normalized_finish_reason": expected,
+    }
+
+
+@pytest.mark.parametrize("stop_reason", [None, ""])
+def test__finish_reason_fields_without_stop_reason(stop_reason: Optional[str]) -> None:
+    assert _finish_reason_fields(stop_reason) == {}
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "expected"),
+    [("end_turn", "stop"), ("tool_use", "tool_call"), ("max_tokens", "length")],
+)
+def test_invoke_sets_finish_reason_fields(stop_reason: str, expected: str) -> None:
+    client = mock.MagicMock()
+    client.converse.return_value = {
+        "output": {"message": {"role": "assistant", "content": [{"text": "ok"}]}},
+        "stopReason": stop_reason,
+        "usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2},
+    }
+    model = ChatBedrockConverse(
+        client=client,
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+    )
+
+    response = model.invoke("hi")
+
+    assert response.response_metadata["stopReason"] == stop_reason
+    assert response.response_metadata["finish_reason"] == stop_reason
+    assert response.response_metadata["normalized_finish_reason"] == expected
+    assert "finish_state" not in response.response_metadata
+
+
+def test_invoke_without_stop_reason_sets_no_finish_reason_fields() -> None:
+    message = _parse_response(
+        {
+            "output": {"message": {"role": "assistant", "content": [{"text": "ok"}]}},
+            "usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2},
+        }
+    )
+
+    assert "finish_reason" not in message.response_metadata
+    assert "normalized_finish_reason" not in message.response_metadata
+
+
+@pytest.mark.parametrize("tool", [False, True])
+def test_stream_sets_finish_reason_fields(tool: bool) -> None:
+    model, _ = _streaming_model(_completion_events(tool=tool))
+
+    chunks = list(model.stream("Reply briefly"))
+    stop_chunks = [c for c in chunks if "stopReason" in c.response_metadata]
+    response = chunks[0]
+    for chunk in chunks[1:]:
+        response += chunk
+
+    stop_reason = "tool_use" if tool else "end_turn"
+    assert len(stop_chunks) == 1
+    assert stop_chunks[0].response_metadata["finish_reason"] == stop_reason
+    assert response.response_metadata["finish_reason"] == stop_reason
+    assert response.response_metadata["normalized_finish_reason"] == (
+        "tool_call" if tool else "stop"
+    )
+    assert "finish_state" not in response.response_metadata
+
+
+def test_stream_event_without_stop_reason_sets_no_finish_reason_fields() -> None:
+    chunk = _parse_stream_event({"messageStop": {}})
+
+    assert chunk is not None
+    assert "finish_reason" not in chunk.response_metadata
+    assert "normalized_finish_reason" not in chunk.response_metadata
 
 
 _NATIVE_USAGE = {

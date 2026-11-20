@@ -28,8 +28,7 @@ class ChatMessagePayload(BaseModel):
     )
     message: str = Field(description="User message content")
     info: dict | None = Field(
-        default=None,
-        description="Optional metadata to attach to the user message",
+        default=None, description="Optional metadata to attach to the user message"
     )
     ttl_seconds: int | None = Field(
         default=None,
@@ -108,10 +107,7 @@ class ConversationMessage(BaseModel):
     name: str | None = Field(
         default=None, description="Tool name for tool-response messages"
     )
-    info: dict | None = Field(
-        default=None,
-        description=("The aviary `Message.info`."),
-    )
+    info: dict | None = Field(default=None, description="The aviary `Message.info`.")
     metadata: dict | None = Field(
         default=None, description="Optional metadata associated with the message"
     )

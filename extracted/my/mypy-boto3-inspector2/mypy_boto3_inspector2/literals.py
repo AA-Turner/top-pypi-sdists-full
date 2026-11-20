@@ -399,8 +399,20 @@ GroupKeyType = Literal[
 ]
 ImageLayerSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 InheritanceModeType = Literal["INHERIT_FROM_ADMIN"]
-IntegrationStatusType = Literal["ACTIVE", "DISABLING", "INACTIVE", "IN_PROGRESS", "PENDING"]
-IntegrationTypeType = Literal["GITHUB", "GITLAB_SELF_MANAGED"]
+IntegrationStatusType = Literal[
+    "ACTIVE",
+    "DELETE_FAILED",
+    "DELETE_IN_PROGRESS",
+    "DISABLING",
+    "ESTABLISHING_CONNECTION_COMPLETED",
+    "ESTABLISHING_CONNECTION_FAILED",
+    "ESTABLISHING_CONNECTION_IN_PROGRESS",
+    "INACTIVE",
+    "IN_PROGRESS",
+    "PENDING",
+    "PENDING_MANIFEST_CODE",
+]
+IntegrationTypeType = Literal["GITHUB", "GITHUB_ENTERPRISE_SERVER", "GITLAB_SELF_MANAGED"]
 LambdaFunctionSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 LambdaLayerSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 ListAccountPermissionsPaginatorName = Literal["list_account_permissions"]
@@ -649,6 +661,7 @@ VmPlatformType = Literal["LINUX", "UNKNOWN", "WINDOWS"]
 VulnerabilitySourceType = Literal["NVD"]
 Inspector2ServiceName = Literal["inspector2"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -950,6 +963,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

@@ -1,6 +1,6 @@
 [package]
 name = "pyaga8"
-version = "0.1.18"
+version = "0.2.0"
 edition = "2021"
 readme = "README.md"
 
@@ -10,5 +10,5 @@ name = "pyaga8"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = ">=0.29.0"
+pyo3 = "0.29"
 aga8 = "0.6.1"

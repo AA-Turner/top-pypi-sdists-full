@@ -13,7 +13,6 @@ Hex API Response Models
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -21,32 +20,32 @@ from pydantic import BaseModel, Field
 class Creator(BaseModel):
     """Creator information"""
 
-    email: Optional[str] = None  # noqa: UP045
+    email: str | None = None
 
 
 class Owner(BaseModel):
     """Owner information"""
 
-    email: Optional[str] = None  # noqa: UP045
+    email: str | None = None
 
 
 class ProjectStatus(BaseModel):
     """Project status"""
 
-    name: Optional[str] = None  # noqa: UP045
+    name: str | None = None
 
 
 class Category(BaseModel):
     """Project category"""
 
-    name: Optional[str] = None  # noqa: UP045
-    description: Optional[str] = None  # noqa: UP045
+    name: str | None = None
+    description: str | None = None
 
 
 class Reviews(BaseModel):
     """Project reviews settings"""
 
-    required: Optional[bool] = None  # noqa: UP045
+    required: bool | None = None
 
 
 class AppViews(BaseModel):
@@ -90,8 +89,8 @@ class Project(BaseModel):
 class Pagination(BaseModel):
     """Pagination information"""
 
-    after: Optional[str] = None  # noqa: UP045
-    before: Optional[str] = None  # noqa: UP045
+    after: str | None = None
+    before: str | None = None
 
 
 class PagedResponse(BaseModel):

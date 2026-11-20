@@ -11,7 +11,7 @@
 """MSSQL source module"""
 
 import traceback
-from typing import Iterable, Optional  # noqa: UP035
+from collections.abc import Iterable
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mssql.base import MSDialect, ischema_names
@@ -125,7 +125,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
         self.synonym_map = SynonymMap()
 
     @classmethod
-    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: Optional[str] = None):  # noqa: UP045
+    def create(cls, config_dict, metadata: OpenMetadata, pipeline_name: str | None = None):
         """Create class instance"""
         config: WorkflowSource = WorkflowSource.model_validate(config_dict)
         connection: MssqlConnection = config.serviceConnection.root.config
@@ -133,7 +133,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
             raise InvalidSourceException(f"Expected MssqlConnection, but got {connection}")
         return cls(config, metadata)
 
-    def get_configured_database(self) -> Optional[str]:  # noqa: UP045
+    def get_configured_database(self) -> str | None:
         if not self.service_connection.ingestAllDatabases:
             return self.service_connection.database
         return None
@@ -158,13 +158,13 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
             (row.DATABASE_NAME, row.SCHEMA_NAME, row.STORED_PROCEDURE): row.COMMENT for row in results
         }
 
-    def get_schema_description(self, schema_name: str) -> Optional[str]:  # noqa: UP045
+    def get_schema_description(self, schema_name: str) -> str | None:
         """
         Method to fetch the schema description
         """
         return self.schema_desc_map.get((self.context.get().database, schema_name))
 
-    def get_database_description(self, database_name: str) -> Optional[str]:  # noqa: UP045
+    def get_database_description(self, database_name: str) -> str | None:
         """
         Method to fetch the database description
         """
@@ -190,7 +190,7 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
                 self.encrypted_procedures_cache[cache_key] = set()
         return self.encrypted_procedures_cache[cache_key]
 
-    def get_stored_procedure_description(self, stored_procedure: str) -> Optional[str]:  # noqa: UP045
+    def get_stored_procedure_description(self, stored_procedure: str) -> str | None:
         """
         Method to fetch the stored procedure description
         """
@@ -267,14 +267,27 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
                 load_description_map()
             except Exception as exc:
                 logger.debug(traceback.format_exc())
-                logger.debug(f"Could not load MSSQL {description_type} descriptions, continuing without them: {exc}")
+                logger.warning(
+                    "Could not load MSSQL %s descriptions, continuing without them: %s", description_type, exc
+                )
 
     def get_database_names(self) -> Iterable[str]:
         if not self.config.serviceConnection.root.config.ingestAllDatabases:  # pyright: ignore[reportAttributeAccessIssue]
             configured_db = self.config.serviceConnection.root.config.database  # pyright: ignore[reportAttributeAccessIssue]
-            self.set_inspector(database_name=configured_db)
-            self._load_description_maps()
-            yield configured_db
+            try:
+                self.set_inspector(database_name=configured_db)  # pyright: ignore[reportArgumentType]
+                self._load_description_maps()
+                yield configured_db  # pyright: ignore[reportReturnType]
+            except Exception as exc:
+                logger.debug(traceback.format_exc())
+                logger.error("Error trying to connect to database %s: %s", configured_db, exc)
+                self.status.failed(
+                    error=StackTraceError(
+                        name=configured_db,  # pyright: ignore[reportArgumentType]
+                        error=f"Error trying to connect to database {configured_db}: {exc}",
+                        stackTrace=traceback.format_exc(),
+                    )
+                )
         else:
             for new_database in self.get_database_names_raw():
                 database_fqn = fqn.build(
@@ -377,17 +390,26 @@ class MssqlSource(CommonDbSourceService, MultiDBSource):
         )
 
     def get_stored_procedures(self) -> Iterable[MssqlStoredProcedure]:
-        """List Snowflake stored procedures"""
+        """List MSSQL stored procedures"""
         if self.source_config.includeStoredProcedures:
-            with self.engine.connect() as conn:
-                results = conn.execute(
-                    text(
-                        MSSQL_GET_STORED_PROCEDURES.format(
-                            database_name=self.context.get().database,
-                            schema_name=self.context.get().database_schema,
-                        )
-                    )
-                ).all()
+            schema_name = self.context.get().database_schema  # pyright: ignore[reportAttributeAccessIssue]
+            try:
+                with self.engine.connect() as conn:
+                    results = conn.execute(
+                        text(MSSQL_GET_STORED_PROCEDURES),
+                        {
+                            "database_name": self.context.get().database,  # pyright: ignore[reportAttributeAccessIssue]
+                            "schema_name": schema_name,
+                        },
+                    ).all()
+            except Exception as exc:
+                logger.debug(traceback.format_exc())
+                logger.warning("Error listing stored procedures for schema %s: %s", schema_name, exc)
+                self.status.warning(
+                    schema_name,
+                    f"Error listing stored procedures for schema {schema_name}: {exc}",
+                )
+                return
             for row in results:
                 try:
                     stored_procedure = MssqlStoredProcedure.model_validate(row._asdict())

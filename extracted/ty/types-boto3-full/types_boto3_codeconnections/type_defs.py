@@ -114,6 +114,7 @@ class ConnectionTypeDef(TypedDict):
     OwnerAccountId: NotRequired[str]
     ConnectionStatus: NotRequired[ConnectionStatusType]
     HostArn: NotRequired[str]
+    ProviderEndpoint: NotRequired[str]
 
 
 class TagTypeDef(TypedDict):
@@ -233,8 +234,8 @@ class GetSyncConfigurationInputTypeDef(TypedDict):
 
 
 class ListConnectionsInputTypeDef(TypedDict):
-    ProviderTypeFilter: NotRequired[ProviderTypeType]
     HostArnFilter: NotRequired[str]
+    ProviderTypeFilter: NotRequired[ProviderTypeType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -339,6 +340,7 @@ class CreateConnectionInputTypeDef(TypedDict):
     ProviderType: NotRequired[ProviderTypeType]
     Tags: NotRequired[Sequence[TagTypeDef]]
     HostArn: NotRequired[str]
+    ProviderEndpoint: NotRequired[str]
 
 
 class CreateRepositoryLinkInputTypeDef(TypedDict):

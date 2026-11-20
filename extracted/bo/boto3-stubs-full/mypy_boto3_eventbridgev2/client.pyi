@@ -70,6 +70,8 @@ from .type_defs import (
     PutResourcePolicyResponseTypeDef,
     RevokeResourceRequestTypeDef,
     RevokeResourceResponseTypeDef,
+    RotateWebhookCredentialsRequestTypeDef,
+    RotateWebhookCredentialsResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateEventBusRequestTypeDef,
@@ -79,7 +81,7 @@ from .type_defs import (
     UpdateSubscriberRequestTypeDef,
     UpdateSubscriberResponseTypeDef,
 )
-from .waiter import EventBusActiveWaiter, EventBusDeletedWaiter
+from .waiter import EventBusActiveWaiter, EventBusDeletedWaiter, MskSubscriberActiveWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -155,8 +157,8 @@ class EventBridgeV2Client(BaseClient):
         self, **kwargs: Unpack[CreateEventSourceRequestTypeDef]
     ) -> CreateEventSourceResponseTypeDef:
         """
-        Creates an EventSource, which forwards events from an origin (an AWS service or
-        another account) onto an event bus.
+        Creates an EventSource, which forwards events from an origin (an AWS service, a
+        partner, or a third-party webhook provider) to an event bus.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eventbridgev2/client/create_event_source.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eventbridgev2/client/#create_event_source)
@@ -340,6 +342,16 @@ class EventBridgeV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eventbridgev2/client/#revoke_resource)
         """
 
+    def rotate_webhook_credentials(
+        self, **kwargs: Unpack[RotateWebhookCredentialsRequestTypeDef]
+    ) -> RotateWebhookCredentialsResponseTypeDef:
+        """
+        Sets a new credential on a webhook EventSource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eventbridgev2/client/rotate_webhook_credentials.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eventbridgev2/client/#rotate_webhook_credentials)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or replaces tags on an event bus, subscriber, or event source.
@@ -445,6 +457,17 @@ class EventBridgeV2Client(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["event_bus_deleted"]
     ) -> EventBusDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eventbridgev2/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eventbridgev2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["msk_subscriber_active"]
+    ) -> MskSubscriberActiveWaiter:
         """
         Returns an object that can wait for some condition.
 

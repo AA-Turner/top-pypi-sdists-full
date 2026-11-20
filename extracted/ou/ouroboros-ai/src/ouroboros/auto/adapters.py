@@ -13,6 +13,13 @@ from typing import Any
 import structlog
 import yaml
 
+from ouroboros.auto.answer_text import (
+    FALLBACK_ANSWERS,
+    LANGUAGE_NAMES,
+    answer_language,
+    answer_problems,
+    normalize_answer,
+)
 from ouroboros.auto.interview_driver import InterviewBackend, InterviewTurn
 from ouroboros.bigbang.answer_provenance import ANSWER_PROVENANCE_ARGUMENT, AnswerProvenance
 from ouroboros.core.owner_only import write_owner_only
@@ -705,80 +712,6 @@ class HandlerEvaluator:
         )
 
 
-class HandlerSeedQAEvaluator:
-    """Callable Seed QA evaluator backed by ``ouroboros_qa``."""
-
-    def __init__(self, qa_handler: QAHandler) -> None:
-        self.qa_handler = qa_handler
-
-    async def __call__(self, seed: Seed, ledger: Any) -> EvaluateResult:
-        seed_yaml = yaml.dump(
-            seed.to_dict(), default_flow_style=False, allow_unicode=True, sort_keys=False
-        )
-        ledger_reference = yaml.dump(
-            ledger.to_dict() if hasattr(ledger, "to_dict") else ledger,
-            default_flow_style=False,
-            allow_unicode=True,
-            sort_keys=False,
-        )
-        # The Seed QA gate honestly evaluates ambiguity — it must NOT be hidden
-        # from the judge. The correct fix for a high-ambiguity Seed is to drive
-        # the interview's ambiguity DOWN to the threshold (concrete answers via
-        # the stagnation→lateral convergence path), not to tell the judge to
-        # ignore the metric. A Seed that still reports a high
-        # ``metadata.ambiguity_score`` is genuinely under-specified, so blocking
-        # here is the honest outcome.
-        quality_bar = (
-            "The Seed must be ready for autonomous execution before run starts. "
-            "It must preserve the interview/ledger intent, have ambiguity_score <= 0.20, "
-            "contain concrete acceptance criteria, and preserve constraints, non-goals, "
-            "and runtime context in executable Seed surfaces. The Seed schema has no "
-            "top-level non_goals/runtime_context fields; constraints, ontology fields, "
-            "brownfield_context, or acceptance criteria are valid preservation surfaces. "
-            "Judge acceptance-criterion granularity semantically: each criterion must name "
-            "an observable state of the finished work, not an implementation means. Flag "
-            "and merge a criterion that is intelligible only as a step toward a sibling's "
-            "outcome. Preserve legitimately independent observable outcomes; never merge or "
-            "reject them merely to satisfy a criterion-count target. "
-            "Avoid unsupported assumptions or missing requirements."
-        )
-        result = await self.qa_handler.handle(
-            {
-                "artifact": seed_yaml,
-                "artifact_type": "document",
-                "quality_bar": quality_bar,
-                "reference": ledger_reference,
-                "seed_content": seed_yaml,
-                "pass_threshold": 0.80,
-            }
-        )
-        if result.is_err:
-            return EvaluateResult(
-                passed=False,
-                score=0.0,
-                verdict="fail",
-                error=str(result.error),
-            )
-        meta = result.value.meta or {}
-        if str(meta.get("status", "")) == "delegated_to_subagent":
-            return EvaluateResult(
-                passed=False,
-                score=0.0,
-                verdict="fail",
-                error=(
-                    "QAHandler returned a plugin-delegation envelope; the auto pipeline "
-                    "cannot grade Seed QA via out-of-band subagent dispatch"
-                ),
-            )
-        return EvaluateResult(
-            passed=bool(meta.get("passed", False)),
-            score=float(meta.get("score", 0.0)),
-            verdict=str(meta.get("verdict", "fail")),
-            differences=tuple(meta.get("differences", ()) or ()),
-            suggestions=tuple(meta.get("suggestions", ()) or ()),
-        )
-
-
 @dataclass(frozen=True, slots=True)
 class LateralResult:
     """Structured result returned by :class:`HandlerLateralThinker`.
@@ -1238,32 +1171,69 @@ def _artifact_text(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
+# The refined answer is the user's answer to the interviewer. Its language is
+# the goal's (``answer_language``), named outright: a rule that only said "the
+# user's language" let the model pick one from its environment (#3050).
+REFINER_LANGUAGE_RULE = "Write the answer in {language} only, and never add a translation."
+# The refiner reads no files. A product decision it writes is a non-binding
+# assumption; a claim about the current code would be a fabricated repo fact.
+REFINER_NO_REPO_FACTS_RULE = (
+    "You have not read the repository: never state what the existing code does "
+    "or contains; state the most conservative reasonable decision instead."
+)
+# What one answer part covers, in plain words. The model never sees the field
+# names, so it cannot repeat them to the user.
+_PART_CONCERNS: dict[str, str] = {
+    "actors": "who uses it",
+    "inputs": "what it takes in",
+    "outputs": "what it produces",
+    "constraints": "the rule or limit it must follow",
+    "non_goals": "what is left out",
+    "acceptance_criteria": "the visible result that shows it works",
+    "verification_plan": "how to check that it works",
+    "failure_modes": "what counts as a failure and how it is reported",
+    "runtime_context": "where it runs and with which tools",
+}
+
+
 class LLMAnswerRefiner:
     """Turn a generic deterministic auto-answer into a concrete, AI-written one.
 
     Wraps an :class:`LLMAdapter` (created from the configured internal-LLM
     backend — the same backend that scores interview ambiguity, so the answer
     and the scorer are coherent). Given the goal, the interview question, the
-    target Seed section, and the deterministic answerer's generic placeholder, it
-    asks the model for ONE concrete, committed, testable answer for that section.
+    part of the answer to write and the deterministic answerer's placeholder,
+    it asks the model for one short, concrete decision for that part.
 
     The deterministic ``AutoAnswerer`` still owns all routing and safety; this
     only upgrades the *text* of already-safe generic answers, which is what
-    drives interview ambiguity down round-over-round. Returns ``None`` on any
-    provider failure so the driver keeps the deterministic answer.
+    drives interview ambiguity down round-over-round.
+
+    The answer is read by the interviewer and shown in the console, so it is
+    shaped here (#3050): written in the goal's language (named in the prompt),
+    one or two plain sentences, no line breaks, no internal field names, and
+    consistent with the earlier answers, which the prompt lists oldest first.
+    A reply that breaks a rule (``answer_text.answer_problems``) gets one retry
+    that names the problem; if that fails too, the part gets the short
+    conservative answer in the goal's language (``FALLBACK_ANSWERS``). A
+    provider failure returns ``None`` for an English goal, so the driver keeps
+    its deterministic English answer, and the same short answer otherwise,
+    because the deterministic answer is English.
     """
 
     _SYSTEM = (
-        "You answer Socratic interview questions on the user's behalf to specify "
-        "a software task precisely enough for autonomous execution. Reply with ONE "
-        "concrete, committed, testable decision for the named section: specific "
-        "values, exact commands/flags, a small sample input and its exact expected "
-        "output, and explicit error/stderr/exit-code behavior where relevant. No "
-        "options, no clarifying questions, no hedging, no preamble. 1-4 sentences. "
-        "When contracts already committed earlier in this interview are listed, "
-        "keep their exact strings VERBATIM — never reformat, rename, or re-decide "
-        "them — and specify only the detail this question still leaves undecided, "
-        "fully consistent with those commitments."
+        "You answer interview questions on the user's behalf to pin down a "
+        "software task before it is built. Reply with one concrete decision for "
+        "the part of the question you are given: one plain sentence, two at "
+        "most, under 120 characters. No line breaks, lists, headings, labels or "
+        "preamble; no options or clarifying questions. Use inline code only for "
+        "a real identifier, file name or command. Use plain product words, never "
+        "the names of internal fields or sections. When earlier answers are "
+        "listed, stay consistent with them and refer to them instead of "
+        "repeating them. If two earlier answers disagree, the most recent one "
+        "stands; when the question asks which one holds, answer with the most "
+        "recent one and say it replaces the other. "
+        f"{REFINER_LANGUAGE_RULE} {REFINER_NO_REPO_FACTS_RULE}"
     )
 
     def __init__(self, llm_adapter: LLMAdapter, *, model: str | None = None) -> None:
@@ -1278,37 +1248,64 @@ class LLMAnswerRefiner:
         generic_text: str,
         committed: Sequence[tuple[str, str, str]] = (),
     ) -> str | None:
-        committed_block = ""
-        if committed:
-            lines = "\n".join(f"- [{sect}] {value}" for sect, _key, value in committed)
-            committed_block = (
-                "\nContracts already committed earlier in THIS interview — preserve "
-                "them EXACTLY and stay consistent with them:\n"
-                f"{lines}\n"
-            )
+        language = answer_language(goal)
+        earlier = list(dict.fromkeys(value for _section, _key, value in committed))
+        earlier_block = ""
+        if earlier:
+            lines = "\n".join(f"- {value}" for value in earlier)
+            earlier_block = f"\nEarlier answers in this interview, oldest first:\n{lines}\n"
+        concern = _PART_CONCERNS.get(section, "the part of the question still open")
         prompt = (
             f"Goal: {goal}\n\n"
-            f"Seed section to specify: {section}\n\n"
             f"Interview question: {question}\n\n"
-            f"A generic placeholder answer was: {generic_text}\n"
-            f"{committed_block}\n"
-            f"Replace it with one concrete, committed answer for the '{section}' "
-            "section that a developer or test could execute against verbatim. Do "
-            "not contradict or reformat any already-committed contract above; "
-            "decide only what this question leaves open."
+            f"Answer only this part of it: {concern}.\n"
+            f"{earlier_block}\n"
+            f"A conservative starting point, to rewrite in your own words: {generic_text}"
         )
+        system = self._SYSTEM.format(language=LANGUAGE_NAMES[language])
         messages = [
-            Message(role=MessageRole.SYSTEM, content=self._SYSTEM),
+            Message(role=MessageRole.SYSTEM, content=system),
             Message(role=MessageRole.USER, content=prompt),
         ]
+        reply = await self._complete(messages)
+        if reply is None:
+            return None if language == "en" else FALLBACK_ANSWERS[language]
+        problems = answer_problems(reply, language)
+        if not problems:
+            return reply
+        retry_note = (
+            f"That reply cannot be used: it is {'; '.join(problems)}. Reply again "
+            f"in {LANGUAGE_NAMES[language]} only, following every rule."
+        )
+        retry = await self._complete(
+            [
+                *messages,
+                Message(role=MessageRole.ASSISTANT, content=reply),
+                Message(role=MessageRole.USER, content=retry_note),
+            ]
+        )
+        retry_problems = ["no reply"] if retry is None else answer_problems(retry, language)
+        if retry is not None and not retry_problems:
+            return retry
+        log.warning(
+            "auto.interview.answer_refine_fallback",
+            section=section,
+            language=language,
+            problems=problems,
+            retry_problems=retry_problems,
+        )
+        return FALLBACK_ANSWERS[language]
+
+    async def _complete(self, messages: list[Message]) -> str | None:
+        """One completion, on one line; ``None`` on a provider failure or no text."""
         config = CompletionConfig(
             model=self.model or "",
             role="clarification",
-            # Deterministic: with a stable goal + committed-contract anchor, the
-            # same inputs must yield the same concrete answer round-over-round so
-            # the interview converges instead of oscillating on output formats.
+            # Deterministic: with a stable goal and the earlier answers listed,
+            # the same inputs must yield the same answer round-over-round so the
+            # interview converges instead of oscillating.
             temperature=0.0,
-            max_tokens=400,
+            max_tokens=200,
         )
         try:
             result = await self.llm_adapter.complete(messages, config)
@@ -1316,8 +1313,7 @@ class LLMAnswerRefiner:
             return None
         if result.is_err:
             return None
-        content = (result.value.content or "").strip()
-        return content or None
+        return normalize_answer(result.value.content or "") or None
 
 
 def build_answer_refiner() -> LLMAnswerRefiner | None:

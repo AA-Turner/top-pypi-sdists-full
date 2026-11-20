@@ -1,4 +1,5 @@
 import operator
+import os
 from collections.abc import Iterable, Sequence
 from functools import reduce
 from itertools import islice
@@ -8,7 +9,28 @@ from urllib.parse import urlsplit
 
 import pyarrow as pa
 
+from stac_geoparquet.arrow._constants import DEFAULT_JSON_CHUNK_SIZE
+
 T = TypeVar("T")
+
+
+def env_flag(name: str, default: bool) -> bool:
+    """
+    Whether the environment variable `name` is 1, true or yes, in any case, or
+    `default` if it isn't set or is empty.
+    """
+    value = os.environ.get(name)
+    return value.lower() in ("1", "true", "yes") if value else default
+
+
+def resolve_chunk_size(chunk_size: int | None) -> int:
+    """
+    `chunk_size`, or the `STAC_GEOPARQUET_CHUNK_SIZE` environment variable if it's
+    None, or `DEFAULT_JSON_CHUNK_SIZE` if that isn't set.
+    """
+    if chunk_size is not None:
+        return chunk_size
+    return int(os.environ.get("STAC_GEOPARQUET_CHUNK_SIZE") or DEFAULT_JSON_CHUNK_SIZE)
 
 
 def resolve_output_path_and_filesystem(

@@ -5,6 +5,7 @@
 #include "duckdb_python/nb/casters.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/common/types/timestamp.hpp"
+#include "duckdb/storage/object_cache.hpp"
 
 namespace duckdb {
 
@@ -47,14 +48,18 @@ public:
 
 class PythonFileHandle : public FileHandle {
 public:
-	PythonFileHandle(FileSystem &file_system, const string &path, const nb::object &handle, FileOpenFlags flags);
+	//! opened_during_exit is the opening QueryGil's AdmittedDuringExit, which later calls on the handle carry
+	PythonFileHandle(FileSystem &file_system, const string &path, const nb::object &handle, FileOpenFlags flags,
+	                 bool opened_during_exit);
 	~PythonFileHandle() override;
 	void Close() override;
 
 	static const nb::object &GetHandle(const FileHandle &handle);
+	static bool OpenedDuringExit(const FileHandle &handle);
 
 private:
 	nb::object handle;
+	bool opened_during_exit;
 };
 
 class PythonFilesystem : public FileSystem {
@@ -62,7 +67,7 @@ private:
 	const vector<string> protocols;
 	AbstractFileSystem filesystem;
 	std::string DecodeFlags(FileOpenFlags flags);
-	bool Exists(const string &filename, const char *func_name) const;
+	bool Exists(const string &filename, const char *func_name, optional_ptr<FileOpener> opener) const;
 
 public:
 	explicit PythonFilesystem(vector<string> protocols, AbstractFileSystem filesystem)
@@ -115,6 +120,29 @@ public:
 	void Truncate(FileHandle &handle, int64_t new_size) override;
 	bool IsPipe(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 	idx_t SeekPosition(FileHandle &handle) override;
+};
+
+//! The in-memory file system that holds file-like objects, one per database: a cursor registers nothing of its own,
+//! since the database's virtual file system takes the name once. Found through the database's object cache, so every
+//! connection and cursor of the database reads the same entries.
+class ObjectStore : public ObjectCacheEntry {
+public:
+	~ObjectStore() override;
+
+	static string ObjectType() {
+		return "python_object_store";
+	}
+	string GetObjectType() override {
+		return ObjectType();
+	}
+	optional_idx GetEstimatedCacheMemory() const override {
+		return optional_idx();
+	}
+
+public:
+	//! The one owner of the Python file system's reference. Read and written with the GIL held, which is what
+	//! serialises the connections of a database here
+	unique_ptr<ModifiedMemoryFileSystem> filesystem;
 };
 
 } // namespace duckdb

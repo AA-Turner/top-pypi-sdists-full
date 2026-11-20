@@ -16,6 +16,7 @@ include:
   - '/ci/platforms/ubuntu2004.yml'
   - '/ci/platforms/ubuntu2204.yml'
   - '/ci/platforms/ubuntu2404.yml'
+  - '/ci/platforms/ubuntu2604.yml'
   - '/ci/platforms/windows10-vs16.yml'
   - '/ci/platforms/mac-sequoia.yml'
 
@@ -31,7 +32,6 @@ wheels:
   dependencies:
     - cibuildwheel-linux
     - cibuildwheel-windows
-
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
     TWINE_USERNAME: $PYPI_USERNAME

@@ -28,6 +28,7 @@ __all__ = (
     "ComputeNodeGroupStatusType",
     "EndpointTypeType",
     "ExecutionPolicyType",
+    "JobSubmitPluginTypeType",
     "LaunchTemplateModeType",
     "ListClustersPaginatorName",
     "ListComputeNodeGroupsPaginatorName",
@@ -76,6 +77,7 @@ ComputeNodeGroupStatusType = Literal[
 ]
 EndpointTypeType = Literal["SLURMCTLD", "SLURMDBD", "SLURMRESTD"]
 ExecutionPolicyType = Literal["EVERY_BOOT", "FIRST_BOOT_ONLY"]
+JobSubmitPluginTypeType = Literal["STARLARK"]
 LaunchTemplateModeType = Literal["CUSTOM", "MANAGED"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
@@ -106,6 +108,7 @@ SpotAllocationStrategyType = Literal[
 ]
 ParallelComputingServiceServiceName = Literal["pcs"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -214,6 +217,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -398,6 +402,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -405,6 +410,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -465,6 +471,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

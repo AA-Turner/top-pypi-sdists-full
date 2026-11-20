@@ -14,6 +14,7 @@ Usage::
         ListFirewallConfigsPaginator,
         ListFirewallDomainListsPaginator,
         ListFirewallDomainsPaginator,
+        ListFirewallRuleDomainsPaginator,
         ListFirewallRuleGroupAssociationsPaginator,
         ListFirewallRuleGroupsPaginator,
         ListFirewallRuleTypesPaginator,
@@ -37,6 +38,7 @@ Usage::
     list_firewall_configs_paginator: ListFirewallConfigsPaginator = client.get_paginator("list_firewall_configs")
     list_firewall_domain_lists_paginator: ListFirewallDomainListsPaginator = client.get_paginator("list_firewall_domain_lists")
     list_firewall_domains_paginator: ListFirewallDomainsPaginator = client.get_paginator("list_firewall_domains")
+    list_firewall_rule_domains_paginator: ListFirewallRuleDomainsPaginator = client.get_paginator("list_firewall_rule_domains")
     list_firewall_rule_group_associations_paginator: ListFirewallRuleGroupAssociationsPaginator = client.get_paginator("list_firewall_rule_group_associations")
     list_firewall_rule_groups_paginator: ListFirewallRuleGroupsPaginator = client.get_paginator("list_firewall_rule_groups")
     list_firewall_rule_types_paginator: ListFirewallRuleTypesPaginator = client.get_paginator("list_firewall_rule_types")
@@ -59,6 +61,7 @@ from .paginator import (
     ListFirewallConfigsPaginator,
     ListFirewallDomainListsPaginator,
     ListFirewallDomainsPaginator,
+    ListFirewallRuleDomainsPaginator,
     ListFirewallRuleGroupAssociationsPaginator,
     ListFirewallRuleGroupsPaginator,
     ListFirewallRulesPaginator,
@@ -83,6 +86,7 @@ __all__ = (
     "ListFirewallConfigsPaginator",
     "ListFirewallDomainListsPaginator",
     "ListFirewallDomainsPaginator",
+    "ListFirewallRuleDomainsPaginator",
     "ListFirewallRuleGroupAssociationsPaginator",
     "ListFirewallRuleGroupsPaginator",
     "ListFirewallRuleTypesPaginator",

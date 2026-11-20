@@ -2380,7 +2380,8 @@ class AgentFlow:
                         try:
                             self.on_step_error(step.name, e)
                         except Exception:
-                            pass
+                            logger.debug("on_step_error callback failed for step %s", step.name,
+                                         exc_info=True)
                 
                 # Check guardrail if present (guardrails is canonical, guardrail is deprecated)
                 guardrail = getattr(step, 'guardrails', None) or getattr(step, 'guardrail', None)
@@ -4973,8 +4974,12 @@ CONCISE SUMMARY:"""
             try:
                 from agent_recipes import get_template_path
                 recipe_path = get_template_path(recipe_name)
-            except ImportError:
-                # agent_recipes not installed, try local path
+            except (ImportError, ValueError) as e:
+                # agent_recipes not installed, or it does not ship this name
+                # (it raises ValueError): try a local path (T-10).
+                logger.debug("agent_recipes lookup for %r failed: %s", recipe_name, e)
+                recipe_path = None
+            if not recipe_path:
                 from pathlib import Path
                 if Path(recipe_name).exists():
                     recipe_path = Path(recipe_name)
@@ -5016,6 +5021,13 @@ CONCISE SUMMARY:"""
                     _template_ok = os.environ.get("PRAISONAI_ALLOW_TEMPLATE_TOOLS", "").strip().lower() in (
                         "1", "true", "yes", "on"
                     )
+                    if _local_ok and not _template_ok:
+                        # The local-tools flag covers the working directory only;
+                        # a registry or outside recipe needs the template flag.
+                        try:
+                            tools_py.resolve().relative_to(Path.cwd().resolve())
+                        except ValueError:
+                            _local_ok = False
                     if _local_ok or _template_ok:
                         import importlib.util
                         spec = importlib.util.spec_from_file_location("recipe_tools", tools_py)
@@ -5026,8 +5038,9 @@ CONCISE SUMMARY:"""
                         tools_snapshot = (str(tools_py.resolve()), tools_content)
                     else:
                         logger.warning(
-                            "Skipping included recipe tools.py: set PRAISONAI_ALLOW_LOCAL_TOOLS "
-                            "or PRAISONAI_ALLOW_TEMPLATE_TOOLS to enable."
+                            "Skipping included recipe tools.py at %s: set PRAISONAI_ALLOW_TEMPLATE_TOOLS "
+                            "(or PRAISONAI_ALLOW_LOCAL_TOOLS for a recipe inside the working "
+                            "directory) to enable.", tools_py,
                         )
                         recipe_module = None
                     if recipe_module is not None:

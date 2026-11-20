@@ -2,6 +2,7 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import threading
 
+from contrast.agent import scope
 from contrast.agent.assess.rules.providers.hardcoded_key import HardcodedKey
 from contrast.agent.assess.rules.providers.hardcoded_password import HardcodedPassword
 from contrast.utils.patch_utils import get_loaded_modules
@@ -17,6 +18,7 @@ def run_providers_in_thread():
     ).start()
 
 
+@scope.contrast_scope()
 def _run_providers():
     """
     Providers are non-dataflow rules that analyze the contents of a module.

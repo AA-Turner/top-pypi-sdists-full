@@ -68,6 +68,7 @@ from doppler.dsss import (
 )
 from doppler.filter import FIR, MovingAverage
 from doppler.impairment import DopplerChannel
+from doppler.ofdm import Ofdm
 from doppler.resample import (
     CIC,
     Farrow,
@@ -85,10 +86,12 @@ from doppler.track import (
     CarrierNda,
     Costas,
     Dll,
+    KalmanStateFilter,
     LoopFilter,
     MpskReceiver,
     MpskReceiverR,
     RateSync,
+    StateFilter,
     SymbolSync,
 )
 from doppler.wfm import PN, Gold, _SynthEngine
@@ -136,6 +139,15 @@ def _acc_feed(conv: Callable[[NDArray[np.complex64]], NDArray[Any]]) -> _Feed:
         return np.array([o.get()])
 
     return feed
+
+
+def _costas_order3() -> Any:
+    """A Costas switched to its third-order loop, with a carrier rate
+    seeded, so the order, the filter and the rate are all non-default."""
+    c = Costas(0.01, 0.707, 0.0, 4, 0.0)
+    c.set_order(3, 0.01)
+    c.norm_rate = 1e-9
+    return c
 
 
 def _burst_despreader_feed(o: Any, seg: NDArray[np.complex64]) -> NDArray[Any]:
@@ -296,6 +308,34 @@ def _make_dsss_cont_engine() -> Any:
     rng = np.random.default_rng(3)
     e.set_dsss_cont(rng.integers(0, 2, 31, dtype=np.uint8), 12.7, data="prbs")
     return e
+
+
+def _make_ofdm() -> Any:
+    """A layout of 600 OFDM symbols, 4 data subcarriers each, windowed.
+
+    Four, not six: a `modulate` whose point count ends inside an OFDM symbol
+    is refused (it raises), so the mutator-state probe, which offers lengths
+    4, 8, 16 and 64, needs a symbol size those lengths are whole multiples
+    of. 600 symbols keep the 2400 points the six-point layout held. At six
+    every offered length was refused, and the gate read the
+    refusals as inert calls (an empty array before the refusal raised).
+    """
+    o = Ofdm()
+    m = np.zeros(8, np.uint8)
+    m[[1, 2, 5, 6]] = 1
+    c = o.add_class(8, m, cyclic_prefix=2, window=2)
+    o.add_polarity(c, np.array([1, -1, 1j], np.complex64))
+    o.add_run(c, 600)
+    # Two more classes, not yet run: what the layout builders' probes extend
+    # (a gain is accepted at its class's own length, so two lengths).
+    o.add_class(4, np.ones(4, np.uint8), n_phase=16)
+    o.add_class(8, np.ones(8, np.uint8), n_phase=16)
+    return o
+
+
+def _ofdm_feed(o: Any, seg: NDArray[np.complex64]) -> NDArray[np.complex64]:
+    n = (seg.size // 4) * 4
+    return np.array(o.modulate(seg[:n]))
 
 
 CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
@@ -517,6 +557,12 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
         lambda: Costas(0.01, 0.707, 0.0, 4, 0.0),
         lambda o, seg: np.array(o.steps(seg)),
     ),
+    # Order 3 (docs/design/costas.md section 3): the third-order filter and
+    # its rate travel too, and norm_rate is only settable there.
+    "Costas (order 3)": (
+        lambda: _costas_order3(),
+        lambda o, seg: np.array(o.steps(seg)),
+    ),
     "CarrierMpsk": (
         lambda: CarrierMpsk(0.01, 0.707, 0.0, 4, 0.0, 4),
         lambda o, seg: np.array(o.steps(seg)),
@@ -527,6 +573,19 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
     ),
     "LoopFilter": (
         lambda: LoopFilter(0.01, 0.707, 1.0),
+        lambda o, seg: np.array(o.steps(seg.real.astype(np.float64))),
+    ),
+    # The third-order sibling: both accumulators (frequency and rate) must
+    # travel, so a split that drops the rate shows in the second half.
+    "StateFilter": (
+        lambda: StateFilter(0.01, 1.0),
+        lambda o, seg: np.array(o.steps(seg.real.astype(np.float64))),
+    ),
+    # The Kalman flavor: the covariance and the gains in force travel with
+    # both accumulators, so a split during the high-gain start (a restored
+    # covariance that is wrong shows in the second half's gains) is exact.
+    "KalmanStateFilter": (
+        lambda: KalmanStateFilter(sigma_e=1.0, sigma_a=2e-3),
         lambda o, seg: np.array(o.steps(seg.real.astype(np.float64))),
     ),
     # Lock detector — a real metric stream wobbling across the hysteresis
@@ -580,6 +639,10 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
     # the reason the object exists: an encoder resumed without it emits k-1
     # wrong symbols at the boundary, which decodes against a receiver of
     # one's own construction and against nothing else.
+    # A modulator renders whole OFDM symbols, so the feed takes as many of the
+    # segment's points as fill whole symbols (6 data subcarriers each); the
+    # window's tail is what crosses the split.
+    "Ofdm": (_make_ofdm, _ofdm_feed),
     "ConvEncoder": (
         lambda: ConvEncoder(_CCSDS_POLY, k=7, invert=0x2),
         lambda o, seg: np.array(o.encode((seg.real > 0).astype(np.uint8))),

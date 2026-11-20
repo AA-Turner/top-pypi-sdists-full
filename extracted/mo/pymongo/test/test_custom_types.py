@@ -145,9 +145,7 @@ class CustomBSONTypeTests:
 
     @no_type_check
     def test_decode_all(self):
-        documents = []
-        for dec in range(3):
-            documents.append({"average": Decimal(f"56.4{dec}")})
+        documents = [{"average": Decimal(f"56.4{dec}")} for dec in range(3)]
 
         bsonstream = b""
         for doc in documents:
@@ -432,7 +430,8 @@ class TestBSONCustomTypeEncoderAndFallbackEncoderTandem(unittest.TestCase):
             type_registry=TypeRegistry([self.B2A()], fallback_encoder=self.fallback_encoder_A2B)
         )
 
-        # GC while the stack is exhausted may trigger an unraisable RecursionError that causes a failure
+        # GC while the stack is exhausted may trigger an unraisable RecursionError that causes a
+        # failure
         gc.collect()
         gc.disable()
         try:

@@ -1,13 +1,11 @@
-# pylint: disable=redefined-outer-name
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
-from _pytest.fixtures import SubRequest
 from click.testing import CliRunner
 
 
 @pytest.fixture
-def cli_runner(request: SubRequest) -> CliRunner:
+def cli_runner(request: pytest.FixtureRequest) -> CliRunner:
     """Instance of `click.testing.CliRunner`. Can be configured with `@pytest.mark.runner_setup`.
 
     @pytest.mark.runner_setup(charset="cp1251")

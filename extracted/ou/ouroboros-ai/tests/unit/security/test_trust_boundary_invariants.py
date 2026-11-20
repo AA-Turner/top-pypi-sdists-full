@@ -456,10 +456,10 @@ SPAWN_SITE_ALLOWLIST: dict[tuple[str, str, str, int, int], str] = {
         "os.environ + NO_COLOR; the shared `ouroboros mcp serve` must see the same "
         "config and agent logins as a host-launched stdio server."
     ),
-    ("src/ouroboros/gui/harness.py", "_run_result", "subprocess.run", 1496, 18): (
+    ("src/ouroboros/gui/harness.py", "_run_result", "subprocess.run", 1586, 18): (
         "implicit inherit; read-only `git worktree list`."
     ),
-    ("src/ouroboros/gui/harness.py", "_run_result.git", "subprocess.run", 1517, 19): (
+    ("src/ouroboros/gui/harness.py", "_run_result.git", "subprocess.run", 1607, 19): (
         "implicit inherit; read-only `git diff --name-only` / `git status`."
     ),
     ("src/ouroboros/gui/workspace.py", "_git", "subprocess.run", 51, 11): (
@@ -521,17 +521,10 @@ SPAWN_SITE_ALLOWLIST: dict[tuple[str, str, str, int, int], str] = {
         28,
     ): "Requester argv is explicitly operator-selected; OUROBOROS_AUTO_REQUESTER_COMMAND is denied from project .env; no shell.",
     (
-        "src/ouroboros/auto/seed_preflight_repair.py",
-        "_git_listed_files",
-        "subprocess.run",
-        108,
-        20,
-    ): "Fixed git ls-files roster; GIT_* and PATH denied from project .env.",
-    (
         "src/ouroboros/backends/model_catalog.py",
         "refresh_models",
         "subprocess.run",
-        367,
+        369,
         21,
     ): "implicit inherit; `<cli> <list-args>` model listing with table-driven argv.",
     (

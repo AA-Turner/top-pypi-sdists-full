@@ -101,24 +101,27 @@ def _parse_ssl_options(options: Mapping[str, Any], is_sync: bool) -> tuple[SSLCo
     allow_invalid_hostnames = options.get("tlsallowinvalidhostnames", False)
     disable_ocsp_endpoint_check = options.get("tlsdisableocspendpointcheck", False)
 
-    enabled_tls_opts = []
-    for opt in (
-        "tlscertificatekeyfile",
-        "tlscertificatekeyfilepassword",
-        "tlscafile",
-        "tlscrlfile",
-    ):
-        # Any non-null value of these options implies tls=True.
-        if options.get(opt):
-            enabled_tls_opts.append(opt)
-    for opt in (
-        "tlsallowinvalidcertificates",
-        "tlsallowinvalidhostnames",
-        "tlsdisableocspendpointcheck",
-    ):
-        # A value of False for these options implies tls=True.
-        if opt in options and not options[opt]:
-            enabled_tls_opts.append(opt)
+    # Any non-null value of these options implies tls=True.
+    enabled_tls_opts = [
+        opt
+        for opt in (
+            "tlscertificatekeyfile",
+            "tlscertificatekeyfilepassword",
+            "tlscafile",
+            "tlscrlfile",
+        )
+        if options.get(opt)
+    ]
+    # A value of False for these options implies tls=True.
+    enabled_tls_opts.extend(
+        opt
+        for opt in (
+            "tlsallowinvalidcertificates",
+            "tlsallowinvalidhostnames",
+            "tlsdisableocspendpointcheck",
+        )
+        if opt in options and not options[opt]
+    )
 
     if enabled_tls_opts:
         if use_tls is None:
@@ -200,8 +203,8 @@ class ClientOptions:
     """Read only configuration options for an AsyncMongoClient/MongoClient.
 
     Should not be instantiated directly by application developers. Access
-    a client's options via :attr:`pymongo.mongo_client.AsyncMongoClient.options` or :attr:`pymongo.mongo_client.MongoClient.options`
-    instead.
+    a client's options via :attr:`pymongo.mongo_client.AsyncMongoClient.options` or
+    :attr:`pymongo.mongo_client.MongoClient.options` instead.
     """
 
     def __init__(

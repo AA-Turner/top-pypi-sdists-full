@@ -31,7 +31,7 @@ def get_user_data_dir(appname: str) -> Path:
     elif XDG_DATA_HOME is not None:
         ans = Path(XDG_DATA_HOME).expanduser().resolve(strict=False)
     elif sys.platform == "win32":
-        import winreg  # noqa: PLC0415
+        import winreg  # ruff: ignore[import-outside-top-level]
 
         key = winreg.OpenKey(
             winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
@@ -133,7 +133,7 @@ def save_model(
         "scaler": scaler_state,
         "step": current_step,
         "epoch": epoch,
-        "date": datetime.date.today().strftime("%B %d, %Y"),
+        "date": datetime.datetime.now().astimezone().date().strftime("%B %d, %Y"),
     }
     state.update(kwargs)
     save_fsspec(state, output_path)
@@ -151,7 +151,7 @@ def save_checkpoint(
     scaler: "torch.GradScaler | None" = None,
     save_n_checkpoints: int | None = None,
     **kwargs: Any,
-) -> None:
+) -> str:
     file_name = f"checkpoint_{current_step}.pth"
     checkpoint_path = os.path.join(output_folder, file_name)
 
@@ -169,6 +169,7 @@ def save_checkpoint(
     )
     if save_n_checkpoints is not None:
         keep_n_checkpoints(output_folder, save_n_checkpoints)
+    return checkpoint_path
 
 
 def save_best_model(

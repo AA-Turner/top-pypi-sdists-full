@@ -23,6 +23,7 @@ from pydo.agents.session import (
     RunResult,
     _OpenAIEventAdapter,
     _decide_hitl,
+    _raise_if_update_failed,
 )
 
 
@@ -375,6 +376,47 @@ class AsyncAgentSession:
         return await self._sessions.update(
             self.session_id, resume_on_topoff=resume_on_topoff
         )
+
+    async def update_config(self, manifest_yaml: str) -> Any:
+        """Patch the live config (tools, env, secrets) from a partial manifest YAML.
+
+        Only Action Gateway (``do.actions``) tools can change; custom MCP
+        servers must be sent back unchanged. The model changes only through
+        ``env.HARNESS_INFERENCE_MODEL``, and only on a session whose model
+        provider is DigitalOcean Serverless Inference. The session must be
+        ``SESSION_STATUS_READY``, ``SESSION_STATUS_DETACHED`` or
+        ``SESSION_STATUS_PAUSED`` (not paused for zero balance) and idle. See
+        :meth:`AsyncSessionsOperations.update_config` for the full rules.
+
+        Returns the PATCH response (``session``, ``outcome``, ``warnings``). On
+        ``ACCEPTED`` call :meth:`wait_until_updated`.
+        """
+        return await self._sessions.update_config(
+            self.session_id, manifest_yaml=manifest_yaml
+        )
+
+    async def wait_until_updated(
+        self, *, timeout: float = 300.0, poll_interval: float = 2.0
+    ) -> Any:
+        """Wait until the session leaves ``UPDATING`` and return its ``update``.
+
+        Raises ``SessionConfigUpdateError`` when the update FAILED, and
+        ``TimeoutError`` on timeout.
+        """
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + timeout
+        while True:
+            info = await self.refresh()
+            status = (getattr(info, "get", lambda *_: None))("status")
+            if status != SessionStatus.UPDATING:
+                update = (getattr(info, "get", lambda *_: None))("update")
+                _raise_if_update_failed(self.session_id, update)
+                return update
+            if loop.time() > deadline:
+                raise TimeoutError(
+                    f"session {self.session_id} still updating after {timeout}s"
+                )
+            await asyncio.sleep(poll_interval)
 
     async def exec(
         self,

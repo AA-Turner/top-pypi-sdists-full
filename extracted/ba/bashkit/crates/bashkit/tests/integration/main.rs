@@ -11,6 +11,9 @@
 //! binary (process-global env mutation, `--test-threads=1`, feature-isolation
 //! sweeps) stay as siblings at `tests/<name>.rs`.
 
+// Integration tests build host temp paths freely; the VFS separator ban
+// (crates/bashkit/clippy.toml) targets library code.
+#![allow(clippy::disallowed_methods)]
 #![allow(clippy::single_component_path_imports)]
 
 pub mod agent_skills_publication_tests;
@@ -70,7 +73,8 @@ pub mod cpython_capability_tests;
 pub mod cpython_http_tests;
 pub mod cpython_integration_tests;
 pub mod cpython_security_tests;
-#[cfg(feature = "tzdata")]
+// Oracle suite: compares against host GNU `date`/zoneinfo, Unix only.
+#[cfg(all(unix, feature = "tzdata"))]
 pub mod date_timezone_differential_tests;
 #[cfg(not(feature = "tzdata"))]
 pub mod date_timezone_no_tzdata_tests;
@@ -138,6 +142,8 @@ pub mod pipeline_tests;
 pub mod pr_resource_tests;
 pub mod process_substitution_fd_tests;
 pub mod prompt_resource_tests;
+// Oracle suite: compares against host bash, Unix only.
+#[cfg(unix)]
 pub mod proptest_differential;
 pub mod python_integration_tests;
 pub mod python_security_tests;
@@ -190,6 +196,7 @@ pub mod typescript_security_tests;
 pub mod unicode_security_tests;
 pub mod unset_function_tests;
 pub mod urandom_tests;
+pub mod vfs_separator_tests;
 pub mod workflow_security_tests;
 pub mod yq_integration_tests;
 

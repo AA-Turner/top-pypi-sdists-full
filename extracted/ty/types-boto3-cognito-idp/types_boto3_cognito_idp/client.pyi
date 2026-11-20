@@ -29,6 +29,8 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     AdminListGroupsForUserPaginator,
     AdminListUserAuthEventsPaginator,
+    ListCIMDPoliciesPaginator,
+    ListClientMetadataURLsPaginator,
     ListGroupsPaginator,
     ListIdentityProvidersPaginator,
     ListResourceServersPaginator,
@@ -92,6 +94,8 @@ from .type_defs import (
     ConfirmForgotPasswordRequestTypeDef,
     ConfirmSignUpRequestTypeDef,
     ConfirmSignUpResponseTypeDef,
+    CreateCIMDPolicyRequestTypeDef,
+    CreateCIMDPolicyResponseTypeDef,
     CreateGroupRequestTypeDef,
     CreateGroupResponseTypeDef,
     CreateIdentityProviderRequestTypeDef,
@@ -112,6 +116,7 @@ from .type_defs import (
     CreateUserPoolReplicaResponseTypeDef,
     CreateUserPoolRequestTypeDef,
     CreateUserPoolResponseTypeDef,
+    DeleteCIMDPolicyRequestTypeDef,
     DeleteGroupRequestTypeDef,
     DeleteIdentityProviderRequestTypeDef,
     DeleteManagedLoginBrandingRequestTypeDef,
@@ -126,6 +131,8 @@ from .type_defs import (
     DeleteUserPoolRequestTypeDef,
     DeleteUserRequestTypeDef,
     DeleteWebAuthnCredentialRequestTypeDef,
+    DescribeCIMDPolicyRequestTypeDef,
+    DescribeCIMDPolicyResponseTypeDef,
     DescribeIdentityProviderRequestTypeDef,
     DescribeIdentityProviderResponseTypeDef,
     DescribeManagedLoginBrandingByClientRequestTypeDef,
@@ -193,6 +200,10 @@ from .type_defs import (
     InitiateAuthResponseTypeDef,
     InitiatePointInTimeRecoveryRequestTypeDef,
     InitiatePointInTimeRecoveryResponseTypeDef,
+    ListCIMDPoliciesRequestTypeDef,
+    ListCIMDPoliciesResponseTypeDef,
+    ListClientMetadataURLsRequestTypeDef,
+    ListClientMetadataURLsResponseTypeDef,
     ListDevicesRequestTypeDef,
     ListDevicesResponseTypeDef,
     ListGroupsRequestTypeDef,
@@ -258,6 +269,9 @@ from .type_defs import (
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAuthEventFeedbackRequestTypeDef,
+    UpdateCIMDPolicyRequestTypeDef,
+    UpdateCIMDPolicyResponseTypeDef,
+    UpdateClientMetadataURLStateRequestTypeDef,
     UpdateDeviceStatusRequestTypeDef,
     UpdateGroupRequestTypeDef,
     UpdateGroupResponseTypeDef,
@@ -295,6 +309,7 @@ __all__ = ("CognitoIdentityProviderClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     AliasExistsException: type[BotocoreClientError]
+    CachedCIMDURLDoesNotExistException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     CodeDeliveryFailureException: type[BotocoreClientError]
     CodeMismatchException: type[BotocoreClientError]
@@ -794,6 +809,16 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#confirm_sign_up)
         """
 
+    def create_cimd_policy(
+        self, **kwargs: Unpack[CreateCIMDPolicyRequestTypeDef]
+    ) -> CreateCIMDPolicyResponseTypeDef:
+        """
+        Creates a Client ID Metadata Document (CIMD) policy for an app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/create_cimd_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#create_cimd_policy)
+        """
+
     def create_group(
         self, **kwargs: Unpack[CreateGroupRequestTypeDef]
     ) -> CreateGroupResponseTypeDef:
@@ -896,6 +921,16 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/create_user_pool_replica.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#create_user_pool_replica)
+        """
+
+    def delete_cimd_policy(
+        self, **kwargs: Unpack[DeleteCIMDPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a Client ID Metadata Document (CIMD) policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/delete_cimd_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#delete_cimd_policy)
         """
 
     def delete_group(
@@ -1027,6 +1062,16 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/delete_web_authn_credential.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#delete_web_authn_credential)
+        """
+
+    def describe_cimd_policy(
+        self, **kwargs: Unpack[DescribeCIMDPolicyRequestTypeDef]
+    ) -> DescribeCIMDPolicyResponseTypeDef:
+        """
+        Returns the configuration of a Client ID Metadata Document (CIMD) policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/describe_cimd_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#describe_cimd_policy)
         """
 
     def describe_identity_provider(
@@ -1382,6 +1427,27 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/initiate_point_in_time_recovery.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#initiate_point_in_time_recovery)
+        """
+
+    def list_cimd_policies(
+        self, **kwargs: Unpack[ListCIMDPoliciesRequestTypeDef]
+    ) -> ListCIMDPoliciesResponseTypeDef:
+        """
+        Lists the Client ID Metadata Document (CIMD) policies in a user pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_cimd_policies.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#list_cimd_policies)
+        """
+
+    def list_client_metadata_urls(
+        self, **kwargs: Unpack[ListClientMetadataURLsRequestTypeDef]
+    ) -> ListClientMetadataURLsResponseTypeDef:
+        """
+        Lists the client ID metadata document URLs that Amazon Cognito has received for
+        a Client ID Metadata Document (CIMD) policy, with the cache state of each URL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_client_metadata_urls.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#list_client_metadata_urls)
         """
 
     def list_devices(
@@ -1747,6 +1813,27 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#update_auth_event_feedback)
         """
 
+    def update_cimd_policy(
+        self, **kwargs: Unpack[UpdateCIMDPolicyRequestTypeDef]
+    ) -> UpdateCIMDPolicyResponseTypeDef:
+        """
+        Updates the configuration of a Client ID Metadata Document (CIMD) policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_cimd_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#update_cimd_policy)
+        """
+
+    def update_client_metadata_url_state(
+        self, **kwargs: Unpack[UpdateClientMetadataURLStateRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Changes the cache state of a client metadata document URL for a client ID
+        metadata document (CIMD) policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/update_client_metadata_url_state.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#update_client_metadata_url_state)
+        """
+
     def update_device_status(
         self, **kwargs: Unpack[UpdateDeviceStatusRequestTypeDef]
     ) -> dict[str, Any]:
@@ -1908,6 +1995,28 @@ class CognitoIdentityProviderClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["admin_list_user_auth_events"]
     ) -> AdminListUserAuthEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cimd_policies"]
+    ) -> ListCIMDPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_client_metadata_urls"]
+    ) -> ListClientMetadataURLsPaginator:
         """
         Create a paginator for an operation.
 

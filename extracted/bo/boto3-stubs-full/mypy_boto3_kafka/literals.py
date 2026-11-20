@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_kafka.literals import BrokerAZDistributionType
+    from mypy_boto3_kafka.literals import AssessmentStatusType
 
-    data: BrokerAZDistributionType = "DEFAULT"
+    data: AssessmentStatusType = "COMPLETE"
     ```
 """
 
@@ -23,7 +23,10 @@ else:
 
 
 __all__ = (
+    "AssessmentStatusType",
+    "AssessmentTypeType",
     "BrokerAZDistributionType",
+    "BrokerNodeTypeType",
     "ChannelDestinationTypeType",
     "ChannelStatusType",
     "ClientBrokerType",
@@ -34,12 +37,16 @@ __all__ = (
     "CustomerActionStatusType",
     "DescribeTopicPartitionsPaginatorName",
     "EnhancedMonitoringType",
+    "FindingCategoryType",
+    "FindingSeverityType",
     "IcebergCompressionTypeType",
     "JwtSigningAlgorithmType",
     "KafkaClusterEncryptionInTransitTypeType",
     "KafkaClusterSaslScramMechanismType",
     "KafkaServiceName",
     "KafkaVersionStatusType",
+    "ListAssessmentFindingsPaginatorName",
+    "ListAssessmentsPaginatorName",
     "ListClientVpcConnectionsPaginatorName",
     "ListClusterOperationsPaginatorName",
     "ListClusterOperationsV2PaginatorName",
@@ -51,6 +58,7 @@ __all__ = (
     "ListNodesPaginatorName",
     "ListReplicatorsPaginatorName",
     "ListScramSecretsPaginatorName",
+    "ListTopicReassignmentsPaginatorName",
     "ListTopicsPaginatorName",
     "ListVpcConnectionsPaginatorName",
     "NetworkTypeType",
@@ -69,6 +77,9 @@ __all__ = (
     "StorageModeType",
     "TargetCompressionTypeType",
     "TokenEndpointAuthenticationMethodType",
+    "TopicReassignmentModeType",
+    "TopicReassignmentStatusType",
+    "TopicReassignmentType",
     "TopicStateType",
     "UserIdentityTypeType",
     "ValueConverterType",
@@ -76,7 +87,10 @@ __all__ = (
 )
 
 
+AssessmentStatusType = Literal["COMPLETE", "DELETING", "FAILED", "IN_PROGRESS"]
+AssessmentTypeType = Literal["UPDATE_BROKER_TYPE"]
 BrokerAZDistributionType = Literal["DEFAULT"]
+BrokerNodeTypeType = Literal["EXPRESS", "STANDARD"]
 ChannelDestinationTypeType = Literal["ICEBERG", "S3"]
 ChannelStatusType = Literal[
     "ACTIVE", "CREATING", "DELETING", "FAILED", "SUSPENDED", "SUSPENDING", "UPDATING"
@@ -100,11 +114,17 @@ DescribeTopicPartitionsPaginatorName = Literal["describe_topic_partitions"]
 EnhancedMonitoringType = Literal[
     "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
 ]
+FindingCategoryType = Literal[
+    "BROKER_CONFIGURATION", "CAPACITY", "HEALTH", "INFRASTRUCTURE", "TOPIC_CONFIGURATION"
+]
+FindingSeverityType = Literal["ERROR", "INFO", "WARNING"]
 IcebergCompressionTypeType = Literal["SNAPPY", "ZSTD"]
 JwtSigningAlgorithmType = Literal["ES384", "RS256"]
 KafkaClusterEncryptionInTransitTypeType = Literal["TLS"]
 KafkaClusterSaslScramMechanismType = Literal["SHA256", "SHA512"]
 KafkaVersionStatusType = Literal["ACTIVE", "DEPRECATED"]
+ListAssessmentFindingsPaginatorName = Literal["list_assessment_findings"]
+ListAssessmentsPaginatorName = Literal["list_assessments"]
 ListClientVpcConnectionsPaginatorName = Literal["list_client_vpc_connections"]
 ListClusterOperationsPaginatorName = Literal["list_cluster_operations"]
 ListClusterOperationsV2PaginatorName = Literal["list_cluster_operations_v2"]
@@ -116,6 +136,7 @@ ListKafkaVersionsPaginatorName = Literal["list_kafka_versions"]
 ListNodesPaginatorName = Literal["list_nodes"]
 ListReplicatorsPaginatorName = Literal["list_replicators"]
 ListScramSecretsPaginatorName = Literal["list_scram_secrets"]
+ListTopicReassignmentsPaginatorName = Literal["list_topic_reassignments"]
 ListTopicsPaginatorName = Literal["list_topics"]
 ListVpcConnectionsPaginatorName = Literal["list_vpc_connections"]
 NetworkTypeType = Literal["DUAL", "IPV4"]
@@ -132,6 +153,11 @@ S3StorageClassType = Literal["GLACIER_IR", "INTELLIGENT_TIERING", "STANDARD"]
 StorageModeType = Literal["LOCAL", "TIERED"]
 TargetCompressionTypeType = Literal["GZIP", "LZ4", "NONE", "SNAPPY", "ZSTD"]
 TokenEndpointAuthenticationMethodType = Literal["BASIC", "NONE", "POST"]
+TopicReassignmentModeType = Literal["AUTO", "MANUAL"]
+TopicReassignmentStatusType = Literal[
+    "COMPLETE", "FAILED", "IN_PROGRESS", "PENDING", "STOPPED", "STOPPING"
+]
+TopicReassignmentType = Literal["AUTO", "MANUAL"]
 TopicStateType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 UserIdentityTypeType = Literal["AWSACCOUNT", "AWSSERVICE"]
 ValueConverterType = Literal["BYTE_ARRAY", "JSON", "JSON_SCHEMA_GSR", "STRING"]
@@ -449,6 +475,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -592,6 +619,8 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "describe_topic_partitions",
+    "list_assessment_findings",
+    "list_assessments",
     "list_client_vpc_connections",
     "list_cluster_operations",
     "list_cluster_operations_v2",
@@ -603,6 +632,7 @@ PaginatorName = Literal[
     "list_nodes",
     "list_replicators",
     "list_scram_secrets",
+    "list_topic_reassignments",
     "list_topics",
     "list_vpc_connections",
 ]

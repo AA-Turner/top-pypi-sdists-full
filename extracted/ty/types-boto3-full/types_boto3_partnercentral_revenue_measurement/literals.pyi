@@ -39,6 +39,7 @@ __all__ = (
     "RevenueAttributionAllocationErrorCodeType",
     "RevenueAttributionAllocationSortFieldType",
     "RevenueAttributionAllocationTaskStatusType",
+    "RevenueShareProductAccountTypeType",
     "ServiceName",
     "SortOrderType",
     "TenancyModelType",
@@ -68,6 +69,7 @@ RevenueAttributionAllocationErrorCodeType = Literal[
 ]
 RevenueAttributionAllocationSortFieldType = Literal["EffectiveFrom"]
 RevenueAttributionAllocationTaskStatusType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
+RevenueShareProductAccountTypeType = Literal["DEPLOYMENT", "ORGANIZATION"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 TenancyModelType = Literal["MULTI_TENANT", "SINGLE_TENANT"]
 PartnerCentralRevenueMeasurementAPIServiceName = Literal["partnercentral-revenue-measurement"]
@@ -374,6 +376,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

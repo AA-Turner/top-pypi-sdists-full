@@ -28,6 +28,8 @@ from .literals import (
     AuthenticateCognitoActionConditionalBehaviorEnumType,
     AuthenticateOidcActionConditionalBehaviorEnumType,
     CapacityReservationStateEnumType,
+    ClientCertificateIdentityFilterFieldType,
+    ClientCertificateIdentityFilterMatchTypeType,
     DescribeTargetHealthInputIncludeEnumType,
     EnablePrefixForIpv6SourceNatEnumType,
     EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnumType,
@@ -78,6 +80,7 @@ __all__ = (
     "CapacityReservationStatusTypeDef",
     "CertificateTypeDef",
     "CipherTypeDef",
+    "ClientCertificateIdentityFilterTypeDef",
     "CreateListenerInputTypeDef",
     "CreateListenerOutputTypeDef",
     "CreateLoadBalancerInputTypeDef",
@@ -199,7 +202,9 @@ __all__ = (
     "ModifyTargetGroupOutputTypeDef",
     "ModifyTrustStoreInputTypeDef",
     "ModifyTrustStoreOutputTypeDef",
+    "MutualAuthenticationAttributesOutputTypeDef",
     "MutualAuthenticationAttributesTypeDef",
+    "MutualAuthenticationAttributesUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PathPatternConditionConfigOutputTypeDef",
     "PathPatternConditionConfigTypeDef",
@@ -388,12 +393,11 @@ class CipherTypeDef(TypedDict):
     Priority: NotRequired[int]
 
 
-class MutualAuthenticationAttributesTypeDef(TypedDict):
-    Mode: NotRequired[str]
-    TrustStoreArn: NotRequired[str]
-    IgnoreClientCertificateExpiry: NotRequired[bool]
-    TrustStoreAssociationStatus: NotRequired[TrustStoreAssociationStatusEnumType]
-    AdvertiseTrustStoreCaNames: NotRequired[AdvertiseTrustStoreCaNamesEnumType]
+class ClientCertificateIdentityFilterTypeDef(TypedDict):
+    Field: ClientCertificateIdentityFilterFieldType
+    Action: Literal["accept"]
+    MatchType: ClientCertificateIdentityFilterMatchTypeType
+    Value: str
 
 
 class IpamPoolsTypeDef(TypedDict):
@@ -833,6 +837,24 @@ class SslPolicyTypeDef(TypedDict):
     SupportedLoadBalancerTypes: NotRequired[list[str]]
 
 
+class MutualAuthenticationAttributesOutputTypeDef(TypedDict):
+    Mode: NotRequired[str]
+    TrustStoreArn: NotRequired[str]
+    IgnoreClientCertificateExpiry: NotRequired[bool]
+    TrustStoreAssociationStatus: NotRequired[TrustStoreAssociationStatusEnumType]
+    AdvertiseTrustStoreCaNames: NotRequired[AdvertiseTrustStoreCaNamesEnumType]
+    ClientCertificateIdentityFilters: NotRequired[list[ClientCertificateIdentityFilterTypeDef]]
+
+
+class MutualAuthenticationAttributesTypeDef(TypedDict):
+    Mode: NotRequired[str]
+    TrustStoreArn: NotRequired[str]
+    IgnoreClientCertificateExpiry: NotRequired[bool]
+    TrustStoreAssociationStatus: NotRequired[TrustStoreAssociationStatusEnumType]
+    AdvertiseTrustStoreCaNames: NotRequired[AdvertiseTrustStoreCaNamesEnumType]
+    ClientCertificateIdentityFilters: NotRequired[Sequence[ClientCertificateIdentityFilterTypeDef]]
+
+
 class ModifyIpPoolsInputTypeDef(TypedDict):
     LoadBalancerArn: str
     IpamPools: NotRequired[IpamPoolsTypeDef]
@@ -1265,6 +1287,11 @@ class DescribeSSLPoliciesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+MutualAuthenticationAttributesUnionTypeDef = Union[
+    MutualAuthenticationAttributesTypeDef, MutualAuthenticationAttributesOutputTypeDef
+]
+
+
 class CreateTargetGroupOutputTypeDef(TypedDict):
     TargetGroups: list[TargetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1370,7 +1397,7 @@ ListenerTypeDef = TypedDict(
         "SslPolicy": NotRequired[str],
         "DefaultActions": NotRequired[list[ActionOutputTypeDef]],
         "AlpnPolicy": NotRequired[list[str]],
-        "MutualAuthentication": NotRequired[MutualAuthenticationAttributesTypeDef],
+        "MutualAuthentication": NotRequired[MutualAuthenticationAttributesOutputTypeDef],
     },
 )
 JwtValidationActionConfigUnionTypeDef = Union[
@@ -1468,7 +1495,7 @@ CreateListenerInputTypeDef = TypedDict(
         "Certificates": NotRequired[Sequence[CertificateTypeDef]],
         "AlpnPolicy": NotRequired[Sequence[str]],
         "Tags": NotRequired[Sequence[TagTypeDef]],
-        "MutualAuthentication": NotRequired[MutualAuthenticationAttributesTypeDef],
+        "MutualAuthentication": NotRequired[MutualAuthenticationAttributesUnionTypeDef],
     },
 )
 
@@ -1492,7 +1519,7 @@ ModifyListenerInputTypeDef = TypedDict(
         "Certificates": NotRequired[Sequence[CertificateTypeDef]],
         "DefaultActions": NotRequired[Sequence[ActionUnionTypeDef]],
         "AlpnPolicy": NotRequired[Sequence[str]],
-        "MutualAuthentication": NotRequired[MutualAuthenticationAttributesTypeDef],
+        "MutualAuthentication": NotRequired[MutualAuthenticationAttributesUnionTypeDef],
     },
 )
 

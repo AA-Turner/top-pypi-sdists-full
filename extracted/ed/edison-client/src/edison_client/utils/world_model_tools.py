@@ -21,8 +21,7 @@ class WorldModelTools:
                     "FH_PLATFORM_API_KEY environment variable is required for WorldModelTools"
                 )
             cls._client = RestClient(
-                stage=Stage.from_string(os.getenv("CROW_ENV", "dev")),
-                api_key=api_key,
+                stage=Stage.from_string(os.getenv("CROW_ENV", "dev")), api_key=api_key
             )
         return cls._client
 
@@ -38,11 +37,7 @@ class WorldModelTools:
         Returns:
             UUID: The ID of the newly created world model.
         """
-        world_model = WorldModel(
-            name=name,
-            description=description,
-            content=content,
-        )
+        world_model = WorldModel(name=name, description=description, content=content)
         return WorldModelTools._get_client().create_world_model(world_model)
 
     @staticmethod
@@ -83,7 +78,4 @@ search_world_model_tool = Tool.from_function(WorldModelTools.search_world_models
 
 
 def make_world_model_tools() -> list[Tool]:
-    return [
-        search_world_model_tool,
-        create_world_model_tool,
-    ]
+    return [search_world_model_tool, create_world_model_tool]

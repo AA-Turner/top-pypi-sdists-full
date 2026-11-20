@@ -39,16 +39,24 @@ def _wait_script() -> str:
 
 
 def _checkout(tmp_path):
-    """A checkout named invisible-core whose derived version is 9.9.9 (the step loads src/invisible_core/_version.py)."""
+    """A checkout named invisible-core whose tree derives 0.99.0 (src/invisible_core/_version.py) while the ledger pull request records 9.9.9
+    (INVCORE_E2E_VERSION, what the step before the wait computes): the wait is about the latter."""
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "invisible-core"\ndynamic = ["version"]\n', encoding="utf-8")
     pkg = tmp_path / "src" / "invisible_core"
     pkg.mkdir(parents=True)
-    (pkg / "_version.py").write_text('__version__ = "9.9.9"\n', encoding="utf-8")
+    (pkg / "_version.py").write_text('__version__ = "0.99.0"\n', encoding="utf-8")
 
 
-def _run_the_wait(tmp_path, plan, *, seconds=3.0, poll=0.05, call_seconds=None, confirmations=None):
+# No test here depends on how fast a call answers. A call that answers (y, n) answers at once, whatever the load of the machine; a call that
+# hangs (h) sleeps for 5 minutes, far beyond any timeout the tests give it, so only the timeout of the step ends it. The timeout of a call
+# (CALL_SECONDS) is wide, so that no answer given at once can reach it even on a machine that runs the whole suite in parallel; the deadline
+# of the wait (seconds) is wide too wherever the test is not about the deadline itself.
+CALL_SECONDS = 10.0
+
+
+def _run_the_wait(tmp_path, plan, *, seconds=120.0, poll=0.05, call_seconds=None, confirmations=None):
     """Run the wait with a uv that answers call number i as plan[i] says (the last letter repeats): y = resolves it, n = no such version,
-    h = does not answer (sleeps 30 s). Returns (completed process, the calls uv got, with their stdin)."""
+    h = does not answer (sleeps 5 minutes, until the step kills it). Returns (completed process, the calls uv got, with their stdin)."""
     _checkout(tmp_path)
     log = tmp_path / "uv-calls.jsonl"
     shim = tmp_path / "uv_shim.py"
@@ -61,21 +69,22 @@ def _run_the_wait(tmp_path, plan, *, seconds=3.0, poll=0.05, call_seconds=None, 
         plan = %r
         what = plan[min(n, len(plan) - 1)]
         if what == "h":
-            time.sleep(30)
+            time.sleep(300)
         if what == "y":
             sys.exit(0)
         sys.stderr.write("  x No solution found when resolving dependencies: invisible-core==9.9.9 was not found in the package registry" + chr(10))
         sys.exit(1)
     """) % (str(log), plan), encoding="utf-8")
-    env = dict(os.environ, INDEX_WAIT_UV=json.dumps([sys.executable, str(shim)]), INDEX_WAIT_SECONDS=str(seconds), INDEX_WAIT_POLL=str(poll))
+    env = dict(os.environ, INDEX_WAIT_UV=json.dumps([sys.executable, str(shim)]), INDEX_WAIT_SECONDS=str(seconds), INDEX_WAIT_POLL=str(poll),
+               INVCORE_E2E_VERSION="9.9.9")
     if call_seconds is not None:
         env["INDEX_WAIT_CALL_SECONDS"] = str(call_seconds)
     if confirmations is not None:
         env["INDEX_WAIT_CONFIRMATIONS"] = str(confirmations)
     try:
-        r = subprocess.run([sys.executable, "-c", _wait_script()], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60)
+        r = subprocess.run([sys.executable, "-c", _wait_script()], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180)
     except subprocess.TimeoutExpired:
-        pytest.fail("the wait did not end within 60 s with INDEX_WAIT_SECONDS=%s: it does not read its deadline" % seconds)
+        pytest.fail("the wait did not end within 180 s with INDEX_WAIT_SECONDS=%s: it does not read its deadline" % seconds)
     calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
     return r, calls
 
@@ -101,7 +110,8 @@ def test_a_no_between_the_yes_starts_the_count_again(tmp_path):
 
 
 def test_the_wait_ends_in_an_error_that_names_the_missing_version_when_the_index_never_has_it(tmp_path):
-    r, calls = _run_the_wait(tmp_path, "n", seconds=1.0)
+    # The deadline is what ends this wait, so a clock is unavoidable; it is wide enough for several calls (each answers at once) to fit in it.
+    r, calls = _run_the_wait(tmp_path, "n", seconds=4.0, poll=0.2)
     assert r.returncode == 1, "a forgotten publish must fail the job here: " + r.stdout + r.stderr
     assert "::error::the index does not have invisible-core 9.9.9 yet" in r.stdout
     assert "minutes" in r.stdout and "No solution found" in r.stdout and "0 of 3 confirmations" in r.stdout
@@ -109,18 +119,20 @@ def test_the_wait_ends_in_an_error_that_names_the_missing_version_when_the_index
 
 
 def test_a_version_that_arrives_too_late_for_the_deadline_is_an_error_not_a_pass(tmp_path):
-    r, calls = _run_the_wait(tmp_path, "yy" + "n", seconds=1.0)
+    r, calls = _run_the_wait(tmp_path, "yy" + "n", seconds=4.0, poll=0.2)
     assert r.returncode == 1, "two yes then no until the deadline is not three in a row: " + r.stdout + r.stderr
+    assert len(calls) >= 3, "the wait ended before the third answer: %d calls" % len(calls)
 
 
 def test_a_call_that_does_not_answer_is_a_no_and_does_not_stop_the_wait(tmp_path):
-    r, calls = _run_the_wait(tmp_path, "hyyy", seconds=20.0, call_seconds=0.5)
+    r, calls = _run_the_wait(tmp_path, "hyyy", call_seconds=CALL_SECONDS)
     assert r.returncode == 0, r.stdout + r.stderr
     assert len(calls) == 4, "the hung call counts as one no, then three yes: %d calls" % len(calls)
 
 
 def test_a_call_that_never_answers_ends_in_the_error_with_what_happened(tmp_path):
-    r, calls = _run_the_wait(tmp_path, "h", seconds=1.5, call_seconds=0.3)
+    # The deadline (1 s) is over when the first call, which hangs, is ended by its timeout: the wait ends after that one call, whatever the load.
+    r, calls = _run_the_wait(tmp_path, "h", seconds=1.0, call_seconds=CALL_SECONDS)
     assert r.returncode == 1 and "uv did not answer within" in r.stdout, r.stdout + r.stderr
 
 
@@ -134,3 +146,71 @@ def test_the_wait_comes_after_uv_is_installed_and_before_the_user_path():
 def test_the_wait_step_still_passes_the_gate_of_the_install_job():
     from invisible_core import install_job
     assert install_job.problems(WORKFLOW.read_text(encoding="utf-8")) == []
+
+
+# ---- the version of a ledger pull request is the one it adds to PUBLISHED.json, not the tree's ------------------------------------------------
+# A ledger PR of a release is merged after this job is green, and main may already declare the next version (seal or CORE_REVISION ahead), which
+# is not published until that ledger is merged: the wait asked the index for the version derived from the tree, which does not exist, and the pull
+# request could never turn green.
+
+def _ledger(*versions):
+    return json.dumps({"comment": "x", "schema": 1, "released": [{"version": v} for v in versions]})
+
+
+def _added_versions_script():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ci_ledger_added_versions_under_test", ROOT / "scripts" / "ci_ledger_added_versions.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_version_of_the_pull_request_is_the_one_it_adds_not_the_one_of_the_tree(tmp_path):
+    """base [..67.77.0], head [..67.77.0, 67.78.0], tree 67.79.0 -> 67.78.0 (through the command the step runs)."""
+    (tmp_path / "base.json").write_text(_ledger("67.76.0", "67.77.0"), encoding="utf-8")
+    (tmp_path / "head.json").write_text(_ledger("67.76.0", "67.77.0", "67.78.0"), encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "invisible-core"\nversion = "67.79.0"\n', encoding="utf-8")
+    r = subprocess.run([sys.executable, str(ROOT / "scripts" / "ci_ledger_added_versions.py"), "--base", "base.json", "--head", "head.json",
+                        "--tree-pyproject", "pyproject.toml"], cwd=tmp_path, capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == "67.78.0", r.stdout + r.stderr
+
+
+def test_a_ledger_pull_request_that_adds_nothing_is_an_error_that_says_so():
+    module = _added_versions_script()
+    with pytest.raises(module.Refused, match="adds no version to PUBLISHED.json"):
+        module.the_version_of_the_pr(_ledger("0.54.0", "0.55.0"), _ledger("0.54.0", "0.55.0"))
+
+
+def test_a_ledger_pull_request_that_adds_two_versions_is_an_error_naming_both():
+    module = _added_versions_script()
+    with pytest.raises(module.Refused, match=r"adds 2 versions .*0\.56\.0, 0\.57\.0"):
+        module.the_version_of_the_pr(_ledger("0.55.0"), _ledger("0.55.0", "0.56.0", "0.57.0"))
+
+
+def test_a_version_the_head_dropped_is_not_an_addition():
+    module = _added_versions_script()
+    assert module.added_versions(_ledger("0.54.0", "0.55.0"), _ledger("0.55.0", "0.56.0")) == ["0.56.0"]
+
+
+def test_the_install_job_takes_the_version_of_a_pull_request_from_the_ledger_and_not_from_the_tree():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "_mod.__version__" not in text and "spec_from_file_location" not in text, \
+        "a step derives the version of the tree: a ledger pull request is not about it"
+    step = text.index("- name: the version this ledger pull request records")
+    wait = text.index("- name: wait for the index to serve this version")
+    assert step < wait, "the version is computed after the wait that needs it"
+    block = text[step:wait]
+    assert "if: github.event_name == 'pull_request'" in block
+    assert "github.event.pull_request.base.sha" in block and "scripts/ci_ledger_added_versions.py" in block
+    assert 'INVCORE_E2E_VERSION=$version" >> "$GITHUB_ENV"' in block
+    assert 'os.environ["INVCORE_E2E_VERSION"]' in text[wait:]
+
+
+def test_the_install_test_adds_exactly_the_version_of_the_pull_request(monkeypatch):
+    import test_user_install_e2e as e2e
+    lines = ["uv init", "uv add invisible-core"]
+    monkeypatch.delenv("INVCORE_E2E_VERSION", raising=False)
+    assert e2e._pinned_to_the_ledger(lines) == lines, "a run with no pull request installs what the README's line installs"
+    monkeypatch.setenv("INVCORE_E2E_VERSION", "67.78.0")
+    assert e2e._pinned_to_the_ledger(lines) == ["uv init", "uv add invisible-core==67.78.0"]

@@ -8,6 +8,7 @@ import numpy as np
 
 from keras.src import backend
 from keras.src.api_export import keras_export
+from keras.src.backend import config
 
 try:
     from PIL import Image as pil_image
@@ -53,12 +54,12 @@ def array_to_img(x, data_format=None, scale=True, dtype=None):
         x: Input data, in any form that can be converted to a NumPy array.
         data_format: Image data format, can be either `"channels_first"` or
             `"channels_last"`. Defaults to `None`, in which case the global
-            setting `keras.backend.image_data_format()` is used (unless you
+            setting `keras.config.image_data_format()` is used (unless you
             changed it, it defaults to `"channels_last"`).
         scale: Whether to rescale the image such that minimum and maximum values
             are 0 and 255 respectively. Defaults to `True`.
         dtype: Dtype to use. `None` means the global setting
-            `keras.backend.floatx()` is used (unless you changed it, it
+            `keras.config.floatx()` is used (unless you changed it, it
             defaults to `"float32"`). Defaults to `None`.
 
     Returns:
@@ -67,7 +68,7 @@ def array_to_img(x, data_format=None, scale=True, dtype=None):
 
     data_format = backend.standardize_data_format(data_format)
     if dtype is None:
-        dtype = backend.floatx()
+        dtype = config.floatx()
     if pil_image is None:
         raise ImportError(
             "Could not import PIL.Image. "
@@ -129,10 +130,10 @@ def img_to_array(img, data_format=None, dtype=None):
         img: Input PIL Image instance.
         data_format: Image data format, can be either `"channels_first"` or
             `"channels_last"`. Defaults to `None`, in which case the global
-            setting `keras.backend.image_data_format()` is used (unless you
+            setting `keras.config.image_data_format()` is used (unless you
             changed it, it defaults to `"channels_last"`).
         dtype: Dtype to use. `None` means the global setting
-            `keras.backend.floatx()` is used (unless you changed it, it
+            `keras.config.floatx()` is used (unless you changed it, it
             defaults to `"float32"`).
 
     Returns:
@@ -141,7 +142,7 @@ def img_to_array(img, data_format=None, dtype=None):
 
     data_format = backend.standardize_data_format(data_format)
     if dtype is None:
-        dtype = backend.floatx()
+        dtype = config.floatx()
     # NumPy array x has format (height, width, channel)
     # or (channel, height, width)
     # but original PIL image has format (width, height, channel)

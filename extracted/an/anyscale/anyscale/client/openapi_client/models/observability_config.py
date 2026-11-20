@@ -34,15 +34,19 @@ class ObservabilityConfig(object):
     """
     openapi_types = {
         'enable_customer_logs_aggregation': 'bool',
-        'enable_ray_system_log_collection': 'bool'
+        'enable_ray_system_log_collection': 'bool',
+        'enable_ray_system_logs_in_customer_aggregated_logs': 'bool',
+        'enable_ray_system_logs_level_filter': 'bool'
     }
 
     attribute_map = {
         'enable_customer_logs_aggregation': 'enable_customer_logs_aggregation',
-        'enable_ray_system_log_collection': 'enable_ray_system_log_collection'
+        'enable_ray_system_log_collection': 'enable_ray_system_log_collection',
+        'enable_ray_system_logs_in_customer_aggregated_logs': 'enable_ray_system_logs_in_customer_aggregated_logs',
+        'enable_ray_system_logs_level_filter': 'enable_ray_system_logs_level_filter'
     }
 
-    def __init__(self, enable_customer_logs_aggregation=False, enable_ray_system_log_collection=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, enable_customer_logs_aggregation=False, enable_ray_system_log_collection=False, enable_ray_system_logs_in_customer_aggregated_logs=False, enable_ray_system_logs_level_filter=False, local_vars_configuration=None):  # noqa: E501
         """ObservabilityConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,12 +54,18 @@ class ObservabilityConfig(object):
 
         self._enable_customer_logs_aggregation = None
         self._enable_ray_system_log_collection = None
+        self._enable_ray_system_logs_in_customer_aggregated_logs = None
+        self._enable_ray_system_logs_level_filter = None
         self.discriminator = None
 
         if enable_customer_logs_aggregation is not None:
             self.enable_customer_logs_aggregation = enable_customer_logs_aggregation
         if enable_ray_system_log_collection is not None:
             self.enable_ray_system_log_collection = enable_ray_system_log_collection
+        if enable_ray_system_logs_in_customer_aggregated_logs is not None:
+            self.enable_ray_system_logs_in_customer_aggregated_logs = enable_ray_system_logs_in_customer_aggregated_logs
+        if enable_ray_system_logs_level_filter is not None:
+            self.enable_ray_system_logs_level_filter = enable_ray_system_logs_level_filter
 
     @property
     def enable_customer_logs_aggregation(self):
@@ -98,6 +108,48 @@ class ObservabilityConfig(object):
         """
 
         self._enable_ray_system_log_collection = enable_ray_system_log_collection
+
+    @property
+    def enable_ray_system_logs_in_customer_aggregated_logs(self):
+        """Gets the enable_ray_system_logs_in_customer_aggregated_logs of this ObservabilityConfig.  # noqa: E501
+
+
+        :return: The enable_ray_system_logs_in_customer_aggregated_logs of this ObservabilityConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ray_system_logs_in_customer_aggregated_logs
+
+    @enable_ray_system_logs_in_customer_aggregated_logs.setter
+    def enable_ray_system_logs_in_customer_aggregated_logs(self, enable_ray_system_logs_in_customer_aggregated_logs):
+        """Sets the enable_ray_system_logs_in_customer_aggregated_logs of this ObservabilityConfig.
+
+
+        :param enable_ray_system_logs_in_customer_aggregated_logs: The enable_ray_system_logs_in_customer_aggregated_logs of this ObservabilityConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ray_system_logs_in_customer_aggregated_logs = enable_ray_system_logs_in_customer_aggregated_logs
+
+    @property
+    def enable_ray_system_logs_level_filter(self):
+        """Gets the enable_ray_system_logs_level_filter of this ObservabilityConfig.  # noqa: E501
+
+
+        :return: The enable_ray_system_logs_level_filter of this ObservabilityConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ray_system_logs_level_filter
+
+    @enable_ray_system_logs_level_filter.setter
+    def enable_ray_system_logs_level_filter(self, enable_ray_system_logs_level_filter):
+        """Sets the enable_ray_system_logs_level_filter of this ObservabilityConfig.
+
+
+        :param enable_ray_system_logs_level_filter: The enable_ray_system_logs_level_filter of this ObservabilityConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ray_system_logs_level_filter = enable_ray_system_logs_level_filter
 
     def to_dict(self):
         """Returns the model properties as a dict"""

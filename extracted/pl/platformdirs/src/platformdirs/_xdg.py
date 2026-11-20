@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "contextlib",
+    "pathlib",
+    "posixpath",
+    f"{__spec__.parent}._runtime",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import os
 import posixpath
 import sys
 from contextlib import suppress
 from pathlib import Path
 
-from ._runtime import runtime_dir_problem, warn_once
+from ._runtime import runtime_base_problem, runtime_dir_parent_problem, runtime_dir_problem, warn_once
 from .api import PlatformDirsABC
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from typing import Final
 
 
@@ -66,26 +74,6 @@ class XDGMixin(PlatformDirsABC):
         if path := xdg_dir("XDG_STATE_HOME"):
             return self._append_app_name_and_version(path, private=True)
         return super().user_state_dir
-
-    @property
-    def user_runtime_dir(self) -> str:
-        """Runtime directory tied to the user, from ``$XDG_RUNTIME_DIR`` if set and private, else platform default."""
-        if path := xdg_dir("XDG_RUNTIME_DIR"):
-            with suppress(OSError):
-                self._optionally_create_directory(path, private=True)
-            # Another user can pre-create the path in a shared parent, and XDG requires an owned runtime dir with mode
-            # 0700.
-            if not (problem := runtime_dir_problem(path, missing_ok=not self.ensure_exists)):
-                return self._append_app_name_and_version(path, private=True)
-            warn_once(f"XDG_RUNTIME_DIR {problem}, falling back to the platform default")
-        return super().user_runtime_dir
-
-    @property
-    def site_runtime_dir(self) -> str:
-        """Runtime directory shared by users, from ``$XDG_RUNTIME_DIR`` if set, else platform default."""
-        if path := xdg_dir("XDG_RUNTIME_DIR"):
-            return self._append_app_name_and_version(path, private=False)
-        return super().site_runtime_dir
 
     @property
     def user_documents_dir(self) -> str:
@@ -166,9 +154,48 @@ class XDGMixin(PlatformDirsABC):
             return [os.path.join(p, "applications") for p in xdg_dirs]  # ruff:ignore[os-path-join]
         return super()._site_applications_dirs
 
+    def _iter_runtime_dirs(self) -> Iterator[str]:
+        if xdg_dir("XDG_RUNTIME_DIR") and type(self).site_runtime_dir is XDGMixin.site_runtime_dir:
+            # Both getters select the same base. A second lookup can race with a change to the fallback.
+            yield self.user_runtime_dir
+        else:
+            yield from super()._iter_runtime_dirs()
+
+    @property
+    def site_runtime_dir(self) -> str:
+        """Site runtime directory, using the user runtime location when an XDG override is set.
+
+        :raises PermissionError: if root requests creation under an inherited runtime path that fails validation.
+
+        """
+        if path := xdg_dir("XDG_RUNTIME_DIR"):
+            if not self._use_site:
+                return self.user_runtime_dir
+            # Root can look up the invoking user's runtime path. Creation requires a checked root-owned base.
+            if self.ensure_exists and (problem := self._xdg_runtime_problem(path)):
+                raise PermissionError(problem)
+            return self._append_app_name_and_version(path, private=False, strict=True)
+        return super().site_runtime_dir
+
+    def _xdg_runtime_problem(self, path: str) -> str | None:
+        if problem := runtime_dir_parent_problem(path, missing_ok=True):
+            return runtime_dir_problem(path, missing_ok=True) or problem
+        with suppress(OSError):
+            self._optionally_create_directory(path, private=True, strict=True)
+        return runtime_base_problem(path, missing_ok=not self.ensure_exists)
+
+    @property
+    def user_runtime_dir(self) -> str:
+        """Runtime directory tied to the user, from ``$XDG_RUNTIME_DIR`` if set and private, else platform default."""
+        if path := xdg_dir("XDG_RUNTIME_DIR"):
+            if (problem := self._xdg_runtime_problem(path)) is None:
+                return self._append_app_name_and_version(path, private=True, strict=True)
+            warn_once(f"XDG_RUNTIME_DIR {problem}, falling back to the platform default")
+        return super().user_runtime_dir
+
 
 def xdg_dir(env_var: str) -> str | None:
-    path: Final = os.environ.get(env_var, "")
+    path: Final[str] = os.environ.get(env_var, "")
     return path if posixpath.isabs(path) else None
 
 
@@ -176,18 +203,21 @@ def _xdg_dir_list(env_var: str) -> list[str]:
     return [path for path in os.environ.get(env_var, "").split(os.pathsep) if posixpath.isabs(path)]
 
 
-def expand_user(path: str) -> str:
+def expand_user(path: str, *, fallback_uid: int | None = None) -> str:
     # Expand the leading ``~`` of ``path`` like :func:`os.path.expanduser`, treating a relative ``HOME`` as unset on
     # POSIX.
     #
     # :raises RuntimeError: if the home directory cannot be resolved to an absolute path.
-    if sys.platform != "win32" and "HOME" in os.environ and not _is_absolute(os.environ["HOME"]):
-        # expanduser uses HOME verbatim, so an empty one roots the path at / and a relative one at the working directory
+    home = os.environ.get("HOME")
+    if sys.platform != "win32" and (fallback_uid is not None or home is not None) and not _is_absolute(home or ""):
+        # expanduser uses HOME verbatim or falls back to the real UID, even under root redirection.
         expanded = path
         with suppress(ImportError, KeyError):
             import pwd  # ruff:ignore[import-outside-top-level]  # missing on WASI
 
-            expanded = pwd.getpwuid(os.getuid()).pw_dir.rstrip("/") + path[1:] or "/"
+            home = pwd.getpwuid(os.getuid() if fallback_uid is None else fallback_uid).pw_dir
+            if fallback_uid is None or _is_absolute(home):
+                expanded = home.rstrip("/") + path[1:] or "/"
     else:
         # str(Path) rewrites separators on Windows
         expanded = os.path.expanduser(path)  # ruff:ignore[os-path-expanduser]

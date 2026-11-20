@@ -40,6 +40,13 @@ class TestWorkspacesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_workspace_discovery_project(self) -> None:
+        """Test case for get_workspace_discovery_project
+
+        Get Workspace Discovery Project.
+        """
+        pass
+
     def test_get_workspaces(self) -> None:
         """Test case for get_workspaces
 
@@ -58,6 +65,13 @@ class TestWorkspacesV1Api(unittest.TestCase):
         """Test case for post_workspace
 
         Post Workspace.
+        """
+        pass
+
+    def test_put_workspace_discovery_project(self) -> None:
+        """Test case for put_workspace_discovery_project
+
+        Put Workspace Discovery Project.
         """
         pass
 

@@ -20,6 +20,7 @@ import time
 import pyomo.common.unittest as unittest
 from pyomo.common.collections import Bunch
 from pyomo.common.errors import InvalidValueError
+from pyomo.common.gc_manager import PauseGC
 from pyomo.common.log import LoggingIntercept
 from pyomo.common.tee import capture_output
 from pyomo.core.base.set_types import NonNegativeIntegers
@@ -277,7 +278,7 @@ class TestPyROSSolveCardinalitySet(unittest.TestCase):
         m.ineq_con = Constraint(expr=m.x >= m.q[0] + m.q[1] - m.q[2] - m.q[3])
 
         cset = CardinalitySet(
-            origin=[1] * 4, positive_deviation=[1, 0, 2, 0.5], gamma=2
+            origin=[1] * 4, gamma=2, positive_deviation=[1, 0, 2, 0.5]
         )
         res = SolverFactory("pyros").solve(
             model=m,
@@ -540,13 +541,11 @@ class TestPyROSSolveCartesianProductSet(unittest.TestCase):
         """
         m = self.build_model()
         cpset = CartesianProductSet(
-            [
-                BoxSet([[0, 1]]),
-                FactorModelSet(
-                    origin=[0, 0], number_of_factors=1, beta=1, psi_mat=[[1], [3]]
-                ),
-                CardinalitySet(origin=[0], positive_deviation=[0.5], gamma=1),
-            ]
+            BoxSet([[0, 1]]),
+            FactorModelSet(
+                origin=[0, 0], number_of_factors=1, beta=1, psi_mat=[[1], [3]]
+            ),
+            CardinalitySet(origin=[0], gamma=1, positive_deviation=[0.5]),
         )
         results = SolverFactory("pyros").solve(
             model=m,
@@ -583,7 +582,7 @@ class TestPyROSSolveCartesianProductSet(unittest.TestCase):
         """
         m = self.build_model()
         cpset = CartesianProductSet(
-            [BoxSet([[0, 1]]), DiscreteScenarioSet([(0, 1, 3), (0, 0, 0)])]
+            BoxSet([[0, 1]]), DiscreteScenarioSet([(0, 1, 3), (0, 0, 0)])
         )
         # exception raised during set validation due to involvement
         # of discrete uncertainty in the cartesian product
@@ -2258,8 +2257,8 @@ class RegressionTest(unittest.TestCase):
         m.con1 = Constraint(expr=m.x1 >= m.q1)
         m.con2 = Constraint(expr=m.x2 >= m.q2)
         iset = IntersectionSet(
-            set1=BoxSet(bounds=[[0, 2]] * 2),
-            set2=DiscreteScenarioSet([[0, 0], [0.5, 0.5], [1, 1], [3, 3]]),
+            BoxSet(bounds=[[0, 2]] * 2),
+            DiscreteScenarioSet([[0, 0], [0.5, 0.5], [1, 1], [3, 3]]),
         )
         res = SolverFactory("pyros").solve(
             model=m,
@@ -2305,9 +2304,9 @@ class RegressionTest(unittest.TestCase):
         m.con1 = Constraint(expr=m.x1 >= m.q1)
         m.con2 = Constraint(expr=m.x2 >= m.q2)
         iset = IntersectionSet(
-            set1=AxisAlignedEllipsoidalSet(center=(0, 0), half_lengths=(1, 1)),
+            AxisAlignedEllipsoidalSet(center=(0, 0), half_lengths=(1, 1)),
             # factor model set requires auxiliary variables
-            set2=FactorModelSet(
+            FactorModelSet(
                 origin=[0, 0], psi_mat=np.eye(2), number_of_factors=2, beta=0.5
             ),
         )
@@ -3291,7 +3290,7 @@ class TestSubsolverTiming(unittest.TestCase):
         # construct the IntersectionSet
         ellipsoid = AxisAlignedEllipsoidalSet(center=[1.125, 1], half_lengths=[1, 0])
         bset = BoxSet(bounds=[[1, 2], [0.5, 1.5]])
-        iset = IntersectionSet(ellipsoid=ellipsoid, bset=bset)
+        iset = IntersectionSet(ellipsoid, bset)
 
         # Instantiate the PyROS solver
         pyros_solver = SolverFactory("pyros")
@@ -3979,7 +3978,7 @@ class TestPyROSSolverLogIntros(unittest.TestCase):
         # check number of lines is as expected
         self.assertEqual(
             len(intro_msg_lines),
-            14,
+            15,
             msg=(
                 "PyROS solver introductory message does not contain"
                 "the expected number of lines."
@@ -3993,16 +3992,17 @@ class TestPyROSSolverLogIntros(unittest.TestCase):
         # check regex main text
         self.assertRegex(
             " ".join(intro_msg_lines[1:-1]),
-            r"PyROS: The Pyomo Robust Optimization Solver, v.* \(IDAES\)\.",
+            r"PyROS: The Pyomo Robust Optimization Solver, v.* \(CCSI2\) "
+            r"projects\.",
         )
 
-    def test_log_disclaimer(self):
+    def test_log_feedback_ref(self):
         """
-        Test logging of PyROS solver disclaimer messages.
+        Test logging of PyROS solver guidance on providing feedback.
         """
         pyros_solver = SolverFactory("pyros")
         with LoggingIntercept(level=logging.INFO) as LOG:
-            pyros_solver._log_disclaimer(logger=logger, level=logging.INFO)
+            pyros_solver._log_feedback_guidance(logger=logger, level=logging.INFO)
 
         disclaimer_msgs = LOG.getvalue()
 
@@ -4012,23 +4012,21 @@ class TestPyROSSolverLogIntros(unittest.TestCase):
         # check number of lines is as expected
         self.assertEqual(
             len(disclaimer_msg_lines),
-            5,
+            3,
             msg=(
-                "PyROS solver disclaimer message does not contain"
+                "PyROS solver disclaimer message does not contain "
                 "the expected number of lines."
             ),
         )
 
         # regex first line of disclaimer section
-        self.assertRegex(disclaimer_msg_lines[0], r"=.* DISCLAIMER .*=")
         # check last line of disclaimer section
-        self.assertEqual(disclaimer_msg_lines[-1], "=" * 78)
-
         # check regex main text
         self.assertRegex(
-            " ".join(disclaimer_msg_lines[1:-1]),
-            r"PyROS is currently under active development.*ticket at.*",
+            " ".join(disclaimer_msg_lines[0:-1]),
+            r"Please provide feedback.*ticket at.*",
         )
+        self.assertEqual(disclaimer_msg_lines[-1], "=" * 78)
 
 
 class UnavailableSolver:
@@ -5444,34 +5442,37 @@ class TestPyROSCacheUncertaintySetBounds(unittest.TestCase):
         local_subsolver = SolverFactory("ipopt")
         global_subsolver = SolverFactory("ipopt")
 
-        # Call the PyROS solver
-        results_cache = pyros_solver.solve(
-            model=m,
-            first_stage_variables=[m.x1],
-            second_stage_variables=[m.x2],
-            uncertain_params=[m.u],
-            uncertainty_set=interval_cache,
-            local_solver=local_subsolver,
-            global_solver=global_subsolver,
-            options={
-                "objective_focus": ObjectiveType.worst_case,
-                "solve_master_globally": True,
-            },
-        )
+        # Pause the garbage collector so that a collection doesn't
+        # impact the timing.
+        with PauseGC():
+            # Call the PyROS solver
+            results_cache = pyros_solver.solve(
+                model=m,
+                first_stage_variables=[m.x1],
+                second_stage_variables=[m.x2],
+                uncertain_params=[m.u],
+                uncertainty_set=interval_cache,
+                local_solver=local_subsolver,
+                global_solver=global_subsolver,
+                options={
+                    "objective_focus": ObjectiveType.worst_case,
+                    "solve_master_globally": True,
+                },
+            )
 
-        results_no_cache = pyros_solver.solve(
-            model=m,
-            first_stage_variables=[m.x1],
-            second_stage_variables=[m.x2],
-            uncertain_params=[m.u],
-            uncertainty_set=interval_no_cache,
-            local_solver=local_subsolver,
-            global_solver=global_subsolver,
-            options={
-                "objective_focus": ObjectiveType.worst_case,
-                "solve_master_globally": True,
-            },
-        )
+            results_no_cache = pyros_solver.solve(
+                model=m,
+                first_stage_variables=[m.x1],
+                second_stage_variables=[m.x2],
+                uncertain_params=[m.u],
+                uncertainty_set=interval_no_cache,
+                local_solver=local_subsolver,
+                global_solver=global_subsolver,
+                options={
+                    "objective_focus": ObjectiveType.worst_case,
+                    "solve_master_globally": True,
+                },
+            )
 
         # caching should always result in less time,
         # as not caching reruns the slow solver multiple times
@@ -5545,7 +5546,7 @@ class TestPyROSCacheUncertaintySetBounds(unittest.TestCase):
             rhs_vec=[1] * 6,
         )
         # inclusion of PolyhedralSet means bounds caching takes place
-        cpset = CartesianProductSet([BoxSet([[0, 1]]), poly_set])
+        cpset = CartesianProductSet(BoxSet([[0, 1]]), poly_set)
         res1 = SolverFactory("pyros").solve(
             model=m,
             first_stage_variables=m.x,
@@ -5599,10 +5600,10 @@ class TestPyROSCacheUncertaintySetBounds(unittest.TestCase):
             rhs_vec=[2] * 8,
         )
         iset = IntersectionSet(
-            set1=CustomExactBoundsUncertaintySet(
+            CustomExactBoundsUncertaintySet(
                 bounds=[[-3, 3]] * 4, sleep_time=0, cache=True
             ),
-            set2=poly_set,
+            poly_set,
         )
         res3 = SolverFactory("pyros").solve(
             model=m,

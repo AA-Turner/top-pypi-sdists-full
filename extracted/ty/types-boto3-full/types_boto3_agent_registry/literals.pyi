@@ -30,6 +30,8 @@ __all__ = (
     "RegistryRecordFilterNameType",
     "RegistryRecordStatusType",
     "ResourceServiceName",
+    "SearchDiscoverableRegistryRecordsPaginatorName",
+    "SearchTypeType",
     "ServiceName",
 )
 
@@ -42,14 +44,18 @@ RegistryRecordFilterNameType = Literal["descriptorType", "recordType"]
 RegistryRecordStatusType = Literal[
     "APPROVED",
     "CREATE_FAILED",
+    "CREATE_PENDING_AUTH",
     "CREATING",
     "DEPRECATED",
     "DRAFT",
     "PENDING_APPROVAL",
     "REJECTED",
     "UPDATE_FAILED",
+    "UPDATE_PENDING_AUTH",
     "UPDATING",
 ]
+SearchDiscoverableRegistryRecordsPaginatorName = Literal["search_discoverable_registry_records"]
+SearchTypeType = Literal["HYBRID", "KEYWORD", "SEMANTIC"]
 AgentRegistryServiceName = Literal["agent-registry"]
 ServiceName = Literal[
     "abuse-signal",
@@ -354,6 +360,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -495,4 +502,6 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_discoverable_registry_records"]
+PaginatorName = Literal[
+    "list_discoverable_registry_records", "search_discoverable_registry_records"
+]

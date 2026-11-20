@@ -38,6 +38,15 @@ STOPPED = "stopped"  # the loop returned for another reason (no token, killswitc
 FAILED = "failed"  # an error the service's guard restarts after
 REFUSED = "refused"  # its pinned transcript was swapped (`tap.main.EXIT_TRANSCRIPT_SWAPPED`): never again
 
+#: Why the loop holds no claim (`Controls.waiting["text"]`), read after "waiting: " in its row's
+#: `last`. The server's bug report knows these beginnings (`app/ops/diagnostics/manual_report.py`).
+#: The chat named goes in `other`: the service names it only when it records it (`_read_last`).
+WAITING_OTHER_CHAT = "its transcript names another chat"
+WAITING_SERVER = "cannot get the session from Probe's server"  # its receipts never came
+WAITING_LOCAL = "cannot use its local storage"  # this machine's journal, or the claim in it, failed
+WAITING_INGESTION_OFF = "Probe ingestion is off"
+WAITING_DELETED = "deleted at the customer's request"
+
 
 @dataclass
 class Controls:
@@ -60,10 +69,18 @@ class Controls:
     #: This recording's number among its session's recordings in this process
     #: (`record` numbers it on its first call; a retried call keeps it).
     generation: int | None = None
+    #: Why the loop holds no claim, while it holds none for a reason it can name:
+    #: `{"text": a WAITING_* line, "other": the chat its transcript names (a UUID) or None}`.
+    #: None otherwise (it holds the claim, or it ended).
+    waiting: dict | None = None
 
     def claim(self, folder: str | None) -> None:
         """Published by the recorder's loop (`WatchConfig.claimed`)."""
         self.claimed = folder
+
+    def set_waiting(self, reason: dict | None) -> None:
+        """Published by the recorder's loop (`WatchConfig.waiting`)."""
+        self.waiting = reason
 
     def beat(self) -> None:
         """Called by the recorder's loop on every pass and every second it waits

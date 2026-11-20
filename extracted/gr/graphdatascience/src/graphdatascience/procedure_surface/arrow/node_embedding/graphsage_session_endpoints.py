@@ -3,14 +3,14 @@ from graphdatascience.model.model_catalog_protocol import ModelCatalogProtocol
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
 from graphdatascience.procedure_surface.api.node_embedding.graphsage_endpoints import GraphSageEndpoints
-from graphdatascience.procedure_surface.api.node_embedding.graphsage_supervised_endpoints import (
-    GraphSageSupervisedEndpoints,
+from graphdatascience.procedure_surface.api.node_embedding.graphsage_supervised_session_endpoints import (
+    GraphSageSupervisedSessionEndpoints,
 )
 from graphdatascience.procedure_surface.api.node_embedding.graphsage_train_endpoints import (
     GraphSageTrainEndpoints,
 )
-from graphdatascience.procedure_surface.api.node_embedding.graphsage_unsupervised_endpoints import (
-    GraphSageUnsupervisedEndpoints,
+from graphdatascience.procedure_surface.api.node_embedding.graphsage_unsupervised_session_endpoints import (
+    GraphSageUnsupervisedSessionEndpoints,
 )
 from graphdatascience.procedure_surface.arrow.node_embedding.graphsage_predict_arrow_endpoints import (
     GraphSagePredictArrowEndpoints,
@@ -29,8 +29,8 @@ class GraphSageSessionEndpoints(GraphSageEndpoints):
         train_endpoints: GraphSageTrainEndpoints,
         predict_endpoints: GraphSagePredictArrowEndpoints,
         catalog_endpoints: ModelCatalogProtocol,
-        unsupervised_endpoints: GraphSageUnsupervisedEndpoints,
-        supervised_endpoints: GraphSageSupervisedEndpoints,
+        unsupervised_endpoints: GraphSageUnsupervisedSessionEndpoints,
+        supervised_endpoints: GraphSageSupervisedSessionEndpoints,
     ) -> None:
         super().__init__(train_endpoints, predict_endpoints, catalog_endpoints)
         self._arrow_predict_endpoints = predict_endpoints
@@ -50,6 +50,7 @@ class GraphSageSessionEndpoints(GraphSageEndpoints):
         concurrency: int | None = None,
         job_id: str | None = None,
         batch_size: int = 100,
+        result_as_vector: bool = False,
     ) -> JobHandle:
         """Start a classic GraphSage prediction and return a
         :class:`~graphdatascience.procedure_surface.api.job_handle.JobHandle`.
@@ -68,26 +69,27 @@ class GraphSageSessionEndpoints(GraphSageEndpoints):
             concurrency=concurrency,
             job_id=job_id,
             batch_size=batch_size,
+            result_as_vector=result_as_vector,
         )
 
     @property
-    def unsupervised(self) -> GraphSageUnsupervisedEndpoints:
+    def unsupervised(self) -> GraphSageUnsupervisedSessionEndpoints:
         """
         Endpoints for the unsupervised GraphSage.
 
         Returns
         -------
-        GraphSageUnsupervisedEndpoints
+        GraphSageUnsupervisedSessionEndpoints
         """
         return self._unsupervised_endpoints
 
     @property
-    def supervised(self) -> GraphSageSupervisedEndpoints:
+    def supervised(self) -> GraphSageSupervisedSessionEndpoints:
         """
         Endpoints for the supervised (node classification) GraphSage.
 
         Returns
         -------
-        GraphSageSupervisedEndpoints
+        GraphSageSupervisedSessionEndpoints
         """
         return self._supervised_endpoints

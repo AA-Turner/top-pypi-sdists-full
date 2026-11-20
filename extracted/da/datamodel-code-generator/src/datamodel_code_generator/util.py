@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypeVar
 from typing_extensions import Sentinel, override
 
 from datamodel_code_generator._context_scope import context_values
+from datamodel_code_generator._lazy_exports import module_hooks as _module_hooks
 from datamodel_code_generator._records import mutable_record, record
 from datamodel_code_generator.deprecations import warn_deprecated
 
@@ -342,18 +343,37 @@ def reject_unsupported_yaml_tags(text: str) -> None:
             raise yaml.YAMLError(msg)
 
 
+_YAML_DEPRECATED_BOOLS_READ: Final[ContextVar[list[str] | None]] = ContextVar(
+    "yaml_deprecated_bools_read", default=None
+)
+
+
+@contextlib.contextmanager
+def yaml_deprecated_bools_recorded() -> Generator[list[str]]:
+    """Record the details of each deprecated YAML bool that PyYAML reads in the block, as it warns for them."""
+    recorded: list[str] = []
+    with context_values({_YAML_DEPRECATED_BOOLS_READ: recorded}):
+        yield recorded
+
+
+def warn_deprecated_yaml_bools(details: Iterable[str]) -> None:
+    """Warn for deprecated YAML bools that PyYAML read, by their details (``yaml_deprecated_bools_recorded``)."""
+    for detail in details:
+        warn_deprecated("config.yaml-non-lowercase-bool", details=detail)
+
+
 def _construct_yaml_bool_with_warning(loader: Any, node: Any) -> bool:
     value = loader.construct_scalar(node)
     if value in _YAML_DEPRECATED_BOOL_VALUES:
         from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
 
-        warn_deprecated(
-            "config.yaml-non-lowercase-bool",
-            details=(
-                f"YAML bool {stable_repr(value)} is deprecated. In a future version, only lowercase booleans will be "
-                "recognized."
-            ),
+        details = (
+            f"YAML bool {stable_repr(value)} is deprecated. In a future version, only lowercase booleans will be "
+            "recognized."
         )
+        if (recorded := _YAML_DEPRECATED_BOOLS_READ.get()) is not None:
+            recorded.append(details)
+        warn_deprecated_yaml_bools((details,))
     return value in {"true", "True", "TRUE"}
 
 
@@ -678,27 +698,11 @@ def create_module_getattr(
             "MyClass": ("mypackage.mymodule", "MyClass"),
         })
     """
-    from importlib import import_module  # noqa: PLC0415
-
-    def _getattr(name: str) -> Any:
-        if name in lazy_imports:
-            module_path, attr_name = lazy_imports[name]
-            module = import_module(module_path)
-            return getattr(module, attr_name)
-        msg = f"module {module_name!r} has no attribute {name!r}"
-        raise AttributeError(msg)
-
-    return _getattr
+    return _module_hooks(module_name, lazy_imports)[0]
 
 
-def __getattr__(name: str) -> Any:
-    """Provide lazy access to BaseModel and SafeLoader."""
-    if name == "BaseModel":
-        return _get_base_model_class()
-    if name == "SafeLoader":
-        return get_safe_loader()
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
+_LAZY_EXPORTS = {"BaseModel": _get_base_model_class, "SafeLoader": get_safe_loader}
+__getattr__, __dir__ = _module_hooks(__name__, _LAZY_EXPORTS)
 
 
 _UNDER_SCORE_1: re.Pattern[str] = re.compile(r"([^_])([A-Z][a-z]+)")

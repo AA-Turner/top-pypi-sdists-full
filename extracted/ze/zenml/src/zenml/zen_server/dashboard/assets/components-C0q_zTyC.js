@@ -1,0 +1,1 @@
+import{r as e}from"./utils-CinycaQR.js";import{T as t}from"./index-DACdppmF.js";var n=e();function r(){return(0,n.jsx)(t,{section:`components`})}export{r as component};

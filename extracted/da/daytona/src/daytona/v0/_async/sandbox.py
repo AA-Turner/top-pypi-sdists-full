@@ -1,0 +1,2094 @@
+# Copyright Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
+import asyncio
+import functools
+import inspect
+import time
+from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
+from typing import Any, TypeVar
+
+from deprecated import deprecated
+from pydantic import (
+    ConfigDict,
+    GetJsonSchemaHandler,
+    PrivateAttr,
+    SerializerFunctionWrapHandler,
+    TypeAdapter,
+    field_serializer,
+    model_serializer,
+)
+from pydantic.json_schema import JsonSchemaValue
+from typing_extensions import override
+
+from daytona_analytics_api_client_async import ApiClient as AnalyticsApiClient
+from daytona_analytics_api_client_async import Configuration as AnalyticsConfiguration
+from daytona_analytics_api_client_async import TelemetryApi
+from daytona_api_client_async import (
+    AddGangNodes,
+    BuildInfo,
+    ConfigApi,
+    CreateSandboxSnapshot,
+    ForkSandbox,
+    GangMembershipOperation,
+    GangNodeFailure,
+    GangNodeResources,
+    GpuType,
+    PortPreviewUrl,
+    RemoveGangNodes,
+    ReplaceGangNode,
+    ResizeSandbox,
+)
+from daytona_api_client_async import Sandbox as SandboxDto
+from daytona_api_client_async import SandboxApi, SandboxClass, SandboxDesiredState, SandboxLabels, SandboxListItem
+from daytona_api_client_async import SandboxNode as SandboxNodeDto
+from daytona_api_client_async import (
+    SandboxState,
+    SandboxVolume,
+    SignedPortPreviewUrl,
+    SshAccessDto,
+    SshAccessValidationDto,
+    UpdateSandboxNetworkSettings,
+    UpdateSandboxSecrets,
+)
+from daytona_toolbox_api_client_async import (
+    ApiClient,
+    ComputerUseApi,
+    FileSystemApi,
+    GitApi,
+    InfoApi,
+    InterpreterApi,
+    LspApi,
+    ProcessApi,
+    ServerApi,
+    SystemApi,
+    UpdateEnvRequest,
+)
+
+from .._utils.errors import intercept_errors, is_validation_error
+from .._utils.file_url_signing import SIGNING_KEY_CACHE_TTL_SECONDS, build_signed_file_url
+from .._utils.otel_decorator import with_instrumentation
+from .._utils.timeout import http_timeout, with_timeout
+from ..common.daytona import CODE_TOOLBOX_LANGUAGE_LABEL
+from ..common.errors import (
+    DaytonaError,
+    DaytonaNotFoundError,
+    DaytonaQueueTimeoutError,
+    DaytonaSpotEvictedError,
+    DaytonaTimeoutError,
+    DaytonaValidationError,
+)
+from ..common.lsp_server import LspLanguageId, LspLanguageIdLiteral
+from ..common.process import ExecuteResponse
+from ..common.sandbox import (
+    SANDBOX_METRIC_NAMES,
+    NodeResources,
+    Resources,
+    SandboxMetrics,
+    pivot_sandbox_metrics,
+    raise_node_execution_error,
+    sandbox_metrics_from_system_metrics,
+    serialize_sandbox_membership,
+    validate_node_exec_timeout,
+    validate_scalar_resources,
+)
+from ..internal.event_subscription_manager import AsyncEventSubscriptionManager
+from ..internal.pool_tracker import AsyncPoolSaturationTracker
+from ..internal.toolbox_api_client_proxy import ToolboxApiClientProxy
+from .code_interpreter import AsyncCodeInterpreter
+from .computer_use import AsyncComputerUse
+from .filesystem import AsyncFileSystem
+from .git import AsyncGit
+from .lsp_server import AsyncLspServer
+from .process import AsyncProcess
+
+_T = TypeVar("_T")
+
+_RDMA_USERSPACE_CHECK = (
+    "sh -lc 'ldconfig -p 2>/dev/null | grep -q libibverbs.so.1 && "
+    'find /usr/lib /lib -name "libmlx5-rdmav*.so" -print -quit 2>/dev/null | grep -q .\''
+)
+_RDMA_USERSPACE_WARNING = (
+    "WARNING: rdma-core userspace (libibverbs.so.1 and an mlx5 provider) is missing; "
+    + "NCCL may fall back to sockets."
+)
+
+
+class AsyncSandboxNode:
+    """Lightweight async data-plane handle for one node in a multi-node Sandbox."""
+
+    def __init__(
+        self,
+        node: SandboxNodeDto,
+        toolbox_api: ApiClient,
+        toolbox_proxy_url: str,
+        sandbox_api: SandboxApi,
+        language: str,
+        pool_tracker: AsyncPoolSaturationTracker | None,
+    ) -> None:
+        if not node.id or node.id in {".", ".."} or any(char in node.id for char in "/\\?#%"):
+            raise DaytonaValidationError("Sandbox node id must be a valid path segment")
+        self.rank: int = node.rank
+        self.id: str = node.id
+        self.cpu: int = node.cpu
+        self.gpu: int = node.gpu
+        self.memory: int = node.memory
+        self.disk: int = node.disk
+        self.state: SandboxState = node.state
+        self.incarnation: int = node.incarnation
+        self.failure: GangNodeFailure | None = node.failure
+        self.fabric_address: str | None = None
+        self.fabric_prefix_length: int | None = None
+        self.fabric_healthy: bool | None = None
+        self.fabric_unhealthy_since: str | None = None
+        self.warnings: list[str] = []
+        self._rdma_lock: asyncio.Lock = asyncio.Lock()
+        self._rdma_incarnation: int | None = None
+        self._rdma_warning: str = ""
+        self._sandbox_api: SandboxApi = sandbox_api
+        self._toolbox_api: ToolboxApiClientProxy[ApiClient] = ToolboxApiClientProxy(
+            toolbox_api, self.id, toolbox_proxy_url, pool_tracker
+        )
+        self.fs: AsyncFileSystem = AsyncFileSystem(FileSystemApi(self._toolbox_api))
+        self.process: AsyncProcess = AsyncProcess(language, ProcessApi(self._toolbox_api))
+        self.update(node)
+
+    def update(self, node: SandboxNodeDto) -> None:
+        """Refresh resources, state, incarnation, failure details and fabric metadata.
+
+        Raises:
+            DaytonaError: If the node rank or ID differs from this handle.
+        """
+        if node.rank != self.rank or node.id != self.id:
+            raise DaytonaError(
+                f"Sandbox node identity changed from rank {self.rank}/{self.id} to {node.rank}/{node.id}"
+            )
+        self.cpu = node.cpu
+        self.gpu = node.gpu
+        self.memory = node.memory
+        self.disk = node.disk
+        self.state = node.state
+        if self.incarnation != node.incarnation and self._rdma_warning in self.warnings:
+            self.warnings.remove(self._rdma_warning)
+        self.incarnation = node.incarnation
+        self.failure = node.failure
+        self.fabric_address = node.fabric_address
+        self.fabric_prefix_length = node.fabric_prefix_length
+        self.fabric_healthy = node.fabric_healthy
+        self.fabric_unhealthy_since = node.fabric_unhealthy_since
+
+    async def _check_rdma(self) -> None:
+        async with self._rdma_lock:
+            incarnation = self.incarnation
+            if self._rdma_incarnation == incarnation:
+                return
+            try:
+                check = await self.process.exec(_RDMA_USERSPACE_CHECK, timeout=5)
+                warning = "" if check.exit_code == 0 else _RDMA_USERSPACE_WARNING
+            except Exception:  # The advisory probe must not prevent the user's command.
+                warning = "WARNING: Could not check RDMA userspace; continuing without verification."
+            if self.incarnation == incarnation:
+                self._rdma_incarnation = incarnation
+                self._rdma_warning = warning
+                if warning and warning not in self.warnings:
+                    self.warnings.append(warning)
+
+    def _to_dto(self) -> SandboxNodeDto:
+        return SandboxNodeDto(
+            rank=self.rank,
+            id=self.id,
+            state=self.state,
+            incarnation=self.incarnation,
+            failure=self.failure,
+            cpu=self.cpu,
+            gpu=self.gpu,
+            memory=self.memory,
+            disk=self.disk,
+            fabric_address=self.fabric_address,
+            fabric_prefix_length=self.fabric_prefix_length,
+            fabric_healthy=self.fabric_healthy,
+            fabric_unhealthy_since=self.fabric_unhealthy_since,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return this live handle in the generated node DTO wire shape."""
+        return self._to_dto().to_dict()
+
+    @intercept_errors(message_prefix="Failed to get node preview link: ")
+    @with_instrumentation()
+    async def get_preview_link(self, port: int, request_timeout: float | None = None) -> PortPreviewUrl:
+        """Get a preview URL for a port on this node."""
+        return await self._sandbox_api.get_port_preview_url(
+            self.id, port, _request_timeout=http_timeout(request_timeout)
+        )
+
+    @intercept_errors(message_prefix="Failed to create node SSH access: ")
+    @with_instrumentation()
+    async def create_ssh_access(
+        self,
+        expires_in_minutes: int | None = None,
+        request_timeout: float | None = None,
+    ) -> SshAccessDto:
+        """Create an SSH access token for this node."""
+        return await self._sandbox_api.create_ssh_access(
+            self.id,
+            expires_in_minutes=expires_in_minutes,
+            _request_timeout=http_timeout(request_timeout),
+        )
+
+    @intercept_errors(message_prefix="Failed to revoke node SSH access: ")
+    @with_instrumentation()
+    async def revoke_ssh_access(self, token: str, request_timeout: float | None = None) -> None:
+        """Revoke an SSH access token for this node."""
+        _ = await self._sandbox_api.revoke_ssh_access(
+            self.id, token=token, _request_timeout=http_timeout(request_timeout)
+        )
+
+
+class AsyncSandboxNodeProcess:
+    """Async process operations applied to every node in a Sandbox."""
+
+    def __init__(self, nodes: AsyncSandboxNodeCollection) -> None:
+        self._nodes: AsyncSandboxNodeCollection = nodes
+
+    @with_instrumentation()
+    async def exec(
+        self,
+        command: str,
+        *,
+        timeout: int | None = None,
+    ) -> dict[int, ExecuteResponse]:
+        """Execute a command on every node, keyed by rank.
+
+        ``timeout`` limits execution on each rank in seconds; None or 0 disables
+        the limit. Results contain buffered command output. For live output, use a
+        session on the individual node's process handle. On a partial failure, the
+        error exposes node_failures and node_results keyed by rank. RDMA diagnostics
+        are recorded in each node's warnings.
+        """
+        validate_node_exec_timeout(timeout)
+        nodes = self._nodes._snapshot()
+
+        async def execute_node(node: AsyncSandboxNode) -> ExecuteResponse:
+            if len(nodes) > 1:
+                await node._check_rdma()
+            if timeout is None:
+                return await node.process.exec(command)
+            return await node.process.exec(command, timeout=timeout)
+
+        outcomes = await asyncio.gather(*(execute_node(node) for node in nodes), return_exceptions=True)
+        results: dict[int, ExecuteResponse] = {}
+        failures: dict[int, Exception] = {}
+        for node, outcome in zip(nodes, outcomes, strict=True):
+            if isinstance(outcome, Exception):
+                failures[node.rank] = outcome
+            elif isinstance(outcome, BaseException):
+                raise outcome
+            else:
+                results[node.rank] = outcome
+        if failures:
+            raise_node_execution_error(failures, results)
+        return results
+
+
+class AsyncSandboxNodeFileSystem:
+    """Async file-system operations applied to every node in a Sandbox."""
+
+    def __init__(self, nodes: AsyncSandboxNodeCollection) -> None:
+        self._nodes: AsyncSandboxNodeCollection = nodes
+
+    @with_instrumentation()
+    async def upload_file(self, src: str | bytes, dst: str, timeout: int = 30 * 60) -> None:
+        """Upload the same file to every node in parallel without rollback."""
+        nodes = self._nodes._snapshot()
+        results = await asyncio.gather(
+            *(node.fs.upload_file(src, dst, timeout) for node in nodes), return_exceptions=True
+        )
+        failures = {
+            node.rank: result for node, result in zip(nodes, results, strict=True) if isinstance(result, Exception)
+        }
+        if failures:
+            details = "; ".join(f"rank {rank}: {failures[rank]}" for rank in sorted(failures))
+            raise DaytonaError(f"Failed to upload file to node ranks {sorted(failures)}: {details}")
+
+
+class AsyncSandboxNodeCollection(list[AsyncSandboxNode]):
+    """Live, rank-ordered async node collection with aggregate and topology operations."""
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, _schema: object, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        return handler(TypeAdapter(list[SandboxNodeDto]).core_schema)
+
+    def __init__(self, sandbox: AsyncSandbox | None) -> None:
+        super().__init__()
+        self._view_generation: int | None = None
+        self._sandbox: AsyncSandbox | None = sandbox
+        self.process: AsyncSandboxNodeProcess = AsyncSandboxNodeProcess(self)
+        self.fs: AsyncSandboxNodeFileSystem = AsyncSandboxNodeFileSystem(self)
+
+    def _snapshot(self) -> tuple[AsyncSandboxNode, ...]:
+        nodes = tuple(self)
+        if not nodes:
+            raise DaytonaError("Node membership is unavailable. Call refresh_data() and retry.")
+        return nodes
+
+    def _replace(self, nodes: list[AsyncSandboxNode], generation: int | None = None) -> None:
+        self._view_generation = generation
+        list.__setitem__(self, slice(None), nodes)
+
+    def _require_sandbox(self) -> AsyncSandbox:
+        if self._sandbox is None:
+            raise DaytonaError("Sandbox node collection is not initialized")
+        return self._sandbox
+
+    def _remaining(self, deadline: float | None) -> float | None:
+        if deadline is None:
+            return None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise DaytonaTimeoutError("Node membership operation exceeded its timeout")
+        return remaining
+
+    def _generation(self) -> int:
+        generation = self._view_generation
+        if generation is None:
+            raise DaytonaError("Sandbox does not expose a topology generation; elastic node operations are unavailable")
+        return generation
+
+    async def _change(
+        self,
+        submit: Callable[[int, float | None], Awaitable[GangMembershipOperation]],
+        timeout: float | None,
+    ) -> GangMembershipOperation:
+        sandbox = self._require_sandbox()
+        wait_until = time.monotonic() + timeout if timeout else None
+
+        @intercept_errors(message_prefix="Failed to submit Sandbox membership change: ")
+        @with_timeout()
+        async def start(timeout: float | None) -> GangMembershipOperation:
+            deadline = time.monotonic() + timeout if timeout else None
+            generation = self._generation()
+            return await submit(generation, http_timeout(self._remaining(deadline)))
+
+        operation = await start(timeout=timeout)
+
+        @intercept_errors(message_prefix="Failed to wait for Sandbox membership change: ")
+        @with_timeout()
+        async def finish(timeout: float | None) -> GangMembershipOperation:
+            nonlocal operation
+            deadline = time.monotonic() + timeout if timeout else None
+            while operation.status not in {"COMPLETED", "FAILED"}:
+                await asyncio.sleep(min(1.0, self._remaining(deadline) or 1.0))
+                operation = await sandbox._sandbox_api.get_gang_membership_operation(
+                    sandbox.id, operation.id, _request_timeout=http_timeout(self._remaining(deadline))
+                )
+            if operation.status == "FAILED":
+                raise DaytonaError(operation.error_reason or f"Node {operation.type.lower()} operation failed")
+            await sandbox.refresh_data(request_timeout=self._remaining(deadline))
+            return operation
+
+        try:
+            return await finish(timeout=self._remaining(wait_until))
+        except DaytonaError as error:
+            # Refreshing cached handles cannot undo a confirmed membership change.
+            if operation.status == "COMPLETED":
+                return operation
+            error.operation_id = operation.id
+            raise
+
+    @with_instrumentation()
+    async def add(self, nodes: list[NodeResources], timeout: float | None = 600) -> GangMembershipOperation:
+        """Append rank-ordered nodes and wait for completion.
+
+        A wait error after acceptance carries the operation_id. If the final refresh fails,
+        the completed operation is returned; refresh the sandbox to update cached handles.
+        """
+        sandbox = self._require_sandbox()
+        return await self._change(
+            lambda generation, remaining: sandbox._sandbox_api.add_sandbox_nodes(
+                sandbox.id,
+                AddGangNodes(
+                    expected_generation=generation,
+                    nodes=[GangNodeResources(cpu=n.cpu, memory=n.memory, disk=n.disk) for n in nodes],
+                ),
+                _request_timeout=remaining,
+            ),
+            timeout,
+        )
+
+    @with_instrumentation()
+    async def release(self, count: int = 1, timeout: float | None = 600) -> GangMembershipOperation:
+        """Release the highest ranks and wait for completion.
+
+        A wait error after acceptance carries the operation_id. If the final refresh fails,
+        the completed operation is returned; refresh the sandbox to update cached handles.
+        """
+        sandbox = self._require_sandbox()
+        return await self._change(
+            lambda generation, remaining: sandbox._sandbox_api.remove_sandbox_nodes(
+                sandbox.id,
+                RemoveGangNodes(expected_generation=generation, count=count),
+                _request_timeout=remaining,
+            ),
+            timeout,
+        )
+
+    @with_instrumentation()
+    async def replace(self, rank: int, timeout: float | None = 600) -> GangMembershipOperation:
+        """Replace a degraded rank and wait for completion.
+
+        A wait error after acceptance carries the operation_id. If the final refresh fails,
+        the completed operation is returned; refresh the sandbox to update cached handles.
+        """
+        sandbox = self._require_sandbox()
+        return await self._change(
+            lambda generation, remaining: sandbox._sandbox_api.replace_sandbox_node(
+                sandbox.id,
+                str(rank),
+                ReplaceGangNode(expected_generation=generation),
+                _request_timeout=remaining,
+            ),
+            timeout,
+        )
+
+
+def with_events(cls: _T) -> _T:
+    for name in list(vars(cls)):
+        if name.startswith("_"):
+            continue
+        method = vars(cls)[name]
+        if not callable(method):
+            continue
+
+        if inspect.iscoroutinefunction(method):
+
+            @functools.wraps(method)
+            async def async_wrapper(self: Any, *args: Any, _m: Any = method, **kwargs: Any) -> Any:
+                if getattr(self, "__pydantic_private__", None) is not None:
+                    self._ensure_subscribed()
+                return await _m(self, *args, **kwargs)
+
+            setattr(cls, name, async_wrapper)
+        else:
+
+            @functools.wraps(method)
+            def sync_wrapper(self: Any, *args: Any, _m: Any = method, **kwargs: Any) -> Any:
+                if getattr(self, "__pydantic_private__", None) is not None:
+                    self._ensure_subscribed()
+                return _m(self, *args, **kwargs)
+
+            setattr(cls, name, sync_wrapper)
+    return cls
+
+
+@with_events
+class AsyncSandbox(SandboxDto):
+    """Represents a Daytona Sandbox.
+
+    Attributes:
+        fs (AsyncFileSystem): File system operations interface.
+        git (AsyncGit): Git operations interface.
+        process (AsyncProcess): Process execution interface.
+        computer_use (AsyncComputerUse): Computer use operations interface for desktop automation.
+        code_interpreter (AsyncCodeInterpreter): Stateful interpreter interface for executing code.
+            Currently supports only Python. For other languages, use the `process.code_run` interface.
+        id (str): Unique identifier for the Sandbox.
+        name (str): Name of the Sandbox.
+        organization_id (str): Organization ID of the Sandbox.
+        snapshot (str | None): Daytona snapshot used to create the Sandbox.
+        user (str): OS user running in the Sandbox.
+        env (dict[str, str] | None): Environment variables set in the Sandbox (not returned by list
+            results; call `refresh_data()` on each item to populate).
+        labels (dict[str, str]): Custom labels attached to the Sandbox.
+        public (bool): Whether the Sandbox is publicly accessible.
+        target (str): Target location of the runner where the Sandbox runs.
+        cpu (int): Number of CPUs allocated to the Sandbox.
+        gpu (int): Number of GPUs allocated to the Sandbox.
+        spot (bool): Whether this is a spot GPU Sandbox. Spot Sandboxes may be instantly terminated
+            to free capacity for on-demand GPU Sandboxes.
+        spot_evicted_at (str | None): When the Sandbox was evicted by spot preemption.
+        queue_timed_out_at (str | None): When the Sandbox was destroyed because it waited too long
+            for a runner.
+        gpu_type (GpuType | None): The GPU type assigned to the Sandbox.
+        memory (int): Amount of memory allocated to the Sandbox in GiB.
+        disk (int): Amount of disk space allocated to the Sandbox in GiB.
+        state (SandboxState | None): Current state of the Sandbox (e.g., "started", "stopped").
+        desired_state (SandboxDesiredState | None): The desired state of the Sandbox.
+        error_reason (str | None): Error message if Sandbox is in error state.
+        recoverable (bool | None): Whether the Sandbox error is recoverable.
+        backup_state (str | None): Current state of Sandbox backup.
+        backup_created_at (str | None): When the backup was created (not returned by list results;
+            call `refresh_data()` on each item to populate).
+        auto_stop_interval (int | None): Auto-stop interval in minutes.
+        auto_pause_interval (int | None): Auto-pause interval in minutes (0 means disabled).
+            Only supported for sandbox classes that support pausing.
+            At most one of auto_stop_interval and auto_pause_interval may be non-zero.
+        auto_archive_interval (int | None): Auto-archive interval in minutes.
+        auto_delete_interval (int | None): Auto-delete interval in minutes.
+        volumes (list[SandboxVolume] | None): Volumes attached to the Sandbox (not returned by list
+            results; call `refresh_data()` on each item to populate).
+        build_info (BuildInfo | None): Build information for the Sandbox if it was created from
+            dynamic build (not returned by list results; call `refresh_data()` on each item to populate).
+        created_at (str | None): When the Sandbox was created.
+        updated_at (str | None): When the Sandbox was last updated.
+        last_activity_at (str | None): When the Sandbox last had activity.
+        auto_destroy_at (str | None): When the Sandbox will be automatically destroyed (only set when a TTL
+            is configured).
+        queue_timeout (int | None): Minutes to wait for runner assignment before Sandbox creation is
+            cancelled.
+        network_block_all (bool | None): Whether to block all network access for the Sandbox
+            (not returned by list results; call `refresh_data()` on each item to populate).
+        kvm (bool | None): Whether the sandbox exposes KVM (/dev/kvm) to its guest
+            (not returned by list results; call `refresh_data()` on each item to populate).
+        network_allow_list (str | None): Comma-separated list of allowed CIDR network addresses for
+            the Sandbox (not returned by list results; call `refresh_data()` on each item to populate).
+        domain_allow_list (str | None): Comma-separated list of allowed domains for
+            the Sandbox (not returned by list results; call `refresh_data()` on each item to populate).
+        outbound_proxy_url (str | None): Outbound proxy URL to route the Sandbox HTTP(S) traffic through.
+            Applied via the HTTP(S)_PROXY environment variables (convenience routing, not a security boundary on
+            its own); combine with domain_allow_list for unbypassable network-layer enforcement. (not returned by
+            list results; call `refresh_data()` on each item to populate).
+        sandbox_class (str | None): The class of the Sandbox.
+        warm_pool_id (str | None): ID of the warm pool this Sandbox waits in; set only while it is
+            an unclaimed member.
+        daemon_version (str | None): The version of the daemon running in the Sandbox.
+        otel_endpoint_override (str | None): OTel collector endpoint override for this Sandbox.
+            When set, Sandbox OTel data is sent to this endpoint instead of the default collector
+            and is not available in the Daytona analytics API or dashboard (not returned by list
+            results; call `refresh_data()` on each item to populate).
+        toolbox_proxy_url (str): The toolbox proxy URL for the Sandbox.
+    """
+
+    env: dict[str, str] | None = None  # pyright: ignore[reportRedeclaration]
+    network_block_all: bool | None = None  # pyright: ignore[reportRedeclaration]
+    kvm: bool | None = None  # pyright: ignore[reportRedeclaration]
+    nodes: AsyncSandboxNodeCollection  # pyright: ignore[reportGeneralTypeIssues, reportIncompatibleVariableOverride]
+
+    _reported_node_count: int | None = PrivateAttr(default=None)
+    _fs: AsyncFileSystem = PrivateAttr()
+    _git: AsyncGit = PrivateAttr()
+    _process: AsyncProcess = PrivateAttr()
+    _computer_use: AsyncComputerUse = PrivateAttr()
+    _code_interpreter: AsyncCodeInterpreter = PrivateAttr()
+    _state_waiters: list[Callable[[SandboxState | None], None]] = PrivateAttr(default_factory=list)
+    _sub_id: str | None = PrivateAttr(default=None)
+    _toolbox_api_client: ApiClient = PrivateAttr()
+    _language: str = PrivateAttr()
+    _pool_tracker: AsyncPoolSaturationTracker | None = PrivateAttr(default=None)
+
+    # TODO: Remove model_config once everything is migrated to pydantic # pylint: disable=fixme
+    model_config: ConfigDict = ConfigDict(arbitrary_types_allowed=True)
+
+    @model_serializer(mode="wrap")
+    def _serialize_sandbox(self, handler: SerializerFunctionWrapHandler):
+        return serialize_sandbox_membership(handler(self), self._reported_node_count)
+
+    @override
+    def to_dict(self) -> dict[str, Any]:
+        """Return the API representation, omitting node membership synthesized by the SDK."""
+        return serialize_sandbox_membership(super().to_dict(), self._reported_node_count)
+
+    @field_serializer("nodes")
+    def _serialize_nodes(self, nodes: AsyncSandboxNodeCollection) -> list[SandboxNodeDto]:
+        return [node._to_dto() for node in nodes]
+
+    def __init__(
+        self,
+        sandbox_dto: SandboxDto | SandboxListItem,
+        toolbox_api: ApiClient,
+        sandbox_api: SandboxApi,
+        language: str,
+        subscription_manager: AsyncEventSubscriptionManager,
+        pool_tracker: AsyncPoolSaturationTracker | None = None,
+        analytics_api_url_provider: Callable[[], Awaitable[str | None]] | None = None,
+    ):
+        """Initialize a new Sandbox instance.
+
+        Args:
+            sandbox_dto (SandboxDto | SandboxListItem): The sandbox data from the API.
+            toolbox_api (ApiClient): API client for toolbox operations.
+            sandbox_api (SandboxApi): API client for Sandbox operations.
+            language (str): Language code for the Sandbox code_run.
+            subscription_manager: AsyncEventSubscriptionManager for real-time updates.
+            pool_tracker (AsyncPoolSaturationTracker | None): Tracker for connection pool saturation.
+        """
+        node_collection = AsyncSandboxNodeCollection(None)
+        model_data = sandbox_dto.model_dump()
+        model_data["nodes"] = node_collection
+        model_data.setdefault("node_count", 1)
+        super().__init__(**model_data)
+        node_collection._sandbox = self
+        self.__process_sandbox_dto(sandbox_dto)
+        self._sandbox_api: SandboxApi = sandbox_api
+        self._analytics_api_url_provider: Callable[[], Awaitable[str | None]] | None = analytics_api_url_provider
+        self._subscription_manager: AsyncEventSubscriptionManager = subscription_manager
+        self._toolbox_api_client = toolbox_api
+        self._language = language
+        self._pool_tracker = pool_tracker
+        self._signing_key: str | None = None
+        self._signing_key_fetched_at: float = 0
+        # Wrap the toolbox API client to inject the sandbox ID into the resource path
+        self._toolbox_api: ToolboxApiClientProxy[ApiClient] = ToolboxApiClientProxy(
+            toolbox_api, self.id, self.toolbox_proxy_url, pool_tracker
+        )
+
+        self._fs = AsyncFileSystem(FileSystemApi(self._toolbox_api))
+        self._git = AsyncGit(GitApi(self._toolbox_api))
+        self._process = AsyncProcess(language, ProcessApi(self._toolbox_api))
+        self._computer_use = AsyncComputerUse(ComputerUseApi(self._toolbox_api))
+        self._code_interpreter = AsyncCodeInterpreter(InterpreterApi(self._toolbox_api))
+        self._info_api: InfoApi = InfoApi(self._toolbox_api)
+        self._server_api: ServerApi = ServerApi(self._toolbox_api)
+        self._system_api: SystemApi = SystemApi(self._toolbox_api)
+
+        self.__process_nodes(sandbox_dto)
+
+        self._ensure_subscribed()
+
+    @property
+    def fs(self) -> AsyncFileSystem:
+        return self._fs
+
+    @property
+    def git(self) -> AsyncGit:
+        return self._git
+
+    @property
+    def process(self) -> AsyncProcess:
+        return self._process
+
+    @property
+    def computer_use(self) -> AsyncComputerUse:
+        return self._computer_use
+
+    @property
+    def code_interpreter(self) -> AsyncCodeInterpreter:
+        return self._code_interpreter
+
+    @intercept_errors(message_prefix="Failed to refresh sandbox data: ")
+    @with_instrumentation()
+    async def refresh_data(self, request_timeout: float | None = None) -> None:
+        """Refreshes the Sandbox data from the API.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Example:
+            ```python
+            await sandbox.refresh_data()
+            print(f"Sandbox {sandbox.id}:")
+            print(f"State: {sandbox.state}")
+            print(f"Resources: {sandbox.cpu} CPU, {sandbox.memory} GiB RAM")
+            ```
+        """
+        instance = await self._sandbox_api.get_sandbox(self.id, _request_timeout=http_timeout(request_timeout))
+        self.__process_sandbox_dto(instance)
+
+    @intercept_errors(message_prefix="Failed to get user home directory: ")
+    @with_instrumentation()
+    async def get_user_home_dir(self) -> str:
+        """Gets the user's home directory path inside the Sandbox.
+
+        Returns:
+            str: The absolute path to the user's home directory inside the Sandbox.
+
+        Example:
+            ```python
+            user_home_dir = await sandbox.get_user_home_dir()
+            print(f"Sandbox user home: {user_home_dir}")
+            ```
+        """
+        response = await self._info_api.get_user_home_dir()
+        return response.dir
+
+    @deprecated(
+        reason=(
+            "Method is deprecated. Use `get_user_home_dir` instead. This method will be removed in a future version."
+        )
+    )
+    @with_instrumentation()
+    async def get_user_root_dir(self) -> str:
+        return await self.get_user_home_dir()
+
+    @intercept_errors(message_prefix="Failed to get working directory path: ")
+    @with_instrumentation()
+    async def get_work_dir(self) -> str:
+        """Gets the working directory path inside the Sandbox.
+
+        Returns:
+            str: The absolute path to the Sandbox working directory. Uses the WORKDIR specified in
+            the Dockerfile if present, or falling back to the user's home directory if not.
+
+        Example:
+            ```python
+            work_dir = await sandbox.get_work_dir()
+            print(f"Sandbox working directory: {work_dir}")
+            ```
+        """
+        response = await self._info_api.get_work_dir()
+        return response.dir
+
+    @intercept_errors(message_prefix="Failed to get sandbox metrics: ")
+    @with_instrumentation()
+    async def get_metrics_latest(self) -> SandboxMetrics:
+        """Gets the most recent resource usage sample directly from the Sandbox daemon.
+
+        Unlike :meth:`get_metrics`, which returns aggregated historical samples, this returns
+        the single current reading without going through the telemetry backend.
+
+        Returns:
+            SandboxMetrics: The current CPU, memory, and disk usage sample for the Sandbox.
+        """
+        return sandbox_metrics_from_system_metrics(await self._system_api.get_system_metrics())
+
+    @intercept_errors(message_prefix="Failed to get sandbox metrics: ")
+    @with_instrumentation()
+    async def get_metrics(self, start: datetime | None = None, end: datetime | None = None) -> list[SandboxMetrics]:
+        """Gets historical time-series resource usage metrics for the Sandbox.
+
+        When the deployment runs a dedicated Analytics API, metrics are fetched from it
+        directly; otherwise they are fetched through the control-plane telemetry proxy.
+
+        Args:
+            start (datetime | None): Start of the time range. Defaults to the Sandbox
+                creation time.
+            end (datetime | None): End of the time range. Defaults to the current time.
+
+        Returns:
+            list[SandboxMetrics]: Time-ordered usage samples over the requested range.
+        """
+        if end is None:
+            end = datetime.now(timezone.utc)
+        if start is None:
+            start = datetime.fromisoformat(self.created_at.replace("Z", "+00:00")) if self.created_at else end
+
+        analytics_api_url = await self._get_analytics_api_url()
+        if analytics_api_url:
+            telemetry_api = self._build_analytics_telemetry_api(analytics_api_url)
+            try:
+                points = await telemetry_api.organization_organization_id_sandbox_sandbox_id_telemetry_metrics_get(
+                    self.organization_id,
+                    self.id,
+                    var_from=start.isoformat(),
+                    to=end.isoformat(),
+                    metric_names=",".join(SANDBOX_METRIC_NAMES),
+                )
+            finally:
+                await telemetry_api.api_client.close()  # pyright: ignore[reportUnusedCallResult]
+            return pivot_sandbox_metrics((p.metric_name, p.timestamp, p.value) for p in points)
+
+        response = await self._sandbox_api.get_sandbox_metrics(
+            self.id, var_from=start, to=end, metric_names=SANDBOX_METRIC_NAMES
+        )
+        return pivot_sandbox_metrics(
+            (s.metric_name, dp.timestamp, dp.value) for s in response.series or [] for dp in s.data_points or []
+        )
+
+    async def _get_analytics_api_url(self) -> str | None:
+        if self._analytics_api_url_provider is not None:
+            return await self._analytics_api_url_provider()
+        config = await ConfigApi(self._sandbox_api.api_client).config_controller_get_config()
+        return config.analytics_api_url
+
+    def _build_analytics_telemetry_api(self, analytics_api_url: str) -> TelemetryApi:
+        client = AnalyticsApiClient(AnalyticsConfiguration(host=analytics_api_url))
+        client.default_headers["Authorization"] = self._sandbox_api.api_client.default_headers["Authorization"]
+        return TelemetryApi(client)
+
+    @with_instrumentation()
+    def create_lsp_server(
+        self, language_id: LspLanguageId | LspLanguageIdLiteral, path_to_project: str
+    ) -> AsyncLspServer:
+        """Creates a new Language Server Protocol (LSP) server instance.
+
+        The LSP server provides language-specific features like code completion,
+        diagnostics, and more.
+
+        Args:
+            language_id (LspLanguageId | LspLanguageIdLiteral): The language server type (e.g., LspLanguageId.PYTHON).
+            path_to_project (str): Path to the project root directory. Relative paths are resolved
+            based on the sandbox working directory.
+
+        Returns:
+            LspServer: A new LSP server instance configured for the specified language.
+
+        Example:
+            ```python
+            lsp = sandbox.create_lsp_server("python", "workspace/project")
+            ```
+        """
+        return AsyncLspServer(
+            language_id,
+            path_to_project,
+            LspApi(self._toolbox_api),
+        )
+
+    @intercept_errors(message_prefix="Failed to set labels: ")
+    @with_instrumentation()
+    async def set_labels(self, labels: dict[str, str], request_timeout: float | None = None) -> dict[str, str]:
+        """Sets labels for the Sandbox.
+
+        Labels are key-value pairs that can be used to organize and identify Sandboxes.
+
+        Args:
+            labels (dict[str, str]): Dictionary of key-value pairs representing Sandbox labels.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Returns:
+            dict[str, str]: Dictionary containing the updated Sandbox labels.
+
+        Example:
+            ```python
+            new_labels = sandbox.set_labels({
+                "project": "my-project",
+                "environment": "development",
+                "team": "backend"
+            })
+            print(f"Updated labels: {new_labels}")
+            ```
+        """
+        self.labels = (
+            await self._sandbox_api.replace_labels(
+                self.id,
+                SandboxLabels(labels=labels),
+                _request_timeout=http_timeout(request_timeout),
+            )
+        ).labels
+        return self.labels
+
+    async def _ensure_signing_key(self) -> str:
+        key = self._signing_key
+        if key is None or (time.monotonic() - self._signing_key_fetched_at) > SIGNING_KEY_CACHE_TTL_SECONDS:
+            key = await self._sandbox_api.get_sandbox_signing_key(self.id)
+            self._signing_key = key
+            self._signing_key_fetched_at = time.monotonic()
+        return key
+
+    @intercept_errors(message_prefix="Failed to create download URL: ")
+    @with_instrumentation()
+    async def download_url(self, path: str, ttl_seconds: int | None = None) -> str:
+        """Creates a pre-signed URL for downloading a file from the Sandbox.
+
+        The URL works with any HTTP client without auth headers and stays valid across
+        sandbox restarts (downloads succeed only while the sandbox is running). The signing
+        key is cached locally for up to 15 seconds; if the key was rotated from another
+        client, URLs may be rejected until the cache refreshes.
+
+        Args:
+            path (str): Path to the file in the Sandbox.
+            ttl_seconds (int | None): How long the URL stays valid, in seconds.
+                Defaults to 3600. Zero or negative means the URL never expires.
+
+        Returns:
+            str: Pre-signed download URL.
+
+        Example:
+            ```python
+            url = await sandbox.download_url("/home/user/report.pdf")
+            ```
+            ```bash
+            curl "$url" -o report.pdf
+            ```
+        """
+        return build_signed_file_url(
+            self.toolbox_proxy_url,
+            self.id,
+            "/files/download",
+            "GET",
+            path,
+            await self._ensure_signing_key(),
+            ttl_seconds,
+        )
+
+    @intercept_errors(message_prefix="Failed to create upload URL: ")
+    @with_instrumentation()
+    async def upload_url(self, path: str, ttl_seconds: int | None = None) -> str:
+        """Creates a pre-signed URL for uploading a file to the Sandbox.
+
+        Send a POST request with the file as multipart/form-data. The URL works with any
+        HTTP client without auth headers. The signing key is cached locally for up to
+        15 seconds; if the key was rotated from another client, URLs may be rejected
+        until the cache refreshes.
+
+        Args:
+            path (str): Destination path for the uploaded file in the Sandbox.
+            ttl_seconds (int | None): How long the URL stays valid, in seconds.
+                Defaults to 3600. Zero or negative means the URL never expires.
+
+        Returns:
+            str: Pre-signed upload URL.
+
+        Example:
+            ```python
+            url = await sandbox.upload_url("/home/user/data.bin")
+            ```
+            ```bash
+            curl -X POST -F "file=@local.bin" "$url"
+            ```
+        """
+        return build_signed_file_url(
+            self.toolbox_proxy_url,
+            self.id,
+            "/files/upload-v2",
+            "POST",
+            path,
+            await self._ensure_signing_key(),
+            ttl_seconds,
+        )
+
+    @intercept_errors(message_prefix="Failed to rotate signing key: ")
+    @with_instrumentation()
+    async def rotate_signing_key(self) -> None:
+        """Rotates the sandbox signing key, invalidating all previously signed URLs.
+
+        Example:
+            ```python
+            await sandbox.rotate_signing_key()
+            # all URLs created before this call now return 401
+            ```
+        """
+        self._signing_key = await self._sandbox_api.rotate_signing_key(self.id)
+        self._signing_key_fetched_at = time.monotonic()
+
+    @intercept_errors(message_prefix="Failed to start sandbox: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def start(self, timeout: float | None = 60):
+        """Starts the Sandbox and waits for it to be ready.
+
+        Args:
+            timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+        Raises:
+            DaytonaError: If timeout is negative. If sandbox fails to start or times out.
+
+        Example:
+            ```python
+            sandbox = daytona.get("my-sandbox-id")
+            sandbox.start(timeout=40)  # Wait up to 40 seconds
+            print("Sandbox started successfully")
+            ```
+        """
+        sandbox = await self._sandbox_api.start_sandbox(self.id, _request_timeout=http_timeout(timeout))
+        self.__process_sandbox_dto(sandbox)
+        # This method already handles a timeout, so we don't need to pass one to internal methods
+        await self.wait_for_sandbox_start(timeout=0)
+
+    @intercept_errors(message_prefix="Failed to recover sandbox: ")
+    @with_timeout()
+    async def recover(self, timeout: float | None = 60):
+        """Recovers the Sandbox from a recoverable error and waits for it to be ready.
+
+        Args:
+            timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+        Raises:
+            DaytonaError: If timeout is negative. If sandbox fails to recover or times out.
+
+        Example:
+            ```python
+            sandbox = daytona.get("my-sandbox-id")
+            await sandbox.recover(timeout=40)  # Wait up to 40 seconds
+            print("Sandbox recovered successfully")
+            ```
+        """
+        sandbox = await self._sandbox_api.recover_sandbox(self.id, _request_timeout=http_timeout(timeout))
+        self.__process_sandbox_dto(sandbox)
+        # This method already handles a timeout, so we don't need to pass one to internal methods
+        await self.wait_for_sandbox_start(timeout=0)
+
+    @intercept_errors(message_prefix="Failed to stop sandbox: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def stop(self, timeout: float | None = 60, force: bool = False):
+        """Stops the Sandbox and waits for it to be fully stopped.
+
+        For a multi-node GPU Sandbox this irreversibly destroys the complete
+        gang and all ephemeral local data; it cannot be started again.
+
+        Args:
+            timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+            force (bool): If True, uses SIGKILL instead of SIGTERM to stop the sandbox. Default is False.
+
+        Raises:
+            DaytonaError: If timeout is negative; If sandbox fails to stop or times out
+
+        Example:
+            ```python
+            sandbox = daytona.get("my-sandbox-id")
+            await sandbox.stop()
+            print("Sandbox stopped successfully")
+            ```
+        """
+        _ = await self._sandbox_api.stop_sandbox(
+            self.id,
+            force=force,
+            _request_timeout=http_timeout(timeout),
+        )
+        await self.__refresh_data_safe()
+        # This method already handles a timeout, so we don't need to pass one to internal methods
+        await self.wait_for_sandbox_stop(timeout=0)
+
+    @intercept_errors(message_prefix="Failed to remove sandbox: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def delete(
+        self,
+        timeout: float | None = 60,  # pylint: disable=unused-argument
+        wait: bool = False,
+    ) -> None:
+        """Deletes the Sandbox.
+
+        By default returns as soon as the deletion request is accepted (fire-and-forget).
+        Pass ``wait=True`` to block until the Sandbox reaches the 'destroyed' state.
+
+        Args:
+            timeout (float | None): Timeout (in seconds) for the request and, when ``wait``
+                is True, for reaching 'destroyed'. 0 means no timeout. Default is 60 seconds.
+            wait (bool): If True, wait until the Sandbox is destroyed. Defaults to False.
+        """
+        sandbox = await self._sandbox_api.delete_sandbox(self.id, _request_timeout=http_timeout(timeout))
+        if sandbox:
+            self.__process_sandbox_dto(sandbox)
+
+        try:
+            if wait and self.state != SandboxState.DESTROYED:
+                await self._wait_for_state(
+                    [SandboxState.DESTROYED],
+                    [SandboxState.ERROR, SandboxState.BUILD_FAILED],
+                    safe_refresh=True,
+                )
+        finally:
+            self._unsubscribe_from_events()
+
+    @intercept_errors(message_prefix="Failure during waiting for sandbox to start: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def wait_for_sandbox_start(
+        self,
+        timeout: float | None = 60,  # pylint: disable=unused-argument # pyright: ignore[reportUnusedParameter]
+    ) -> None:
+        """Waits for the Sandbox to reach the 'started' state.
+
+        Args:
+            timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+        Raises:
+            DaytonaError: If timeout is negative; If Sandbox fails to start or times out;
+        """
+        self._raise_destroyed_wait_error([SandboxState.STARTED])
+
+        if self.state == SandboxState.STARTED:
+            return
+
+        await self._wait_for_state(
+            [SandboxState.STARTED],
+            [SandboxState.ERROR, SandboxState.BUILD_FAILED],
+        )
+
+    @intercept_errors(message_prefix="Failure during waiting for sandbox to stop: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def wait_for_sandbox_stop(
+        self,
+        timeout: float | None = 60,  # pylint: disable=unused-argument # pyright: ignore[reportUnusedParameter]
+    ) -> None:
+        """Waits for the Sandbox to reach the 'stopped' state.
+        Treats destroyed as stopped to cover ephemeral sandboxes that are automatically deleted after stopping.
+
+        Args:
+            timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+        Raises:
+            DaytonaError: If timeout is negative. If Sandbox fails to stop or times out.
+        """
+        if self.state in [SandboxState.STOPPED, SandboxState.DESTROYED]:
+            return
+
+        await self._wait_for_state(
+            [SandboxState.STOPPED, SandboxState.DESTROYED],
+            [SandboxState.ERROR, SandboxState.BUILD_FAILED],
+            safe_refresh=True,
+        )
+
+    @intercept_errors(message_prefix="Failed to set auto-stop interval: ")
+    @with_instrumentation()
+    async def set_autostop_interval(self, interval: int, request_timeout: float | None = None) -> None:
+        """Sets the auto-stop interval for the Sandbox.
+
+        The Sandbox will automatically stop after being idle (no new events) for the specified interval.
+        Events include any state changes or interactions with the Sandbox through the SDK.
+        Interactions using Sandbox Previews are not included.
+
+        Args:
+            interval (int): Number of minutes of inactivity before auto-stopping.
+                Set to 0 to disable auto-stop. Defaults to 15.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Raises:
+            DaytonaValidationError: If interval is negative
+
+        Example:
+            ```python
+            # Auto-stop after 1 hour
+            sandbox.set_autostop_interval(60)
+            # Or disable auto-stop
+            sandbox.set_autostop_interval(0)
+            ```
+        """
+        if interval < 0:
+            raise DaytonaValidationError("Auto-stop interval must be a non-negative integer")
+
+        _ = await self._sandbox_api.set_autostop_interval(
+            self.id, interval, _request_timeout=http_timeout(request_timeout)
+        )
+        self.auto_stop_interval = interval
+
+    @intercept_errors(message_prefix="Failed to set public status: ")
+    @with_instrumentation()
+    async def set_public(self, public: bool, request_timeout: float | None = None) -> None:
+        """Sets whether the Sandbox's preview URLs are publicly accessible.
+
+        When public, preview URLs (see `get_preview_link`) can be opened without a preview
+        token or API key. When private, every preview request must authenticate.
+
+        Args:
+            public (bool): `True` to make preview URLs public, `False` to make them private.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Example:
+            ```python
+            await sandbox.set_public(True)
+            preview = await sandbox.get_preview_link(3000)
+            # preview.url can now be opened without credentials
+            ```
+        """
+        _ = await self._sandbox_api.update_public_status(
+            self.id, public, _request_timeout=http_timeout(request_timeout)
+        )
+        self.public = public
+
+    @intercept_errors(message_prefix="Failed to set auto-pause interval: ")
+    @with_instrumentation()
+    async def set_auto_pause_interval(self, interval: int) -> None:
+        """Sets the auto-pause interval for the Sandbox.
+
+        The Sandbox will automatically pause after being idle (no new events) for the specified interval.
+        Only supported for sandbox classes that support pausing.
+
+        Args:
+            interval (int): Number of minutes of inactivity before auto-pausing.
+                Set to 0 to disable auto-pause.
+
+        Raises:
+            DaytonaValidationError: If interval is negative
+
+        Example:
+            ```python
+            # Auto-pause after 1 hour
+            await sandbox.set_auto_pause_interval(60)
+            # Or disable auto-pause
+            await sandbox.set_auto_pause_interval(0)
+            ```
+        """
+        if interval < 0:
+            raise DaytonaValidationError("Auto-pause interval must be a non-negative integer")
+
+        _ = await self._sandbox_api.set_auto_pause_interval(self.id, interval)
+        self.auto_pause_interval = interval
+
+    @intercept_errors(message_prefix="Failed to set TTL: ")
+    @with_instrumentation()
+    async def set_ttl(self, ttl_minutes: int, request_timeout: float | None = None) -> None:
+        """Sets the TTL (time to live) for the Sandbox.
+
+        The Sandbox will be destroyed after the specified number of minutes, counted as
+        wall-clock time from the current moment, regardless of its state (started, stopped,
+        paused, or archived). Setting to 0 disables the TTL. For a multi-node
+        head, expiry destroys every member and all ephemeral local data.
+
+        Args:
+            ttl_minutes (int): Number of minutes until the Sandbox is destroyed.
+                Set to 0 to disable the TTL.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Raises:
+            DaytonaValidationError: If ttl_minutes is negative
+
+        Example:
+            ```python
+            # Set TTL to 1 hour
+            await sandbox.set_ttl(60)
+            # Or disable TTL
+            await sandbox.set_ttl(0)
+            ```
+        """
+        if ttl_minutes < 0:
+            raise DaytonaValidationError("TTL must be a non-negative integer")
+
+        _ = await self._sandbox_api.set_ttl(self.id, ttl_minutes, _request_timeout=http_timeout(request_timeout))
+
+    @intercept_errors(message_prefix="Failed to set auto-archive interval: ")
+    @with_instrumentation()
+    async def set_auto_archive_interval(self, interval: int, request_timeout: float | None = None) -> None:
+        """Sets the auto-archive interval for the Sandbox.
+
+        The Sandbox will automatically archive after being continuously stopped for the specified interval.
+
+        Args:
+            interval (int): Number of minutes after which a continuously stopped Sandbox will be auto-archived.
+                Set to 0 for the maximum interval. Default is 7 days.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Raises:
+            DaytonaValidationError: If interval is negative
+
+        Example:
+            ```python
+            # Auto-archive after 1 hour
+            sandbox.set_auto_archive_interval(60)
+            # Or use the maximum interval
+            sandbox.set_auto_archive_interval(0)
+            ```
+        """
+        if interval < 0:
+            raise DaytonaValidationError("Auto-archive interval must be a non-negative integer")
+
+        _ = await self._sandbox_api.set_auto_archive_interval(
+            self.id, interval, _request_timeout=http_timeout(request_timeout)
+        )
+        self.auto_archive_interval = interval
+
+    @intercept_errors(message_prefix="Failed to set auto-delete interval: ")
+    @with_instrumentation()
+    async def set_auto_delete_interval(self, interval: int, request_timeout: float | None = None) -> None:
+        """Sets the auto-delete interval for the Sandbox.
+
+        The Sandbox will automatically delete after being continuously stopped for the specified interval.
+
+        Args:
+            interval (int): Number of minutes after which a continuously stopped Sandbox will be auto-deleted.
+                Set to negative value to disable auto-delete. Set to 0 to delete immediately upon stopping.
+                By default, auto-delete is disabled.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Example:
+            ```python
+            # Auto-delete after 1 hour
+            sandbox.set_auto_delete_interval(60)
+            # Or delete immediately upon stopping
+            sandbox.set_auto_delete_interval(0)
+            # Or disable auto-delete
+            sandbox.set_auto_delete_interval(-1)
+            ```
+        """
+        _ = await self._sandbox_api.set_auto_delete_interval(
+            self.id, interval, _request_timeout=http_timeout(request_timeout)
+        )
+        self.auto_delete_interval = interval
+
+    @intercept_errors(message_prefix="Failed to update network settings: ")
+    @with_instrumentation()
+    async def update_network_settings(
+        self,
+        *,
+        network_block_all: bool | None = None,
+        network_allow_list: str | None = None,
+        domain_allow_list: str | None = None,
+        request_timeout: float | None = None,
+    ) -> None:
+        """Updates outbound network policy on the runner (block all, restore access, or CIDR allow list).
+
+        Args:
+            network_block_all: When ``True``, blocks all outbound traffic. When ``False``, restores general
+                outbound access (and clears a stored allow list).
+            network_allow_list: Comma-separated IPv4 CIDRs to allow; implies not blocking all.
+            domain_allow_list: Comma-separated domains to allow; implies not blocking all.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Raises:
+            DaytonaValidationError: If neither argument is set.
+
+        Example:
+            ```python
+            await sandbox.update_network_settings(network_block_all=True)
+            await sandbox.update_network_settings(network_block_all=False)
+            ```
+        """
+        if network_block_all is None and network_allow_list is None and domain_allow_list is None:
+            raise DaytonaValidationError(
+                "At least one of network_block_all, network_allow_list or domain_allow_list must be set"
+            )
+
+        body = UpdateSandboxNetworkSettings(
+            network_block_all=network_block_all,
+            network_allow_list=network_allow_list,
+            domain_allow_list=domain_allow_list,
+        )
+        updated = await self._sandbox_api.update_network_settings(
+            self.id, body, _request_timeout=http_timeout(request_timeout)
+        )
+        self.network_block_all = updated.network_block_all
+        self.network_allow_list = updated.network_allow_list
+        self.domain_allow_list = updated.domain_allow_list
+
+    @intercept_errors(message_prefix="Failed to update secrets: ")
+    @with_instrumentation()
+    async def update_secrets(self, secrets: dict[str, str]) -> None:
+        """Updates the set of vault secrets mounted in the Sandbox, replacing the previously mounted set.
+
+        Attached, detached and rotated secrets take effect for outbound requests within seconds.
+        New environment variables only become visible to processes spawned after the update, and a
+        Sandbox created without any secrets must be restarted for newly attached secrets to work.
+
+        Args:
+            secrets (dict[str, str]): Map of environment variable name to the name of an existing
+                organization Secret. Pass an empty dict to detach all secrets.
+
+        Example:
+            ```python
+            await sandbox.update_secrets({"ANTHROPIC_API_KEY": "anthropic-prod"})
+            await sandbox.update_secrets({})  # detach all
+            ```
+        """
+        body = UpdateSandboxSecrets(secrets=[{env_var: secret_name} for env_var, secret_name in secrets.items()])
+        updated = await self._sandbox_api.update_sandbox_secrets(self.id, body)
+        self.__process_sandbox_dto(updated)
+
+    @intercept_errors(message_prefix="Failed to update environment: ")
+    @with_instrumentation()
+    async def update_env(self, env: dict[str, str], *, unset: list[str] | None = None) -> None:
+        """Updates the Sandbox daemon's process environment.
+
+        Newly spawned processes, sessions and PTYs inherit the change; already-running processes
+        keep their environment.
+
+        Args:
+            env (dict[str, str]): Environment variables to set.
+            unset (list[str] | None): Environment variable names to remove before `env` is applied.
+
+        Example:
+            ```python
+            await sandbox.update_env({"MY_VAR": "value"}, unset=["OLD_VAR"])
+            ```
+        """
+        request = UpdateEnvRequest(set=env, unset=unset)
+        _ = await self._server_api.update_env(request=request)
+
+    @intercept_errors(message_prefix="Failed to get preview link: ")
+    @with_instrumentation()
+    async def get_preview_link(self, port: int, request_timeout: float | None = None) -> PortPreviewUrl:
+        """Retrieves the preview link for the sandbox at the specified port. If the port is closed,
+        it will be opened automatically. For private sandboxes, a token is included to grant access
+        to the URL.
+
+        For a private sandbox, requests to `url` must authenticate, otherwise they are answered
+        with `401 Unauthorized`. Send the returned `token` in the `X-Daytona-Preview-Token` header,
+        or send your Daytona API key as `Authorization: Bearer <api key>`. To get a URL that works
+        without extra headers (for example to open it in a browser or share it), use
+        `create_signed_preview_url` instead. Public sandboxes need no credentials.
+
+        Args:
+            port (int): The port to open the preview link on.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Returns:
+            PortPreviewUrl: The response object for the preview link, which includes the `url`
+            and the `token` (to access private sandboxes).
+
+        Example:
+            ```python
+            import httpx
+
+            preview_link = await sandbox.get_preview_link(3000)
+            print(f"Preview URL: {preview_link.url}")
+            print(f"Token: {preview_link.token}")
+
+            # Fetch the private preview from outside the sandbox
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    preview_link.url,
+                    headers={"X-Daytona-Preview-Token": preview_link.token},
+                )
+            ```
+        """
+        return await self._sandbox_api.get_port_preview_url(
+            self.id, port, _request_timeout=http_timeout(request_timeout)
+        )
+
+    @intercept_errors(message_prefix="Failed to create signed preview url: ")
+    async def create_signed_preview_url(
+        self,
+        port: int,
+        expires_in_seconds: int | None = None,
+        request_timeout: float | None = None,
+    ) -> SignedPortPreviewUrl:
+        """Creates a signed preview URL for the sandbox at the specified port.
+
+        The access token is embedded in the returned URL, so it can be used without any
+        headers, for example in a browser or by another service. The URL stops working when it
+        expires (after 60 seconds unless `expires_in_seconds` is set) or when it is expired with
+        `expire_signed_preview_url`.
+
+        Args:
+            port (int): The port to open the preview link on.
+            expires_in_seconds (int | None): The number of seconds the signed preview
+                url will be valid for. Defaults to 60 seconds; set a longer value for links
+                that need to stay usable, e.g. `3600` for one hour.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Returns:
+            SignedPortPreviewUrl: The response object for the signed preview url.
+
+        Example:
+            ```python
+            signed = await sandbox.create_signed_preview_url(3000, expires_in_seconds=3600)
+            print(f"Preview URL (valid for one hour): {signed.url}")
+            ```
+        """
+        return await self._sandbox_api.get_signed_port_preview_url(
+            self.id,
+            port,
+            expires_in_seconds=expires_in_seconds,
+            _request_timeout=http_timeout(request_timeout),
+        )
+
+    @intercept_errors(message_prefix="Failed to expire signed preview url: ")
+    async def expire_signed_preview_url(self, port: int, token: str, request_timeout: float | None = None) -> None:
+        """Expires a signed preview URL for the sandbox at the specified port.
+
+        Args:
+            port (int): The port to expire the signed preview url on.
+            token (str): The token to expire the signed preview url on.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+        """
+        await self._sandbox_api.expire_signed_port_preview_url(
+            self.id, port, token, _request_timeout=http_timeout(request_timeout)
+        )
+
+    @intercept_errors(message_prefix="Failed to archive sandbox: ")
+    @with_instrumentation()
+    async def archive(self, request_timeout: float | None = None) -> None:
+        """Archives the sandbox, making it inactive and preserving its state. When sandboxes are
+        archived, the entire filesystem state is moved to cost-effective object storage, making it
+        possible to keep sandboxes available for an extended period. The tradeoff between archived
+        and stopped states is that starting an archived sandbox takes more time, depending on its size.
+        Sandbox must be stopped before archiving.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+        """
+        _ = await self._sandbox_api.archive_sandbox(self.id, _request_timeout=http_timeout(request_timeout))
+        await self.refresh_data(request_timeout=request_timeout)
+
+    @intercept_errors(message_prefix="Failed to resize sandbox: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def resize(self, resources: Resources, timeout: float | None = 60) -> None:
+        """Resizes the Sandbox resources.
+
+        Changes the CPU, memory, or disk allocation. Hot resize (on a running Sandbox) accepts
+        only CPU and memory increases. Disk resize requires a stopped Sandbox; disk can only
+        grow. GPU is not resizable — to change GPU, create a new Sandbox.
+
+        Args:
+            resources (Resources): New resource configuration. Only cpu, memory, and disk are
+                applied; setting gpu or gpu_type raises an error.
+            timeout (Optional[float]): Timeout in seconds for the resize operation. 0 means no
+                timeout. Default is 60 seconds.
+
+        Raises:
+            DaytonaError: If hot-resize constraints are violated, disk resize is attempted on
+                a running Sandbox, disk decrease is attempted, no fields are provided, gpu or
+                gpu_type is set, or the operation times out.
+
+        Example:
+            ```python
+            await sandbox.resize(Resources(cpu=4, memory=8))
+
+            await sandbox.stop()
+            await sandbox.resize(Resources(cpu=2, memory=4, disk=30))
+            ```
+        """
+        validate_scalar_resources(resources)
+        if resources.gpu is not None or resources.gpu_type is not None:
+            raise DaytonaValidationError(
+                "Resize does not support changes to gpu or gpu_type — to change GPU, create a new Sandbox"
+            )
+        resize_request = ResizeSandbox(
+            cpu=resources.cpu,
+            memory=resources.memory,
+            disk=resources.disk,
+        )
+        sandbox = await self._sandbox_api.resize_sandbox(self.id, resize_request, _request_timeout=timeout or None)
+        self.__process_sandbox_dto(sandbox)
+        await self.wait_for_resize_complete(timeout=0)
+
+    @intercept_errors(message_prefix="Failure during waiting for resize to complete: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def wait_for_resize_complete(
+        self,
+        timeout: float | None = 60,  # pylint: disable=unused-argument # pyright: ignore[reportUnusedParameter]
+    ) -> None:
+        """Waits for the Sandbox resize operation to complete.
+
+        Args:
+            timeout (Optional[float]): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+        Raises:
+            DaytonaError: If timeout is negative. If resize operation times out.
+        """
+        if self.state != SandboxState.RESIZING:
+            return
+
+        error_states = [SandboxState.ERROR, SandboxState.BUILD_FAILED]
+        exclude = {SandboxState.RESIZING} | set(error_states)
+        target_states = [s for s in SandboxState if s not in exclude]
+
+        await self._wait_for_state(target_states, error_states)
+
+    @intercept_errors(message_prefix="Failed to create SSH access: ")
+    @with_instrumentation()
+    async def create_ssh_access(
+        self,
+        expires_in_minutes: int | None = None,
+        request_timeout: float | None = None,
+    ) -> SshAccessDto:
+        """Creates an SSH access token for the sandbox.
+
+        Args:
+            expires_in_minutes (int | None): The number of minutes the SSH access token will be valid for.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+        """
+        return await self._sandbox_api.create_ssh_access(
+            self.id,
+            expires_in_minutes=expires_in_minutes,
+            _request_timeout=http_timeout(request_timeout),
+        )
+
+    @intercept_errors(message_prefix="Failed to revoke SSH access: ")
+    @with_instrumentation()
+    async def revoke_ssh_access(self, token: str, request_timeout: float | None = None) -> None:
+        """Revokes an SSH access token for the sandbox.
+
+        Args:
+            token (str): The token to revoke.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+        """
+        _ = await self._sandbox_api.revoke_ssh_access(
+            self.id, token=token, _request_timeout=http_timeout(request_timeout)
+        )
+
+    @intercept_errors(message_prefix="Failed to validate SSH access: ")
+    @with_instrumentation()
+    async def validate_ssh_access(self, token: str, request_timeout: float | None = None) -> SshAccessValidationDto:
+        """Validates an SSH access token for the sandbox.
+
+        Args:
+            token (str): The token to validate.
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+        """
+        return await self._sandbox_api.validate_ssh_access(token, _request_timeout=http_timeout(request_timeout))
+
+    @intercept_errors(message_prefix="Failed to refresh sandbox activity: ")
+    async def refresh_activity(self, request_timeout: float | None = None) -> None:
+        """Refreshes the sandbox activity to reset the timer for automated lifecycle management actions.
+
+        This method updates the sandbox's last activity timestamp without changing its state.
+        It is useful for keeping long-running sessions alive while there is still user activity.
+
+        Args:
+            request_timeout (float | None): Optional client-side request timeout in seconds. Client-side
+                only. It bounds how long the SDK waits for the HTTP response and does not cancel
+                the operation on the server. Positive values under 1 second are rounded up to 1
+                second; 0 disables the client-side timeout and negative values are rejected.
+
+        Example:
+            ```python
+            await sandbox.refresh_activity()
+            ```
+        """
+        await self._sandbox_api.update_last_activity(self.id, _request_timeout=http_timeout(request_timeout))
+
+    @intercept_errors(message_prefix="Failed to fork sandbox: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def fork(self, name: str | None = None, timeout: float | None = 60) -> "AsyncSandbox":
+        """Forks the Sandbox, creating a new Sandbox with an identical filesystem.
+
+        The forked Sandbox is a copy-on-write clone of the original. It starts
+        with the same disk contents but operates independently from that point on.
+
+        Args:
+            name (str | None): Optional name for the forked Sandbox. If not provided, a unique name will be generated.
+            timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+        Returns:
+            AsyncSandbox: The forked Sandbox.
+
+        Raises:
+            DaytonaError: If the fork operation fails or times out.
+
+        Example:
+            ```python
+            sandbox = await daytona.get("my-sandbox")
+            forked = await sandbox.fork(name="my-fork")
+            print(f"Forked sandbox: {forked.id}")
+            ```
+        """
+        sandbox_dto = await self._sandbox_api.fork_sandbox(
+            self.id, ForkSandbox(name=name), _request_timeout=http_timeout(timeout)
+        )
+
+        if not sandbox_dto.toolbox_proxy_url:
+            sandbox_dto.toolbox_proxy_url = (await self._sandbox_api.get_toolbox_proxy_url(sandbox_dto.id)).url
+
+        language = sandbox_dto.labels.get(CODE_TOOLBOX_LANGUAGE_LABEL) or ""
+
+        forked = AsyncSandbox(
+            sandbox_dto,
+            self._toolbox_api._api_client,
+            self._sandbox_api,
+            language,
+            self._subscription_manager,
+            analytics_api_url_provider=self._analytics_api_url_provider,
+        )
+        await forked.wait_for_sandbox_start(timeout=0)
+        return forked
+
+    @deprecated(reason="Method is deprecated. Use `fork` instead. This method will be removed in a future version.")
+    async def _experimental_fork(self, name: str | None = None, timeout: float | None = 60) -> "AsyncSandbox":
+        return await self.fork(name=name, timeout=timeout)
+
+    @intercept_errors(message_prefix="Failed to create snapshot: ")
+    @with_timeout()
+    @with_instrumentation()
+    async def create_snapshot(self, name: str, timeout: float | None = 60) -> None:
+        """Creates a snapshot from the current state of the Sandbox.
+
+        This captures the Sandbox's filesystem into a reusable snapshot that can be
+        used to create new Sandboxes. The Sandbox will temporarily enter a
+        'snapshotting' state and return to its previous state when complete.
+
+        Args:
+            name (str): Name for the new snapshot.
+            timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+
+        Raises:
+            DaytonaError: If the snapshot operation fails or times out.
+
+        Example:
+            ```python
+            sandbox = await daytona.get("my-sandbox")
+            await sandbox.create_snapshot("my-snapshot")
+            print("Snapshot created successfully")
+            ```
+        """
+        response = await self._sandbox_api.create_sandbox_snapshot(
+            self.id,
+            CreateSandboxSnapshot(name=name),
+            _request_timeout=http_timeout(timeout),
+        )
+        self.__process_sandbox_dto(response)
+
+        error_states = [SandboxState.ERROR, SandboxState.BUILD_FAILED]
+        exclude = {SandboxState.SNAPSHOTTING} | set(error_states)
+        target_states = [s for s in SandboxState if s not in exclude]
+
+        await self._wait_for_state(target_states, error_states)
+
+    @deprecated(
+        reason=("Method is deprecated. Use `create_snapshot` instead. This method will be removed in a future version.")
+    )
+    async def _experimental_create_snapshot(self, name: str, timeout: float | None = 60) -> None:
+        return await self.create_snapshot(name=name, timeout=timeout)
+
+    @intercept_errors(message_prefix="Failed to pause sandbox")
+    @with_timeout()
+    @with_instrumentation()
+    async def pause(self, timeout: float = 60) -> None:
+        """Pauses the Sandbox, freezing all running processes.
+
+        The Sandbox will enter a 'pausing' state and transition to 'paused' when
+        complete. While paused, the Sandbox retains its state in memory but does
+        not consume CPU cycles.
+
+        Args:
+            timeout: Maximum time to wait in seconds. 0 means no timeout.
+                    Defaults to 60-second timeout.
+
+        Raises:
+            DaytonaError: If timeout is negative or the operation fails/times out.
+        """
+        if timeout < 0:
+            raise DaytonaError("Timeout must be a non-negative number")
+
+        _ = await self._sandbox_api.pause_sandbox(self.id, _request_timeout=timeout if timeout > 0 else None)
+        await self.refresh_data()
+        error_states = [SandboxState.ERROR, SandboxState.BUILD_FAILED]
+        exclude = {SandboxState.PAUSING} | set(error_states)
+        target_states = [s for s in SandboxState if s not in exclude]
+        await self._wait_for_state(target_states, error_states)
+
+    def _ensure_subscribed(self) -> None:
+        if self._sub_id is not None:
+            if self._subscription_manager.refresh(self._sub_id):
+                return
+            self._sub_id = None
+
+        subscription_id = self._subscription_manager.subscribe(
+            self.id,
+            self._handle_event,
+            events=["sandbox.state.updated", "sandbox.created"],
+        )
+        self._sub_id = subscription_id or None
+
+    def _handle_event(self, event_name: str, data: Any) -> None:
+        if not isinstance(data, dict):
+            return
+        raw: object = data.get("sandbox", data)  # pyright: ignore[reportUnknownVariableType]
+
+        if event_name == "sandbox.created":
+            sandbox_dto = SandboxDto.from_dict(raw)  # pyright: ignore[reportArgumentType]
+            if sandbox_dto is not None:
+                self.__process_sandbox_dto(sandbox_dto)
+        else:
+            if isinstance(raw, dict) and "sandbox" in data:
+                # Set before the state: a wait that ends on an error state reports this reason. The event omits
+                # the field when the sandbox has none.
+                self.error_reason = raw.get("errorReason")
+            new_state = (  # pyright: ignore[reportUnknownVariableType]
+                raw.get("state") if isinstance(raw, dict) else None
+            ) or data.get("newState")
+            if new_state is not None:
+                try:
+                    state = SandboxState(new_state)
+                    if len(self.nodes) == 1 and (self.node_count == 1 or self.nodes[0].rank > 0):
+                        self.nodes[0].state = state
+                    self._apply_state(state)
+                except ValueError:
+                    pass
+
+    def _unsubscribe_from_events(self) -> None:
+        if self._sub_id is not None:
+            self._subscription_manager.unsubscribe(self._sub_id)
+            self._sub_id = None
+
+    def _apply_state(self, new_state: SandboxState | None) -> None:
+        if new_state == self.state:
+            return
+
+        self.state: SandboxState | None = new_state
+
+        for waiter in list(self._state_waiters):
+            waiter(new_state)
+
+    def _raise_destroyed_wait_error(self, target_states: list[SandboxState]) -> None:
+        if self.state != SandboxState.DESTROYED or SandboxState.DESTROYED in target_states:
+            return
+
+        if self.queue_timed_out_at:
+            waited = ""
+            if self.queue_timeout is not None:
+                waited = f" {self.queue_timeout} " + ("minute" if self.queue_timeout == 1 else "minutes")
+            raise DaytonaQueueTimeoutError(
+                f"Sandbox {self.id} was destroyed after waiting{waited} for a runner "
+                + f"(queue timed out at {self.queue_timed_out_at})"
+            )
+
+        if self.spot_evicted_at:
+            raise DaytonaSpotEvictedError(f"Sandbox {self.id} was evicted by spot preemption at {self.spot_evicted_at}")
+
+    async def _wait_for_state(
+        self,
+        target_states: list[SandboxState],
+        error_states: list[SandboxState],
+        safe_refresh: bool = False,
+    ) -> None:
+        """Wait for sandbox to reach a target state via WebSocket events with periodic polling safety net.
+
+        Args:
+            target_states: States that indicate success.
+            error_states: States that indicate failure.
+            safe_refresh: If True, use safe refresh that treats 404 as destroyed (for delete operations).
+        """
+        self._ensure_subscribed()
+
+        # Fast-path only on cached *target* states (parity with main's pre-check).
+        # Cached error states are deliberately NOT evaluated here — main always
+        # refreshed before failing, so a stale ERROR must survive one refresh.
+        if self.state in target_states:
+            return
+
+        subscribed = self._sub_id is not None
+        poll_interval = 1.0 if subscribed else 0.1
+        loop = asyncio.get_running_loop()
+        poll_start = loop.time()
+        state_resolved = asyncio.Event()
+        result_state: SandboxState | None = None
+        # The reason that came with result_state; a refresh still in flight may replace self.error_reason after.
+        result_reason: str | None = None
+
+        def _waiter(state: SandboxState | None) -> None:
+            nonlocal result_state, result_reason
+            if state is None:
+                return
+
+            if state in target_states or state in error_states:
+                result_state = state
+                result_reason = self.error_reason
+                state_resolved.set()
+
+        self._state_waiters.append(_waiter)
+        try:
+            # First poll runs immediately (main always refreshed before state evaluation).
+            if safe_refresh:
+                await self.__refresh_data_safe()
+            else:
+                await self.refresh_data()
+
+            self._raise_destroyed_wait_error(target_states)
+            _waiter(self.state)
+
+            while not state_resolved.is_set():
+                try:
+                    _ = await asyncio.wait_for(state_resolved.wait(), timeout=poll_interval)
+                    break
+                except asyncio.TimeoutError:
+                    pass
+
+                if safe_refresh:
+                    await self.__refresh_data_safe()
+                else:
+                    await self.refresh_data()
+
+                self._raise_destroyed_wait_error(target_states)
+
+                if subscribed or loop.time() - poll_start > 5.0:
+                    poll_interval = min(poll_interval * 1.1, 1.0)
+
+            if result_state in error_states:
+                raise DaytonaError(
+                    f"Sandbox {self.id} entered error state: {result_state}, error reason: {result_reason}"
+                )
+        except Exception as exc:
+            # Parity with main: complete one final refresh-then-evaluate before
+            # propagating, so a clamped/short timeout still observes the latest state.
+            if not state_resolved.is_set():
+                try:
+                    if safe_refresh:
+                        await self.__refresh_data_safe()
+                    else:
+                        await self.refresh_data()
+                    self._raise_destroyed_wait_error(target_states)
+                except (DaytonaQueueTimeoutError, DaytonaSpotEvictedError):
+                    raise
+                except Exception:
+                    pass
+                if state_resolved.is_set():
+                    if result_state in error_states:
+                        message = (
+                            f"Sandbox {self.id} entered error state: {result_state}, error reason: {result_reason}"
+                        )
+                        raise DaytonaError(message) from exc
+                    return
+            raise
+        finally:
+            if _waiter in self._state_waiters:
+                self._state_waiters.remove(_waiter)
+
+    def __process_sandbox_dto(self, sandbox_dto: SandboxDto | SandboxListItem) -> None:
+        self.id: str = sandbox_dto.id
+        self.name: str = sandbox_dto.name
+        self.organization_id: str = sandbox_dto.organization_id
+        self.snapshot: str | None = sandbox_dto.snapshot
+        self.user: str = sandbox_dto.user
+        self.labels: dict[str, str] = sandbox_dto.labels
+        self.public: bool = sandbox_dto.public
+        self.target: str = sandbox_dto.target
+        self.cpu: int = sandbox_dto.cpu
+        self.gpu: int = sandbox_dto.gpu
+        self.spot: bool | None = sandbox_dto.spot or False
+        self.spot_evicted_at: str | None = sandbox_dto.spot_evicted_at
+        self.queue_timed_out_at: str | None = sandbox_dto.queue_timed_out_at
+        self.gpu_type: GpuType | None = sandbox_dto.gpu_type
+        self.memory: int = sandbox_dto.memory
+        self.disk: int = sandbox_dto.disk
+        self.desired_state: SandboxDesiredState | None = sandbox_dto.desired_state
+        self.error_reason: str | None = sandbox_dto.error_reason
+        self.recoverable: bool | None = sandbox_dto.recoverable
+        self.backup_state: str | None = sandbox_dto.backup_state
+        self.auto_stop_interval: float | int | None = sandbox_dto.auto_stop_interval
+        self.auto_pause_interval: float | int | None = sandbox_dto.auto_pause_interval
+        self.auto_archive_interval: float | int | None = sandbox_dto.auto_archive_interval
+        self.auto_delete_interval: float | int | None = sandbox_dto.auto_delete_interval
+        self.created_at: str | None = sandbox_dto.created_at
+        self.updated_at: str | None = sandbox_dto.updated_at
+        self.last_activity_at: str | None = sandbox_dto.last_activity_at
+        new_proxy_url = sandbox_dto.toolbox_proxy_url
+        if new_proxy_url:
+            if new_proxy_url != self.toolbox_proxy_url and hasattr(self, "_toolbox_api"):
+                self._toolbox_api._toolbox_base_url = new_proxy_url
+                for node in self.nodes:
+                    node._toolbox_api._toolbox_base_url = new_proxy_url
+            self.toolbox_proxy_url: str = new_proxy_url
+        self.sandbox_class: str | None = (
+            sandbox_dto.sandbox_class.value
+            if isinstance(sandbox_dto.sandbox_class, SandboxClass)
+            else sandbox_dto.sandbox_class
+        )
+        self.warm_pool_id: str | None = sandbox_dto.warm_pool_id
+        self.daemon_version: str | None = sandbox_dto.daemon_version
+        self.auto_destroy_at: str | None = sandbox_dto.auto_destroy_at
+        self.queue_timeout: int | None = sandbox_dto.queue_timeout
+        self.node_count: int = int(  # pyright: ignore[reportIncompatibleVariableOverride]
+            getattr(sandbox_dto, "node_count", None) or getattr(self, "node_count", None) or 1
+        )
+        topology_generation = getattr(sandbox_dto, "topology_generation", None)
+        if topology_generation is not None:
+            self.topology_generation = topology_generation  # pyright: ignore[reportUnannotatedClassAttribute]
+        self.degraded: bool | None = getattr(sandbox_dto, "degraded", getattr(self, "degraded", None))
+
+        # Fields only present in the full SandboxDto (not returned by list results
+        if isinstance(sandbox_dto, SandboxDto):
+            self.env: dict[str, str] | None = sandbox_dto.env  # pyright: ignore[reportIncompatibleVariableOverride]
+            self.network_block_all: bool | None = (  # pyright: ignore[reportIncompatibleVariableOverride]
+                sandbox_dto.network_block_all
+            )
+            self.kvm: bool | None = sandbox_dto.kvm  # pyright: ignore[reportIncompatibleVariableOverride]
+            self.network_allow_list: str | None = sandbox_dto.network_allow_list
+            self.domain_allow_list: str | None = sandbox_dto.domain_allow_list
+            self.outbound_proxy_url: str | None = sandbox_dto.outbound_proxy_url
+            self.volumes: list[SandboxVolume] | None = sandbox_dto.volumes
+            self.build_info: BuildInfo | None = sandbox_dto.build_info
+            self.backup_created_at: str | None = sandbox_dto.backup_created_at
+            self.otel_endpoint_override: str | None = sandbox_dto.otel_endpoint_override
+
+        self._apply_state(sandbox_dto.state)
+
+        if hasattr(self, "_toolbox_api_client"):
+            self.__process_nodes(sandbox_dto)
+
+    def __process_nodes(self, sandbox_dto: SandboxDto | SandboxListItem) -> None:
+        # A direct worker lookup returns only that worker, with its physical rank.
+        worker_rank = getattr(sandbox_dto, "node_rank", None) if getattr(sandbox_dto, "head_sandbox_id", None) else None
+        raw_nodes = getattr(sandbox_dto, "nodes", None)
+        reported_node_count = len(raw_nodes) if raw_nodes is not None else None
+        if not raw_nodes:
+            if reported_node_count == 0:
+                self._reported_node_count = 0
+            previous = self.nodes[0] if self.nodes else None
+            incarnation = getattr(sandbox_dto, "incarnation", None)
+            if previous is not None:
+                if len(self.nodes) != 1:
+                    return
+                if previous.rank > 0 and worker_rank is None:
+                    worker_rank = previous.rank
+                if previous.id != sandbox_dto.id or (incarnation is not None and previous.incarnation != incarnation):
+                    previous = None
+            # A gang head reports totals that cannot be assigned to individual ranks.
+            if worker_rank is None and self.node_count > 1:
+                return
+            if previous is None and reported_node_count is None:
+                self._reported_node_count = None
+            raw_nodes = [
+                SandboxNodeDto(
+                    rank=worker_rank or 0,
+                    id=sandbox_dto.id,
+                    state=sandbox_dto.state or (previous.state if previous else SandboxState.UNKNOWN),
+                    incarnation=incarnation or (previous.incarnation if previous else 1),
+                    failure=previous.failure if previous else None,
+                    fabric_address=previous.fabric_address if previous else None,
+                    fabric_prefix_length=previous.fabric_prefix_length if previous else None,
+                    fabric_healthy=previous.fabric_healthy if previous else None,
+                    fabric_unhealthy_since=previous.fabric_unhealthy_since if previous else None,
+                    cpu=sandbox_dto.cpu,
+                    gpu=sandbox_dto.gpu,
+                    memory=sandbox_dto.memory,
+                    disk=sandbox_dto.disk,
+                )
+            ]
+        if (
+            (worker_rank is not None and (worker_rank < 1 or len(raw_nodes) != 1))
+            or any(node.rank != rank for rank, node in enumerate(raw_nodes, start=worker_rank or 0))
+            or raw_nodes[0].id != sandbox_dto.id
+        ):
+            raise DaytonaError("Invalid sandbox node ordering: nodes[i].rank must equal i and rank 0 must be the head")
+        existing = {node.id: node for node in self.nodes}
+        updated: list[AsyncSandboxNode] = []
+        for node_dto in raw_nodes:
+            node = existing.get(node_dto.id)
+            if node is not None:
+                node.update(node_dto)
+            else:
+                node = AsyncSandboxNode(
+                    node_dto,
+                    self._toolbox_api_client,
+                    self.toolbox_proxy_url,
+                    self._sandbox_api,
+                    self._language,
+                    self._pool_tracker,
+                )
+            updated.append(node)
+        generation = getattr(sandbox_dto, "topology_generation", None) if worker_rank is None else None
+        self.nodes._replace(updated, generation)  # pylint: disable=no-member
+        if reported_node_count:
+            self._reported_node_count = reported_node_count
+
+    async def __refresh_data_safe(self) -> None:
+        """Refreshes sandbox data, treating 404 as DESTROYED and tolerating pydantic validation errors."""
+        try:
+            await self.refresh_data()
+        except DaytonaNotFoundError:
+            self._apply_state(SandboxState.DESTROYED)
+        except Exception as e:
+            if not is_validation_error(e):
+                raise

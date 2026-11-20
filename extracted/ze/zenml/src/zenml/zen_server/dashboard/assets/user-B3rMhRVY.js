@@ -1,0 +1,1 @@
+function e(e){return{id:e.id,name:e.name,displayName:e.permission_denied?e.name:e.body?.full_name||e.name}}export{e as t};

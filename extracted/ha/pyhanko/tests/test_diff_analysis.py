@@ -1,12 +1,16 @@
+import binascii
 import os
+import re
 from datetime import UTC, datetime
 from io import BytesIO
 from itertools import product
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from freezegun.api import freeze_time
 from pyhanko.pdf_utils import generic, misc
+from pyhanko.pdf_utils import reader as reader_module
 from pyhanko.pdf_utils.content import RawContent
 from pyhanko.pdf_utils.generic import Reference, TrailerReference, pdf_name
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
@@ -50,6 +54,7 @@ from pyhanko_testing_commons.test_data.samples import (
     MINIMAL_TWO_PAGES,
     MINIMAL_XREF,
     PDF_DATA_DIR,
+    SHARED_NESTED_RESOURCES,
     SIMPLE_FORM,
     TEST_DIR,
     TEXTFIELD_GROUP,
@@ -104,6 +109,64 @@ def _cross_linked_pages(n_pages: int) -> bytes:
     return out.getvalue()
 
 
+def _shared_resources(n: int) -> bytes:
+    # n pages share one resource dictionary that lists n form XObjects, and
+    # those all share a second resource dictionary listing n more form
+    # XObjects. This is how TCPDF lays out pages imported with FPDI: every
+    # object behind the inner dictionary can be reached through ~n**2 paths.
+    w = PdfFileWriter()
+
+    def _form(resources):
+        return w.add_object(
+            generic.StreamObject(
+                {
+                    pdf_name('/Type'): pdf_name('/XObject'),
+                    pdf_name('/Subtype'): pdf_name('/Form'),
+                    pdf_name('/BBox'): generic.ArrayObject(
+                        map(generic.NumberObject, (0, 0, 10, 10))
+                    ),
+                    pdf_name('/Resources'): resources,
+                },
+                stream_data=b'q Q',
+            )
+        )
+
+    def _xobject_resources(forms):
+        return w.add_object(
+            generic.DictionaryObject(
+                {
+                    pdf_name('/XObject'): generic.DictionaryObject(
+                        {pdf_name(f'/T{ix}'): f for ix, f in enumerate(forms)}
+                    )
+                }
+            )
+        )
+
+    inner = _xobject_resources(
+        [_form(generic.DictionaryObject()) for _ in range(n)]
+    )
+    outer = _xobject_resources([_form(inner) for _ in range(n)])
+    for ix in range(n):
+        contents = w.add_object(
+            generic.StreamObject(stream_data=f'/T{ix} Do'.encode('ascii'))
+        )
+        w.insert_page(
+            generic.DictionaryObject(
+                {
+                    pdf_name('/Type'): pdf_name('/Page'),
+                    pdf_name('/MediaBox'): generic.ArrayObject(
+                        map(generic.NumberObject, (0, 0, 300, 144))
+                    ),
+                    pdf_name('/Resources'): outer,
+                    pdf_name('/Contents'): contents,
+                }
+            )
+        )
+    out = BytesIO()
+    w.write(out)
+    return out.getvalue()
+
+
 @freeze_time('2020-11-01')
 def test_cross_linked_pages_do_not_blow_up_paths():
     w = IncrementalPdfFileWriter(BytesIO(_cross_linked_pages(8)))
@@ -135,6 +198,84 @@ def test_cross_linked_pages_do_not_blow_up_paths():
     status = val_trusted(r.embedded_signatures[0], extd=True)
     assert status.modification_level == ModificationLevel.LTA_UPDATES
     assert status.docmdp_ok
+
+
+def test_tree_index_is_built_once_per_resolver():
+    r = PdfFileReader(BytesIO(MINIMAL_TWO_FIELDS_TAGGED))
+    resolver = r.get_historical_resolver(r.xrefs.total_revisions - 1)
+    refs = [Reference(i, 0, r) for i in range(1, 8)]
+    with mock.patch.object(
+        reader_module, '_TreeIndex', wraps=reader_module._TreeIndex
+    ) as tree_index_factory:
+        for ref in refs:
+            resolver._get_usages_of_ref(ref)
+        resolver._load_reverse_xref_cache()
+    assert tree_index_factory.call_count == 1
+    index = resolver._load_tree_index()
+    assert index.page_tree_nodes
+    assert index.struct_tree_nodes
+
+
+@freeze_time('2020-11-01')
+def test_shared_resources_do_not_blow_up_paths():
+    out = BytesIO(SHARED_NESTED_RESOURCES)
+    for field_name in ('Sig1', 'Sig2'):
+        out = signers.sign_pdf(
+            IncrementalPdfFileWriter(out),
+            signers.PdfSignatureMetadata(field_name=field_name),
+            signer=FROM_CA,
+        )
+
+    r = PdfFileReader(out)
+    sig = r.embedded_signatures[0]
+    status = val_trusted(sig, extd=True)
+    assert status.modification_level == ModificationLevel.FORM_FILLING
+
+    # The difference analysis only needs the usages of the objects that the
+    # second signature overrides. None of them lies behind the shared
+    # resources, so the hundreds of thousands of paths into the form XObjects
+    # are never enumerated.
+    resolver = r.get_historical_resolver(sig.signed_revision)
+    cache = resolver._indirect_object_access_cache
+    assert cache is not None
+    assert sum(len(paths) for paths in cache.values()) < 1000
+
+
+@pytest.mark.parametrize(
+    'pdf_bytes',
+    [
+        MINIMAL_TWO_FIELDS_TAGGED,
+        MINIMAL_ONE_FIELD_TAGGED,
+        SIMPLE_FORM,
+        TEXTFIELD_GROUP,
+        _cross_linked_pages(4),
+        _shared_resources(4),
+    ],
+)
+def test_targeted_usage_paths_match_full_mapping(pdf_bytes):
+    def _resolver():
+        r = PdfFileReader(BytesIO(pdf_bytes))
+        return r.get_historical_resolver(r.xrefs.total_revisions - 1)
+
+    full = _resolver()
+    full._load_reverse_xref_cache()
+    full._load_reverse_xref_cache()  # no-op once complete
+    expected = full._indirect_object_access_cache
+    assert expected
+
+    # one ref at a time, on a fresh resolver
+    for ref, paths in expected.items():
+        assert _resolver()._get_usages_of_ref(ref) == paths
+
+    # all refs on one resolver, so later lookups reuse earlier results
+    shared = _resolver()
+    for ref, paths in expected.items():
+        shared._load_reverse_xref_cache(targets=(ref,))
+        assert shared._get_usages_of_ref(ref) == paths
+
+    # a full mapping after targeted ones still covers everything
+    shared._load_reverse_xref_cache()
+    assert shared._indirect_object_access_cache == expected
 
 
 def _build_and_map_paths(n_pages: int, tweak):
@@ -2383,7 +2524,7 @@ def test_diff_analysis_circular_page_tree():
         validate_pdf_signature(s, simple_v_context())
 
     # manually call _walk_page_tree_annots to test the defence-in-depth function
-    old = r.get_historical_resolver(1)
+    old = r.get_historical_resolver(r.total_revisions - 2)
     new = r.get_historical_resolver(2)
     from pyhanko.sign.diff_analysis.rules.form_field_rules import (
         _walk_page_tree_annots,
@@ -3163,3 +3304,262 @@ def test_recycled_phantom_sig_add_visible_field_approval():
     assert not status.docmdp_ok
 
     assert 'references an existing object' in str(status.diff_result)
+
+
+def test_relative_view_uses_historical_revision():
+    testfile = PDF_DATA_DIR + '/pades-lta-dss-indirect-arrs-test.pdf'
+    with open(testfile, 'rb') as f:
+        r = PdfFileReader(f)
+        old = r.get_historical_resolver(3)
+        context = Context.from_absolute(
+            old, RawPdfPath('/Root', '/DSS', '/CRLs', 0)
+        )
+        assert context.relative_view.anchor == Reference(23, 0, old)
+
+
+def _dss_revisions_with_replaced_certs():
+    w = IncrementalPdfFileWriter(BytesIO(MINIMAL_ONE_FIELD))
+    first_certs = w.add_object(generic.ArrayObject([generic.NullObject()]))
+    w.root['/DSS'] = w.add_object(
+        generic.DictionaryObject({'/Certs': first_certs})
+    )
+    w.trailer['/Extra'] = generic.DictionaryObject(
+        {'/Nested': generic.ArrayObject([first_certs])}
+    )
+    w.update_root()
+    out = BytesIO()
+    w.write(out)
+
+    w = IncrementalPdfFileWriter(out)
+    second_certs = w.add_object(generic.ArrayObject([generic.NullObject()]))
+    w.root['/DSS'] = w.add_object(
+        generic.DictionaryObject({'/Certs': second_certs})
+    )
+    w.update_root()
+    w.trailer['/Extra'] = generic.DictionaryObject(
+        {'/Nested': generic.ArrayObject([second_certs])}
+    )
+    out2 = BytesIO()
+    w.write(out2)
+    return out2, first_certs.reference, second_certs.reference
+
+
+def test_relative_view_historical_revision_after_container_replaced():
+    out, first_certs, second_certs = _dss_revisions_with_replaced_certs()
+    r = PdfFileReader(out)
+    old = r.get_historical_resolver(r.total_revisions - 2)
+    context = Context.from_absolute(
+        old, RawPdfPath('/Root', '/DSS', '/Certs', 0)
+    )
+    assert context.relative_view.anchor == first_certs
+    assert context.relative_view.anchor.get_pdf_handler() is old
+    assert first_certs != second_certs
+
+
+def test_historical_trailer_entries_resolve_in_historical_revision():
+    out, first_certs, second_certs = _dss_revisions_with_replaced_certs()
+    r = PdfFileReader(out)
+    old = r.get_historical_resolver(r.total_revisions - 2)
+    trailer = old.trailer_view
+    assert trailer.raw_get('/Root').get_pdf_handler() is old
+    assert trailer['/Root'] is old(old.root_ref)
+    nested = trailer.raw_get('/Extra')['/Nested'].raw_get(0)
+    assert nested.get_pdf_handler() is old
+    assert nested.get_object() is old(first_certs)
+    # the latest revision is unaffected
+    latest = r.trailer_view.raw_get('/Extra')['/Nested'].raw_get(0)
+    assert latest.get_object() is r.get_object(second_certs)
+
+
+ORIGINAL_CONTENT = (
+    b"BT /F1 24 Tf 72 700 Td (ORIGINAL - wire amount: USD 100) Tj ET"
+)
+TAMPERED_TEXT = (
+    b"BT /F1 24 Tf 72 700 Td (TAMPERED - wire amount: USD 9000) Tj ET"
+)
+
+# Bytes the PDF literal-string decoder treats specially, mapped to the 2-byte
+# backslash escapes it turns back into exactly one byte. CR/LF must use the
+# LETTER forms: a backslash followed by a raw end-of-line is a line
+# continuation and is deleted, not decoded to CR/LF.
+_LIT_ESCAPE = {
+    0x28: b"\\(",
+    0x29: b"\\)",
+    0x5C: b"\\\\",
+    0x0D: b"\\r",
+    0x0A: b"\\n",
+}
+
+
+def _lit_escape(data: bytes) -> bytes:
+    out = bytearray()
+    for b in data:
+        out += _LIT_ESCAPE.get(b, bytes((b,)))
+    return bytes(out)
+
+
+def _build_base_pdf() -> bytes:
+    """A minimal one-page PDF whose page content stream is object 4."""
+
+    def classic(objs: dict[int, bytes], root: int) -> bytes:
+        out = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+        offsets = {}
+        for num in sorted(objs):
+            offsets[num] = len(out)
+            out += b"%d 0 obj\n" % num + objs[num] + b"\nendobj\n"
+        xref_pos = len(out)
+        size = max(objs) + 1
+        out += b"xref\n0 %d\n0000000000 65535 f \n" % size
+        for num in range(1, size):
+            out += b"%010d 00000 n \n" % offsets[num]
+        out += b"trailer\n<< /Size %d /Root %d 0 R >>\n" % (size, root)
+        out += b"startxref\n%d\n%%%%EOF\n" % xref_pos
+        return bytes(out)
+
+    objs = {
+        1: b"<< /Type /Catalog /Pages 2 0 R >>",
+        2: b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        3: b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        4: b"<< /Length %d >>\nstream\n" % len(ORIGINAL_CONTENT)
+        + ORIGINAL_CONTENT
+        + b"\nendstream",
+        5: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    }
+    return classic(objs, 1)
+
+
+def _sign(base: bytes) -> bytes:
+    w = IncrementalPdfFileWriter(BytesIO(base))
+    fields.append_signature_field(w, fields.SigFieldSpec(sig_field_name="Sig1"))
+    out = signers.sign_pdf(
+        w, signers.PdfSignatureMetadata(field_name="Sig1"), signer=FROM_CA
+    )
+    return out.getvalue()
+
+
+def _build_increment(
+    base_off: int, prev_startxref: int, size: int, pad_spaces: int
+) -> bytes:
+    content = TAMPERED_TEXT + b" " * pad_spaces
+    body = (
+        b"<< /Length %d >>\nstream\n" % len(content) + content + b"\nendstream"
+    )
+    obj = b"4 0 obj\n" + body + b"\nendobj\n"
+    xref_off = base_off + len(obj)
+    xref = b"xref\n0 1\n0000000000 65535 f \n4 1\n%010d 00000 n \n" % base_off
+    trailer = (
+        b"trailer\n<< /Size %d /Root 1 0 R /Prev %d >>\n"
+        b"startxref\n%d\n%%%%EOF\n" % (size, prev_startxref, xref_off)
+    )
+    return obj + xref + trailer
+
+
+def _signature_hole(signed: bytes) -> tuple[int, int, int, bytes]:
+    m = re.search(rb"/ByteRange\s*\[\s*0\s+(\d+)\s+(\d+)\s+(\d+)\s*\]", signed)
+    len1, start2, len2 = (int(m.group(i)) for i in (1, 2, 3))
+    hole = signed[len1:start2]
+    assert hole[:1] == b"<" and hole[-1:] == b">"
+    pkcs7 = binascii.unhexlify(re.sub(rb"\s", b"", hole[1:-1]))
+    return len1, start2, len2, pkcs7
+
+
+def forge_uncovered_update(signed: bytes) -> bytes:
+    """Re-encode ``/Contents`` as a literal string of identical raw length and
+    append an unsigned incremental update, sized so that the (buggy) coverage
+    formula still equals the final file size."""
+
+    data = bytearray(signed)
+    len1, start2, len2, pkcs7 = _signature_hole(signed)
+    raw_hole = start2 - len1
+
+    escaped = _lit_escape(pkcs7)
+    pad_count = (raw_hole - 2) - len(escaped)
+    assert pad_count >= 0
+    literal = b"(" + escaped + b"\x00" * pad_count + b")"
+    assert len(literal) == raw_hole  # no downstream offsets move
+    data[len1:start2] = literal
+
+    decoded_len = len(pkcs7) + pad_count
+    signed_zone_len = len1 + len2 + 2 * decoded_len + 2
+    base_off = len(data)
+    target = signed_zone_len - base_off
+    assert target > 0
+
+    prev_startxref = int(re.findall(rb"startxref\s+(\d+)", data)[-1])
+    size = max(int(s) for s in re.findall(rb"/Size\s+(\d+)", data))
+
+    pad = 0
+    for _ in range(64):
+        inc = _build_increment(base_off, prev_startxref, size, pad)
+        diff = target - len(inc)
+        if diff == 0:
+            break
+        pad += diff
+        assert pad >= 0
+    else:  # pragma: no cover
+        raise RuntimeError("increment size did not converge")
+
+    out = bytes(data) + inc
+    assert len(out) == signed_zone_len
+    return out
+
+
+@freeze_time("2020-11-01")
+def test_literal_contents_coverage_bypass():
+    tampered = forge_uncovered_update(_sign(_build_base_pdf()))
+
+    r = PdfFileReader(BytesIO(tampered), strict=True)
+    emb = r.embedded_signatures[0]
+    status = validate_pdf_signature(emb, simple_v_context())
+
+    # the signature itself is a genuine, intact pyHanko signature ...
+    assert status.intact and status.valid
+    _, _len1, start2, len2 = emb.byte_range
+    signed_end = start2 + len2
+
+    # ... but the file carries unsigned bytes past the signed region that swap
+    # the page content stream from ORIGINAL to TAMPERED.
+    assert len(tampered) > signed_end
+    page = r.root["/Pages"]["/Kids"][0]["/Contents"].data
+    assert b"TAMPERED" in page
+
+    # An appended update that is not
+    # covered by the signature must not be classified as ENTIRE_FILE, and the
+    # difference analysis must flag the content-stream change.
+    assert emb.coverage != SignatureCoverageLevel.ENTIRE_FILE
+    assert status.modification_level is not None
+    assert status.modification_level.name != "NONE"
+
+
+def reencode_contents_as_literal(signed: bytes) -> bytes:
+    """Re-encode ``/Contents`` as a literal string that decodes to exactly
+    half the hole's inner length, so that the hole size, the byte range and
+    the file size are all consistent with a hex-encoded hole."""
+
+    len1, start2, _, pkcs7 = _signature_hole(signed)
+    inner_len = start2 - len1 - 2
+    # Escaped line breaks take up raw bytes, but decode to nothing. Spelling
+    # the last (padding) byte as a 4-byte octal escape fixes the parity if
+    # necessary.
+    escaped = _lit_escape(pkcs7)
+    if (inner_len - len(escaped)) % 2:
+        escaped = _lit_escape(pkcs7[:-1]) + b"\\%03o" % pkcs7[-1]
+    filler = inner_len - len(escaped)
+    literal = b"(" + escaped + b"\\\n" * (filler // 2) + b")"
+    assert len(literal) == start2 - len1
+    return signed[:len1] + literal + signed[start2:]
+
+
+@freeze_time("2020-11-01")
+def test_literal_contents_with_consistent_geometry():
+    tampered = reencode_contents_as_literal(_sign(_build_base_pdf()))
+
+    r = PdfFileReader(BytesIO(tampered), strict=True)
+    emb = r.embedded_signatures[0]
+    assert (
+        len(emb.pkcs7_content) * 2 + 2 == emb.byte_range[2] - emb.byte_range[1]
+    )
+    status = validate_pdf_signature(emb, simple_v_context())
+    assert status.intact and status.valid
+    assert status.coverage == SignatureCoverageLevel.UNCLEAR

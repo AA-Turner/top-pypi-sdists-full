@@ -72,6 +72,7 @@ __all__ = (
     "DeleteTableReplicationRequestTypeDef",
     "DeleteTableRequestTypeDef",
     "DestinationTableTypeDef",
+    "DisassociateTableReplicationRequestTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionConfigurationTypeDef",
     "GetNamespaceRequestTypeDef",
@@ -282,6 +283,9 @@ class MigrationTablePropertiesTypeDef(TypedDict):
     icebergFormatVersion: NotRequired[int]
     compressionCodec: NotRequired[CompressionCodecType]
     dictionaryEncoding: NotRequired[bool]
+
+class DisassociateTableReplicationRequestTypeDef(TypedDict):
+    tableArn: str
 
 class GetNamespaceRequestTypeDef(TypedDict):
     tableBucketARN: str

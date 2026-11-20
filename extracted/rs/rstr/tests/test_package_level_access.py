@@ -1,11 +1,10 @@
-import unittest
 import re
+import unittest
 
 import rstr
 
 
 class TestPackageLevelFunctions(unittest.TestCase):
-
     def test_rstr(self) -> None:
         assert re.match(r'^[ABC]+$', rstr.rstr('ABC'))
 

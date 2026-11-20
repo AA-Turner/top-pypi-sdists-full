@@ -45,7 +45,7 @@ PyAPI_FUNC(int) _PyArg_ParseTuple_SizeT(PyObject *args, const char *format, ...)
 #ifndef min
 #	define min(a,b) ((a)<(b)?(a):(b))
 #endif
-#define VERSION "0.9.2"
+#define VERSION "0.9.3"
 #define MODULE "_rl_accel"
 
 #define STRNAME "str"
@@ -267,7 +267,7 @@ PyObject *_a85_decode(PyObject *module, PyObject *args)
 	inData = tmp;
 	length = (unsigned int)(q - inData);
 	buf = inData+length-2;
-	if(buf<inData || buf[0]!='~' || buf[1]!='>'){
+	if(length<2 || buf[0]!='~' || buf[1]!='>'){
 		free(inData);
 		EXC_EXIT(PyExc_ValueError, "Invalid terminator for Ascii Base 85 Stream");
 		}

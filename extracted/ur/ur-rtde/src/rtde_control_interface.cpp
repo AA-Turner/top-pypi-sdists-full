@@ -9,7 +9,6 @@
 #include <urcl/script_sender.h>
 #endif
 #include <bitset>
-#include <boost/thread/thread.hpp>
 #include <chrono>
 #include <functional>
 #include <iostream>
@@ -184,7 +183,7 @@ RTDEControlInterface::RTDEControlInterface(std::string hostname, double frequenc
     throw std::logic_error("Failed to start RTDE data synchronization, before timeout");
 
   // Start executing receiveCallback
-  th_.start(boost::bind(&RTDEControlInterface::receiveCallback, this, boost::placeholders::_1));
+  th_.start(std::bind(&RTDEControlInterface::receiveCallback, this, std::placeholders::_1));
 
   // Wait until the first robot state has been received
   while (!robot_state_->getFirstStateReceived())
@@ -459,7 +458,7 @@ bool RTDEControlInterface::reconnect()
     throw std::logic_error("Failed to start RTDE data synchronization, before timeout");
 
   // Start executing receiveCallback
-  th_.start(boost::bind(&RTDEControlInterface::receiveCallback, this, boost::placeholders::_1));
+  th_.start(std::bind(&RTDEControlInterface::receiveCallback, this, std::placeholders::_1));
 
   // Wait until the first robot state has been received
   while (!robot_state_->getFirstStateReceived())

@@ -17,23 +17,16 @@ To be used by OpenMetadata class
 import functools
 import json
 import traceback
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import (  # noqa: UP035
+from typing import (
+    Annotated,
     Generic,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    Type,
     TypeVar,
-    Union,
 )
 from urllib.parse import quote_plus, urlencode
 
 from pydantic import Field, field_validator
-from typing_extensions import Annotated  # noqa: UP035
 
 from metadata.generated.schema.entity.data.container import Container
 from metadata.generated.schema.entity.data.query import Query
@@ -62,9 +55,13 @@ def _batched(values: Sequence[str], size: int) -> Iterator[list[str]]:
         yield list(values[start : start + size])
 
 
+class SearchCursorStalledError(RuntimeError):
+    """search_after pagination cannot page an index that does not sort on the id tiebreaker."""
+
+
 @dataclass(frozen=True)
 class FqnSearchResult:
-    """Unhydrated FQN candidates and the server hit count."""
+    """Unhydrated FQN candidates and the server's hit count."""
 
     fqns: tuple[str, ...]
     total: int
@@ -83,17 +80,17 @@ class HitsModel(BaseModel):
 
     index: Annotated[str, Field(description="Index name", alias="_index")]
     type: Annotated[
-        Optional[str],  # noqa: UP045
+        str | None,
         Field(default=None, description="Type of the document", alias="_type"),
     ]
     id: Annotated[str, Field(description="Document ID", alias="_id")]
     score: Annotated[
-        Optional[float],  # noqa: UP045
+        float | None,
         Field(default=None, description="Score of the document", alias="_score"),
     ]
     source: Annotated[dict, Field(description="Document source", alias="_source")]
     sort: Annotated[
-        Optional[List[str]],  # noqa: UP006, UP045
+        list[str | None] | None,
         Field(
             default=None,
             description="Sort field. Used internally to get the next page FQN",
@@ -101,7 +98,7 @@ class HitsModel(BaseModel):
     ]
 
     @field_validator("sort", mode="before")
-    def normalize_sort(cls, sort_value: list[str] | None):  # noqa: N805
+    def normalize_sort(cls, sort_value: list | None):  # noqa: N805
         """
         Return sort as a list of strings, regardless of the actual type.
         if sort_field is set to `_score`, sort is a list of the score and the sort value.
@@ -114,14 +111,15 @@ class HitsModel(BaseModel):
         if sort_value is None:
             return None
 
-        return [str(v) for v in sort_value]
+        # A null stays null: it marks a sort field the index cannot sort on.
+        return [None if v is None else str(v) for v in sort_value]
 
 
 class ESHits(BaseModel):
     """Elasticsearch hits model"""
 
     total: Annotated[TotalModel, Field(description="Total matched elements")]
-    hits: Annotated[List[HitsModel], Field(description="List of matched elements")]  # noqa: UP006
+    hits: Annotated[list[HitsModel], Field(description="List of matched elements")]
 
 
 class ESResponse(BaseModel):
@@ -223,10 +221,10 @@ class ESMixin(Generic[T]):
     @functools.lru_cache(maxsize=512)  # noqa: B019
     def _search_es_entity(
         self,
-        entity_type: Type[T],  # noqa: UP006
+        entity_type: type[T],
         query_string: str,
-        fields: Optional[str] = None,  # noqa: UP045
-    ) -> Optional[List[T]]:  # noqa: UP006, UP045
+        fields: str | None = None,
+    ) -> list[T] | None:
         """
         Run the ES query and return a list of entities that match. It does an extra query to the OM API with the
         requested fields per each entity found in ES.
@@ -256,7 +254,7 @@ class ESMixin(Generic[T]):
 
         return None
 
-    def get_entity_from_es(self, entity: Type[T], query_string: str, fields: Optional[list] = None) -> Optional[T]:  # noqa: UP006, UP045
+    def get_entity_from_es(self, entity: type[T], query_string: str, fields: list | None = None) -> T | None:
         """Fetch an entity instance from ES"""
 
         try:
@@ -269,7 +267,7 @@ class ESMixin(Generic[T]):
 
         return None
 
-    def yield_entities_from_es(self, entity: Type[T], query_string: str, fields: Optional[list] = None) -> Iterable[T]:  # noqa: UP006, UP045
+    def yield_entities_from_es(self, entity: type[T], query_string: str, fields: list | None = None) -> Iterable[T]:
         """Fetch an entity instance from ES"""
 
         try:
@@ -284,13 +282,14 @@ class ESMixin(Generic[T]):
 
     def es_search_from_fqn(
         self,
-        entity_type: Type[T],  # noqa: UP006
+        entity_type: type[T],
         fqn_search_string: str,
         from_count: int = 0,
         size: int = 10,
-        fields: Optional[str] = None,  # noqa: UP045
+        fields: str | None = None,
+        *,
         raise_on_error: bool = False,
-    ) -> Optional[List[T]]:  # noqa: UP006, UP045
+    ) -> list[T] | None:
         """
         Given a service name and filters, search for entities using Elasticsearch.
 
@@ -301,6 +300,7 @@ class ESMixin(Generic[T]):
             from_count (int): The starting index of the search results.
             size (int): The maximum number of records to return.
             fields (Optional[str]): Comma-separated list of fields to be returned.
+            raise_on_error (bool): Propagate search errors instead of returning None.
 
         Returns:
             Optional[List[T]]: A list of entities that match the search criteria, or None if no entities are found.
@@ -343,8 +343,8 @@ class ESMixin(Generic[T]):
         full_path: str,
         from_count: int = 0,
         size: int = 10,
-        fields: Optional[str] = None,  # noqa: UP045
-    ) -> Optional[List[Container]]:  # noqa: UP006, UP045
+        fields: str | None = None,
+    ) -> list[Container] | None:
         """
         Given a service name and filters, search for containers using Elasticsearch.
 
@@ -369,14 +369,15 @@ class ESMixin(Generic[T]):
 
     def _es_search_entity(
         self,
-        entity_type: Type[T],  # noqa: UP006
+        entity_type: type[T],
         field_value: str,
         field_name: str,
         from_count: int = 0,
         size: int = 10,
-        fields: Optional[str] = None,  # noqa: UP045
+        fields: str | None = None,
+        *,
         raise_on_error: bool = False,
-    ) -> Optional[List[T]]:  # noqa: UP006, UP045
+    ) -> list[T] | None:
         """
         Search for entities using Elasticsearch.
 
@@ -387,6 +388,7 @@ class ESMixin(Generic[T]):
             from_count (int, optional): The starting index of the search results. Defaults to 0.
             size (int, optional): The maximum number of search results to return. Defaults to 10.
             fields (Optional[str], optional): Comma-separated list of fields to be returned. Defaults to None.
+            raise_on_error (bool): Propagate search errors instead of returning None.
 
         Returns:
             Optional[List[T]]: A list of entities that match the search criteria, or None if no entities are found.
@@ -429,7 +431,7 @@ class ESMixin(Generic[T]):
         return quote(json.dumps(query_lineage_filter))
 
     @functools.lru_cache(maxsize=12)  # noqa: B019
-    def es_get_queries_with_lineage(self, service_name: str) -> Optional[Set[str]]:  # noqa: UP006, UP045
+    def es_get_queries_with_lineage(self, service_name: str) -> set[str] | None:
         """Get a set of query checksums that have already been processed for lineage"""
         try:
             resp = self.client.get(
@@ -506,7 +508,7 @@ class ESMixin(Generic[T]):
         )
         return response.hits.hits if response else []
 
-    def _get_include_fields_query(self, fields: Optional[List[str]]) -> str:  # noqa: UP006, UP045
+    def _get_include_fields_query(self, fields: list[str] | None) -> str:
         """Get the include fields query"""
         if fields:
             return "&include_source_fields=" + "&include_source_fields=".join(fields)
@@ -514,11 +516,11 @@ class ESMixin(Generic[T]):
 
     def _paginate_es_internal(
         self,
-        entity: Type[T],  # noqa: UP006
-        query_filter: Optional[str] = None,  # noqa: UP045
+        entity: type[T],
+        query_filter: str | None = None,
         size: int = 100,
         search_query: str = "",
-        include_fields: Optional[List[str]] = None,  # noqa: UP006, UP045
+        include_fields: list[str] | None = None,
         sort_field: str = "fullyQualifiedName",
         sort_order: str = "desc",
     ) -> Iterator[ESResponse]:
@@ -567,23 +569,41 @@ class ESMixin(Generic[T]):
                     continue
                 else:
                     break
+
+            next_after = self._next_search_after(response)
+            # The server sorts last on its id tiebreaker. An index without id.keyword sorts it as
+            # null, and each next page then starts again with the previous page's last hit, so
+            # the walk is refused before any page of it is handed out
+            # (ADR:2026-10-23-paged-search-indexes-sort-last-on-id-keyword).
+            last_hit = response.hits.hits[-1] if response.hits.hits else None
+            no_tiebreaker = bool(last_hit and last_hit.sort and last_hit.sort[-1] is None)
+            if no_tiebreaker or (after and next_after == after):
+                raise SearchCursorStalledError(
+                    f"Search cursor for {entity.__name__} cannot page its index"
+                    f" {ES_INDEX_MAP[entity.__name__]}: it cannot sort on the id tiebreaker. Reindex it."
+                )
             yield response
 
-            # Get next page
-            last_hit = response.hits.hits[-1] if response.hits.hits else None
-            if not last_hit or not last_hit.sort:
+            if not next_after:
                 logger.debug("No more pages to fetch")
                 break
 
-            after = "".join(f"&search_after={quote_plus(str(v))}" for v in last_hit.sort)
+            after = next_after
+
+    @staticmethod
+    def _next_search_after(response: ESResponse) -> str:
+        """The search_after query parameters for the page after `response`, empty on the last page."""
+        last_hit = response.hits.hits[-1] if response.hits.hits else None
+        sort = last_hit.sort if last_hit else None
+        return "".join(f"&search_after={quote_plus(str(v))}" for v in sort or [])
 
     def paginate_es(
         self,
-        entity: Type[T],  # noqa: UP006
-        query_filter: Optional[str] = None,  # noqa: UP045
+        entity: type[T],
+        query_filter: str | None = None,
         size: int = 100,
         search_query: str = "",
-        fields: Optional[List[str]] = None,  # noqa: UP006, UP045
+        fields: list[str] | None = None,
         sort_field: str = "fullyQualifiedName",
         sort_order: str = "desc",
     ) -> Iterator[T]:
@@ -614,7 +634,7 @@ class ESMixin(Generic[T]):
         ):
             yield from self._yield_hits_from_api(response=response, entity=entity, fields=fields)
 
-    def _get_es_response(self, query_string: str) -> Optional[ESResponse]:  # noqa: UP045
+    def _get_es_response(self, query_string: str) -> ESResponse | None:
         """Get the Elasticsearch response"""
         try:
             response = self.client.get(query_string)
@@ -631,7 +651,7 @@ class ESMixin(Generic[T]):
             )
         return None
 
-    def _yield_hits_from_api(self, response: ESResponse, entity: Type[T], fields: Optional[List[str]]) -> Iterator[T]:  # noqa: UP006, UP045
+    def _yield_hits_from_api(self, response: ESResponse, entity: type[T], fields: list[str] | None) -> Iterator[T]:
         """Get the data from the API based on ES responses"""
         for hit in response.hits.hits:
             try:
@@ -653,7 +673,7 @@ class ESMixin(Generic[T]):
         Get the view definition from ES
         """
 
-        from metadata.utils import fqn  # noqa: PLC0415
+        from metadata.utils import fqn
 
         query = {
             "query": {
@@ -701,7 +721,12 @@ class ESMixin(Generic[T]):
             include_fields=["schemaDefinition", "fullyQualifiedName"],
         ):
             for hit in response.hits.hits:
-                _, database_name, schema_name, table_name = fqn.split(hit.source["fullyQualifiedName"])
+                # split() keeps the quotes around a name that contains a dot. Unquote the
+                # parts so they are raw names, as the connectors pass them, and fqn.build()
+                # can quote them again instead of encoding the quotes.
+                _, database_name, schema_name, table_name = (
+                    fqn.unquote_name(part) for part in fqn.split(hit.source["fullyQualifiedName"])
+                )
                 if hit.source.get("schemaDefinition"):
                     yield TableView(
                         view_definition=hit.source["schemaDefinition"],
@@ -713,10 +738,10 @@ class ESMixin(Generic[T]):
 
     def search_in_any_service(
         self,
-        entity_type: Type[T],  # noqa: UP006
+        entity_type: type[T],
         fqn_search_string: str,
         fetch_multiple_entities: bool = False,
-    ) -> Optional[Union[List[Table], Table]]:  # noqa: UP006, UP007, UP045
+    ) -> list[Table] | Table | None:
         """
         fetch table from es when with/without `db_service_name`
         """

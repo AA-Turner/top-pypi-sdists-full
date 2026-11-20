@@ -44,12 +44,6 @@ def money(v: Any) -> str:
     return f"{sign}${Decimal(repr(a)).quantize(_CENT, rounding=ROUND_HALF_UP):,}"
 
 
-def as_shown(v: Any) -> float:
-    """The amount money() shows, as a number: for figures said side by side that must add up (a balance, what is held
-    of it and what is left)."""
-    return float(money(v).replace("$", "").replace(",", "").replace("<", ""))
-
-
 def price(v: Any) -> str:
     """A price - a card's hour, a core-hour, a GiB-hour, a GB-month, or a worker's hour from them: as money() says it,
     but to the cent where it is a whole number of cents (`$0.84`, `$5.10`, `$0.12`), so a price list reads one way - four

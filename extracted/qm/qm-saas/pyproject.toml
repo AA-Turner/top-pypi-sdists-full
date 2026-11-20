@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qm-saas"
-version = "1.2.0"
+version = "1.2.1"
 description = "QM Simulator as a Service is a client library to launch simulator instances for QUA programs."
 readme = "README.md"
 authors = ["Quantum Machines <info@quantum-machines.co>"]

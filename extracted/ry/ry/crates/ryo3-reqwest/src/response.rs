@@ -4,20 +4,22 @@ use bytes::{Bytes, BytesMut};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 use ryo3_bytes::RyBytes;
-use ryo3_cookie::PyCookie;
+use ryo3_cookie::RyCookie;
 use ryo3_core::sync::RyMutex;
-use ryo3_http::{PyHeaders, PyHttpStatus, PyHttpVersion, status_code_pystring};
+use ryo3_http::{PyHttpVersion, RyHeaders, RyHttpStatus, status_code_pystring};
 use ryo3_macro_rules::pytodo;
-use ryo3_std::net::PySocketAddr;
+use ryo3_std::net::RySocketAddr;
 use ryo3_tokio_rt::{RyCoroutine, done_coro, failed_coro, get_tokio_runtime, tokio_coro};
 use ryo3_url::RyUrl;
 
 use crate::charset::PyEncoding;
 use crate::errors::map_reqwest_err;
 use crate::pyo3_json_bytes::Pyo3JsonBytes;
-use crate::response_head::RyResponseHead;
+use crate::response_head::{RyResponseHead, RyTlsInfo};
 use crate::response_stream::{ResponseStreamInner, RyBlockingResponseStream};
 use crate::sse::{RyBlockingEventStream, RyEventStream, SSE_MAX_EVENT_SIZE};
+use crate::tls::RyCertificate;
+use crate::tls_version::PyTlsVersion;
 use crate::{RyResponseStream, pyerr_response_already_consumed};
 
 #[pyclass(name = "Response", frozen, immutable_type)]
@@ -148,6 +150,10 @@ fn split_response(res: reqwest::Response) -> (RyResponseHead, reqwest::Body) {
     let remote_addr = res.remote_addr();
     let res: http::Response<reqwest::Body> = res.into();
     let (parts, body) = res.into_parts();
+    let tls_info = parts
+        .extensions
+        .get::<reqwest::tls::TlsInfo>()
+        .map(RyTlsInfo::from);
     let head = RyResponseHead::from_parts(
         parts.status,
         parts.headers,
@@ -155,6 +161,7 @@ fn split_response(res: reqwest::Response) -> (RyResponseHead, reqwest::Body) {
         content_length,
         parts.version,
         remote_addr,
+        tls_info,
     );
     (head, body)
 }
@@ -269,8 +276,8 @@ impl RyResponse {
     }
 
     #[getter]
-    fn status_code(&self, py: Python<'_>) -> PyResult<Py<PyHttpStatus>> {
-        PyHttpStatus::from_status_code_cached(py, self.head.status)
+    fn status_code(&self, py: Python<'_>) -> PyResult<Py<RyHttpStatus>> {
+        RyHttpStatus::from_status_code_cached(py, self.head.status)
     }
 
     /// Returns true if the response was redirected
@@ -296,20 +303,32 @@ impl RyResponse {
     }
 
     #[getter]
-    fn headers(&self) -> PyHeaders {
+    fn headers(&self) -> RyHeaders {
         let c = self.head.headers.clone();
-        PyHeaders::from(c)
+        RyHeaders::from(c)
     }
 
     /// Return the content length of the response, if it is known or `None`.
     #[getter]
     fn content_length(&self) -> Option<u64> {
-        self.head.content_length
+        self.head.py_content_length()
     }
 
     #[getter]
-    fn remote_addr(&self) -> Option<PySocketAddr> {
-        self.head.remote_addr.map(PySocketAddr::from)
+    fn remote_addr(&self) -> Option<RySocketAddr> {
+        self.head.remote_addr.map(RySocketAddr::from)
+    }
+
+    /// peer's leaf certificate (requires client with `tls_info=True`)
+    #[getter]
+    fn peer_certificate(&self) -> PyResult<Option<RyCertificate>> {
+        self.head.py_peer_certificate()
+    }
+
+    /// negotiated tls version (requires client with `tls_info=True`)
+    #[getter]
+    fn tls_version(&self) -> Option<PyTlsVersion> {
+        self.head.tls_info.as_ref().and_then(|i| i.version)
     }
 
     /// Return true if the status code is a success code (200-299)
@@ -321,6 +340,14 @@ impl RyResponse {
     /// __bool__ dunder method returns true if `ok` is true
     fn __bool__(&self) -> bool {
         self.head.status.is_success()
+    }
+
+    /// Raise `ReqwestError` if the status is 4xx/5xx, returns self otherwise
+    ///
+    /// Returning self allows for chaining (`res.raise_for_status().json()`)
+    fn raise_for_status(slf: Bound<'_, Self>) -> PyResult<Bound<'_, Self>> {
+        slf.get().head.error_for_status().map_err(map_reqwest_err)?;
+        Ok(slf)
     }
 
     /// Return true if the body has been consumed
@@ -446,13 +473,13 @@ impl RyResponse {
 
     /// Return the cookies set in the response headers
     #[getter]
-    fn set_cookies(&self) -> Option<Vec<PyCookie>> {
+    fn set_cookies(&self) -> Option<Vec<RyCookie>> {
         self.head.py_set_cookies()
     }
 
     /// Alias for `set_cookies` property
     #[getter]
-    fn cookies(&self) -> Option<Vec<PyCookie>> {
+    fn cookies(&self) -> Option<Vec<RyCookie>> {
         self.set_cookies()
     }
 }
@@ -490,8 +517,8 @@ impl RyBlockingResponse {
     }
 
     #[getter]
-    fn status_code(&self, py: Python<'_>) -> PyResult<Py<PyHttpStatus>> {
-        PyHttpStatus::from_status_code_cached(py, self.head.status)
+    fn status_code(&self, py: Python<'_>) -> PyResult<Py<RyHttpStatus>> {
+        RyHttpStatus::from_status_code_cached(py, self.head.status)
     }
 
     /// Returns true if the response was redirected
@@ -517,20 +544,32 @@ impl RyBlockingResponse {
     }
 
     #[getter]
-    fn headers(&self) -> PyHeaders {
+    fn headers(&self) -> RyHeaders {
         let c = self.head.headers.clone();
-        PyHeaders::from(c)
+        RyHeaders::from(c)
     }
 
     /// Return the content length of the response, if it is known or `None`.
     #[getter]
     fn content_length(&self) -> Option<u64> {
-        self.head.content_length
+        self.head.py_content_length()
     }
 
     #[getter]
-    fn remote_addr(&self) -> Option<PySocketAddr> {
-        self.head.remote_addr.map(PySocketAddr::from)
+    fn remote_addr(&self) -> Option<RySocketAddr> {
+        self.head.remote_addr.map(RySocketAddr::from)
+    }
+
+    /// peer's leaf certificate (requires client with `tls_info=True`)
+    #[getter]
+    fn peer_certificate(&self) -> PyResult<Option<RyCertificate>> {
+        self.head.py_peer_certificate()
+    }
+
+    /// negotiated tls version (requires client `tls_info=True`)
+    #[getter]
+    fn tls_version(&self) -> Option<PyTlsVersion> {
+        self.head.tls_info.as_ref().and_then(|i| i.version)
     }
 
     /// Return true if the status code is a success code (200-299)
@@ -542,6 +581,13 @@ impl RyBlockingResponse {
     /// __bool__ dunder method returns true if `ok` is true
     fn __bool__(&self) -> bool {
         self.head.status.is_success()
+    }
+
+    /// Raise `ReqwestError` if the status is 4xx/5xx; returns self otherwise
+    /// so you can chain it (`res.raise_for_status().json()`)
+    fn raise_for_status(slf: Bound<'_, Self>) -> PyResult<Bound<'_, Self>> {
+        slf.get().head.error_for_status().map_err(map_reqwest_err)?;
+        Ok(slf)
     }
 
     /// Return true if the body has been consumed
@@ -638,13 +684,13 @@ impl RyBlockingResponse {
 
     /// Return the cookies set in the response headers
     #[getter]
-    fn set_cookies(&self) -> Option<Vec<PyCookie>> {
+    fn set_cookies(&self) -> Option<Vec<RyCookie>> {
         self.head.py_set_cookies()
     }
 
     /// Alias for `set_cookies` property
     #[getter]
-    fn cookies(&self) -> Option<Vec<PyCookie>> {
+    fn cookies(&self) -> Option<Vec<RyCookie>> {
         self.set_cookies()
     }
 }

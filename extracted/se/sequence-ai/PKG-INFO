@@ -1,7 +1,7 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.64.1
-Summary: The inference platform for physical AI: deploy a robot policy, run it on your robot, score it.
+Version: 0.65.0
+Summary: SequenceLink is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs).
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
 Project-URL: Console, https://app.generalsequences.com
@@ -28,52 +28,33 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
+Requires-Dist: av>=17.1; python_version >= '3.10' and (sys_platform != 'win32' or platform_machine != 'ARM64' or python_version >= '3.11')
 Requires-Dist: httpx<1,>=0.24
 Requires-Dist: numpy>=1.24
 Requires-Dist: pillow>=10
 Requires-Dist: pydantic>=2; python_version >= '3.10'
-Requires-Dist: sequence-base<0.9,>=0.8.14; python_version >= '3.10'
+Requires-Dist: sequence-base<0.9,>=0.8.15; python_version >= '3.10'
 Requires-Dist: uvicorn<1,>=0.30
 Requires-Dist: zstandard>=0.22
-Provides-Extra: data
-Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'data'
-Requires-Dist: numpy>=1.24; extra == 'data'
-Requires-Dist: pyarrow>=14; extra == 'data'
-Requires-Dist: zstandard>=0.22; extra == 'data'
 Provides-Extra: dev
-Requires-Dist: aiortc<1.17,>=1.16; (python_version >= '3.11') and extra == 'dev'
-Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: eclipse-zenoh<2,>=1.10; extra == 'dev'
+Requires-Dist: jax>=0.4.30; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: msgpack-numpy<0.5,>=0.4.8; extra == 'dev'
 Requires-Dist: msgpack<2,>=1.0; extra == 'dev'
 Requires-Dist: numpy>=1.24; extra == 'dev'
-Requires-Dist: opencv-python-headless>=4.8; extra == 'dev'
 Requires-Dist: pillow>=10; extra == 'dev'
-Requires-Dist: pyarrow>=14; extra == 'dev'
 Requires-Dist: pytest>=7; extra == 'dev'
-Requires-Dist: sequence-base<0.9,>=0.8.14; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: sequence-base<0.9,>=0.8.15; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: torch<3,>=2.4; extra == 'dev'
 Requires-Dist: uvicorn<1,>=0.30; extra == 'dev'
 Requires-Dist: websockets<19,>=14; extra == 'dev'
 Requires-Dist: zstandard>=0.22; extra == 'dev'
-Provides-Extra: observe
-Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'observe'
-Requires-Dist: numpy>=1.24; extra == 'observe'
-Requires-Dist: zstandard>=0.22; extra == 'observe'
-Provides-Extra: port
-Requires-Dist: mujoco-warp==3.15.0; (python_version >= '3.10') and extra == 'port'
-Requires-Dist: mujoco==3.15.0; (python_version >= '3.10') and extra == 'port'
-Requires-Dist: sapien==3.0.3; (python_version >= '3.10' and platform_machine != 'aarch64') and extra == 'port'
-Provides-Extra: teleop
-Requires-Dist: aiortc<1.17,>=1.16; (python_version >= '3.11') and extra == 'teleop'
-Requires-Dist: av>=17; (python_version >= '3.11') and extra == 'teleop'
-Requires-Dist: numpy>=1.24; (python_version >= '3.11') and extra == 'teleop'
 Description-Content-Type: text/markdown
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/banner-dark.svg">
-    <img alt="sequence-ai" src="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/banner-light.svg" width="720">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/banner-dark.png">
+    <img alt="SequenceLink" src="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/banner-light.png" width="720">
   </picture>
 </p>
 
@@ -84,20 +65,20 @@ Description-Content-Type: text/markdown
   <a href="https://github.com/General-Sequences/sequence-ai/blob/main/LICENSE"><img alt="license: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-15775C?style=flat-square"></a>
 </p>
 
-`sequence-ai` is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs). It
-is used with openpi, LeRobot, GR00T and Octo policies, and with any policy given as a function. It runs on your own
-GPU, or on one rented from [General Sequences](https://generalsequences.com) near your robot: on the robot, only what
-`connect()` is given changes.
+SequenceLink is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs); its
+package is `sequence-ai`. It is used with openpi, LeRobot, GR00T and Octo policies, and with any policy written as a
+class: `seq serve` serves it from a GPU, and a robot connects to it with `connect()`.
 
-Give it a policy server and a robot. On the GPU, it replays the module a model calls many times per inference from CUDA
-graphs, with exactly the same outputs, and batches several robots' requests within the slack their action chunks
-leave. On the connection, it keeps the TCP congestion window open across the robot's pauses, so a 24 KB upload after
-a pause takes one round trip where it took two, at RTTs from 12 to 101 ms. Together these are GS-WAN (General Sequences
-Wide-Area Network). Each component is one file that can be added to existing code.
+Give it a policy server and a robot. The robot streams what it observes as it is made, each camera as low-latency
+video, and asks for actions on the latest of it: an act names an observation already sent, so sending one picture with
+each act is the case of one frame per act. On the GPU, it replays the module a model calls many times per inference
+from CUDA graphs, with exactly the same outputs, batches several robots' requests in the sizes a policy lists, and
+computes from the slack their action chunks leave how long each request may wait and how many robots one GPU answers
+in time. Together these are SequenceLink, and the same code is General Sequences' hosted platform. Each component is
+one file that can be added to existing code.
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#three-ways-to-run-it">Three ways to run it</a> ·
   <a href="#how-it-fits-together">Architecture</a> ·
   <a href="#the-problem-by-layer">The problem</a> ·
   <a href="#inference-layer">Inference layer</a> ·
@@ -109,120 +90,113 @@ Wide-Area Network). Each component is one file that can be added to existing cod
 ## Install
 
 ```bash
-pip install sequence-ai      # both sides: serve() on the GPU, connect() on the robot, every component, the seq command
+python3 -m venv .venv && source .venv/bin/activate   # Homebrew's and Debian's python3 refuse pip install outside one
+pip install sequence-ai      # both sides, every component, and the camera's video encoder
 ```
 
-One package, two parts: the open-source framework (`serve()`, `connect()` to an address, `sequence_ai.engine`,
-`sequence_ai.network`) and the client of General Sequences' GPUs and hosted deployments (`seq`, `sequence_ai.gpu`,
-`connect()` to a deployment's name). Python 3.9 or later for the client and the components, on Linux and macOS; the `seq` command needs Python 3.10 or
-later. `cuda_graphs` uses the torch your model already has (2.4 or later). Each component is one file, and most import
-only the standard library, so copying a file into your project works as well.
+The open-source framework: the `@seq.policy` decorators and `seq serve`, `connect()` to an address, the inference and
+network components (`sequence_ai.engine`, `sequence_ai.network`), `chat()`, and `seq init` and `seq weights get`, which
+fetch an official template to serve on your own GPU. Python 3.10 or later, on Linux or macOS (3.9 runs `connect()` and
+the components, not `seq` or video). The speed-ups use the torch your model already has (2.4 or later), or its JAX.
+Each component is one file, and most import only the standard library, so copying a file into your project works as
+well.
 
 ## Quick start
 
-On the GPU, one call serves your model, given as a function:
+A policy is a class. Save this as `policy.py`, in a folder of its own:
 
 ```python
+import numpy as np
+import seq
+
+
+@seq.policy(hz=15, action_chunk_valid_len=8, action_chunk_replan_at=5)
+class QuickstartPolicy_user:
+    @seq.sample
+    def sample_user(self):
+        observation_user = {"image": np.zeros((224, 224, 3), dtype=np.uint8), "state": np.zeros(7, dtype=np.float32)}
+        return [("observe", observation_user), ("act",)] * 3          # an observation, then an act, three times
+
+    @seq.infer
+    def infer_user(self, observation_user):
+        frame_user = observation_user["image"]                       # your model here: the next 10 steps, 7 joints each
+        return {"actions": np.full((10, 7), float(frame_user.mean()), dtype=np.float32)}
+```
+
+`@seq.policy` says how its answers play: `hz` steps a second, the first `action_chunk_valid_len` steps of each, the next
+one asked for at step `action_chunk_replan_at`. `@seq.sample` is an episode as your robot plays it, which the model is
+warmed up on before it serves, and `@seq.infer` answers the latest observation with a chunk of actions whose first
+dimension is time. Serve it from your GPU, here this machine, in that folder:
+
+```bash
+seq serve
+```
+
+```text
+serving quickstart-policy-user on port 8000: a robot connects with sequence_ai.connect("http://<this machine>:8000")
+```
+
+On the robot, here a second terminal:
+
+```python
+import numpy as np
 import sequence_ai
 
-sequence_ai.serve(policy_user, port=8000, example=observation_user)  # policy_user(observation) -> what the robot needs
+with sequence_ai.connect("http://127.0.0.1:8000") as policy_user:     # your GPU's address
+    policy_user.wait_until_ready()                                     # once, before the robot moves
+    frame_user = np.zeros((224, 224, 3), dtype=np.uint8)               # your camera's frame, streamed as video
+    policy_user.observe({"image": sequence_ai.Video(frame_user), "state": np.zeros(7, dtype=np.float32)})
+    print(policy_user.act()["actions"].shape)                           # (10, 7)
 ```
 
-On the robot, one call connects to it:
+A robot plays an answer a step at a time at `hz`, asks for the next one in the background at `action_chunk_replan_at`
+so that it never waits for one, and holds still while the connection is down:
+[Quickstart: a policy and a robot](https://github.com/General-Sequences/sequence-ai/blob/main/docs/quickstart.md) has
+that loop, about thirty lines, with the output of each step. An official template is served the same way: `seq init
+pi05-libero my_pi05_user` writes its folder, and `seq serve` in it serves it
+([How do I run a template on my own GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-run-a-template-on-my-own-gpu.md)).
+You can serve a policy on a GPU of your own, as here, or deploy it to
+[General Sequences](https://generalsequences.com/docs/deploy/).
 
-```python
-with sequence_ai.connect("http://your-gpu:8000") as policy_user:     # BBR, TCP keepalive, a ping while idle, msgpack
-    policy_user.observe({"image": frame_user, "state": state_user})
-    actions_user = policy_user.act()["actions"]
-```
-
-Both sides' defaults are on: pictures go as JPEG, large arrays are compressed where that saves time, the policy runs on
-a thread of its own and is warmed up before the server says it is ready.
+Both sides' defaults are on: a frame marked `Video` goes as low-latency video (H.264, a keyframe every second), a
+depth map marked `Depth` losslessly, an act names the latest observation instead of sending it again, a ping keeps the
+connection between acts, and the policy runs on a thread of its own and is warmed up before the server says it is
+ready.
 [What is on by default](https://github.com/General-Sequences/sequence-ai/blob/main/docs/what-is-on-by-default.md) lists each part and how to turn it off, and
 `python -m sequence_ai.check http://your-gpu:8000` says which are on.
 
-In a server of your own, the inference components wrap the model you already have:
+The components also work in a policy server you already run, a file each:
+[Parts for a server you already run](https://github.com/General-Sequences/sequence-ai/blob/main/docs/parts-for-a-server-you-already-run.md)
+has `cuda_graphs`, batching and `slack`, and the openpi and LeRobot clients.
 
-```python
-from sequence_ai.engine import cuda_graphs
-from sequence_ai.engine.batcher import Batcher
-
-cuda_graphs.install(model_user, ["action_head.denoiser"])        # replayed from CUDA graphs; kept only if outputs match
-batcher_user = Batcher(infer_a_batch_user, sizes=[1, 2, 4, 8])   # several robots' requests in one forward pass
-action_user = await batcher_user(observation_user)               # in each request's handler
-```
-
-Each name ending in `_user` is yours: your model, your frames, your handler. Both run on a laptop with no GPU and no
-model:
+Each name ending in `_user` is yours: your model, your frames, your handler. The repository's quick start runs on a
+laptop with no GPU and no model too:
 
 ```bash
-python examples/quickstart_server.py & sleep 1 && python examples/quickstart_robot.py    # a server and a robot
-python examples/quickstart_batching.py                                                   # five robots, batched
+git clone https://github.com/General-Sequences/sequence-ai && cd sequence-ai
+seq serve examples/quickstart_policy & python examples/quickstart_robot.py              # a policy and a robot
 ```
 
-The first line each prints:
+Its first line:
 
 ```text
-request 0: 8 actions of 7 numbers, the first [128. 128. 128.]
-5 robots served in 113 ms, as batches of {4: 1, 1: 1}
+the first answer: 8 steps of 7 joints, the first [128. 128. 128.]
 ```
-
-[Quickstart: a policy server and a robot](https://github.com/General-Sequences/sequence-ai/blob/main/docs/quickstart.md) and
-[Quickstart: batching and replicas](https://github.com/General-Sequences/sequence-ai/blob/main/docs/quickstart-inference.md) walk through each with the output of every step.
-
-## Three ways to run it
-
-The code is the same on all three: `serve(policy)` on the GPU, `connect(...)` on the robot. Only where the GPU comes
-from changes.
-
-| Where the GPU comes from | On the GPU | On the robot |
-|---|---|---|
-| **Your own**, or any GPU the robot can reach | `sequence_ai.serve(policy_user)` | `connect("http://your-gpu:8000")` |
-| **Rented from General Sequences** near your robot, by city | `sequence_ai.serve(policy_user)` | `connect("http://<its address>:8000")` |
-| **A hosted deployment** of General Sequences | nothing: the platform builds your policy, serves it and scores it | `connect("my_policy_user")` |
-
-The first needs no account and costs nothing. The other two are paid services of General Sequences, billed while a GPU
-runs, and their commands are in this package:
-
-```bash
-seq gpu add --place "San Francisco, CA" --gpu L4 --port 8000    # a GPU near your robot, yours until seq gpu remove
-seq deploy my_policy_user                                       # or a deployment: the policy in this folder
-```
-
-GPUs are in short supply, and few are near any given robot, which is why the second exists:
-[How do I get a GPU near my robot?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-get-a-gpu-near-my-robot.md) has its commands.
-[The platform guide](https://github.com/General-Sequences/sequence-ai/blob/main/platform.md) has the third: writing a policy class, deploying it, benchmarks and evals,
-teleoperation, and every `seq` command.
-
-An official template runs on all three: `seq serve` in the folder `seq init` made serves it on your own GPU or a
-rented one. Its weights download with a General Sequences key:
-[How do I run a template on my own GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-run-a-template-on-my-own-gpu.md)
 
 ## How it fits together
 
-```
-            robot                                                GPU
- ┌─────────────────────────┐                        ┌───────────────────────────┐
- │  your control loop      │                        │  your policy              │
- ├─────────────────────────┤      observation       ├───────────────────────────┤
- │  sequence_ai.network    │  ───────────────────▶  │  sequence_ai.engine       │
- │    connect · openpi     │                        │    serve · cuda_graphs    │
- │    window · compress    │          WAN           │    batcher · replicas     │
- │    frames · wifi_power  │                        │    slack                  │
- │                         │                        ├───────────────────────────┤
- │                         │  ◀───────────────────  │  sequence_ai.network      │
- │                         │      action chunk      │    one_write · ping       │
- └─────────────────────────┘                        │    tcp_link · compressed  │
-                                                    └───────────────────────────┘
-
-  both ends: msgpack_io · latency_stats             your own link, measured: bench/
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/architecture-dark.png">
+    <img alt="How it fits together. On the robot: your control loop over sequence_ai.network (connect, openpi, window, frames, wifi_power). Across the WAN, the observation goes to the GPU and the action chunk comes back. On the GPU: your policy over sequence_ai.engine (serve, optimize, load, batcher, replicas, slack) and sequence_ai.network (one_write, ping, tcp_link). Both ends: msgpack_io and latency_stats. Your own link, measured: bench/." src="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/architecture-light.png" width="900">
+  </picture>
+</p>
 
 **`sequence_ai.network`** is the connection between a robot and the GPU its policy runs on. On the robot, `connect()`
 applies the client-side components to one connection, and `openpi.keep()` does the same on the connection that openpi's
 own client holds. On the server, `one_write` and `ping` wrap a uvicorn or a WebSocket server. **`sequence_ai.engine`**
-is the inference layer on the GPU: `serve()` serves a policy with the server's side of both layers on, `cuda_graphs`
-shortens one inference, `batcher` and `slack` share a GPU among robots, and `replicas` runs one process per GPU. **`bench/`** measures a link before anything is added to it.
+is the inference layer on the GPU: `seq serve` serves a policy with the server's side of both layers on, `optimize`
+shortens one inference with the speed-ups that keep its outputs exactly the same, `batcher` and `slack` share a GPU among robots, and `replicas` runs one process per GPU. **`bench/`** measures a link before anything is added to it.
 
 ## The problem, by layer
 
@@ -230,7 +204,7 @@ A robot policy built on a vision-language-action (VLA) model runs each inference
 suitable GPU on board sends its observations over a WAN to a remote one. Each layer of that path has its own problem.
 
 **The model is most of the latency.** Across thirteen model and network configurations, the model is 68 to 96% of a
-request's latency. The time of one inference is therefore the main lever, and `cuda_graphs` shortens it without changing
+request's latency. The time of one inference is therefore the main lever, and `optimize` shortens it without changing
 the model's output.
 
 **One robot leaves its GPU mostly idle.** One robot keeps a GPU busy 21 to 55% of the time, so several robots can share
@@ -243,29 +217,30 @@ TCP connection's congestion window after an idle period. The upload after a paus
 RTTs from 12 to 101 ms. `window`, `ping` and `connect` keep the window open.
 
 **A request carries more round trips and bytes than it needs.** A response split across writes can wait a round trip
-behind a tunnel, and a camera frame is 50 to 100 KB. `one_write` sends each response in one write, `compress` compresses
-an observation only when that shortens the upload, and `frames` resizes a frame before it is sent.
+behind a tunnel, and a camera frame is 50 to 100 KB. `one_write` sends each response in one write, `connect()` sends each
+camera as video and compresses a large array only when that shortens the upload, and `frames` resizes a frame before it
+is sent.
 
 **GPUs are in short supply.** Few are near any given robot, and every millisecond of round-trip time comes out of the
-slack an action chunk leaves. Getting a GPU near the robot is the routing layer: a hosted service of General
-Sequences, reached with this package's `seq gpu` commands. [Three ways to run it](#three-ways-to-run-it) has them.
+slack an action chunk leaves. Getting a GPU near the robot is the routing layer, which is outside this package.
 
 ## Inference layer
 
 | Component | What it does | To add it | Requires |
 |---|---|---|---|
-| [`serve`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/engine/serve.py) | Serves a policy, given as a function or a batch function, to robots elsewhere: on a thread of its own, pings answered at once, a warm-up, pictures and compressed arrays restored. `openpi.batched(policy)` makes an openpi policy a batch function. | one call | what sequence-ai installs |
-| [`cuda_graphs`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/engine/cuda_graphs.py) | Replays a torch module that your model calls many times per run from CUDA graphs captured from its own eager kernels. A graph is kept only when its output is exactly the same. | one call | torch 2.4 or later, a CUDA GPU |
+| [`seq serve`](https://github.com/General-Sequences/sequence-ai/blob/main/seq/serve_local.py) | Serves a `@seq.policy` class to robots elsewhere: on a thread of its own, pings answered at once, a warm-up on its `@seq.sample`, pictures and compressed arrays restored, a `@seq.concurrent` policy's acts in batches. | one command | what `pip install sequence-ai` installs |
+| [`optimize`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/engine/optimize.py) | Makes a policy faster on its GPU: each speed-up is kept only when its outputs on your observations stay exactly the same and acts are at least 10% faster. `seq serve` runs it on the `@seq.sample` episode. The speed-ups that change the outputs run with the difference you accept. | nothing with `seq serve`, else one call | torch 2.4 or later and a CUDA GPU, or JAX |
+| [`load`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/engine/load.py) | Reads a model's weights onto the GPU from one contiguous file in parallel reads, through the page cache where memory holds it: in about 60% of the time of a checkpoint read tensor by tensor from a cold disk, every tensor the bytes it was packed with. | one call to pack, one to load | torch for a GPU, or JAX |
 | [`batcher`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/engine/batcher.py) | Batches the calls waiting for a model into one call, in the batch sizes the model lists. | one object, one `await` | nothing |
 | [`replicas`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/engine/replicas.py) | Runs replicas of a model, each in its own process on the GPU assigned to it, and replaces one that dies. | one object, one `await` | nothing |
 | [`slack`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/engine/slack.py) | Schedules by the slack an action chunk leaves: how many robots a replica can serve, each by its own round-trip time (RTT), how long a request may wait for a batch, and which requests are dispatched first. | a few calls in your server's loop | nothing |
 
 ```python
-from sequence_ai.engine import cuda_graphs, slack
+from sequence_ai.engine import optimize, slack
 from sequence_ai.engine.batcher import Batcher
 from sequence_ai.engine.replicas import ReplicaPool
 
-cuda_graphs.install(model_user, ["action_head.denoiser"])         # model_user.action_head.denoiser, graphed in place
+optimize(model_user, examples_user)                                # 32 or more of your robot's observations
 batcher_user = Batcher(model_on_a_list_user, sizes=[1, 2, 4, 8], wait_ms=2.0)
 pool_user = ReplicaPool(load_user, replicas=2, devices=[0, 1])     # one replica per GPU
 
@@ -276,11 +251,16 @@ seating_user = slack.Seating(table_user, play_user["buffer_s"] * 1000, sizes=[1,
 seats_user, over_user = seating_user.seat([("near", 30.0), ("far", 200.0)])     # (robot, its RTT in ms)
 ```
 
-- **`cuda_graphs`** speeds up PyTorch policies whose time goes to launching kernels; a JAX policy such as π0.5 already
-  compiles its kernels into one program. It counts the calls each module gets over a few runs (`Census`), captures the
-  module that is called many times per run with the same shapes, and checks each new shape against eager mode byte for
-  byte. A shape whose capture fails or differs runs in eager mode from then on. The module stays the same object of the
-  same class, with its weights, `state_dict` and hooks unchanged.
+- **`optimize`** tries `cuda_graphs` on every module that repeats and `whole_graph` on a run's whole call, keeps
+  each where the outputs stay exactly the same and acts get faster, and reports why each is on or off.
+  `torch_compile`, `fused_kernels`, `tensorrt` and `precision` change the outputs and need `tolerance=`.
+  [How do I make a policy faster without changing its outputs, and what does each switch change?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-make-a-policy-faster-without-changing-its-outputs.md)
+- **Its graphs** speed up PyTorch policies whose time goes to launching kernels. XLA already compiles each jitted
+  function of a JAX policy such as π0.5 whole and puts most of its work in command buffers, so on a JAX policy they are
+  tried only when you turn them on.
+  `cuda_graphs` replays each module called many times per run with the same shapes from CUDA graphs of its own eager
+  kernels, and checks each new shape against eager mode byte for byte. A shape whose capture fails or differs runs in eager mode from then on. The module stays the same
+  object of the same class, with its weights, `state_dict` and hooks unchanged.
   [How do I make a PyTorch robot policy faster without changing its outputs?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-make-a-pytorch-robot-policy-faster-without-changing-its-outputs.md)
 - **`batcher`** dispatches a batch as soon as it is full, or `wait_ms` after its first call while the model is free.
   While the model is busy, waiting calls accumulate and are dispatched together. Only the listed sizes are used, and a
@@ -303,12 +283,10 @@ seats_user, over_user = seating_user.seat([("near", 30.0), ("far", 200.0)])     
 | Component | Side | What it does | Requires |
 |---|---|---|---|
 | [`window`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/window.py) | client | Keeps the connection's congestion window across the robot's pauses: BBR on its socket, TCP keepalive, a ping while the connection is idle. | nothing |
-| [`compress`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/compress.py) | client | Compresses an observation's large arrays only where that saves more upload time than it costs. | nothing; zstd where it is installed |
-| [`frames`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/frames.py) | both | Sends each picture as JPEG and turns it back into its array on the server; resizes a frame to the policy's input size. | Pillow |
+| [`frames`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/frames.py) | both | Resizes a frame to the policy's input size and encodes it as JPEG, and turns it back into its array on the server: what openpi's own client and server carry. | Pillow |
 | [`wifi_power`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/wifi_power.py) | client | Detects Wi-Fi power saving on the robot's link and reports how to disable it. | Linux |
 | [`one_write`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/one_write.py) | server | Sends each HTTP response of a uvicorn server in one write instead of three. | uvicorn |
 | [`tcp_link`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/tcp_link.py) | server | Reads each client's TCP state from the server's kernel: RTT, retransmitted segments, congestion window. | Linux |
-| [`compressed`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/compressed.py) | server | Decompresses what the client compressed, byte for byte. | numpy; zstandard for zstd |
 | [`ping`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/ping.py) | server | A server-side ping, so that the robot's connection is not left idle while the server can answer it: the options to pass to your server. | a WebSocket server |
 | [`msgpack_io`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/msgpack_io.py) | both | Encodes observations and responses as msgpack, with numpy arrays as raw bytes. Also reads openpi's layout. | nothing |
 | [`latency_stats`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/latency_stats.py) | both | Counters, gauges and latencies with their p50, p95 and p99, read as one snapshot. | nothing |
@@ -317,8 +295,8 @@ Combined, and for clients you may already use:
 
 | | Side | What it does | Requires |
 |---|---|---|---|
-| [`connect`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/link.py) | client | The client-side components on a kept connection to your own server: JPEG and compression while the server says it restores them, and an act whose window a pause restarted sent in two halves while the server joins them. | httpx |
-| [`lines`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/lines.py) | client | `connect(url, lines=["eth0", "wwan0"])`: each act sent over each of the robot's uplinks, each line bound to its own network interface, and the first answer used; `serve()` runs the policy once for the copies. [How](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-send-each-act-over-two-uplinks.md) | httpx; Linux 5.7 or later, or macOS |
+| [`connect`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/__init__.py) | client | `sequence_ai.connect(url)`: the same policy a deployed one's name gives, on the robot's stream to your own server: each observation as it is made, a `sequence_ai.Video` item as video, each act after them. | nothing |
+| [`lines`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/_core/lines_stream.py) | client | `connect(url, lines=["eth0", "wwan0"])`: the robot's stream over each of its uplinks, each line bound to its own network interface, every observation and act on every line and the first answer used. | Linux 5.7 or macOS |
 | [`check`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/check.py) | client | `python -m sequence_ai.check <url>`: which defaults are on between a robot and its server, and what the server is. | httpx |
 | [`openpi`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/openpi.py) | client | The client-side components on the connection held by openpi's own client. | openpi-client |
 | [`lerobot`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/lerobot.py) | both | The Zenoh setting that keeps LeRobot's remote-inference connection from going idle. | lerobot 0.7 |
@@ -343,7 +321,7 @@ one, and [`examples/components/`](https://github.com/General-Sequences/sequence-
 own OpenRouter key, or the address of a server of your own with the OpenAI chat completions API:
 
 ```python
-result_user = sequence_ai.chat("qwen/qwen3-8b", [{"role": "user", "content": "Plan the next step."}],
+result_user = sequence_ai.chat("qwen/qwen3-next-80b-a3b-instruct", [{"role": "user", "content": "Plan the next step."}],
                                server="openrouter")      # your key in OPENROUTER_API_KEY
 ```
 
@@ -374,7 +352,7 @@ Network layer:
 | `ping`, the server's | 1.1 to 1.25 round trips, not 3.0 | 100 KB to 1 MB after 500 ms of silence |
 | `window.Warm`, the robot's ping | under 1 ms, not 303.6 ms, for an upload to arrive | 162 KB uploads 3 s apart, RTT 226 ms |
 | `one_write` | 106.7 ms, not 189.7, for a response | a GET through a tunnel |
-| `compress` | camera frames about 1.9 times smaller, 0.37 ms to compress | frames from a public dataset's video |
+| `sequence_ai.Video` | about 2.5 KB a frame, not 921,600 bytes as an array | a 640×480 camera, a textured background and three moving discs |
 
 [Measurements](https://github.com/General-Sequences/sequence-ai/blob/main/docs/measurements.md) lists every command, and [`bench/`](https://github.com/General-Sequences/sequence-ai/tree/main/bench/) measures your own link.
 
@@ -382,30 +360,29 @@ Network layer:
 
 ```
 sequence_ai/
-  engine/        inference layer: serve · openpi · cuda_graphs · batcher · replicas · slack
+  engine/        inference layer: serve · optimize · load · cuda_graphs · batcher · replicas · slack
   network/       network layer
-                   client: connect · window · compress · frames · wifi_power · openpi
-                   server: one_write · ping · tcp_link · compressed
+                   client: connect · window · frames · wifi_power · openpi
+                   server: one_write · ping · tcp_link
                    both:   msgpack_io · latency_stats · lerobot
   chat/          chat() and Conversation: on General Sequences, or at a server of your own (server=)
   check.py       python -m sequence_ai.check: which defaults are on between a robot and its server
-  ...            the client for General Sequences' GPUs and deployments: connect, gpu, teleop, record
-seq/             the seq command, and the decorators a hosted policy or benchmark is written with
+seq/             seq init, seq serve and seq weights get, and the decorators a policy is written with
 bench/           measures a link: a TCP client and server, WebSocket, Zenoh
 examples/        the quick starts, and one runnable file per component
 docs/            one page per question, the measurements, the FAQ
 tests/           the components' tests: Python 3.9 to 3.12, on a machine with no GPU
 tools/           writes llms-full.txt
-platform.md      the guide to the hosted platform; eval.md and observability.md are its references
 ```
-
-About 4,500 lines in `sequence_ai/engine` and `sequence_ai/network`, and 202 test functions.
 
 ## Documentation
 
-- [Quickstart: a policy server and a robot](https://github.com/General-Sequences/sequence-ai/blob/main/docs/quickstart.md)
+- [What is open source, and what does General Sequences host?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/what-is-open-source-and-what-is-hosted.md)
+- [Quickstart: a policy and a robot](https://github.com/General-Sequences/sequence-ai/blob/main/docs/quickstart.md)
+- [Parts for a server you already run](https://github.com/General-Sequences/sequence-ai/blob/main/docs/parts-for-a-server-you-already-run.md)
 - [Quickstart: batching and replicas](https://github.com/General-Sequences/sequence-ai/blob/main/docs/quickstart-inference.md)
 - Inference layer
+  - [How do I make a policy faster without changing its outputs, and what does each switch change?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-make-a-policy-faster-without-changing-its-outputs.md)
   - [How do I make a PyTorch robot policy faster without changing its outputs?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-make-a-pytorch-robot-policy-faster-without-changing-its-outputs.md)
   - [How many robots can one GPU serve?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-many-robots-can-one-gpu-serve.md)
   - [Should I run two replicas of a policy on one GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/should-i-run-two-replicas-of-a-policy-on-one-gpu.md)
@@ -424,11 +401,8 @@ About 4,500 lines in `sequence_ai/engine` and `sequence_ai/network`, and 202 tes
   - [What does each network component do?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/components.md)
 - Language models
   - [How do I use an LLM with my own OpenRouter key?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-use-an-llm-with-my-own-openrouter-key.md)
-- General Sequences' GPUs
+- A GPU near your robot
   - [How do I get a GPU near my robot?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-get-a-gpu-near-my-robot.md)
-  - [The platform guide](https://github.com/General-Sequences/sequence-ai/blob/main/platform.md), with its references for [benchmarks and evals](https://github.com/General-Sequences/sequence-ai/blob/main/eval.md) and
-    [debugging a deployment](https://github.com/General-Sequences/sequence-ai/blob/main/observability.md)
-  - [generalsequences.com/docs](https://generalsequences.com/docs/)
 - [FAQ: errors you may see, and what to do next](https://github.com/General-Sequences/sequence-ai/blob/main/docs/faq.md)
 
 [`llms.txt`](https://github.com/General-Sequences/sequence-ai/blob/main/llms.txt) is a map of the repository for a coding assistant, and [`llms-full.txt`](https://github.com/General-Sequences/sequence-ai/blob/main/llms-full.txt) is
@@ -450,22 +424,22 @@ uv pip install -e ".[dev]"
 .venv/bin/ruff check sequence_ai/engine sequence_ai/network tests examples bench tools
 ```
 
-The tests are the components', and run on Python 3.9 to 3.12 on a machine with no GPU. The client for the hosted
-platform and the `seq` command are developed in General Sequences' own repository and published here, as they ship, at
-each release. [CONTRIBUTING.md](https://github.com/General-Sequences/sequence-ai/blob/main/CONTRIBUTING.md) has what that means for a pull request.
+The tests are the components', and run on Python 3.9 to 3.12 on a machine with no GPU. Each release is published here
+from General Sequences' own repository: [CONTRIBUTING.md](https://github.com/General-Sequences/sequence-ai/blob/main/CONTRIBUTING.md) has what that means for a pull request.
 
 ## Contributing
 
-Issues and pull requests are welcome: see [CONTRIBUTING.md](https://github.com/General-Sequences/sequence-ai/blob/main/CONTRIBUTING.md) and the
+Questions and ideas go to [Discussions](https://github.com/General-Sequences/sequence-ai/discussions). Issues and pull
+requests are welcome: see [CONTRIBUTING.md](https://github.com/General-Sequences/sequence-ai/blob/main/CONTRIBUTING.md) and the
 [Code of Conduct](https://github.com/General-Sequences/sequence-ai/blob/main/CODE_OF_CONDUCT.md). To report a security problem, see [SECURITY.md](https://github.com/General-Sequences/sequence-ai/blob/main/SECURITY.md).
 
 ## Cite
 
-If you use `sequence-ai` in research, please cite it:
+If you use SequenceLink in research, please cite it:
 
 ```bibtex
 @software{generalsequences2026sequenceai,
-  title  = {sequence-ai},
+  title  = {SequenceLink},
   author = {{General Sequences}},
   year   = {2026},
   url    = {https://github.com/General-Sequences/sequence-ai}

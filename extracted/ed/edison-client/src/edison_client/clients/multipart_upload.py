@@ -98,14 +98,14 @@ def _b64_md5(data: bytes) -> str:
     Returns the canonical AWS/RFC 1864 form (base64 of the 16-byte raw digest),
     suitable for the S3/GCS Content-MD5 header.
     """
-    return base64.b64encode(hashlib.md5(data).digest()).decode("ascii")  # noqa: S324
+    return base64.b64encode(hashlib.md5(data).digest()).decode("ascii")  # ruff: ignore[hashlib-insecure-hash-function]
 
 
 def _read_file_range(file_path: Path, start: int, end: int) -> bytes:
     """Read bytes [start, end) from file_path. Returns b'' for empty range."""
     if end <= start:
         return b""
-    with open(file_path, "rb") as f:
+    with Path(file_path).open("rb") as f:
         f.seek(start)
         return f.read(end - start)
 
@@ -131,7 +131,7 @@ def _is_retryable_http_status(status_code: int) -> bool:
     """
     return (
         status_code == codes.TOO_MANY_REQUESTS
-        or codes.INTERNAL_SERVER_ERROR <= status_code < 600  # noqa: PLR2004
+        or codes.INTERNAL_SERVER_ERROR <= status_code < 600  # ruff: ignore[magic-value-comparison]
     )
 
 
@@ -160,7 +160,7 @@ async def _aupload_one_part(
                 part_url, content=chunk, headers={"Content-MD5": content_md5}
             )
             resp.raise_for_status()
-            return resp.headers.get("etag", "")
+            return resp.headers["etag"]
         except HTTPStatusError as e:
             if not _is_retryable_http_status(e.response.status_code):
                 raise
@@ -182,11 +182,7 @@ async def _aupload_one_part(
 
 
 def _upload_one_part(
-    part_client: Client,
-    part_url: str,
-    chunk: bytes,
-    content_md5: str,
-    part_number: int,
+    part_client: Client, part_url: str, chunk: bytes, content_md5: str, part_number: int
 ) -> str:
     last_error: Exception | None = None
     for attempt in range(PART_UPLOAD_MAX_RETRIES):
@@ -195,7 +191,7 @@ def _upload_one_part(
                 part_url, content=chunk, headers={"Content-MD5": content_md5}
             )
             resp.raise_for_status()
-            return resp.headers.get("etag", "")
+            return resp.headers["etag"]
         except HTTPStatusError as e:
             if not _is_retryable_http_status(e.response.status_code):
                 raise
@@ -276,7 +272,7 @@ async def _aupload_file_multipart(
             }
             progress_bar.update(len(chunk))
 
-    async with AsyncClient(timeout=None) as part_client:  # noqa: S113
+    async with AsyncClient(timeout=None) as part_client:  # ruff: ignore[request-without-timeout]
         tasks = [
             asyncio.create_task(upload_part_with_index(i)) for i in range(len(ranges))
         ]
@@ -355,7 +351,7 @@ def _upload_file_multipart(
         progress_bar.update(len(chunk))
 
     with (
-        Client(timeout=None) as part_client,  # noqa: S113
+        Client(timeout=None) as part_client,  # ruff: ignore[request-without-timeout]
         concurrent.futures.ThreadPoolExecutor(
             max_workers=MAX_CONCURRENT_PART_UPLOADS
         ) as executor,

@@ -127,8 +127,10 @@ NOT_A_PROBE_PREFIX: dict[str, str] = {
 # The composites that register their own probes, then forward to a child
 # whose longer names refuse: the dead registry slots of #1897. Every name they
 # leave behind is exact, so (1) and (3) hold for them; only (2) does not.
+# The Despreader is not one: it attaches its Costas loop first, and Costas
+# holds the longest leaf (".freq_rate", #3127), so a prefix too long for any
+# of its names is refused before anything registers.
 _DEAD_SLOTS_1897 = {
-    "doppler.dsss.Despreader",
     "doppler.track.BpskReceiver",
     "doppler.track.MpskReceiver",
     "doppler.track.MpskReceiverR",
@@ -222,8 +224,8 @@ def test_every_face_is_covered() -> None:
 
 #: The sentence each class's overlong-prefix refusal raises, in one table: a
 #: class whose set_telemetry names the argument it refused (the Correlator's,
-#: through `why`, just-makeit#2574; docs/design/correlator-python.md section
-#: 18) is listed here in full, as is a class whose manifest declares its own
+#: through `why`, just-makeit#2574; docs/design/correlator.md section
+#: 4) is listed here in full, as is a class whose manifest declares its own
 #: sentence (AsyncDsssPool's); every other class raises jm's generic one.
 #: Matched from the start to the end, so a class cannot pass by raising
 #: some other refusal that merely names set_telemetry.

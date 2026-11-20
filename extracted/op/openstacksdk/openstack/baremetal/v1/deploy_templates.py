@@ -29,6 +29,7 @@ class DeployTemplate(resource.Resource):
 
     _query_mapping = resource.QueryParameters(
         'detail',
+        include_sorting_defaults=True,
         fields={'format': 'csv'},
     )
 

@@ -287,7 +287,8 @@ def create_tests():
             )
             if max_version < common.MIN_SUPPORTED_WIRE_VERSION:
                 new_test = unittest.skip(
-                    f"Server wire version {max_version} is below minimum {common.MIN_SUPPORTED_WIRE_VERSION}"
+                    f"Server wire version {max_version} is below minimum "
+                    f"{common.MIN_SUPPORTED_WIRE_VERSION}"
                 )(new_test)
 
             setattr(TestAllScenarios, new_test.__name__, new_test)
@@ -355,9 +356,7 @@ class TestIgnoreStaleErrors(IntegrationTest):
             except AutoReconnect:
                 pass
 
-        tasks = []
-        for i in range(N_TASKS):
-            tasks.append(ConcurrentRunner(target=insert_command, args=(i,)))
+        tasks = [ConcurrentRunner(target=insert_command, args=(i,)) for i in range(N_TASKS)]
         for t in tasks:
             t.start()
         for t in tasks:
@@ -466,7 +465,8 @@ class TestPoolManagement(IntegrationTest):
                 listener.wait_for_event(monitoring.ServerHeartbeatFailedEvent, 1)
             # Wait until all idle connections are closed to simulate real-world conditions
             listener.wait_for_event(monitoring.ConnectionClosedEvent, 10)
-            # Wait for one more find to complete after the pool has been reset, then shutdown the task
+            # Wait for one more find to complete after the pool has been reset, then shutdown
+            # task
             n = len(latencies)
             wait_until(lambda: len(latencies) >= n + 1, "run one more find")
             should_exit.append(True)
@@ -535,9 +535,7 @@ class TestPoolBackpressure(IntegrationTest):
                 pass
 
         # Run 100 parallel operations that contend for connections.
-        tasks = []
-        for _ in range(100):
-            tasks.append(ConcurrentRunner(target=target))
+        tasks = [ConcurrentRunner(target=target) for _ in range(100)]
         for t in tasks:
             t.start()
         for t in tasks:
@@ -566,16 +564,13 @@ class TestServerMonitoringMode(IntegrationTest):
                     if _IS_SYNC:
                         if monitor._rtt_monitor._executor._thread is None:
                             return False
-                    else:
-                        if monitor._rtt_monitor._executor._task is None:
-                            return False
-                else:
-                    if _IS_SYNC:
-                        if monitor._rtt_monitor._executor._thread is not None:
-                            return False
-                    else:
-                        if monitor._rtt_monitor._executor._task is not None:
-                            return False
+                    elif monitor._rtt_monitor._executor._task is None:
+                        return False
+                elif _IS_SYNC:
+                    if monitor._rtt_monitor._executor._thread is not None:
+                        return False
+                elif monitor._rtt_monitor._executor._task is not None:
+                    return False
             return True
 
         wait_until(predicate, "find all RTT monitors")

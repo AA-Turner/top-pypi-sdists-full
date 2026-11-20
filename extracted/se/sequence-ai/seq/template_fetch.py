@@ -26,7 +26,7 @@ from pathlib import Path
 
 import httpx
 
-from seq._gateway import DEFAULT_BASE_URL
+from sequence_ai._core.transport import DEFAULT_BASE_URL
 from seq.errors import raise_for, unreachable
 from sequence_ai._core.mock_gate import is_mock
 from sequence_ai._core.names import segment
@@ -56,6 +56,50 @@ def lines_by_kind(rows: list[dict]) -> list[str]:
         out += [f"  {r['name']:16} stable={r.get('stable') or '—':5} beta={r.get('beta') or '—'}" for r in mine] \
             or ["  (none)"]
     return out
+
+
+
+
+
+DEPLOY_FILE = "deploy.toml"
+_DEPLOY_KEYS = ("gpu", "cpu", "memory")
+
+
+def deploy_items(dest: Path) -> dict:
+    """The card and worker size the template at `dest` deploys with (DEPLOY_FILE's gpu, cpu, memory); {} where it names
+    none, or the file cannot be read here (Python 3.10 without tomli)."""
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        try:
+            import tomli as tomllib
+        except ModuleNotFoundError:
+            return {}
+    try:
+        data = tomllib.loads((dest / DEPLOY_FILE).read_text())
+    except (OSError, ValueError):
+        return {}
+    return {k: data[k] for k in _DEPLOY_KEYS if k in data}
+
+
+def deploy_flags(items: dict) -> list[str]:
+    """deploy_items as `seq deploy`'s flags: {"gpu": "L4", "cpu": 4} → ["--gpu", "L4", "--cpu", "4"]."""
+    return [a for k in _DEPLOY_KEYS if k in items
+            for a in (f"--{k}", f"{items[k]:g}" if isinstance(items[k], float) else str(items[k]))]
+
+
+def weights_from_gs(dest: Path, entry: str) -> bool:
+    """Whether the class in `entry` declares weights GS keeps (seq.Weights.template(...)): `seq serve` downloads them
+    with a General Sequences key. Read from the file's syntax, never by running it."""
+    import ast
+
+    try:
+        tree = ast.parse((dest / entry).read_text())
+    except (OSError, SyntaxError, ValueError):
+        return False
+    return any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "template"
+               and (getattr(n.func.value, "attr", None) or getattr(n.func.value, "id", None)) == "Weights"
+               for n in ast.walk(tree))
 
 
 def entry_of(dest: Path) -> str | None:
@@ -218,8 +262,10 @@ def _deploy_check(dest: Path, entry: str) -> str | None:
     root = str(Path(__file__).resolve().parent.parent)
     path = os.pathsep.join(p for p in (root, os.environ.get("PYTHONPATH")) if p)
     try:
+
+        flags = deploy_flags({"gpu": "cpu", **deploy_items(dest)}) if entry == ENTRIES["policy"] else []
         done = subprocess.run([sys.executable, "-m", "seq", "--json", "deploy", "--dry-run", dest.name,
-                               *(["--name", name] if name else [])],
+                               *(["--name", name] if name else []), *flags],
                               cwd=dest.parent, capture_output=True, text=True, timeout=_CHECK_TIMEOUT_S,
                               env={**os.environ, "PYTHONPATH": path, "PYTHONDONTWRITEBYTECODE": "1"})
     except (OSError, subprocess.TimeoutExpired):

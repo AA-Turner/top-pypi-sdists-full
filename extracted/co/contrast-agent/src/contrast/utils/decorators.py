@@ -7,6 +7,7 @@ import logging as stdlib_logging
 import os
 
 import contrast
+from contrast.agent import scope
 from contrast.agent.validator import ValidationException
 from contrast_vendor import structlog as logging
 from contrast_vendor.webob.request import DisconnectionError
@@ -90,19 +91,20 @@ def _fail_safely(log_message, log_level, return_value):
             except contrast.SecurityException:
                 raise
             except Exception as ex:
-                TESTING = os.environ.get("CONTRAST_TESTING")
-                if isinstance(ex, SILENCED_EXCEPTIONS) and not TESTING:
-                    logger.debug("Silenced exception in fail_safely", exc_info=ex)
-                    return return_value
+                with scope.contrast_scope():
+                    TESTING = os.environ.get("CONTRAST_TESTING")
+                    if isinstance(ex, SILENCED_EXCEPTIONS) and not TESTING:
+                        logger.debug("Silenced exception in fail_safely", exc_info=ex)
+                        return return_value
 
-                log_and_report_exception(
-                    log_message, ex, original_func, args, kwargs, log_level
-                )
-                if TESTING:
-                    logger.warn(
-                        "Re-raising exception in fail_safely (CONTRAST_TESTING is set)"
+                    log_and_report_exception(
+                        log_message, ex, original_func, args, kwargs, log_level
                     )
-                    raise
+                    if TESTING:
+                        logger.warn(
+                            "Re-raising exception in fail_safely (CONTRAST_TESTING is set)"
+                        )
+                        raise
 
             return return_value
 

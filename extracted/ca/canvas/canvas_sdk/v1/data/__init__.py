@@ -35,6 +35,7 @@ from .business_line import BusinessLine
 from .calendar import Calendar, Event
 from .cancel_prescription import CancelPrescription, CancelPrescriptionStatus
 from .cancel_prescription_response import CancelPrescriptionResponse
+from .care_plan import CarePlan, CarePlanCoding, CarePlanIntent, CarePlanStatus
 from .care_team import CareTeamMembership, CareTeamRole
 from .change_medication import ChangeMedication
 from .charge_description_master import ChargeDescriptionMaster
@@ -123,6 +124,8 @@ from .imaging import (
     ImagingReview,
 )
 from .immunization import (
+    ConsolidatedImmunization,
+    ConsolidatedImmunizationCoding,
     Immunization,
     ImmunizationCoding,
     ImmunizationStatement,
@@ -150,6 +153,7 @@ from .lab import (
     LabPartnerTestQuestion,
     LabPartnerTestQuestionChoice,
     LabReport,
+    LabReportProducer,
     LabReportRemark,
     LabReportTemplate,
     LabReportTemplateField,
@@ -157,6 +161,7 @@ from .lab import (
     LabReportTemplateQuerySet,
     LabReview,
     LabTest,
+    LabTestAOE,
     LabValue,
     LabValueCoding,
     LabValuePerformer,
@@ -188,6 +193,7 @@ from .note import (
     Note,
     NoteActionEvent,
     NoteMetadata,
+    NoteParticipant,
     NoteStateChangeEvent,
     NoteType,
 )
@@ -211,9 +217,12 @@ from .patient import (
     PatientExternalIdentifier,
     PatientFacilityAddress,
     PatientIdentificationCard,
+    PatientKnownLocation,
     PatientMetadata,
+    PatientParentGuardian,
     PatientPhoto,
     PatientSetting,
+    PatientTribalAffiliationCoding,
 )
 from .patient_administrative_document import DocumentCoding, PatientAdministrativeDocument
 from .patient_consent import (
@@ -260,6 +269,7 @@ from .prescription_change import (
 from .procedure import Procedure, ProcedureCoding, ProcedureStatus
 from .protocol_current import ProtocolCurrent
 from .protocol_override import ProtocolOverride
+from .provenance import Provenance
 from .questionnaire import (
     Interview,
     InterviewQuestionnaireMap,
@@ -355,6 +365,10 @@ __all__ = __exports__ = (
     "CancelPrescriptionResponse",
     "CancelPrescriptionStatus",
     "CanvasUser",
+    "CarePlan",
+    "CarePlanCoding",
+    "CarePlanIntent",
+    "CarePlanStatus",
     "CareTeamMembership",
     "CareTeamRole",
     "ChangeMedication",
@@ -386,6 +400,8 @@ __all__ = __exports__ = (
     "Condition",
     "ConditionCategoryCoding",
     "ConditionCoding",
+    "ConsolidatedImmunization",
+    "ConsolidatedImmunizationCoding",
     "Coverage",
     "CustomAttribute",
     "CustomAttributeAwareManager",
@@ -482,9 +498,11 @@ __all__ = __exports__ = (
     "LabPartnerTestQuestion",
     "LabPartnerTestQuestionChoice",
     "LabReport",
+    "LabReportProducer",
     "LabReportRemark",
     "LabReview",
     "LabTest",
+    "LabTestAOE",
     "LabValue",
     "LabValueCoding",
     "LabValuePerformer",
@@ -517,6 +535,7 @@ __all__ = __exports__ = (
     "Note",
     "NoteActionEvent",
     "NoteMetadata",
+    "NoteParticipant",
     "NoteStateChangeEvent",
     "NoteTask",
     "NoteType",
@@ -540,10 +559,13 @@ __all__ = __exports__ = (
     "PatientExternalIdentifier",
     "PatientFacilityAddress",
     "PatientIdentificationCard",
+    "PatientKnownLocation",
+    "PatientParentGuardian",
     "PatientPhoto",
     "PatientPosting",
     "PatientSetting",
     "PatientMetadata",
+    "PatientTribalAffiliationCoding",
     "PatientConsent",
     "PatientConsentCoding",
     "PatientConsentRejectionCoding",
@@ -579,6 +601,7 @@ __all__ = __exports__ = (
     "ProcedureStatus",
     "ProtocolCurrent",
     "ProtocolOverride",
+    "Provenance",
     "Question",
     "QuestionEnablementCondition",
     "Questionnaire",

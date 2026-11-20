@@ -24,6 +24,13 @@ import time
 CLI_DIR = Path(__file__).parent
 PYINSTALLER_VERSION = "6.18.0"
 
+# Both install into the interpreter running this script, which the binary
+# bundles. uv must be on PATH for "uv".
+INSTALL_COMMANDS = {
+    "pip": [sys.executable, "-m", "pip", "install"],
+    "uv": ["uv", "pip", "install", "--python", sys.executable],
+}
+
 
 def get_version():
     """
@@ -39,7 +46,7 @@ def get_version():
     return match.group(1)
 
 
-def build(package, dist_dir):
+def build(package, dist_dir, installer):
     """Build the standalone binary."""
     start_time = time.time()
 
@@ -52,18 +59,11 @@ def build(package, dist_dir):
 
     # Install PyInstaller and the anyscale package
     # Package version comes from version.py (no modification needed)
-    print("Installing dependencies...")
+    print(f"Installing dependencies with {installer}...")
+    install = INSTALL_COMMANDS[installer]
     try:
         subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "--quiet",
-                f"pyinstaller=={PYINSTALLER_VERSION}",
-                package,
-            ]
+            [*install, "--quiet", f"pyinstaller=={PYINSTALLER_VERSION}", package]
         )
     except subprocess.CalledProcessError as e:
         sys.exit(f"Failed to install dependencies: {e}")
@@ -167,6 +167,12 @@ if __name__ == "__main__":
         help="Directory the binary is written to, relative to this script's "
         "directory unless absolute.",
     )
+    parser.add_argument(
+        "--installer",
+        choices=sorted(INSTALL_COMMANDS),
+        default="pip",
+        help="Tool that installs PyInstaller and the package before the build.",
+    )
     args = parser.parse_args()
     if args.expect_python:
         running = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -177,4 +183,4 @@ if __name__ == "__main__":
                 "bundles the interpreter that runs this script; invoke it with "
                 f"a Python {args.expect_python} interpreter."
             )
-    sys.exit(build(args.package, args.dist_dir))
+    sys.exit(build(args.package, args.dist_dir, args.installer))

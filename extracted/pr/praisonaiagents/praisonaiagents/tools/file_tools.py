@@ -180,7 +180,10 @@ class FileTools:
                     _file_locks.record_read_hash(
                         safe_path, self._content_hash(safe_path, encoding))
                 except Exception:
-                    pass
+                    logger.debug(
+                        "read_file: could not record read hash for %s; a later "
+                        "write will skip the stale-file check", safe_path,
+                        exc_info=True)
 
             # Fast path: preserve the exact legacy shape when the caller asks
             # for raw content of the whole file (no window requested).
@@ -293,7 +296,10 @@ class FileTools:
                     _file_locks.record_read_hash(
                         safe_path, self._content_hash(safe_path, encoding))
                 except Exception:
-                    pass
+                    logger.debug(
+                        "write_file: could not record content hash for %s; a "
+                        "later write may be wrongly flagged stale", safe_path,
+                        exc_info=True)
             return True
         except Exception as e:
             error_msg = f"Error writing to file {filepath}: {str(e)}"
@@ -326,9 +332,12 @@ class FileTools:
             else:
                 files = path.iterdir()
 
+            from .path_safety import is_within_root
+
             result = []
             for file in files:
-                if file.is_file():
+                # A glob through an in-root symlink must not list outside files
+                if file.is_file() and is_within_root(str(file), safe_dir):
                     stat = file.stat()
                     result.append({
                         'name': file.name,
@@ -493,7 +502,7 @@ class FileTools:
             
             # Validate URL to prevent SSRF (shared guard used by all HTTP tools)
             from urllib.parse import urlparse
-            from .url_safety import is_safe_http_url
+            from .url_safety import is_safe_http_url, safe_stream
 
             parsed = urlparse(url)
             if parsed.scheme not in ("http", "https"):
@@ -523,7 +532,7 @@ class FileTools:
             fd, tmp_path = tempfile.mkstemp(dir=dest_dir, suffix=".part")
             try:
                 with os.fdopen(fd, "wb") as f, \
-                        httpx.stream("GET", url, timeout=timeout, follow_redirects=False) as response:
+                        safe_stream(url, timeout=timeout, allow_local=False) as response:
                     response.raise_for_status()
 
                     total_size = int(response.headers.get("content-length", 0))

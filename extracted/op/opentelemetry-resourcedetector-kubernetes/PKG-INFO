@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opentelemetry-resourcedetector-kubernetes
-Version: 0.4.0
+Version: 0.4.1
 Summary: An OpenTelemetry package to populate Resource attributes for Kubernetes pods
 Project-URL: Repository, https://github.com/chrisguidry/opentelemetry-resourcedetector-kubernetes
 Project-URL: Bug Tracker, https://github.com/chrisguidry/opentelemetry-resourcedetector-kubernetes/issues

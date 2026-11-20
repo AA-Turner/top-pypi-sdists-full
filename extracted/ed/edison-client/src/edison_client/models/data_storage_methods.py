@@ -6,13 +6,7 @@ from pathlib import Path
 from typing import Any, Self
 from uuid import UUID
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    JsonValue,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from edison_client.clients.exceptions import DataStorageValidationError
 
@@ -51,20 +45,17 @@ class DataStorageEntry(BaseModel):
         default=False, description="Whether this entry is a collection"
     )
     tags: list[str] | None = Field(
-        default=None,
-        description="List of tags associated with the data storage entry",
+        default=None, description="List of tags associated with the data storage entry"
     )
     parent_id: UUID | None = Field(
         default=None,
         description="ID of the parent entry if this is a sub-entry for hierarchical storage",
     )
     project_id: UUID | None = Field(
-        default=None,
-        description="ID of the project this data storage entry belongs to",
+        default=None, description="ID of the project this data storage entry belongs to"
     )
     dataset_id: UUID | None = Field(
-        default=None,
-        description="ID of the dataset this entry belongs to",
+        default=None, description="ID of the dataset this entry belongs to"
     )
     file_path: str | None = Field(
         default=None,
@@ -73,7 +64,15 @@ class DataStorageEntry(BaseModel):
     bigquery_schema: Any | None = Field(
         default=None, description="Target BigQuery schema for the data storage entry"
     )
-    user_id: str = Field(description="ID of the user who created this entry")
+    user_id: str | None = Field(
+        default=None, description="ID of the user who owns this entry"
+    )
+    group_id: UUID | None = Field(
+        default=None, description="ID of the group that owns this entry"
+    )
+    created_by: str | None = Field(
+        default=None, description="ID of the user who created this entry"
+    )
     created_at: datetime = Field(description="Timestamp when the entry was created")
     modified_at: datetime = Field(
         description="Timestamp when the entry was last updated"
@@ -110,8 +109,8 @@ class DataContentType(StrEnum):
 class DataStorageLocationPayload(BaseModel):
     storage_type: DataStorageType
     content_type: DataContentType
-    content_schema: JsonValue | None = None
-    metadata: JsonValue | None = None
+    content_schema: "JsonValue | None" = None
+    metadata: "JsonValue | None" = None
     location: str | None = None
 
 
@@ -120,8 +119,10 @@ class DataStorageLocationConfig(BaseModel):
 
     storage_type: str = Field(description="Type of storage (e.g., 'gcs', 'pg_table')")
     content_type: str = Field(description="Type of content stored")
-    content_schema: JsonValue | None = Field(default=None, description="Content schema")
-    metadata: JsonValue | None = Field(default=None, description="Location metadata")
+    content_schema: "JsonValue | None" = Field(
+        default=None, description="Content schema"
+    )
+    metadata: "JsonValue | None" = Field(default=None, description="Location metadata")
     location: str | None = Field(
         default=None, description="Location path or identifier"
     )
@@ -248,23 +249,20 @@ class DataStorageRequestPayload(BaseModel):
         default=None, description="ID of the parent entry for hierarchical storage"
     )
     project_id: UUID | None = Field(
-        default=None,
-        description="ID of the project this data storage entry belongs to",
+        default=None, description="ID of the project this data storage entry belongs to"
     )
     dataset_id: UUID | None = Field(
         default=None,
         description="ID of existing dataset to add entry to, or None to create new dataset",
     )
     file_path: PathLike | str | None = Field(
-        default=None,
-        description="Filepath to store in the GCS bucket.",
+        default=None, description="Filepath to store in the GCS bucket."
     )
     existing_location: DataStorageLocationPayload | None = Field(
         default=None, description="Existing non-GCS storage metadata"
     )
     tags: list[str] | None = Field(
-        default=None,
-        description="List of tags associated with the data storage entry",
+        default=None, description="List of tags associated with the data storage entry"
     )
     metadata: dict[str, Any] | None = Field(
         default=None, description="Metadata for the data storage entry"
@@ -366,7 +364,7 @@ class DirectoryManifest(BaseModel):
                     if entry.metadata is not None:
                         entry_dict.update(entry.metadata)
                     result[name] = entry_dict
-            elif isinstance(entry, DirectoryManifest):
+            else:
                 result[name] = entry.to_dict()
         return result
 
@@ -506,6 +504,10 @@ class PermittedAccessors(BaseModel):
     organizations: list[str | int] | None = Field(
         default=None,
         description="List of organization IDs to grant access to the data storage entry",
+    )
+    groups: list[UUID] | None = Field(
+        default=None,
+        description="List of group IDs to grant access to the data storage entry",
     )
 
 

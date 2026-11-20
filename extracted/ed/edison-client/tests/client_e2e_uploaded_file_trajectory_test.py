@@ -13,7 +13,7 @@ pytestmark = [pytest.mark.live, pytest.mark.live_agent]
 
 
 @pytest.mark.timeout(420)
-def test_upload_and_run_analysis_task(admin_client: RestClient):
+def test_upload_and_run_analysis_task(admin_client: RestClient) -> None:
     """Test uploading a file with prompt, running analysis task, and downloading outputs."""
     prompt_content = "draw a blue square"
 
@@ -39,9 +39,7 @@ def test_upload_and_run_analysis_task(admin_client: RestClient):
         task_request = TaskRequest(
             name=JobNames.ANALYSIS,  # Use the data analysis crow
             query="Open the attached file and follow the instructions in it. Create an image as specified.",
-            runtime_config=RuntimeConfig(
-                timeout=180,
-            ),
+            runtime_config=RuntimeConfig(timeout=180),
         )
 
         results = admin_client.run_tasks_until_done(

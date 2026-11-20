@@ -16,8 +16,9 @@ own transport, which says the bare name (sequence_ai/_core/transport.py); the ga
 from __future__ import annotations
 
 import os
+from typing import Any
 
-from sequence_ai._core.login import PERSON_REFUSAL, Login, login_for
+from sequence_ai._core.signin import PERSON_REFUSAL, is_login, login_for
 from sequence_ai._core.transport import DEFAULT_BASE_URL, _version
 from sequence_ai.errors import AuthError
 
@@ -32,14 +33,14 @@ def public_headers() -> dict:
     return {"User-Agent": user_agent()}
 
 
-def auth_headers(key: str | Login) -> dict:
+def auth_headers(key: Any) -> dict:
     """The key - or your sign-in's token in force now (`seq login`) - as a bearer token, and the User-Agent saying which
     sequence-ai asks (user_agent)."""
-    token = key.token() if isinstance(key, Login) else key
+    token = key.token() if is_login(key) else key
     return {"Authorization": f"Bearer {token}", "User-Agent": user_agent()}
 
 
-def credential(api_key: str | None = None, base_url: str | None = None, *, person: bool = False) -> str | Login:
+def credential(api_key: str | None = None, base_url: str | None = None, *, person: bool = False) -> Any:
     """What a call is sent as: the key given, else $SEQUENCES_API_KEY, else your `seq login` sign-in to that platform -
     or, with `person` (what only you may do: keys, money, the account), your sign-in alone, never a key.
     """

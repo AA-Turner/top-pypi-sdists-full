@@ -264,7 +264,7 @@ class DistributedContext:
             return
         level = self._sync_levels[0]
         assert level.sync_type == "grad"
-        _all_reduce_avg_flat([p.grad for p in module.parameters() if p.grad is not None], group=level.group)
+        _all_reduce_flat([p.grad for p in module.parameters() if p.grad is not None], op="avg", group=level.group)
 
     def sync_complete_frac(self) -> bool:
         """
@@ -273,6 +273,13 @@ class DistributedContext:
             so that ``epoch_continuous`` (e.g. for ``dynamic_learning_rate``) is the same on every rank of the group
         """
         return self._sync_complete_frac
+
+    def world_sync_on_cpu(self) -> bool:
+        """
+        :return: whether the collectives over all ranks run on the CPU (any level with ``sync_on_cpu``),
+            otherwise on the train device
+        """
+        return self._world_level.sync_on_cpu
 
     def control_sync_levels(
         self, *, epoch_update_step_idx: int, update_step: bool, world: bool, no_data: bool
@@ -396,7 +403,7 @@ class DistributedContext:
             optimizer=optimizer,
             buffers=True,
             counters=[global_train_step_t],
-            sync_on_cpu=any(level.sync_on_cpu for level in self._sync_levels),
+            sync_on_cpu=self.world_sync_on_cpu(),
         )
         return int(global_train_step_t)
 
@@ -648,24 +655,27 @@ _FLAT_REDUCE_BUCKET_BYTES = 256 * 1024**2
 
 
 @torch.no_grad()
-def _all_reduce_avg_flat(
+def _all_reduce_flat(
     tensors: List[torch.Tensor],
     *,
-    sync_on_cpu: bool = False,
+    op: str,
+    sync_device: Optional[torch.device] = None,
     bucket_bytes: int = _FLAT_REDUCE_BUCKET_BYTES,
     group: Optional[torch.distributed.ProcessGroup] = None,
 ):
     """
-    Averages the tensors in place over the ranks of the group.
+    Reduces the tensors in place over the ranks of the group.
 
     Flat buffers instead of one allreduce per tensor: thousands of small allreduces would be latency-bound.
     A flat buffer is a copy, so buckets of at most ``bucket_bytes`` bound the extra memory.
     One bucket holds one dtype on one device: the flat buffer is a ``cat``, which would promote mixed dtypes.
 
     :param tensors: any dtypes and devices
-    :param sync_on_cpu: allreduce a CPU copy of each bucket (e.g. with Gloo for a CUDA module)
+    :param op: "avg" (the mean) or "max"
+    :param sync_device: allreduce a copy of each bucket on this device, for the tensors on another device
+        (e.g. the CPU, for Gloo with a CUDA module). None: on the device of the tensors.
     :param bucket_bytes: of one flat buffer; a tensor larger than that gets a bucket of its own
-    :param group: the ranks to average over, None: all
+    :param group: the ranks to reduce over, None: all
     """
     buckets: Dict[Tuple[torch.device, torch.dtype], List[List[torch.Tensor]]] = {}
     last_numel: Dict[Tuple[torch.device, torch.dtype], int] = {}  # of the last bucket
@@ -681,20 +691,29 @@ def _all_reduce_avg_flat(
     for key_buckets in buckets.values():
         for bucket in key_buckets:
             # One flat buffer at a time: the function scope frees it before the next one is allocated.
-            _all_reduce_avg_bucket(bucket, sync_on_cpu=sync_on_cpu, group=group)
+            _all_reduce_bucket(bucket, op=op, sync_device=sync_device, group=group)
 
 
-def _all_reduce_avg_bucket(
-    bucket: List[torch.Tensor], *, sync_on_cpu: bool, group: Optional[torch.distributed.ProcessGroup]
+def _all_reduce_bucket(
+    bucket: List[torch.Tensor],
+    *,
+    op: str,
+    sync_device: Optional[torch.device],
+    group: Optional[torch.distributed.ProcessGroup],
 ):
     import torch.distributed as dist
 
     # noinspection protected-member
     flat = torch._utils._flatten_dense_tensors(bucket)
-    flat_reduce = flat.cpu() if sync_on_cpu else flat
-    # SUM then divide, not AVG: NCCL AVG pre-scales by 1/N rounded to the dtype, a bias for non-power-of-two N.
-    dist.all_reduce(flat_reduce, op=dist.ReduceOp.SUM, group=group)
-    flat_reduce /= dist.get_world_size(group=group)
+    flat_reduce = flat if sync_device is None else flat.to(sync_device)
+    if op == "avg":
+        # SUM then divide, not AVG: NCCL AVG pre-scales by 1/N rounded to the dtype, a bias for non-power-of-two N.
+        dist.all_reduce(flat_reduce, op=dist.ReduceOp.SUM, group=group)
+        flat_reduce /= dist.get_world_size(group=group)
+    elif op == "max":
+        dist.all_reduce(flat_reduce, op=dist.ReduceOp.MAX, group=group)
+    else:
+        raise ValueError(f"invalid op {op!r}")
     if flat_reduce is not flat:
         flat.copy_(flat_reduce)
     # noinspection protected-member
@@ -727,35 +746,43 @@ def _sync_state(
     :param params: the params of the module
     :param buffers: also the buffers of the module (e.g. the batch norm running stats)
     :param counters: further counts, e.g. the train step, in place
-    :param sync_on_cpu: allreduce CPU copies (e.g. with Gloo for a CUDA module)
+    :param sync_on_cpu: all collectives on the CPU, with CPU copies (e.g. with Gloo for a CUDA module).
+        Otherwise all on the device of the module, also for the counts and values which live on the CPU,
+        so one backend (e.g. NCCL) does all of the sync.
     :param group: the ranks to sync over, None: all
     """
     import torch.distributed as dist
 
+    first_param = next(module.parameters(), None)
+    sync_device = torch.device("cpu") if sync_on_cpu or first_param is None else first_param.device
+
     tensors = []  # mean
     counters = list(counters)  # max
-    objects = []  # (param, leaf index) from the first rank
+    objects = []  # (param, leaf index, local value), the value comes from the first rank
     for tensor in (list(module.parameters()) if params else []) + (list(module.buffers()) if buffers else []):
         (tensors if tensor.is_floating_point() else counters).append(tensor.data)
     if optimizer is not None:
         for param, state in optimizer.state.items():
             for idx, (path, value) in enumerate(tree.flatten_with_path(state)):
                 if not isinstance(value, torch.Tensor):
-                    objects.append((param, idx))
+                    objects.append((param, idx, value))
                 elif path[-1] == "step" or not value.is_floating_point():
                     counters.append(value)
                 else:
                     tensors.append(value)
-    _all_reduce_avg_flat(tensors, sync_on_cpu=sync_on_cpu, group=group)
-    for counter in counters:
-        counter_cpu = counter.to(torch.device("cpu"))
-        dist.all_reduce(counter_cpu, op=dist.ReduceOp.MAX, group=group)
-        counter.copy_(counter_cpu)
+    _all_reduce_flat(tensors, op="avg", sync_device=sync_device, group=group)
+    _all_reduce_flat(counters, op="max", sync_device=sync_device, group=group)
     if objects:
-        values = [tree.flatten(optimizer.state[param])[idx] for param, idx in objects]
+        values = [[value for _, _, value in objects]]  # one object: each list item is pickled on its own
         src = 0 if group is None else dist.get_global_rank(group, 0)
-        dist.broadcast_object_list(values, src=src, group=group, device=torch.device("cpu"))
-        for (param, idx), value in zip(objects, values):
+        dist.broadcast_object_list(values, src=src, group=group, device=sync_device)
+        for (param, idx, local_value), value in zip(objects, values[0]):
+            if (
+                type(value) is type(local_value)
+                and isinstance(value, (int, float, str, type(None)))
+                and value == local_value
+            ):
+                continue  # the normal case; the rebuild below costs per value
             flat = tree.flatten(optimizer.state[param])
             flat[idx] = value
             optimizer.state[param] = tree.unflatten_as(optimizer.state[param], flat)

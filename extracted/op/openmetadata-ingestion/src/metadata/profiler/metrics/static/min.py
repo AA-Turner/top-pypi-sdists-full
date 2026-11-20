@@ -13,9 +13,10 @@
 Min Metric definition
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from functools import partial
-from typing import TYPE_CHECKING, Callable, Optional  # noqa: UP035
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import TIME, column
 from sqlalchemy.ext.compiler import compiles
@@ -140,8 +141,8 @@ class Min(StaticMetric):
         Maintains a single minimum value (not a list). Compares chunk's min
         with current minimum and returns the smaller value.
         """
-        import pandas as pd  # noqa: PLC0415
-        from pandas import Timestamp  # noqa: PLC0415
+        import pandas as pd
+        from pandas import Timestamp
 
         chunk_min: float | datetime | None = None
 
@@ -166,7 +167,7 @@ class Min(StaticMetric):
 
         return min(current_min, chunk_min)
 
-    def nosql_fn(self, adaptor: NoSQLAdaptor) -> Callable[[Table], Optional[T]]:  # noqa: UP045
+    def nosql_fn(self, adaptor: NoSQLAdaptor) -> Callable[[Table], T | None]:
         """nosql function"""
         if is_quantifiable(self.col.type):
             return partial(adaptor.min, column=self.col)

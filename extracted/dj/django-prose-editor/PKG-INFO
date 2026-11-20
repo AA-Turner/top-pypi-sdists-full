@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-prose-editor
-Version: 0.28.0
+Version: 0.29.0
 Summary: Prose editor for the Django admin based on ProseMirror
 Project-URL: Documentation, https://django-prose-editor.readthedocs.io/
 Project-URL: Homepage, https://github.com/feincms/django-prose-editor/
@@ -28,7 +28,7 @@ Requires-Python: >=3.10
 Requires-Dist: django-js-asset>=5.0a1
 Requires-Dist: django>=4.2
 Provides-Extra: cabinet
-Requires-Dist: django-cabinet>=0.20.1; extra == 'cabinet'
+Requires-Dist: django-cabinet>=0.22; extra == 'cabinet'
 Provides-Extra: sanitize
 Requires-Dist: nh3>=0.3; extra == 'sanitize'
 Provides-Extra: tests

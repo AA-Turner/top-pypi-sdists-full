@@ -50,6 +50,8 @@ struct DuckDBPyModuleState {
 	std::shared_ptr<PythonImportCache> import_cache;
 	//! The single-use Arrow readers that have handed out their stream, by identity and held weakly
 	unique_ptr<PyObjectHolder> consumed_arrow_readers;
+	//! The DuckDB type id of each of numpy's own scalar classes converted so far; only Cleanup clears it
+	unique_ptr<PyObjectHolder> numpy_scalar_types;
 	//! Held rather than imported on use, since an import fails once the package has left sys.modules
 	unique_ptr<PyObjectHolder> arrow_sources_adapt;
 	unique_ptr<PyObjectHolder> arrow_sources_nodes;
@@ -167,7 +169,14 @@ void DbapiResult::Supersede() {
 		return;
 	}
 	auto superseded = std::move(result);
-	if (superseded->HasWritesToRun()) {
+	bool writes;
+	{
+		// Waiting here with the GIL held deadlocks a close on another thread
+		DUCKDB_PY_ASSERT_GIL_HELD();
+		nb::gil_scoped_release release;
+		writes = superseded->HasWritesToRun();
+	}
+	if (writes) {
 		superseded->Complete();
 	} else {
 		superseded->Close();
@@ -321,6 +330,10 @@ static void InitializeConnectionMethods(nb::class_<DuckDBPyConnection> &m) {
 	      "Synchronizes data in the write-ahead log (WAL) to the database data file (no-op for in-memory connections)");
 	m.def("append", &DuckDBPyConnection::Append, "Append the passed DataFrame to the named table",
 	      nb::arg("table_name"), nb::arg("df"), nb::kw_only(), nb::arg("by_name") = false);
+	m.def("_register_declared", &DuckDBPyConnection::RegisterDeclared,
+	      "Register a DataFrame as a view whose object columns take the given types instead of types sampled from the "
+	      "values",
+	      nb::arg("view_name"), nb::arg("df"), nb::arg("types"));
 	m.def(
 	    "appender", &DuckDBPyConnection::CreateAppender,
 	    "Create an appender that buffers rows and inserts, upserts, updates or deletes them in the named table at each "
@@ -358,18 +371,15 @@ void DuckDBPyConnection::UnregisterFilesystem(const nb::str &name) {
 	fs.ExtractSubSystem(nb::cast<std::string>(name));
 }
 
-void DuckDBPyConnection::RegisterFilesystem(nb::object filesystem) {
-	nb::gil_scoped_acquire gil;
-
-	auto &database = con.GetDatabase();
+//! The engine side file system over an fsspec object, with the Python reads done: the registration itself then runs
+//! no Python
+static unique_ptr<PythonFilesystem> WrapFilesystem(const nb::object &filesystem) {
 	// Import fsspec here (a normal, throwing context) so a missing install surfaces as ModuleNotFoundError, rather
 	// than terminating inside the noexcept AbstractFileSystem type check (which nanobind cannot let throw).
 	auto abstract_filesystem = nb::module_::import_("fsspec").attr("AbstractFileSystem");
 	if (filesystem.is_none() || !duckdb::PyUtil::IsInstance(filesystem, abstract_filesystem)) {
 		throw InvalidInputException("Bad filesystem instance");
 	}
-
-	auto &fs = database.GetFileSystem();
 
 	// nb::object (not auto, which deduces an accessor): nb::str(protocol) below is an ambiguous overload on MSVC.
 	nb::object protocol = filesystem.attr("protocol");
@@ -385,8 +395,13 @@ void DuckDBPyConnection::RegisterFilesystem(nb::object filesystem) {
 			protocols.push_back(nb::cast<std::string>(nb::str(sub_protocol)));
 		}
 	}
+	return make_uniq<PythonFilesystem>(std::move(protocols), nb::borrow<AbstractFileSystem>(filesystem));
+}
 
-	fs.RegisterSubSystem(make_uniq<PythonFilesystem>(std::move(protocols), nb::borrow<AbstractFileSystem>(filesystem)));
+void DuckDBPyConnection::RegisterFilesystem(nb::object filesystem) {
+	nb::gil_scoped_acquire gil;
+	auto wrapped = WrapFilesystem(filesystem);
+	con.GetDatabase().GetFileSystem().RegisterSubSystem(std::move(wrapped));
 }
 
 nb::list DuckDBPyConnection::ListFilesystems() {
@@ -458,6 +473,8 @@ std::shared_ptr<DuckDBPyConnection> DuckDBPyConnection::UnregisterUDF(const stri
 		throw InvalidInputException("No function by the name of '%s' was found in the list of registered functions",
 		                            name);
 	}
+	// Held from here on, as close() takes it too: the check below releases the GIL while it uses the context
+	ConnectionLockGuard conn_lock(*this);
 
 	auto &connection = con.GetConnection();
 	auto &context = *connection.context;
@@ -486,11 +503,16 @@ DuckDBPyConnection::RegisterScalarUDF(const string &name, const nb::callable &ud
                                       const nb::object &return_type_p, PythonUDFType type,
                                       FunctionNullHandling null_handling, PythonExceptionHandling exception_handling,
                                       bool side_effects) {
-	// Refused before any user code or type lookup runs, so neither works on a busy connection or on its open result
-	engine::VerifyNoOpenResult(*con.GetConnection().context);
+	{
+		// Held while the check releases the GIL, as close() takes it too; not across the user code below
+		ConnectionLockGuard conn_lock(*this);
+		// Refused before any user code or type lookup runs, so neither works on a busy connection or on its open result
+		engine::VerifyNoOpenResult(*con.GetConnection().context);
+	}
 	// Converted before the claim, because a type name is parsed on this connection, which refuses while claimed
 	auto scalar_function = CreateScalarUDF(name, udf, parameters_p, return_type_p, type == PythonUDFType::ARROW,
 	                                       null_handling, exception_handling, side_effects);
+	ConnectionLockGuard conn_lock(*this);
 	auto &connection = con.GetConnection();
 	auto &context = *connection.context;
 	// Held from the check to the change, so no result can open in between and be ended by it, and checked again
@@ -784,7 +806,13 @@ shared_ptr<engine::Result> DuckDBPyConnection::ExecuteInternal(engine::Prepared 
 
 		res = session.Submit(prep, named_values, engine::Format::Chunks());
 		if (parameters_given && ExpandedToNothing(*res)) {
-			statements.RefuseParameters();
+			try {
+				statements.RefuseParameters();
+			} catch (...) {
+				// Ended here, with the GIL released, since ending the pending query waits for its tasks
+				res->Close();
+				throw;
+			}
 		}
 		statements.ReleaseIfReplaced(*res);
 		res->Retain(CheckSignals);
@@ -817,7 +845,7 @@ engine::StatementGroup DuckDBPyConnection::GetStatements(const nb::object &query
 		return engine::StatementGroup(EngineSession(), statement_obj.GetStatement());
 	}
 	if (nb::isinstance<nb::str>(query)) {
-		auto sql_query = nb::cast<std::string>(nb::str(query));
+		auto sql_query = TransformPythonString(nb::str(query));
 		return engine::StatementGroup(EngineSession(), sql_query);
 	}
 	throw InvalidInputException("Please provide either a DuckDBPyStatement or a string representing the query");
@@ -862,7 +890,14 @@ std::shared_ptr<DuckDBPyConnection> DuckDBPyConnection::Execute(const nb::object
 	if (last_statement) {
 		res = PrepareAndSubmitInternal(std::move(last_statement), std::move(params));
 		if (parameters_given && ExpandedToNothing(*res)) {
-			RefuseParameters(statements);
+			try {
+				RefuseParameters(statements);
+			} catch (...) {
+				// Ending the pending query waits for its tasks, so the GIL is released for it
+				duckdb::PyUtil::GilReleaseIfHeld release;
+				res->Close();
+				throw;
+			}
 		}
 	}
 	{
@@ -896,16 +931,45 @@ std::unique_ptr<DuckDBPyAppender> DuckDBPyConnection::CreateQueryAppender(const 
 	return DuckDBPyAppender::ForQuery(shared_from_this(), dml, columns, source);
 }
 
+//! The table column each frame column is inserted into: by position over the insertable columns, or by the name
+//! the INSERT matches, as an identifier; a frame column without a table column stays undeclared and the INSERT
+//! reports the mismatch
+static vector<LogicalType> AppendTargetTypes(const vector<std::pair<string, LogicalType>> &table_columns,
+                                             const vector<string> &frame_columns, bool by_name) {
+	vector<LogicalType> types(frame_columns.size(), LogicalType::INVALID);
+	for (idx_t i = 0; i < frame_columns.size(); i++) {
+		if (!by_name) {
+			if (i < table_columns.size()) {
+				types[i] = table_columns[i].second;
+			}
+			continue;
+		}
+		for (auto &column : table_columns) {
+			if (Identifier(column.first) == Identifier(frame_columns[i])) {
+				types[i] = column.second;
+				break;
+			}
+		}
+	}
+	return types;
+}
+
 std::shared_ptr<DuckDBPyConnection> DuckDBPyConnection::Append(const string &name, const PandasDataFrame &value,
                                                                bool by_name) {
-	RegisterPythonObject("__append_df", value);
+	vector<string> column_names;
+	for (auto column : value.attr("columns")) {
+		column_names.push_back(nb::cast<std::string>(nb::str(column)));
+	}
+	vector<LogicalType> declared_types;
+	auto table_columns = DuckDBPySeam::InsertableColumns(*this, name);
+	if (!table_columns.empty()) {
+		declared_types = AppendTargetTypes(table_columns, column_names, by_name);
+	}
+	con.GetConnection();
+	auto source = DuckDBPySeam::RegisterSource(*this, value, "__append_df", std::move(declared_types));
+	RegisterSourceView("__append_df", *source);
 	string columns = "";
 	if (by_name) {
-		auto df_columns = value.attr("columns");
-		vector<string> column_names;
-		for (auto column : df_columns) {
-			column_names.push_back(nb::cast<std::string>(nb::str(column)));
-		}
 		columns += "(";
 		for (idx_t i = 0; i < column_names.size(); i++) {
 			auto &column = column_names[i];
@@ -959,6 +1023,27 @@ std::shared_ptr<DuckDBPyConnection> DuckDBPyConnection::RegisterPythonObject(con
                                                                              const nb::object &python_object) {
 	con.GetConnection();
 	auto source = DuckDBPySeam::RegisterSource(*this, python_object, name);
+	RegisterSourceView(name, *source);
+	return shared_from_this();
+}
+
+std::shared_ptr<DuckDBPyConnection> DuckDBPyConnection::RegisterDeclared(const string &name, const PandasDataFrame &df,
+                                                                         const nb::list &types) {
+	nb::object columns = df.attr("columns");
+	if (nb::len(types) != nb::len(columns)) {
+		throw InvalidInputException("declared types: %d types given for a DataFrame of %d columns", nb::len(types),
+		                            nb::len(columns));
+	}
+	vector<LogicalType> declared_types;
+	for (auto type : types) {
+		if (type.is_none()) {
+			declared_types.push_back(LogicalType::INVALID);
+		} else {
+			declared_types.push_back(nb::cast<const DuckDBPyType &>(type).Type());
+		}
+	}
+	con.GetConnection();
+	auto source = DuckDBPySeam::RegisterSource(*this, df, name, std::move(declared_types));
 	RegisterSourceView(name, *source);
 	return shared_from_this();
 }
@@ -1220,6 +1305,8 @@ void DuckDBPyConnection::InstallExtension(const string &extension, bool force_in
 }
 
 void DuckDBPyConnection::LoadExtension(const string &extension) {
+	// Held for the call, as close() takes it too: the check below releases the GIL while it uses the context
+	ConnectionLockGuard conn_lock(*this);
 	auto &connection = con.GetConnection();
 	// Held from the check to the change, so no result can open in between and be ended by it
 	engine::ConnectionClaim claim(*connection.context);
@@ -1675,6 +1762,14 @@ nb::object DuckDBPyConnection::ConsumedArrowReaders() {
 	return readers->obj;
 }
 
+nb::object DuckDBPyConnection::NumpyScalarTypes() {
+	auto &types = GetModuleState().numpy_scalar_types;
+	if (!types) {
+		types = make_uniq<PyObjectHolder>(nb::dict());
+	}
+	return types->obj;
+}
+
 void DuckDBPyConnection::SetArrowSources(const nb::object &sources) {
 	auto adapt = sources.attr("adapt");
 	auto nodes = sources.attr("nodes");
@@ -1707,20 +1802,48 @@ nb::object DuckDBPyConnection::ArrowSourcesNodes() {
 	return ArrowSourcesPart(GetModuleState().arrow_sources_nodes);
 }
 
-ModifiedMemoryFileSystem &DuckDBPyConnection::GetObjectFileSystem() {
-	if (!internal_object_filesystem) {
-		D_ASSERT(!FileSystemIsRegistered("DUCKDB_INTERNAL_OBJECTSTORE"));
-		auto &import_cache_py = *ImportCache();
-		auto modified_memory_fs = import_cache_py.duckdb.filesystem.ModifiedMemoryFileSystem();
-		if (modified_memory_fs.ptr() == nullptr) {
-			throw InvalidInputException(
-			    "This operation could not be completed because required module 'fsspec' is not installed");
-		}
-		internal_object_filesystem = std::make_shared<ModifiedMemoryFileSystem>(modified_memory_fs());
-		auto &abstract_fs = reinterpret_cast<AbstractFileSystem &>(*internal_object_filesystem);
-		RegisterFilesystem(abstract_fs);
+ObjectStore::~ObjectStore() {
+	if (!filesystem) {
+		return;
 	}
-	return *internal_object_filesystem;
+	// The store dies with the database, on whatever thread drops the last connection, so the reference goes through
+	// the shutdown gate as the PythonFilesystem over the same object does
+	try {
+		PyUtil::QueryGil gil(nullptr);
+		filesystem->dec_ref();
+	} catch (...) { // NOLINT
+	}
+	// Leaked when the gate refused, as the reference can then no longer be dropped
+	filesystem->release();
+}
+
+ModifiedMemoryFileSystem &DuckDBPyConnection::GetObjectFileSystem() {
+	DUCKDB_PY_ASSERT_GIL_HELD();
+	if (!object_store) {
+		auto &context = *con.GetConnection().context;
+		auto store = ObjectCache::GetObjectCache(context).GetOrCreate<ObjectStore>(ObjectStore::ObjectType());
+		// The GIL is the lock here: a mutex held while the Python file system is built would deadlock against a
+		// connection that took the GIL and waits for it. Building runs Python, which can hand the GIL to another
+		// connection doing the same, so every Python step comes first and the entry is checked again right before
+		// the engine registration, which runs no Python.
+		if (!store->filesystem) {
+			auto &import_cache_py = *ImportCache();
+			auto modified_memory_fs = import_cache_py.duckdb.filesystem.ModifiedMemoryFileSystem();
+			if (modified_memory_fs.ptr() == nullptr) {
+				throw InvalidInputException(
+				    "This operation could not be completed because required module 'fsspec' is not installed");
+			}
+			auto built = make_uniq<ModifiedMemoryFileSystem>(modified_memory_fs());
+			auto wrapped = WrapFilesystem(*built);
+			if (!store->filesystem) {
+				D_ASSERT(!FileSystemIsRegistered(PathLike::OBJECT_STORE_PROTOCOL));
+				con.GetDatabase().GetFileSystem().RegisterSubSystem(std::move(wrapped));
+				store->filesystem = std::move(built);
+			}
+		}
+		object_store = std::move(store);
+	}
+	return *object_store->filesystem;
 }
 
 bool DuckDBPyConnection::IsInteractive() {
@@ -1745,6 +1868,7 @@ void DuckDBPyConnection::Cleanup() {
 	GetModuleState().default_connection.Release();
 	GetModuleState().import_cache.reset();
 	GetModuleState().consumed_arrow_readers.reset();
+	GetModuleState().numpy_scalar_types.reset();
 	GetModuleState().arrow_sources_adapt.reset();
 	GetModuleState().arrow_sources_nodes.reset();
 }
@@ -1787,7 +1911,7 @@ NumpyObjectType DuckDBPyConnection::IsAcceptedNumpyObject(const nb::object &obje
 		default:
 			return NumpyObjectType::INVALID;
 		}
-	} else if (duckdb::PyUtil::IsDictLike(object)) {
+	} else if (PyDict_Check(object.ptr())) {
 		int dim = -1;
 		for (auto item : nb::cast<nb::dict>(object)) {
 			if (!IsValidNumpyDimensions(item.second, dim)) {
@@ -1795,9 +1919,9 @@ NumpyObjectType DuckDBPyConnection::IsAcceptedNumpyObject(const nb::object &obje
 			}
 		}
 		return NumpyObjectType::DICT;
-	} else if (duckdb::PyUtil::IsListLike(object)) {
+	} else if (PyList_Check(object.ptr()) || PyTuple_Check(object.ptr())) {
 		int dim = -1;
-		for (auto item : nb::cast<nb::list>(object)) {
+		for (auto item : object) {
 			if (!IsValidNumpyDimensions(item, dim)) {
 				return NumpyObjectType::INVALID;
 			}

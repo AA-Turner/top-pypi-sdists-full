@@ -46,6 +46,7 @@ class TestOrganizationBulkUnregisteredAgentsResponse(unittest.TestCase):
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         filters = arthur_client.api_bindings.models.unregistered_agent_filter.UnregisteredAgentFilter(
                             name_filter = '', 
+                            search = '', 
                             agent_ids = [
                                 ''
                                 ], 
@@ -108,6 +109,7 @@ class TestOrganizationBulkUnregisteredAgentsResponse(unittest.TestCase):
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         filters = arthur_client.api_bindings.models.unregistered_agent_filter.UnregisteredAgentFilter(
                             name_filter = '', 
+                            search = '', 
                             agent_ids = [
                                 ''
                                 ], 

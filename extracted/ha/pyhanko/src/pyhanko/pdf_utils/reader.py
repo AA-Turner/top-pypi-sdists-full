@@ -14,7 +14,8 @@ import logging
 import os
 import re
 from collections import defaultdict
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
+from dataclasses import dataclass
 from io import BytesIO
 from typing import BinaryIO
 
@@ -850,6 +851,12 @@ class RawPdfPath:
         return f"PathInRevision('{self!s}')"
 
 
+@dataclass(frozen=True)
+class _TreeIndex:
+    page_tree_nodes: dict[generic.Reference, misc.ConsList]
+    struct_tree_nodes: frozenset[generic.Reference]
+
+
 class HistoricalResolver(PdfHandler):
     """
     :class:`~.rw_common.PdfHandler` implementation that provides a view
@@ -904,11 +911,46 @@ class HistoricalResolver(PdfHandler):
         # may already have decoded, so charging those to the reader's budget
         # would make validating multi-revision documents fail spuriously.
         self._decode_context = reader.decode_context.fresh()
-        self._trailer = self.reader.trailer.flatten(self.revision)
-        self._trailer.container_ref = generic.TrailerReference(self)
+        trailer_ref = generic.TrailerReference(self)
+        self._trailer = generic.DictionaryObject(
+            {
+                k: self._rebind_trailer_value(v, trailer_ref)
+                for k, v in self.reader.trailer.flatten(self.revision).items()
+            }
+        )
+        self._trailer.container_ref = trailer_ref
         self._indirect_object_access_cache: (
             dict[generic.Reference, set[RawPdfPath]] | None
         ) = None
+        self._tree_index: _TreeIndex | None = None
+        # References whose usages are known to be complete in the cache above.
+        # A full mapping (no targets) makes the cache complete for everything.
+        self._usage_paths_complete = False
+        self._usage_paths_computed: set[generic.Reference] = set()
+        self._ref_parents: (
+            dict[generic.Reference, set[generic.Reference]] | None
+        ) = None
+
+    def _rebind_trailer_value(self, obj, trailer_ref):
+        # Trailer entries come straight from the reader, so indirect references
+        # inside them would resolve in the latest revision.
+        if isinstance(obj, generic.IndirectObject):
+            return generic.IndirectObject(obj.idnum, obj.generation, self)
+        elif isinstance(obj, generic.DictionaryObject):
+            result = generic.DictionaryObject(
+                {
+                    k: self._rebind_trailer_value(v, trailer_ref)
+                    for k, v in obj.items()
+                }
+            )
+        elif isinstance(obj, generic.ArrayObject):
+            result = generic.ArrayObject(
+                self._rebind_trailer_value(v, trailer_ref) for v in obj
+            )
+        else:
+            return obj
+        result.container_ref = trailer_ref
+        return result
 
     @property
     def trailer_view(self) -> generic.DictionaryObject:
@@ -1110,15 +1152,176 @@ class HistoricalResolver(PdfHandler):
                 self._collect_indirect_references(v, seen, since_revision)
 
     def _get_usages_of_ref(self, ref: generic.Reference) -> set[RawPdfPath]:
+        if not self._usage_paths_complete and (
+            ref not in self._usage_paths_computed
+        ):
+            self._load_reverse_xref_cache(targets=(ref,))
         cache = self._indirect_object_access_cache or {}
         try:
             return cache[ref]
         except KeyError:
             return set()
 
-    def _load_reverse_xref_cache(self):
-        if self._indirect_object_access_cache is not None:
+    @staticmethod
+    def _collect_page_tree_refs(pages_obj, path):
+        for ix, kid in enumerate(pages_obj['/Kids']):
+            kid_path = path.cons('/Kids').cons(ix)
+            # should always be true, but hey
+            if isinstance(kid, generic.IndirectObject):
+                yield kid.reference, kid_path
+            kid = kid.get_object()
+            if kid.get('/Type', None) == '/Pages':
+                yield from HistoricalResolver._collect_page_tree_refs(
+                    kid, kid_path
+                )
+
+    @staticmethod
+    def _collect_struct_tree_refs(struct_elem):
+        try:
+            children = struct_elem['/K']
+        except KeyError:
             return
+
+        # if there's only one child, /K need not be an array
+        if not isinstance(children, generic.ArrayObject):
+            children = (children,)
+
+        for child in children:
+            child_ref = None
+            if isinstance(child, generic.IndirectObject):
+                child_ref = child.reference
+                child = child.get_object()
+
+            # The /K entry can also refer to content items.
+            # We don't care about those.
+            if not isinstance(child, generic.DictionaryObject):
+                continue
+            try:
+                if child['/Type'] != '/StructElem':
+                    continue
+            except KeyError:
+                # If the child doesn't have a /Type entry, /StructElem
+                # is the default (says so in the spec)
+                pass
+
+            if child_ref is not None:
+                yield child_ref
+
+            yield from HistoricalResolver._collect_struct_tree_refs(child)
+
+    def _load_tree_index(self) -> _TreeIndex:
+        # Depends only on the revision, so it is shared by all mapping passes.
+        if self._tree_index is not None:
+            return self._tree_index
+        pages_ref = self.root.raw_get('/Pages')
+        pages_path = misc.ConsList.sing('/Root').cons('/Pages')
+        page_tree_nodes = {}
+        if isinstance(pages_ref, generic.IndirectObject):
+            page_tree_nodes[pages_ref.reference] = pages_path
+        for ref, path in self._collect_page_tree_refs(
+            pages_ref.get_object(), pages_path
+        ):
+            if ref in page_tree_nodes:
+                raise misc.PdfReadError(
+                    "Circular reference in page tree in mapping stage"
+                )
+            page_tree_nodes[ref] = path
+        struct_tree_nodes = set()
+        try:
+            struct_tree_root_ref = self.root.raw_get('/StructTreeRoot')
+            struct_tree_root = struct_tree_root_ref.get_object()
+            for ref in self._collect_struct_tree_refs(struct_tree_root):
+                if ref in struct_tree_nodes:
+                    raise misc.PdfReadError(
+                        "Circular reference in structure tree in mapping stage"
+                    )
+                struct_tree_nodes.add(ref)
+        except KeyError:
+            pass
+        self._tree_index = tree_index = _TreeIndex(
+            page_tree_nodes=page_tree_nodes,
+            struct_tree_nodes=frozenset(struct_tree_nodes),
+        )
+        return tree_index
+
+    def _load_ref_parents(
+        self,
+    ) -> dict[generic.Reference, set[generic.Reference]]:
+        # Reverse reference graph of the objects reachable from the trailer,
+        # following the same edges as _compute_paths_to_refs below (in
+        # particular, /Parent is never followed).
+        if self._ref_parents is not None:
+            return self._ref_parents
+
+        def _children(obj, out):
+            if isinstance(obj, generic.IndirectObject):
+                out.append(obj.reference)
+            elif isinstance(obj, generic.DictionaryObject):
+                for k, v in obj.items():
+                    if k != '/Parent':
+                        _children(v, out)
+            elif isinstance(obj, generic.ArrayObject):
+                for v in obj:
+                    _children(v, out)
+
+        parents: dict[generic.Reference, set[generic.Reference]] = defaultdict(
+            set
+        )
+        to_visit: list[generic.Reference] = []
+        _children(self.trailer_view, to_visit)
+        visited: set[generic.Reference] = set()
+        while to_visit:
+            ref = to_visit.pop()
+            if ref in visited:
+                continue
+            visited.add(ref)
+            children: list[generic.Reference] = []
+            _children(self(ref), children)
+            for child in children:
+                parents[child].add(ref)
+                if child not in visited:
+                    to_visit.append(child)
+        self._ref_parents = parents
+        return parents
+
+    def _ancestors_of(
+        self, refs: Iterable[generic.Reference]
+    ) -> set[generic.Reference]:
+        parents = self._load_ref_parents()
+        result = set(refs)
+        queue = list(result)
+        while queue:
+            for parent in parents.get(queue.pop(), ()):
+                if parent not in result:
+                    result.add(parent)
+                    queue.append(parent)
+        return result
+
+    def _load_reverse_xref_cache(
+        self, targets: Iterable[generic.Reference] | None = None
+    ):
+        """
+        Record the paths through which indirect objects can be reached from
+        the trailer.
+
+        Without ``targets``, every object is mapped. With ``targets``, only
+        objects from which some target can be reached are entered. Every path
+        to an object passes only through objects that lead to it, so the
+        paths recorded for the targets (and for every other object entered)
+        are exactly those of a full mapping. Shared resources that do not
+        lead to a target, which can be reached through a number of paths
+        that grows polynomially with the number of pages, are skipped.
+        """
+        if self._usage_paths_complete:
+            return
+        relevant: set[generic.Reference] | None
+        if targets is None:
+            relevant = None
+        else:
+            pending = set(targets) - self._usage_paths_computed
+            if not pending:
+                return
+            relevant = self._ancestors_of(pending)
 
         collected = defaultdict(set)
 
@@ -1148,6 +1351,9 @@ class HistoricalResolver(PdfHandler):
 
             if isinstance(obj, generic.IndirectObject):
                 obj_ref = obj.reference
+                if relevant is not None and obj_ref not in relevant:
+                    # no target can be reached from here
+                    return
                 if obj_ref in seen_in_path:
                     return
                 collected[obj_ref].add(cur_path)
@@ -1203,84 +1409,25 @@ class HistoricalResolver(PdfHandler):
                         struct_tree_objs=struct_tree_objs,
                     )
 
-        def _collect_page_tree_refs(pages_obj, path):
-            for ix, kid in enumerate(pages_obj['/Kids']):
-                kid_path = path.cons('/Kids').cons(ix)
-                # should always be true, but hey
-                if isinstance(kid, generic.IndirectObject):
-                    yield kid.reference, kid_path
-                kid = kid.get_object()
-                if kid.get('/Type', None) == '/Pages':
-                    yield from _collect_page_tree_refs(kid, kid_path)
-
-        def _collect_struct_tree_refs(struct_elem):
-            try:
-                children = struct_elem['/K']
-            except KeyError:
-                return
-
-            # if there's only one child, /K need not be an array
-            if not isinstance(children, generic.ArrayObject):
-                children = (children,)
-
-            for child in children:
-                child_ref = None
-                if isinstance(child, generic.IndirectObject):
-                    child_ref = child.reference
-                    child = child.get_object()
-
-                # The /K entry can also refer to content items.
-                # We don't care about those.
-                if not isinstance(child, generic.DictionaryObject):
-                    continue
-                try:
-                    if child['/Type'] != '/StructElem':
-                        continue
-                except KeyError:
-                    # If the child doesn't have a /Type entry, /StructElem
-                    # is the default (says so in the spec)
-                    pass
-
-                if child_ref is not None:
-                    yield child_ref
-
-                yield from _collect_struct_tree_refs(child)
-
-        pages_ref = self.root.raw_get('/Pages')
-        pages_path = misc.ConsList.sing('/Root').cons('/Pages')
-        page_tree_nodes = {}
-        if isinstance(pages_ref, generic.IndirectObject):
-            page_tree_nodes[pages_ref.reference] = pages_path
-        for ref, path in _collect_page_tree_refs(
-            pages_ref.get_object(), pages_path
-        ):
-            if ref in page_tree_nodes:
-                raise misc.PdfReadError(
-                    "Circular reference in page tree in mapping stage"
-                )
-            page_tree_nodes[ref] = path
-        struct_tree_nodes = set()
-        try:
-            struct_tree_root_ref = self.root.raw_get('/StructTreeRoot')
-            struct_tree_root = struct_tree_root_ref.get_object()
-            for ref in _collect_struct_tree_refs(struct_tree_root):
-                if ref in struct_tree_nodes:
-                    raise misc.PdfReadError(
-                        "Circular reference in structure tree in mapping stage"
-                    )
-                struct_tree_nodes.add(ref)
-        except KeyError:
-            pass
+        tree_index = self._load_tree_index()
         _compute_paths_to_refs(
             self.trailer_view,
             misc.ConsList.empty(),
             misc.ConsList.empty(),
-            page_tree_objs=page_tree_nodes,
+            page_tree_objs=tree_index.page_tree_nodes,
             is_struct_tree=False,
-            struct_tree_objs=struct_tree_nodes,
+            struct_tree_objs=tree_index.struct_tree_nodes,
         )
 
-        self._indirect_object_access_cache = {
+        usages = {
             ref: {RawPdfPath(*reversed(list(p))) for p in paths}
             for ref, paths in collected.items()
         }
+        if relevant is None:
+            self._indirect_object_access_cache = usages
+            self._usage_paths_complete = True
+        else:
+            if self._indirect_object_access_cache is None:
+                self._indirect_object_access_cache = {}
+            self._indirect_object_access_cache.update(usages)
+            self._usage_paths_computed |= relevant

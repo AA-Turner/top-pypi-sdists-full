@@ -2,8 +2,9 @@
 
 Decode-time expansion uses the generated Profile main-field registry
 (:mod:`fit_tool.profile.component_registry`) plus any
-:class:`~fit_tool.field_component.FieldComponent` entries already attached to a
-:class:`~fit_tool.field.Field` (for tests and future codegen).
+:class:`~fit_tool.field_component.FieldComponent` entries attached to the packing
+:class:`~fit_tool.field.Field` or its active subfield (generated subfields such as
+``event.data`` gear-change / radar-threat sets, and synthetic test fields).
 
 Active-subfield components are selected via ``components_for_field`` when
 sibling fields are provided. Nested components (a destination that is itself a
@@ -63,7 +64,7 @@ def registry_coverage() -> dict[str, object]:
             'profile_main_field_sources': 37,
             'registry_entries': 37,
             'coverage_ratio': 1.0,
-            'subfield_components': 'via active subfield when sibling_fields given',
+            'subfield_components': 'generated Profile subfields + synthetic test subfields',
         }
     """
     registry_entries = len(PROFILE_COMPONENTS)
@@ -75,13 +76,13 @@ def registry_coverage() -> dict[str, object]:
         'profile_main_field_sources': profile_sources,
         'registry_entries': registry_entries,
         'coverage_ratio': ratio,
-        'subfield_components': 'via active subfield when sibling_fields given',
+        'subfield_components': 'generated Profile subfields + synthetic test subfields',
     }
 
 
 def _field_raw_as_int(field: Field) -> int | None:
     """Combine numeric encoded values into a little-endian bit bucket."""
-    if not field.is_valid() or not field.encoded_values:
+    if not field.has_value() or not field.encoded_values:
         return None
     if field.base_type.is_string() or field.base_type.is_float():
         return None
@@ -103,7 +104,10 @@ def _destination_has_wire_value(field: Field) -> bool:
         return False
     if not field.encoded_values:
         return False
-    return any(value is not None for value in field.encoded_values)
+    return any(
+        value is not None and not field.base_type.is_invalid_value(value)
+        for value in field.encoded_values
+    )
 
 
 def _ensure_destination_slot(destination: Field, index: int) -> None:

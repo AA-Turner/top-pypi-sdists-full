@@ -13,7 +13,7 @@ Use dotted to fetch, update, and remove data from deeply nested structures.
 Core Operations
 ---------------
 get(obj, path)          Get value at dotted path
-iget(obj, path)         Yield the values at dotted path (lazy)
+iget(obj, path)         Yield the values at dotted path (streaming read)
 update(obj, path, val)  Update value at dotted path
 remove(obj, path)       Remove value at dotted path
 has(obj, path)          Check if path exists
@@ -25,19 +25,27 @@ Pattern Matching
 match(pattern, path)    Match pattern to path
 replace(template, bind) Substitute $N in template path
 expand(obj, pattern)    Expand pattern to concrete paths
-iexpand(obj, pattern)   Yield concrete paths for pattern (lazy)
+iexpand(obj, pattern)   Yield concrete paths for pattern (streaming read)
 
 Building & Plucking
 -------------------
 build(obj, path)        Build default structure for path
 pack(pathvalues)        Build object from path-value pairs
 pluck(obj, pattern)     Extract (path, value) pairs
-ipluck(obj, pattern)    Yield (path, value) pairs (lazy)
-walk(obj, pattern)      Alias of ipluck
+ipluck(obj, pattern)    Yield (path, value) pairs (streaming read)
 unpack(obj)             Extract to dotted normal form
 keys(obj)               Dotted paths of obj
 values(obj)             Leaf values of obj
 items(obj)              (path, value) pairs as dict_items view
+
+Streaming reads
+---------------
+iget, ipluck and iexpand read through one-shot iterators (generators, maps,
+cursors), one match at a time; get, has, pluck, expand and the writes never
+draw from one. iget_multi, ipluck_multi and iexpand_multi take several paths.
+
+    >>> list(dotted.iget({'rows': iter([{'y': 1}, {'y': 2}])}, 'rows[*].y'))
+    [1, 2]
 
 Transforms
 ----------
@@ -71,14 +79,14 @@ from .api import \
     register, transform, set_resolver, get_resolver, \
     assemble, assemble_multi, \
     build, build_multi, \
-    expand, expand_multi, iexpand, \
+    expand, expand_multi, iexpand, iexpand_multi, \
     match, match_multi, replace, overlaps, translate, translate_multi, \
     apply, apply_multi, \
-    get, get_multi, getter, iget, \
+    get, get_multi, getter, iget, iget_multi, \
     has, setdefault, setdefault_multi, \
     update, update_multi, pack, update_if, update_if_multi, \
     remove, remove_multi, remove_if, remove_if_multi, \
-    pluck, pluck_multi, ipluck, walk, walk_multi, unpack, keys, values, items
+    pluck, pluck_multi, ipluck, ipluck_multi, unpack, keys, values, items
 from .translators import sqlize, sparkize, TranslationError, SQLFragment, Resolver, ParamStyle, ParamPool
 # the run-time reference resolver; sqlize's Resolver, above, has the plain name
 from .base import Resolver as ReferenceResolver, UnresolvedReference
@@ -88,11 +96,11 @@ __all__ = [
     'get', 'getter', 'iget', 'update', 'remove', 'has', 'setdefault',
     'ReferenceResolver', 'UnresolvedReference', 'set_resolver', 'get_resolver',
     # Multi
-    'get_multi', 'update_multi', 'pack', 'update_if', 'update_if_multi', 'remove_multi', 'remove_if', 'remove_if_multi', 'setdefault_multi',
+    'get_multi', 'iget_multi', 'update_multi', 'pack', 'update_if', 'update_if_multi', 'remove_multi', 'remove_if', 'remove_if_multi', 'setdefault_multi',
     # Pattern
-    'match', 'match_multi', 'replace', 'overlaps', 'translate', 'translate_multi', 'expand', 'expand_multi', 'iexpand',
+    'match', 'match_multi', 'replace', 'overlaps', 'translate', 'translate_multi', 'expand', 'expand_multi', 'iexpand', 'iexpand_multi',
     # Build/Pluck
-    'build', 'build_multi', 'pluck', 'pluck_multi', 'ipluck', 'walk', 'walk_multi', 'unpack', 'keys', 'values', 'items',
+    'build', 'build_multi', 'pluck', 'pluck_multi', 'ipluck', 'ipluck_multi', 'unpack', 'keys', 'values', 'items',
     # Transform
     'apply', 'apply_multi', 'register', 'transform',
     # Utility

@@ -43,12 +43,20 @@ from doppler.track.tests.validation.mpsk_receiver import (
 from doppler.track.tests.validation.ratesync import (
     validate as ratesync_validate,
 )
+from doppler.track.tests.validation.state_filter import (
+    validate as state_filter_validate,
+)
+from doppler.track.tests.validation.state_filter_kalman import (
+    validate as state_filter_kalman_validate,
+)
 
 OBJECTS = {
     "carrier_nda": carrier_nda_validate,
     "loop_filter": loop_filter_validate,
     "mpsk_receiver": mpsk_receiver_validate,
     "ratesync": ratesync_validate,
+    "state_filter": state_filter_validate,
+    "state_filter_kalman": state_filter_kalman_validate,
 }
 
 

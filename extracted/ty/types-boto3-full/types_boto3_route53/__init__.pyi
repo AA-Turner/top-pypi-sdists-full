@@ -11,9 +11,13 @@ Usage::
     from boto3.session import Session
     from types_boto3_route53 import (
         Client,
+        HealthCheckSourceCreatedWaiter,
+        HealthCheckSourceDeletedWaiter,
         ListCidrBlocksPaginator,
         ListCidrCollectionsPaginator,
         ListCidrLocationsPaginator,
+        ListHealthCheckSourcesPaginator,
+        ListHealthChecksBySourcePaginator,
         ListHealthChecksPaginator,
         ListHostedZonesPaginator,
         ListQueryLoggingConfigsPaginator,
@@ -27,11 +31,15 @@ Usage::
     session = Session()
     client: Route53Client = session.client("route53")
 
+    health_check_source_created_waiter: HealthCheckSourceCreatedWaiter = client.get_waiter("health_check_source_created")
+    health_check_source_deleted_waiter: HealthCheckSourceDeletedWaiter = client.get_waiter("health_check_source_deleted")
     resource_record_sets_changed_waiter: ResourceRecordSetsChangedWaiter = client.get_waiter("resource_record_sets_changed")
 
     list_cidr_blocks_paginator: ListCidrBlocksPaginator = client.get_paginator("list_cidr_blocks")
     list_cidr_collections_paginator: ListCidrCollectionsPaginator = client.get_paginator("list_cidr_collections")
     list_cidr_locations_paginator: ListCidrLocationsPaginator = client.get_paginator("list_cidr_locations")
+    list_health_check_sources_paginator: ListHealthCheckSourcesPaginator = client.get_paginator("list_health_check_sources")
+    list_health_checks_by_source_paginator: ListHealthChecksBySourcePaginator = client.get_paginator("list_health_checks_by_source")
     list_health_checks_paginator: ListHealthChecksPaginator = client.get_paginator("list_health_checks")
     list_hosted_zones_paginator: ListHostedZonesPaginator = client.get_paginator("list_hosted_zones")
     list_query_logging_configs_paginator: ListQueryLoggingConfigsPaginator = client.get_paginator("list_query_logging_configs")
@@ -46,6 +54,8 @@ from .paginator import (
     ListCidrBlocksPaginator,
     ListCidrCollectionsPaginator,
     ListCidrLocationsPaginator,
+    ListHealthChecksBySourcePaginator,
+    ListHealthCheckSourcesPaginator,
     ListHealthChecksPaginator,
     ListHostedZonesPaginator,
     ListQueryLoggingConfigsPaginator,
@@ -53,15 +63,23 @@ from .paginator import (
     ListResourceRecordSetsPaginator,
     ListVPCAssociationAuthorizationsPaginator,
 )
-from .waiter import ResourceRecordSetsChangedWaiter
+from .waiter import (
+    HealthCheckSourceCreatedWaiter,
+    HealthCheckSourceDeletedWaiter,
+    ResourceRecordSetsChangedWaiter,
+)
 
 Client = Route53Client
 
 __all__ = (
     "Client",
+    "HealthCheckSourceCreatedWaiter",
+    "HealthCheckSourceDeletedWaiter",
     "ListCidrBlocksPaginator",
     "ListCidrCollectionsPaginator",
     "ListCidrLocationsPaginator",
+    "ListHealthCheckSourcesPaginator",
+    "ListHealthChecksBySourcePaginator",
     "ListHealthChecksPaginator",
     "ListHostedZonesPaginator",
     "ListQueryLoggingConfigsPaginator",

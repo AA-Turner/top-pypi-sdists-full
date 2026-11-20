@@ -2884,13 +2884,30 @@ def _records_routing_from_terms(
     terms: Sequence[str],
     facets: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any] | None:
-    """Route authored terms through visible projected claims. Advisory; fail open."""
-    try:
-        from . import collection_claims, due_state
+    """Route authored terms through visible projected claims, naming the collection's capture method.
 
-        return collection_claims.route(
-            terms, due_state.routing_targets(vault_root), facets=facets
+    Advisory; fail open.
+    """
+    try:
+        from . import capture_method, collection_claims, due_state
+
+        targets = due_state.routing_targets(vault_root)
+        routed = collection_claims.route(terms, targets, facets=facets)
+        if routed is None:
+            return None
+        declared = next(
+            (target.capture_method for target in targets if target.collection == routed["collection"]), None
         )
+        # Naming the method is a courtesy of the route, never a condition of it: a method that does not
+        # resolve for this caller leaves the route as it was.
+        method = (
+            capture_method.resolve(vault_root, declared, readable=due_state.routing_visibility(vault_root))
+            if declared
+            else None
+        )
+        if method is None:
+            return routed
+        return {**routed, "method": {"title": method.title, "read_ref": method.ref}}
     except Exception:  # noqa: BLE001 -- routing advice never breaks a commit
         log.debug("collection claims routing failed (non-fatal)", exc_info=True)
         return None
@@ -4583,10 +4600,11 @@ def _corpus_with_recovery_states(
         tuple(entry for entry in base.identity_census.entries if entry.path not in removed_paths),
         base.identity_census.reference_only_entries,
     )
-    casefold_paths = vault.vault_casefolds(root)
-    for state in states:
-        pages[state.path] = state
-        identity_census = identity_census.with_page(state, casefold_paths=casefold_paths)
+    recovered = {state.path: state for state in states}
+    pages.update(recovered)
+    identity_census = identity_census.with_pages(
+        recovered, casefold_paths=vault.vault_casefolds(root)
+    )
     return semantic_contract.SemanticCorpusContext.from_states(
         root,
         pages.values(),
@@ -6034,13 +6052,19 @@ def _structural_verdicts(
     return _judge_batch(root, before, states, operation=operation), before, states
 
 
-def _holds_planned_bytes(write: vault.PlannedWrite) -> bool:
-    """Whether `write`'s file holds exactly the text this batch planned for it."""
+def _holds_planned_bytes(root: Path, write: vault.PlannedWrite) -> bool:
+    """Whether `write`'s page holds exactly the text this batch planned for it.
+
+    A store-mode page is the store's, and its file is only a projection that lags the commit. The
+    probe runs inside the write's own error handler, so any failure of it reads as "not proven
+    written" and the write's own error is raised.
+    """
     try:
         return isinstance(write.content, str) and (
-            Path(write.path).read_bytes() == write.content.encode("utf-8")
+            vault.read_bytes_without_pinning(Path(write.path), root)
+            == write.content.encode("utf-8")
         )
-    except OSError:
+    except Exception:  # noqa: BLE001 - a failed probe must not replace the error it runs under.
         return False
 
 
@@ -6182,8 +6206,8 @@ def _commit_structural(
         # The write kept workspace state and may have kept pages, so it is no refusal.
         return (), error
     except Exception as error:
-        if any(_holds_planned_bytes(write) for write in primary_writes):
-            # The write failed after its commit point, so the pages are on disk.
+        if any(_holds_planned_bytes(root, write) for write in primary_writes):
+            # The write failed after its commit point, so the pages are written.
             return (), error
         raise
     finally:

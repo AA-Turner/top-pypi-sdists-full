@@ -40,6 +40,7 @@ fancy-regex = { workspace = true }
 # Date/Time
 chrono = { workspace = true }
 chrono-tz = { workspace = true, optional = true }
+encoding_rs = { workspace = true, optional = true }
 vt100 = { workspace = true, optional = true }
 
 # HTTP client (for curl/wget) - optional, enabled with http_client feature
@@ -81,10 +82,8 @@ oxc_parser = { version = "0.117.0", optional = true }
 oxc_ast = { version = "0.117.0", optional = true }
 oxc_allocator = { version = "0.117.0", optional = true }
 oxc_span = { version = "0.117.0", optional = true }
-oxc_syntax = { version = "0.117.0", optional = true }
-postcard = { version = "1.1.3", features = ["alloc"], optional = true }
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
 num-bigint = { version = "0.4.6", default-features = false, optional = true }
-ryu = { version = "1.0.20", optional = true }
 self_cell = { version = "1.2.0", optional = true }
 
 # Compression (for gzip/gunzip and bzip2/bunzip2)
@@ -134,12 +133,12 @@ os_display = "0.1.3"
 # (`set_memory_probe`, pydantic/monty#740, and `set_checkpoint_hook`) plus its
 # own per-VM `MeteredAllocator` (src/python_meter.rs). The lib names stay
 # `monty`/`monty_types`; see knowledge/runtimes/python-builtin.md.
-monty = { package = "bashkit-monty", path = "../bashkit-monty", version = "0.21.0", optional = true }
-monty-types = { package = "bashkit-monty-types", path = "../bashkit-monty-types", version = "0.21.0", optional = true }
+monty = { package = "bashkit-monty", path = "../bashkit-monty", version = "0.21.1", optional = true }
+monty-types = { package = "bashkit-monty-types", path = "../bashkit-monty-types", version = "0.21.1", optional = true }
 
 # Real CPython 3.14 as a WASI guest, precompiled to Pulley (cpython feature).
 # See knowledge/runtimes/cpython-wasm.md.
-bashkit-cpython-wasm = { path = "../bashkit-cpython-wasm", version = "0.21.0", optional = true }
+bashkit-cpython-wasm = { path = "../bashkit-cpython-wasm", version = "0.21.1", optional = true }
 wasmtime = { workspace = true, optional = true, features = ["pooling-allocator"] }
 
 # Embedded TypeScript interpreter (optional)
@@ -153,7 +152,7 @@ turso_core = { workspace = true, optional = true }
 branches = { workspace = true, optional = true }
 
 [features]
-default = ["bash_tool", "ring", "tzdata"]
+default = ["bash_tool", "ring", "tzdata", "iconv_charsets"]
 # Named IANA timezone support for the `date` builtin's `TZ=` handling, via the
 # chrono-tz database. On by default.
 #
@@ -170,6 +169,15 @@ default = ["bash_tool", "ring", "tzdata"]
 # is still never consulted. `TZ=UTC`, unset, empty, and path-style values are
 # unaffected.
 tzdata = ["dep:chrono-tz"]
+# Code pages for the `iconv` builtin beyond UTF-8/ASCII/Latin-1/UTF-16:
+# windows-125x, iso-8859-x, koi8, macintosh and the CJK sets, from the WHATWG
+# Encoding Standard tables in encoding_rs. On by default.
+#
+# Important decision: a feature for the same reason as `tzdata`: the CJK
+# tables are a few hundred KB of static data that the slim browser wasm
+# package should not carry. Without it `iconv` names other charsets as
+# unsupported and exits 1; the built-in charsets are unaffected.
+iconv_charsets = ["dep:encoding_rs"]
 # Enable the LLM-facing `BashTool` wrapper: the `Tool` trait, `ToolExecution`,
 # OpenAI tool-definition/JSON-schema helpers, and the `tower::Service` bridge.
 # On by default. Disable with `--no-default-features` to compile just the
@@ -210,7 +218,6 @@ jq = [
     "dep:hifijson",
     "dep:indexmap",
     "dep:num-bigint",
-    "dep:ryu",
     "dep:self_cell",
     "dep:serde_norway",
 ]
@@ -259,7 +266,7 @@ cpython = ["dep:bashkit-cpython-wasm", "dep:wasmtime"]
 cpython-native = ["cpython", "bashkit-cpython-wasm/native"]
 # Enable ts/node/deno/bun builtins via embedded ZapCode TypeScript interpreter
 # Usage: cargo build --features typescript
-typescript = ["dep:oxc_parser", "dep:oxc_ast", "dep:oxc_allocator", "dep:oxc_span", "dep:oxc_syntax", "dep:postcard", "dep:indexmap", "indexmap/std", "indexmap/serde", "serde/rc"]
+typescript = ["dep:oxc_parser", "dep:oxc_ast", "dep:oxc_allocator", "dep:oxc_span", "dep:postcard", "dep:indexmap", "indexmap/std", "indexmap/serde", "serde/rc"]
 # Enable sqlite/sqlite3 builtins backed by Turso (pure-Rust SQLite-compatible
 # engine). Phase 1 uses turso's `MemoryIO` with a load/flush against the VFS
 # at command boundaries; Phase 2 plugs the bashkit VFS in via a custom `IO`

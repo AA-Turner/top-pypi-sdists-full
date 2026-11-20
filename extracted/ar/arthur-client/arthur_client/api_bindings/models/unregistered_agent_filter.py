@@ -30,6 +30,7 @@ class UnregisteredAgentFilter(BaseModel):
     The filters the unregistered agents list takes, as a request body.  A bulk action given one of these covers exactly the agents a list view with the same filters shows, resolved when the action runs.
     """ # noqa: E501
     name_filter: Optional[StrictStr] = None
+    search: Optional[StrictStr] = None
     agent_ids: Optional[List[StrictStr]] = None
     task_ids: Optional[List[StrictStr]] = None
     sub_agent_names: Optional[List[StrictStr]] = None
@@ -47,7 +48,7 @@ class UnregisteredAgentFilter(BaseModel):
     first_seen_before: Optional[datetime] = None
     created_after: Optional[datetime] = None
     created_before: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["name_filter", "agent_ids", "task_ids", "sub_agent_names", "tool_names", "llm_model_names", "data_source_urls", "show_muted", "source_ids", "data_plane_ids", "has_source", "external_ids", "source_classes", "evidence_levels", "first_seen_after", "first_seen_before", "created_after", "created_before"]
+    __properties: ClassVar[List[str]] = ["name_filter", "search", "agent_ids", "task_ids", "sub_agent_names", "tool_names", "llm_model_names", "data_source_urls", "show_muted", "source_ids", "data_plane_ids", "has_source", "external_ids", "source_classes", "evidence_levels", "first_seen_after", "first_seen_before", "created_after", "created_before"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +93,11 @@ class UnregisteredAgentFilter(BaseModel):
         # and model_fields_set contains the field
         if self.name_filter is None and "name_filter" in self.model_fields_set:
             _dict['name_filter'] = None
+
+        # set to None if search (nullable) is None
+        # and model_fields_set contains the field
+        if self.search is None and "search" in self.model_fields_set:
+            _dict['search'] = None
 
         # set to None if agent_ids (nullable) is None
         # and model_fields_set contains the field
@@ -191,6 +197,7 @@ class UnregisteredAgentFilter(BaseModel):
 
         _obj = cls.model_validate({
             "name_filter": obj.get("name_filter"),
+            "search": obj.get("search"),
             "agent_ids": obj.get("agent_ids"),
             "task_ids": obj.get("task_ids"),
             "sub_agent_names": obj.get("sub_agent_names"),

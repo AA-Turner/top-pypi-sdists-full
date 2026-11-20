@@ -100,9 +100,9 @@ def _pack(obj: Any, out: list, depth: int) -> None:
 
 def _pil_as_array(obj: Any) -> Any:
     """A PIL image as the numpy array its pixels are (np.asarray: HxWx3 uint8 for an RGB one), so a frame fitted with
-    frames.resize_image is sent as the picture it is; anything else as it is. A PIL.Image still being imported -
-    frames.warm() loads Pillow on a thread of its own while a robot's first act packs - has no Image class yet, and
-    nothing made from one: every value packed then is packed as it would be without Pillow."""
+    frames.resize_image is sent as the picture it is; anything else as it is. A PIL.Image still being imported - by
+    another thread, while this one packs - has no Image class yet, and nothing made from one: every value packed then
+    is packed as it would be without Pillow."""
     cls = getattr(sys.modules.get("PIL.Image"), "Image", None)
     if not isinstance(cls, type) or not isinstance(obj, cls):
         return obj

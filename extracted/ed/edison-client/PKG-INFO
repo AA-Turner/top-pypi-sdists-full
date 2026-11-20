@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edison-client
-Version: 0.18.0
+Version: 0.19.0
 Summary: A client for interacting with endpoints of the Edison Scientific service.
 Author-email: Edison Scientific technical staff <support@edisonscientific.com>
 License:                                  Apache License
@@ -217,6 +217,7 @@ License-File: LICENSE
 Requires-Dist: aiofiles
 Requires-Dist: cloudpickle
 Requires-Dist: fhaviary
+Requires-Dist: fhlmi<2
 Requires-Dist: google-resumable-media
 Requires-Dist: httpx
 Requires-Dist: httpx-aiohttp
@@ -228,18 +229,9 @@ Requires-Dist: python-dotenv
 Requires-Dist: requests
 Requires-Dist: tenacity
 Requires-Dist: tqdm>=4.62
+Requires-Dist: typing-extensions>=4.4
 Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
 Requires-Dist: edison-client[typing]; extra == "dev"
-Requires-Dist: ipykernel; extra == "dev"
-Requires-Dist: jupyter; extra == "dev"
-Requires-Dist: jupyterlab; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: notebook; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pylint-per-file-ignores; extra == "dev"
-Requires-Dist: pylint-pydantic; extra == "dev"
-Requires-Dist: pylint>=4; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-rerunfailures; extra == "dev"
@@ -247,13 +239,15 @@ Requires-Dist: pytest-subtests; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: pytest-timer[colorama]; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: ruff>=0.15.5; extra == "dev"
+Requires-Dist: ruff>=0.17.5; extra == "dev"
 Requires-Dist: setuptools_scm; extra == "dev"
 Provides-Extra: typing
 Requires-Dist: types-PyYAML; extra == "typing"
 Requires-Dist: types-aiofiles; extra == "typing"
 Requires-Dist: types-requests; extra == "typing"
 Requires-Dist: types-tqdm; extra == "typing"
+Provides-Extra: yaml
+Requires-Dist: pyyaml; extra == "yaml"
 Dynamic: license-file
 
 # EdisonScientific Platform API Documentation
@@ -288,6 +282,8 @@ for detailed documentation on usage.
 uv pip install edison-client
 ```
 
+For YAML directory manifests, install `edison-client[yaml]`.
+
 ## Quickstart
 
 ```python
@@ -300,8 +296,7 @@ client = EdisonClient()
 task_data = {
     "name": JobNames.LITERATURE,
     "query": (
-        "Which neglected diseases had a treatment developed"
-        " by artificial intelligence?"
+        "Which neglected diseases had a treatment developed by artificial intelligence?"
     ),
 }
 (task_response,) = client.run_tasks_until_done(task_data)
@@ -430,8 +425,7 @@ async def main():
         {
             "name": JobNames.LITERATURE,
             "query": (
-                "Are there any clinically validated"
-                " therapeutic exerkines for humans?"
+                "Are there any clinically validated therapeutic exerkines for humans?"
             ),
         },
     ]
@@ -539,8 +533,7 @@ task_id = client.create_task(task_data)
 continued_task_data = {
     "name": JobNames.LITERATURE,
     "query": (
-        "From the previous answer,"
-        " specifically, how many species of crows are there?"
+        "From the previous answer, specifically, how many species of crows are there?"
     ),
     "runtime_config": {"continued_task_id": task_id},
 }

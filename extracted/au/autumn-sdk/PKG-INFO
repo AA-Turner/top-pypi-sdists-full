@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autumn-sdk
-Version: 1.3.26
+Version: 1.3.31
 Summary: Python SDK for the Autumn billing API
 Author: Autumn
 License: Apache-2.0
@@ -236,6 +236,10 @@ Use this after an LLM request when you have input and output token counts. Autum
 * [delete](docs/sdks/approvalrules/README.md#delete) - Deletes an approval rule. Its versions stay readable through `approval_rules.versions.list`. Only owners and admins (an OAuth token also needs `organisation:write` consent) and live secret keys with every scope can call it. Anyone else, whatever their scopes and including any sandbox key, gets 403 `approval_rule_editor_required`.
 * [list_versions](docs/sdks/approvalrules/README.md#list_versions) - Lists a rule's saved versions, newest first, including after the rule is deleted.
 * [can](docs/sdks/approvalrules/README.md#can) - Says whether the caller could make some request for an action: `scope` when their scope allows it and no rule rules it out, `blocked` when a rule never allows it, and `none` when they lack the action's scope. A conditional rule can still deny a given request; preview it to see. Alias actions such as `billing.multi_attach` are read as the action they're checked as.
+
+### [Auth](docs/sdks/auth/README.md)
+
+* [exchange_token](docs/sdks/auth/README.md#exchange_token) - Exchanges a workload's platform OIDC token (GitHub Actions, GCP, AWS, Azure, GitLab, Vercel, Kubernetes or your own issuer) for a short-lived `am_wit_` access token, following RFC 8693. The token must match a trust rule in your organization; the access token carries that rule's scopes. Send it as a form body or JSON; no secret key is needed.
 
 ### [Balances](docs/sdks/balances/README.md)
 
@@ -474,13 +478,14 @@ with Autumn(
 
 [`AutumnError`](./src/autumn_sdk/errors/autumnerror.py) is the base class for all HTTP error responses. It has the following properties:
 
-| Property           | Type             | Description                                            |
-| ------------------ | ---------------- | ------------------------------------------------------ |
-| `err.message`      | `str`            | Error message                                          |
-| `err.status_code`  | `int`            | HTTP response status code eg `404`                     |
-| `err.headers`      | `httpx.Headers`  | HTTP response headers                                  |
-| `err.body`         | `str`            | HTTP body. Can be empty string if no body is returned. |
-| `err.raw_response` | `httpx.Response` | Raw HTTP response                                      |
+| Property           | Type             | Description                                                                             |
+| ------------------ | ---------------- | --------------------------------------------------------------------------------------- |
+| `err.message`      | `str`            | Error message                                                                           |
+| `err.status_code`  | `int`            | HTTP response status code eg `404`                                                      |
+| `err.headers`      | `httpx.Headers`  | HTTP response headers                                                                   |
+| `err.body`         | `str`            | HTTP body. Can be empty string if no body is returned.                                  |
+| `err.raw_response` | `httpx.Response` | Raw HTTP response                                                                       |
+| `err.data`         |                  | Optional. Some errors may contain structured data. [See Error Classes](#error-classes). |
 
 ### Example
 ```python
@@ -489,12 +494,11 @@ from autumn_sdk import Autumn, errors
 
 with Autumn(
     x_api_version="2.6.0",
-    secret_key="<YOUR_BEARER_TOKEN_HERE>",
 ) as autumn:
     res = None
     try:
 
-        res = autumn.check(customer_id="cus_123", feature_id="messages")
+        res = autumn.auth.exchange_token(subject_token="<your platform OIDC token>", subject_token_type="urn:ietf:params:oauth:token-type:jwt")
 
         # Handle response
         print(res)
@@ -508,13 +512,17 @@ with Autumn(
         print(e.headers)
         print(e.raw_response)
 
+        # Depending on the method different errors may be thrown
+        if isinstance(e, errors.InvalidRequestError):
+            print(e.data.message)  # str
+            print(e.data.code)  # models.BadRequestCode
 ```
 
 ### Error Classes
 **Primary error:**
 * [`AutumnError`](./src/autumn_sdk/errors/autumnerror.py): The base class for HTTP error responses.
 
-<details><summary>Less common errors (5)</summary>
+<details><summary>Less common errors (9)</summary>
 
 <br />
 
@@ -525,9 +533,15 @@ with Autumn(
 
 
 **Inherit from [`AutumnError`](./src/autumn_sdk/errors/autumnerror.py)**:
+* [`InvalidRequestError`](./src/autumn_sdk/errors/invalidrequesterror.py): The request isn't an RFC 8693 token exchange. Status code `400`. Applicable to 1 of 108 methods.*
+* [`InvalidGrantError`](./src/autumn_sdk/errors/invalidgranterror.py): The subject token is invalid, expired, or matches no trust rule. Status code `401`. Applicable to 1 of 108 methods.*
+* [`RateLimitExceededError`](./src/autumn_sdk/errors/ratelimitexceedederror.py): Too many exchanges from this client or organization. Status code `429`. Applicable to 1 of 108 methods.*
+* [`InternalError`](./src/autumn_sdk/errors/internalerror.py): Autumn couldn't issue a token. Status code `500`. Applicable to 1 of 108 methods.*
 * [`ResponseValidationError`](./src/autumn_sdk/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>
+
+\* Check [the method documentation](#available-resources-and-operations) to see if the error is applicable.
 <!-- End Error Handling [errors] -->
 
 <!-- Start Server Selection [server] -->

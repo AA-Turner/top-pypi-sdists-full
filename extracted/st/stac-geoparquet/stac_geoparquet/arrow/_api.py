@@ -1,29 +1,33 @@
 from __future__ import annotations
 
-import itertools
 import logging
 import os
 import tempfile
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import psutil
 import pyarrow as pa
+import pyarrow.fs
 import pystac
 from pyarrow.dataset import dataset
 
-from stac_geoparquet.arrow._batch import StacArrowBatch, StacJsonBatch
+from stac_geoparquet.arrow._batch import (
+    StacArrowBatch,
+    StacJsonBatch,
+    item_geometries_to_wkb,
+)
 from stac_geoparquet.arrow._constants import (
     ACCEPTED_SCHEMA_OPTIONS,
-    DEFAULT_JSON_CHUNK_SIZE,
     DEFAULT_PARQUET_SCHEMA_VERSION,
     SUPPORTED_PARQUET_SCHEMA_VERSIONS,
 )
-from stac_geoparquet.arrow._schema.models import InferredSchema
+from stac_geoparquet.arrow._memory import chunks_within_memory
+from stac_geoparquet.arrow._schema.models import InferredSchema, geoparquet_schema
 from stac_geoparquet.arrow._to_parquet import to_parquet
 from stac_geoparquet.arrow._util import (
-    batched_iter,
+    resolve_chunk_size,
     resolve_output_path_and_filesystem,
 )
 from stac_geoparquet.arrow.types import ArrowStreamExportable
@@ -44,12 +48,16 @@ def memlog(msg: str) -> None:
 
 def from_batches(batches: Iterable[pa.RecordBatch]) -> pa.RecordBatchReader:
     batches = iter(batches)
-    init = next(batches)
+    init = next(batches, None)
+    if init is None:
+        raise ValueError("No items to convert")
+    s = init.schema
 
-    def check_batches(
-        s: pa.Schema, batches: Iterable[pa.RecordBatch]
-    ) -> Iterable[pa.RecordBatch]:
-        for c, b in enumerate(batches):
+    # Take each batch with next(): enumerate() or itertools.chain([init], ...)
+    # would keep the previous batch alive while the next one is converted
+    def check_batches(b: pa.RecordBatch | None) -> Iterable[pa.RecordBatch]:
+        c = 0
+        while b is not None:
             memlog(f"Batch {c}")
             if not s.equals(b.schema):
                 raise ValueError("Batch Schemas Not Equal")
@@ -57,14 +65,42 @@ def from_batches(batches: Iterable[pa.RecordBatch]) -> pa.RecordBatchReader:
                 logger.warning("Batch had no rows.")
             else:
                 yield b
+            del b
+            b = next(batches, None)
+            c += 1
 
-    checked = check_batches(init.schema, itertools.chain([init], batches))
-    return pa.RecordBatchReader.from_batches(init.schema, checked)
+    return pa.RecordBatchReader.from_batches(s, check_batches(init))
+
+
+def _wkb_items_to_arrow(
+    wkb_items: Sequence[dict[str, Any]],
+    schema: pa.Schema | None,
+    drop_invalid_properties: bool,
+) -> pa.RecordBatch:
+    """
+    Like `stac_items_to_arrow`, for items returned by `item_geometries_to_wkb`.
+    Their geometries are moved into the batch.
+    """
+    raw_batch = StacJsonBatch._from_wkb_dicts(wkb_items, schema=schema)
+    return raw_batch.to_arrow_batch(drop_invalid_properties).inner
+
+
+def _chunks_to_arrow(
+    wkb_items: Iterable[dict[str, Any]],
+    chunk_size: int,
+    schema: pa.Schema | None,
+    drop_invalid_properties: bool,
+) -> Iterator[pa.RecordBatch]:
+    for chunk in chunks_within_memory(wkb_items, chunk_size):
+        batch = _wkb_items_to_arrow(chunk, schema, drop_invalid_properties)
+        chunk.clear()  # free the items, and then the batch, before the next chunk
+        yield batch
+        del batch
 
 
 def parse_stac_items_to_arrow(
     items: Iterable[pystac.Item | dict[str, Any]],
-    chunk_size: int = DEFAULT_JSON_CHUNK_SIZE,
+    chunk_size: int | None = None,
     schema: ACCEPTED_SCHEMA_OPTIONS = "FullFile",
     tmpdir: str | Path | None = None,
     drop_invalid_properties: bool = True,
@@ -78,17 +114,22 @@ def parse_stac_items_to_arrow(
     [`geopandas.GeoDataFrame.from_features`][geopandas.GeoDataFrame.from_features].
 
     Args:
-        items: the STAC Items to convert
-        chunk_size: The chunk size to use for Arrow record batches. This only takes
-            effect if `schema` is not None. When `schema` is None, the input will be
-            parsed into a single contiguous record batch. Defaults to 8192.
+        items: the STAC Items to convert. Geometries can also be WKB or EWKB bytes.
+        chunk_size: The chunk size to use for Arrow record batches. It has no
+            effect when `schema` is "FullFile", which parses the input into a
+            single record batch. A chunk can end early if it wouldn't fit in the
+            memory available, unless the `STAC_GEOPARQUET_MEMORY_CAP` environment
+            variable is false. Defaults to
+            the `STAC_GEOPARQUET_CHUNK_SIZE` environment variable, or 65536.
         schema: The schema of the input data. If provided, can improve memory use;
             otherwise all items need to be parsed into a single array for schema
             inference. This can also be set to a string value of "FullFile" which
             will scan the entire input in memory to get the schema, "FirstBatch" which
             will use the first batch of items to infer the schema, or "ChunksToDisk"
-            which will write each chunk of items to disk as a Parquet file and then read
-            them back in to unify the schema. Defaults to "FullFile".
+            which will write each chunk of items to disk as an Arrow IPC file and then
+            read them back in to unify the schema. Defaults to "FullFile".
+            A `pa.Schema`'s bbox type sets whether bboxes are 2d or 3d: a
+            fixed-size list of 6 values is 3d, and any other list is 2d.
         drop_invalid_properties: If True (default), an Item property whose name
             collides with a top-level field. If False, a ValueError is raised instead.
 
@@ -96,33 +137,30 @@ def parse_stac_items_to_arrow(
         pyarrow RecordBatchReader with a stream of STAC Arrow RecordBatches.
     """
     memlog("parse_stac_items_to_arrow start")
+    chunk_size = resolve_chunk_size(chunk_size)
+
+    wkb_items = map(item_geometries_to_wkb, items)
 
     if isinstance(schema, InferredSchema):
-        schema = schema.inner
+        schema = schema._resolved()
 
     if isinstance(schema, pa.Schema):
         # If schema is provided, then for better memory usage we parse input STAC items
         # to Arrow batches in chunks.
-        batches = (
-            stac_items_to_arrow(
-                batch, schema=schema, drop_invalid_properties=drop_invalid_properties
-            )
-            for batch in batched_iter(items, chunk_size)
+        batches = _chunks_to_arrow(
+            wkb_items, chunk_size, schema, drop_invalid_properties
         )
-        return pa.RecordBatchReader.from_batches(schema, batches)
+        return pa.RecordBatchReader.from_batches(
+            geoparquet_schema(schema, drop_invalid_properties), batches
+        )
 
     elif schema == "FullFile":
-        batch = stac_items_to_arrow(
-            items, drop_invalid_properties=drop_invalid_properties
-        )
+        batch = _wkb_items_to_arrow(list(wkb_items), None, drop_invalid_properties)
         logger.debug(batch.schema, batch)
         return pa.RecordBatchReader.from_batches(batch.schema, [batch])
 
     elif schema == "FirstBatch":
-        batches = (
-            stac_items_to_arrow(batch, drop_invalid_properties=drop_invalid_properties)
-            for batch in batched_iter(items, chunk_size)
-        )
+        batches = _chunks_to_arrow(wkb_items, chunk_size, None, drop_invalid_properties)
         return from_batches(batches)
 
     else:
@@ -130,11 +168,16 @@ def parse_stac_items_to_arrow(
         if tmpdir is None or Path(tmpdir).exists() is False:
             raise FileNotFoundError("tmpdir must be provided for ChunksToDisk schema")
         else:
-            logger.info(f"Using temporary directory {tmpdir} for chunked schema")
-            for cnt, chunk in enumerate(batched_iter(items, chunk_size)):
-                batch = stac_items_to_arrow(
-                    chunk, drop_invalid_properties=drop_invalid_properties
-                )
+            # A new directory that only this user can open, so no one else can put
+            # files or symlinks where the chunks are written
+            chunkdir = tempfile.mkdtemp(dir=tmpdir)
+            logger.info(f"Using temporary directory {chunkdir} for chunked schema")
+            batches = _chunks_to_arrow(
+                wkb_items, chunk_size, None, drop_invalid_properties
+            )
+            paths: list[str] = []
+            # Not enumerate(), which would keep the previous batch alive
+            for batch in batches:
                 if not isinstance(schema, pa.Schema):
                     schema = batch.schema
                 elif not schema.equals(batch.schema):
@@ -142,15 +185,23 @@ def parse_stac_items_to_arrow(
                     schema = pa.unify_schemas(
                         [schema, batch.schema], promote_options="permissive"
                     )
-                fname = f"{tmpdir}/{cnt}.parquet"
-                to_parquet(
-                    pa.RecordBatchReader.from_batches(batch.schema, [batch]),
-                    output_path=fname,
-                )
-                memlog(f"Batch {cnt}")
-            ds = dataset(tmpdir, schema=schema, format="parquet")
+                # Uncompressed IPC, so reading the chunks back can map the files
+                # instead of decoding them
+                fname = os.path.join(chunkdir, f"{len(paths)}.arrow")
+                with pa.ipc.new_file(fname, batch.schema) as writer:
+                    writer.write_batch(batch)
+                memlog(f"Batch {len(paths)}")
+                paths.append(fname)
+                del batch
+            if not paths:
+                raise ValueError("No items to convert")
+            # Windows can't delete a file that is still mapped
+            filesystem = pa.fs.LocalFileSystem(use_mmap=os.name != "nt")
+            ds = dataset(paths, schema=schema, format="ipc", filesystem=filesystem)
             memlog("Created Dataset")
-            batches = ds.to_batches(batch_size=chunk_size)
+            # Read ahead one file, not the default four, so at most one extra chunk
+            # is in memory
+            batches = ds.to_batches(batch_size=chunk_size, fragment_readahead=1)
             memlog("Created Batches")
             return pa.RecordBatchReader.from_batches(schema, batches)
 
@@ -158,7 +209,7 @@ def parse_stac_items_to_arrow(
 def parse_stac_items_to_parquet(
     items: Iterable[pystac.Item | dict[str, Any]],
     *,
-    chunk_size: int = DEFAULT_JSON_CHUNK_SIZE,
+    chunk_size: int | None = None,
     schema: ACCEPTED_SCHEMA_OPTIONS = "FirstBatch",
     output_path: str | Path,
     tmpdir: str | Path | None = None,
@@ -219,7 +270,7 @@ def parse_stac_items_to_parquet(
 def parse_stac_ndjson_to_arrow(
     path: str | Path | Iterable[str | Path],
     *,
-    chunk_size: int = DEFAULT_JSON_CHUNK_SIZE,
+    chunk_size: int | None = None,
     schema: pa.Schema | None = None,
     limit: int | None = None,
     drop_invalid_properties: bool = True,
@@ -233,11 +284,14 @@ def parse_stac_ndjson_to_arrow(
 
     Args:
         path: One or more paths to files with STAC items.
-        chunk_size: The chunk size. Defaults to 65536.
+        chunk_size: The chunk size. Defaults to
+            the `STAC_GEOPARQUET_CHUNK_SIZE` environment variable, or 65536.
         schema: The schema to represent the input STAC data. Defaults to None, in which
             case the schema will first be inferred via a full pass over the input data.
             In this case, there will be two full passes over the input data: one to
-            infer a common schema across all data and another to read the data.
+            infer a common schema across all data and another to read the data. The
+            schema's bbox type sets whether bboxes are 2d or 3d: a fixed-size list
+            of 6 values is 3d, and any other list is 2d.
 
     Keyword Args:
         limit: The maximum number of JSON Items to use for schema inference
@@ -252,7 +306,6 @@ def parse_stac_ndjson_to_arrow(
     if schema is None:
         inferred_schema = InferredSchema()
         inferred_schema.update_from_json(path, chunk_size=chunk_size, limit=limit)
-        inferred_schema.manual_updates()
         return parse_stac_ndjson_to_arrow(
             path,
             chunk_size=chunk_size,
@@ -261,20 +314,16 @@ def parse_stac_ndjson_to_arrow(
         )
 
     if isinstance(schema, InferredSchema):
-        schema = schema.inner
+        schema = schema._resolved()
 
     batches_iter = (
         stac_items_to_arrow(
             batch, schema=schema, drop_invalid_properties=drop_invalid_properties
         )
-        for batch in read_json_chunked(path, chunk_size=chunk_size)
+        for batch in read_json_chunked(path, chunk_size=resolve_chunk_size(chunk_size))
     )
-    first_batch = next(batches_iter)
-    # Need to take this schema from the iterator; the existing `schema` is the schema of
-    # JSON batch
-    resolved_schema = first_batch.schema
     return pa.RecordBatchReader.from_batches(
-        resolved_schema, itertools.chain([first_batch], batches_iter)
+        geoparquet_schema(schema, drop_invalid_properties), batches_iter
     )
 
 
@@ -282,7 +331,7 @@ def parse_stac_ndjson_to_parquet(
     input_path: str | Path | Iterable[str | Path],
     output_path: str | Path,
     *,
-    chunk_size: int = DEFAULT_JSON_CHUNK_SIZE,
+    chunk_size: int | None = None,
     schema: pa.Schema | InferredSchema | None = None,
     limit: int | None = None,
     schema_version: SUPPORTED_PARQUET_SCHEMA_VERSIONS = DEFAULT_PARQUET_SCHEMA_VERSION,
@@ -299,7 +348,8 @@ def parse_stac_ndjson_to_parquet(
         output_path: A path to the output Parquet file.
 
     Keyword Args:
-        chunk_size: The chunk size. Defaults to 65536.
+        chunk_size: The chunk size. Defaults to
+            the `STAC_GEOPARQUET_CHUNK_SIZE` environment variable, or 65536.
         schema: The schema to represent the input STAC data. Defaults to None, in which
             case the schema will first be inferred via a full pass over the input data.
             In this case, there will be two full passes over the input data: one to

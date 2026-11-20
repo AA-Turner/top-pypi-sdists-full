@@ -186,14 +186,17 @@ class vTime(TimeBase):
         if len(ical) != 6 or not ical.isascii() or not ical.isdigit():
             raise ValueError(f"Expected time, got: {ical}")
         try:
-            timetuple = (int(ical[:2]), int(ical[2:4]), int(ical[4:6]))
-            if tzinfo:
-                return tzp.localize(time(*timetuple), tzinfo)
-            if utc:
-                return tzp.localize_utc(time(*timetuple))
-            return time(*timetuple)
+            result = time(int(ical[:2]), int(ical[2:4]), int(ical[4:6]))
         except Exception as e:
             raise ValueError(f"Expected time, got: {ical}") from e
+
+        if tzinfo:
+            return tzp.localize(result, tzinfo)
+
+        if utc:
+            return tzp.localize_utc(result)
+
+        return result
 
     @classmethod
     def examples(cls) -> list[Self]:

@@ -23,14 +23,41 @@ def is_pytorch_at_least_2_4() -> bool:
     return Version(torch.__version__) >= Version("2.4")
 
 
-def to_cuda(x: torch.Tensor) -> torch.Tensor:
-    if x is None:
-        return None
-    if torch.is_tensor(x):
-        x = x.contiguous()
-        if torch.cuda.is_available():
-            x = x.cuda(non_blocking=True)
-    return x
+def is_autocast_available(device_type: str) -> bool:
+    """Check whether autocast is supported for the given device type."""
+    if is_pytorch_at_least_2_4():
+        return torch.amp.is_autocast_available(device_type)
+    # torch.amp.is_autocast_available() was added in 2.4. Before that, only CUDA
+    # and CPU autocast existed.
+    return device_type in {"cuda", "cpu"}
+
+
+def get_device() -> torch.device:
+    """Return the best available device for training.
+
+    Prefers CUDA over Apple Silicon (MPS) and falls back to the CPU if no
+    accelerator is available.
+    """
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+def to_device(x: Any, device: torch.device) -> Any:
+    """Move a tensor to the given device, leaving anything else untouched."""
+    if x is None or not torch.is_tensor(x):
+        return x
+    return x.contiguous().to(device, non_blocking=device.type == "cuda")
+
+
+def empty_cache(device: torch.device) -> None:
+    """Release cached memory held by the accelerator, if any."""
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+    elif device.type == "mps":
+        torch.mps.empty_cache()
 
 
 def get_git_branch() -> str:
@@ -61,7 +88,7 @@ def get_commit_hash() -> str:
 
 def get_experiment_folder_path(root_path: str | os.PathLike[Any], model_name: str) -> Path:
     """Get an experiment folder path with the current date and time."""
-    date_str = datetime.datetime.now().strftime("%B-%d-%Y_%I+%M%p")
+    date_str = datetime.datetime.now().astimezone().strftime("%B-%d-%Y_%I+%M%p")
     commit_hash = get_commit_hash()
     return Path(root_path) / f"{model_name}-{date_str}-{commit_hash}"
 
@@ -73,8 +100,11 @@ def remove_experiment_folder(experiment_path: str | os.PathLike[Any]) -> None:
     checkpoint_files = fs.glob(os.path.join(experiment_path, "*.pth"))
     if not checkpoint_files:
         if fs.exists(experiment_path):
-            fs.rm(experiment_path, recursive=True)
-            logger.info(" ! Run is removed from %s", experiment_path)
+            try:
+                fs.rm(experiment_path, recursive=True)
+                logger.info(" ! Run is removed from %s", experiment_path)
+            except OSError as e:
+                logger.warning(" ! Failed to remove run folder from %s: %s", experiment_path, e)
     else:
         logger.info(" ! Run is kept in %s", experiment_path)
 

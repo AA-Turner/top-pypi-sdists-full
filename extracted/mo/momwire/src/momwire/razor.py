@@ -365,6 +365,7 @@ from ._far_readout import _libm
 from . import (
     _below_interface,
     _feed_snap,
+    _fill_report,
     _ground_refl,
     _ground_spec,
     _lapack,
@@ -1347,6 +1348,56 @@ _CXX_FRONT = True
 _CXX_WANT_FRONT = False
 
 
+def _geometry_key(geom):
+    """A content hash of a geometry dict (every array's dtype, shape and
+    bytes, every scalar's repr, in key order): the crossing anchors' cache
+    key."""
+    import hashlib
+
+    h = hashlib.sha256()
+
+    def walk(v):
+        if isinstance(v, np.ndarray):
+            h.update(f"a{v.dtype.str}{v.shape}".encode())
+            h.update(np.ascontiguousarray(v).tobytes())
+        elif isinstance(v, dict):
+            h.update(b"{")
+            for key in sorted(v, key=repr):
+                h.update(repr(key).encode())
+                walk(v[key])
+            h.update(b"}")
+        elif isinstance(v, (list, tuple)):
+            h.update(b"[")
+            for item in v:
+                walk(item)
+            h.update(b"]")
+        else:
+            h.update(repr(v).encode())
+
+    walk(geom)
+    return h.hexdigest()
+
+
+def _crossing_anchor_trace(what, sweep):
+    """MOMWIRE_CROSSING_ANCHOR_TRACE=1: the C++ fill's trace line for one
+    fill the feature is on for (`_razor_crossing_core.cpp`'s `anchor_trace`),
+    on the process's stderr."""
+    if os.environ.get("MOMWIRE_CROSSING_ANCHOR_TRACE") != "1":
+        return
+    plan = (sweep or {}).get("plan") or {}
+    why = plan.get("why") or "none"
+    line = (
+        f"crossing_anchors: {what} plan={why} n_a={plan.get('n_a', 0)} "
+        f"built={(sweep or {}).get('built', 0)} "
+        f"interpolated={(sweep or {}).get('interpolated', 0)} "
+        f"copied={(sweep or {}).get('copied', 0)} "
+        f"x={plan.get('x', 0.0):.6g} rho={plan.get('rho', 0.0):.6g} "
+        f"est={plan.get('est', 0.0):.3g}\n"
+    )
+    # File descriptor 2 itself: the drop-in shell holds sys.stderr.
+    os.write(2, line.encode())
+
+
 def _razor_cxx_wanted():
     if _RAZOR_CXX is not None:
         return bool(_RAZOR_CXX)
@@ -1598,6 +1649,7 @@ def _same_stamp(a, b) -> bool:
 
 
 class RazorSolver(
+    _fill_report.FillReport,
     _exact_kernel_seam.ExactKernelOption,
     _ElementCurrents,
     _SweptPortSolutions,
@@ -1851,6 +1903,10 @@ class RazorSolver(
     eps = 8.8541878188e-12
     mu = 1.25663706127e-6
 
+    # This family's name in the feature registry (`_features.SOLVERS`,
+    # `Feature.solvers`): which features it honours (momwire#1980).
+    FEATURE_SOLVER = "razor"
+
     # momwire#396: free space and all three grounds — the PEC image
     # (momwire#398 unit 2), the reflection-coefficient ground (unit 4) and
     # the Sommerfeld ground (unit 5) — for wires standing clear of the
@@ -2005,8 +2061,10 @@ class RazorSolver(
         height_sheet_recal=None,
         crossing_table=None,
         crossing_sheet_retune=None,
+        exact_kernel_series=None,
         razor_pair_reuse=None,
         pair_reuse=None,
+        crossing_anchors=None,
         cancel=None,
         **unsupported,
     ):
@@ -2083,26 +2141,55 @@ class RazorSolver(
             raise TypeError(f"RazorSolver got unexpected keyword argument(s): {bad}")
 
         self._cancel = cancel
+        # A bad value is refused before any feature is read.
+        if razor_pair_reuse not in (None, False, True, "verify"):
+            raise ValueError(
+                "razor_pair_reuse must be None, False, True or 'verify', got "
+                f"{razor_pair_reuse!r}"
+            )
+        # Every feature this family honours is resolved here, once
+        # (`_features.bind`, momwire#1980), and read off `bound` below.
+        # `pair_reuse` is the whole `razor_pair_reuse` is a part of
+        # (momwire#1982): any truthy value is on. `exact_kernel_series` is
+        # resolved where the correction runs (`_exact_kernel_series_on`), so a
+        # solve the exact kernel never engages never refuses it.
+        bound = _features.bind(
+            self,
+            self.FEATURE_SOLVER,
+            deferred=("exact_kernel_series",),
+            factored_columns=factored_columns,
+            height_sheet_recal=height_sheet_recal,
+            crossing_table=crossing_table,
+            crossing_sheet_retune=crossing_sheet_retune,
+            crossing_anchors=crossing_anchors,
+            pair_reuse=None if pair_reuse is None else bool(pair_reuse),
+            razor_pair_reuse=(
+                None if razor_pair_reuse is None else bool(razor_pair_reuse)
+            ),
+        )
         # momwire#1860 L1: the near-interface columns' factored route. None
         # defers to MOMWIRE_X_FACTORED_COLUMNS (`_features`, reach 1, native);
         # off is the member route, bit for bit.
-        self._factored_columns = _features.enabled("factored_columns", factored_columns)
+        self._factored_columns = bound["factored_columns"]
         # momwire#1860 L2: the near-interface height census recalibrated.
         # None defers to MOMWIRE_X_HEIGHT_SHEET_RECAL (`_features`, reach 1,
         # python); off is the shipped census, bit for bit.
-        self._height_sheet_recal = _features.enabled(
-            "height_sheet_recal", height_sheet_recal
-        )
+        self._height_sheet_recal = bound["height_sheet_recal"]
         # momwire#1860 L5: the crossing table. None defers to
         # MOMWIRE_X_CROSSING_TABLE (`_features`, reach 1, native); off is the
         # column twin, bit for bit.
-        self._crossing_table = _features.enabled("crossing_table", crossing_table)
+        self._crossing_table = bound["crossing_table"]
         # momwire#1956: the near-interface sheets' build weights retuned. None
         # defers to MOMWIRE_X_CROSSING_SHEET_RETUNE (`_features`, reach 1,
         # python); off is the shipped census, bit for bit.
-        self._crossing_sheet_retune = _features.enabled(
-            "crossing_sheet_retune", crossing_sheet_retune
-        )
+        self._crossing_sheet_retune = bound["crossing_sheet_retune"]
+        # The cross blocks across a sweep from anchors (`crossing_anchors`,
+        # native). None defers to MOMWIRE_X_CROSSING_ANCHORS; off is the
+        # exact cross terms, bit for bit. It acts only where the seam hands
+        # the solver its sweep (`_crossing_anchor_plan`, the NEC-5 drop-in's
+        # stepping FR); a lone solve has no sweep and fills exactly.
+        self._crossing_anchors = bound["crossing_anchors"]
+        self._crossing_anchor_plan = None
         # momwire#1971: fill-pair reuse. None defers to
         # MOMWIRE_X_RAZOR_PAIR_REUSE (`_features`, native); "verify" also
         # checks every window against the shipped fill. Off (0) is the fill
@@ -2114,20 +2201,9 @@ class RazorSolver(
         # above). `razor_pair_reuse` and its variable are kept as aliases
         # and win. Asked for only through `pair_reuse` outside its reach, it
         # is off, and `pair_reuse_declined` says so.
-        if razor_pair_reuse not in (None, False, True, "verify"):
-            raise ValueError(
-                "razor_pair_reuse must be None, False, True or 'verify', got "
-                f"{razor_pair_reuse!r}"
-            )
-        own = None if razor_pair_reuse is None else bool(razor_pair_reuse)
-        whole = None if pair_reuse is None else bool(pair_reuse)
         mode = razor_pair_reuse if razor_pair_reuse is not None else pair_reuse
         verify = isinstance(mode, str) and mode == "verify"
-        self._pair_reuse = (
-            0
-            if not _features.enabled("razor_pair_reuse", own, whole_kwarg=whole)
-            else (2 if verify else 1)
-        )
+        self._pair_reuse = 0 if not bound["razor_pair_reuse"] else (2 if verify else 1)
         self._reuse_now = None
         # Why the last fill with reuse on did not take it (the Python route's
         # reason: `_pair_reuse_refusal`, or the plan's own `declined`), or
@@ -2135,11 +2211,23 @@ class RazorSolver(
         # (`reuse_declined_reason`).
         self.pair_reuse_declined = (
             "not certified on this platform"
-            if _features.withheld("razor_pair_reuse", own, whole_kwarg=whole)
+            if "razor_pair_reuse" in self.features_withheld
             else None
         )
         # The C++ front route reads it with the constructor's own arguments.
         self._cxx_kwargs["pair_reuse"] = self._pair_reuse
+        # momwire#1454: the exact kernel's point moments as a k-series
+        # (`_features`' exact_kernel_series, native, reach 1). None defers to
+        # `_exact_kernel_series.ENABLED` (MOMWIRE_X_EXACT_KERNEL_SERIES at
+        # import, which a test may set); resolved where the correction runs
+        # (`_exact_kernel_series_on`), so a solve the exact kernel never
+        # engages never refuses it.
+        if exact_kernel_series not in (None, False, True):
+            raise ValueError(
+                "exact_kernel_series must be None, False or True, got "
+                f"{exact_kernel_series!r}"
+            )
+        self._exact_kernel_series_kw = exact_kernel_series
         self._checkpoint()
 
         self.wavelength = float(wavelength)
@@ -4346,7 +4434,13 @@ class RazorSolver(
         np.add.at(Z, (rows, cols), vals)
         return Z
 
-    def _assemble_Z_prepare(
+    def _assemble_Z_prepare(self, geom, **kwargs):
+        """`_assemble_Z_prepare_filled`, its seconds part of the fill's time in
+        the fill report (momwire#2016)."""
+        with _fill_report.fill_time(self):
+            return self._assemble_Z_prepare_filled(geom, **kwargs)
+
+    def _assemble_Z_prepare_filled(
         self, geom, *, chop=None, loading=True, restrict=None, extended_kernel=None
     ):
         """K-independent work for the razor-blade fill: stencils and moments.
@@ -4778,6 +4872,73 @@ class RazorSolver(
                 prepared["image"]["src_r"] = geom["seg_p0"] + seg_h[:, None] * seg_t
         return prepared
 
+    def _fill_report_plan(self, ref, stats, built, remainder_unplanned):
+        """The running fill's reuse plan, for the fill report (momwire#2016):
+        held weakly, so the report keeps nothing the process's cache dropped."""
+        ledger = _fill_report.ledger_of(self)
+        if built:
+            ledger.census_s += stats["census_seconds"]
+        ledger.pending = (ref, stats, remainder_unplanned)
+
+    def _fill_report_end(self, ledger, route="dense"):
+        """The last fill's reuse, from the plan it read (momwire#2016)."""
+        ledger.route = route
+        if not self._pair_reuse and self.pair_reuse_declined is None:
+            ledger.reuse = None
+            return
+        if ledger.pending is None or self.pair_reuse_declined is not None:
+            ledger.reuse = _fill_report.declined_entry(self.pair_reuse_declined)
+            ledger.last = None
+            return
+        ref, st, remainder_unplanned = ledger.pending
+        n2 = st["n_seg"] ** 2
+        names = ("direct", "image") if st["has_image"] else ("direct",)
+        families = {
+            name: _fill_report.family(
+                n2,
+                st["dcls_block"][b] - st["dnear_block"][b],
+                st["dnear_block"][b],
+                st["devals_block"][b],
+            )
+            for b, name in enumerate(names)
+        }
+        if st["remainder"]:
+            families["remainder"] = _fill_report.family(
+                st["q_pairs"], st["q_classes"], 0, st["q_rep_evals"]
+            )
+        ledger.reuse = _fill_report.reuse_entry(
+            "partial" if remainder_unplanned else "served",
+            declined=(
+                "the composing ground's remainder is filled directly"
+                if remainder_unplanned
+                else None
+            ),
+            families=families,
+            uncounted=("remainder",) if remainder_unplanned else (),
+            plan_bytes=st["budget_bytes"],
+            census_peak_bytes=st["census_peak_bytes"],
+        )
+        ledger.last = ref
+
+    def _fill_report_wires(self, ledger):
+        """The last plan's wire map, in one C++ pass (momwire#2016)."""
+        ref = ledger.last
+        geom = self._cached_geometry
+        if ref is None or geom is None:
+            return {"unavailable": _fill_report.PLAN_GONE}
+        sizes = np.diff(np.asarray(geom["seg_offsets"], dtype=np.int64))
+        n_wires = int(sizes.size)
+        counts = ref.wire_map(
+            np.repeat(np.arange(n_wires, dtype=np.int32), sizes), n_wires
+        )
+        if counts is None:
+            return {"unavailable": _fill_report.PLAN_GONE}
+        dedup = self._wire_dedup
+        labels = _fill_report.wire_labels(
+            n_wires, None if dedup is None else dedup.kept
+        )
+        return _fill_report.wire_block(labels, counts.sum(axis=0))
+
     def _pair_reuse_refusal(self, prepared, k, restrict):
         """Why fill-pair reuse does not serve this fill, or None
         (momwire#1971). It serves the fill `_source_block_rows` runs on its
@@ -4834,7 +4995,7 @@ class RazorSolver(
         # The composing ground's remainder is planned when every path row is
         # its wing centroid along its wing's signed tangent: the rows the plan
         # gathers are then the rows `field_windows` would project.
-        q = image is not None and "src_l" in image and "obs_pts" in image
+        composing = q = image is not None and "src_l" in image and "obs_pts" in image
         if q:
             s_ab = np.stack([prepared["s_a"], prepared["s_b"]], axis=1).ravel()
             sig = geom["wing_sigma"].ravel()
@@ -4861,6 +5022,9 @@ class RazorSolver(
             float(self.ground_z) if q else 0.0,
         )
         _PAIR_REUSE_STATS[0] = plan.stats()
+        self._fill_report_plan(
+            plan.ref(), _PAIR_REUSE_STATS[0], plan.built, composing and not q
+        )
         if plan.declined is not None:
             # A deck the census cannot code (`Plan::declined`): the fill runs
             # as without reuse, and says why.
@@ -4873,24 +5037,12 @@ class RazorSolver(
             plan, values, self._pair_reuse, q, t2.obs, geom["seg_t"], t2.seg_h
         )
 
+    @_near_interface.under_levers
     def _assemble_Z_from_prepared(self, geom, prepared, k, omega, *, restrict=None):
         """`_assemble_Z_from_prepared_scoped` under this solver's
-        `factored_columns`, `height_sheet_recal`, `crossing_table` and
-        `crossing_sheet_retune` choices (momwire#1860, #1956)."""
-        with (
-            _near_interface.factored_columns_scope(
-                getattr(self, "_factored_columns", False)
-            ),
-            _near_interface.height_sheet_recal_scope(
-                getattr(self, "_height_sheet_recal", False)
-            ),
-            _near_interface.crossing_table_scope(
-                getattr(self, "_crossing_table", False)
-            ),
-            _near_interface.crossing_sheet_retune_scope(
-                getattr(self, "_crossing_sheet_retune", False)
-            ),
-        ):
+        near-interface levers (`_near_interface.under_levers`: momwire#1860,
+        #1956, set in one place since #1980)."""
+        with _fill_report.fill_clock(self):
             return self._assemble_Z_from_prepared_scoped(
                 geom, prepared, k, omega, restrict=restrict
             )
@@ -5026,6 +5178,22 @@ class RazorSolver(
     # the exact ring kernel on coaxial pairs (momwire#1433)
     # ------------------------------------------------------------------
 
+    def _exact_kernel_series_on(self):
+        """Whether the exact kernel's k-series is on for this solver
+        (momwire#1454): the keyword when one was passed, else
+        `_exact_kernel_series.ENABLED`. A native feature: on outside its
+        reach it raises `FeatureNotCertified`, whichever asked."""
+        kw = getattr(self, "_exact_kernel_series_kw", None)
+        if kw is None:
+            on = bool(_exact_kernel_series.ENABLED)
+            # The import-time switch is checked only when the environment
+            # asked for it, as before the keyword: a test that sets the
+            # module flag runs the route wherever it is.
+            if on and "exact_kernel_series" in _features.active():
+                _features.check("exact_kernel_series")
+            return on
+        return _features.enabled("exact_kernel_series", kw)
+
     def _add_exact_kernel_correction(self, Z, geom, k, omega, chop=None):
         """Z += (Z_exact - Z_base) over every coaxial equal-radius group,
         and over the cross-radius pairs of every line with a radius step
@@ -5086,12 +5254,13 @@ class RazorSolver(
         only on exactly the inputs they were computed from, so a hit adds the
         same bits a fresh call does.
 
-        Under `_exact_kernel_series.ENABLED` (step 3 of momwire#1454, off by
-        default) a group whose segments are short enough at this k takes its
-        exact moments from the k-series on geometry-only coefficients
-        instead: the plan keeps that source for its lifetime, whatever the
-        frequency, so a sweep integrates each pair once. Derivation and
-        measurements: `docs/design/exact-kernel-static-dynamic-split.md`.
+        With the k-series on (`_exact_kernel_series_on`, step 3 of
+        momwire#1454, off by default) a group whose segments are short
+        enough at this k takes its exact moments from the k-series on
+        geometry-only coefficients instead: the plan keeps that source for
+        its lifetime, whatever the frequency, so a sweep integrates each
+        pair once. Derivation and measurements:
+        `docs/design/exact-kernel-static-dynamic-split.md`.
         """
         seg_a = np.asarray(self._medium_seg_radius(geom), dtype=float)
         pts, tans, wts = self._testing_paths(geom)
@@ -5126,14 +5295,13 @@ class RazorSolver(
             _CHUNK_ELEMS,
             context,
             chop=chop_rows,
+            series=self._exact_kernel_series_on(),
         )
         # Which rule serves each group's exact moments: the k-series on
         # geometry-only coefficients where the group is short enough at this
         # k (`_exact_kernel_series.serves`), the direct rule otherwise. The
         # choice reads the geometry and k alone, never what is cached.
-        if _exact_kernel_series.ENABLED and "exact_kernel_series" in _features.active():
-            _features.check("exact_kernel_series")
-        ser_on = _exact_kernel_series.ENABLED and _exact_kernel_series.accel_serves(
+        ser_on = self._exact_kernel_series_on() and _exact_kernel_series.accel_serves(
             k, 2
         )
         # A cross-radius job (momwire#1438, `g.lab` set) is never the
@@ -6045,6 +6213,20 @@ class RazorSolver(
             _ix_accumulate(Z, z_b, rows_b, Z_b)
             del Z_b
 
+        # The cross blocks and the node charges, or (the opt-in
+        # crossing_anchors) their interpolant across the sweep's anchors.
+        if not self._crossing_anchors_now(geom, tents, k, Z, restrict, rows_a, rows_b):
+            self._crossing_cross_terms(
+                geom, tents, k, omega, Z, restrict, z_of, rows_a, rows_b
+            )
+        return Z
+
+    def _crossing_cross_terms(
+        self, geom, tents, k, omega, Z, restrict, z_of, rows_a, rows_b
+    ):
+        """`_assemble_Z_crossing`'s cross blocks and crossing node charges
+        at (k, omega), folded into Z: `Z[R_a, C_b] -= cross`, `Z[R_b, C_a]
+        -= reversed cross`, then the tents' columns `+= charges`."""
         ctx = self._crossing_context(geom, k=k, omega=omega)
         axis_kw = dict(
             growth=_CROSSING_GROWTH,
@@ -6144,7 +6326,116 @@ class RazorSolver(
                 _ix_accumulate(Z, z_of[R], cols, charges[R])
             del charges
 
-        return Z
+    def _crossing_anchors_now(self, geom, tents, k, Z, restrict, rows_a, rows_b):
+        """The opt-in `crossing_anchors` (`_razor_crossing_core.h`): when it
+        is on and this fill is a point of the sweep plan the seam handed the
+        solver (`_crossing_anchor_plan`, a stepping FR's wavelengths and its
+        anchor cache), add the cross blocks' and node charges' interpolant
+        at k to Z and return True. The anchors are this route's own cross
+        terms at the plan's anchor wavenumbers, filled once per geometry;
+        the interpolation is the C++ fill's (`crossing_anchor_apply`), so
+        both routes write the same bits. False, and Z untouched, for the
+        exact cross terms: off, a restricted fill, no plan, a plan that
+        declines, or a k outside it."""
+        if not getattr(self, "_crossing_anchors", False):
+            return False
+        sweep = getattr(self, "_crossing_anchor_plan", None)
+        if (
+            restrict is not None
+            or sweep is None
+            or not hasattr(_acc, "crossing_anchors_1117")
+        ):
+            _crossing_anchor_trace("declined", sweep)
+            return False
+        plan = sweep.get("plan")
+        if plan is None:
+            # The error rule's view of the deck (`anchors::Size`), as the
+            # C++ seam forms it (`RazorSeamEngine::seam_done`): the span from
+            # this geometry, the lower medium, and c.
+            eps_r, sigma = self._crossing_anchor_ground()
+            span = _acc.crossing_anchor_span(
+                geom["seg_p0"],
+                geom["seg_t"],
+                geom["seg_h"],
+                0.0 if self.ground_z is None else float(self.ground_z),
+            )
+            plan = sweep["plan"] = _acc.crossing_anchor_plan(
+                list(sweep["wavelengths"]), span, eps_r, sigma, float(self.c)
+            )
+        if not plan["ok"]:
+            _crossing_anchor_trace("declined", sweep)
+            return False
+        if float(k) not in plan["k"]:
+            _crossing_anchor_trace("outside-plan", sweep)
+            return False
+        n = geom["n_basis_total"]
+        cols = [int(m) for m, _ in tents]
+        key = (
+            _geometry_key(geom),
+            tuple(int(r) for r in rows_a),
+            tuple(int(r) for r in rows_b),
+            tuple(cols),
+            repr(self.ground_eps),
+            float(self.ground_z),
+            float(self.c),
+        )
+        cache = sweep.setdefault("anchors", {})
+        built = cache.get(key)
+        if built is None:
+            if cache:
+                # One sweep, one geometry: another one takes the exact terms.
+                _crossing_anchor_trace("other-geometry", sweep)
+                return False
+            idx = _acc.crossing_anchor_entries(
+                int(n),
+                [int(r) for r in rows_a],
+                [int(r) for r in rows_b],
+                cols,
+            )
+            if not _acc.crossing_anchor_fits(len(plan["anchor_k"]), idx.size, int(n)):
+                # Too large to hold (the C++ fill's budget): the plan
+                # declines for the rest of the sweep.
+                sweep["plan"] = dict(plan, ok=False, why="memory")
+                _crossing_anchor_trace("declined", sweep)
+                return False
+            raw = np.empty((len(plan["anchor_k"]), idx.size), dtype=complex)
+            # Each anchor on the crossing table's state this fill reached the
+            # cross terms with, as the exact route at that k would.
+            fill = _near_interface._CROSSING_TABLE.get()
+            taken = fill.taken if fill is not None else False
+            any_taken = taken
+            for j, kj in enumerate(plan["anchor_k"]):
+                if fill is not None:
+                    fill.taken = taken
+                scratch = np.zeros((n, n), dtype=complex, order="F")
+                self._crossing_cross_terms(
+                    geom, tents, kj, self.c * kj, scratch, None, None, rows_a, rows_b
+                )
+                if fill is not None:
+                    any_taken = any_taken or fill.taken
+                raw[j] = scratch.ravel(order="F")[idx]
+                del scratch
+                sweep["built"] = sweep.get("built", 0) + 1
+            if fill is not None:
+                fill.taken = any_taken
+            built = cache[key] = (idx, raw)
+        idx, raw = built
+        how = _acc.crossing_anchor_apply(
+            Z, idx, raw, list(sweep["wavelengths"]), float(k), *plan["size"]
+        )
+        name = "copied" if how == 0 else "interpolated"
+        sweep[name] = sweep.get(name, 0) + 1
+        _crossing_anchor_trace(name, sweep)
+        return True
+
+    def _crossing_anchor_ground(self):
+        """The lower medium's (eps_r, sigma) as the C++ front holds them
+        (`ground_eps_r_`, `ground_sigma_`), for `crossing_anchors`' error
+        rule; (0, 0) when the solver has none."""
+        eps = self.ground_eps
+        if isinstance(eps, (tuple, list)) and len(eps) == 2:
+            return float(eps[0]), float(eps[1])
+        return 0.0, 0.0
 
     def _crossing_node_charges(self, geom, tents, ctx, A, P, omega):
         """The node charge the same-medium REMAINDERS carry, taken back out
@@ -7305,6 +7596,28 @@ class RazorSolver(
             basis=_RazorBasis(geom=geom, k=self.k),
         )
 
+    def _fill_report_cxx(self, ctx, before):
+        """A solve a C++ route ran whole: its own clocks' share of it and the
+        plan the core read (momwire#2016)."""
+        after = ctx.counters
+        ledger = _fill_report.ledger_of(self)
+        ledger.pending = None
+        _fill_report.add_stage_times(
+            self,
+            after["fill_seconds"] - before["fill_seconds"],
+            after["lu_seconds"] - before["lu_seconds"],
+        )
+        last = ctx.reuse_last
+        if last is not None:
+            ref, stats, built, q = last
+            self._fill_report_plan(
+                ref, stats, built, self.ground_eps is not None and not q
+            )
+        if self._pair_reuse:
+            self.pair_reuse_declined = ctx.reuse_declined_reason or None
+        self._fill_report_end(ledger, route="cxx")
+        ledger.pending = None
+
     def _cxx_front_refusal(self):
         """Why the C++ front half does not take this solve, or None.
 
@@ -7359,11 +7672,13 @@ class RazorSolver(
             return "complex-k"
         # The exact ring kernel: the core replays the C++ point route (the
         # direct rule, `PointRowsAccel`, `PointCrossRowsAccel` and
-        # `exact_kernel_point_assemble`); the k-series and the numpy point
-        # route stay Python's.
+        # `exact_kernel_point_assemble`) and the k-series' C++ route
+        # (`PointSeriesAccel`, momwire#1454); the numpy routes stay Python's.
         if self.exact_kernel:
-            if _exact_kernel_series.ENABLED:
-                return "exact-kernel-series"
+            if self._exact_kernel_series_on() and not (
+                _exact_kernel_series.accel_serves(self.k, 2)
+            ):
+                return "exact-kernel-series-numpy"
             if not (
                 _HAVE_EXACT_POINT_ASSEMBLE_ACCEL
                 and _exact_kernel._HAVE_POINT_CROSS_ACCEL
@@ -7391,7 +7706,13 @@ class RazorSolver(
         reason = self._cxx_front_refusal()
         if reason is None:
             self._checkpoint()
+            # The k-series as this solver resolved it (`_exact_kernel_series_on`),
+            # read only where the exact kernel engages, as the correction does.
+            self._cxx_kwargs["exact_kernel_series"] = (
+                bool(self.exact_kernel) and self._exact_kernel_series_on()
+            )
             ctx = _cxx_context()
+            clocks = ctx.counters
             out = ctx.front_port_solution(
                 self._cxx_kwargs,
                 _CHUNK_ELEMS,
@@ -7405,6 +7726,7 @@ class RazorSolver(
             return None
         _CXX_FRONT_ROUTE["front"] = _CXX_FRONT_ROUTE.get("front", 0) + 1
         _CXX_ROUTE["cxx-front"] = _CXX_ROUTE.get("cxx-front", 0) + 1
+        self._fill_report_cxx(ctx, clocks)
         cols = out["cols"]
         if cols.shape[0] > _CXX_POOL_MAX_BASIS:
             ctx.release()
@@ -7547,6 +7869,7 @@ class RazorSolver(
         cols = self._port_columns(geom)
         self._checkpoint()
         ctx = _cxx_context()
+        clocks = ctx.counters
         X, info, Z = ctx.port_solution(
             t2.obs,
             t2.group_i,
@@ -7576,6 +7899,7 @@ class RazorSolver(
             self._cancel_flag,
             _CXX_WANT_Z,
         )
+        self._fill_report_cxx(ctx, clocks)
         if n_basis > _CXX_POOL_MAX_BASIS:
             ctx.release()
         if Z is not None:

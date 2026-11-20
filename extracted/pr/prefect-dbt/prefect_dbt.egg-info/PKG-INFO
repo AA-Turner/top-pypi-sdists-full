@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-dbt
-Version: 0.7.25
+Version: 0.8.0
 Summary: Prefect integrations for working with dbt
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -11,12 +11,12 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: prefect>=3.6.17
@@ -50,4 +50,4 @@ Dynamic: license-file
         <img src="https://img.shields.io/pypi/dm/prefect-dbt?color=26272B&labelColor=090422" /></a>
 </p>
 
-See the docs at [https://docs.prefect.io/integrations/prefect-dbt](https://docs.prefect.io/integrations/prefect-dbt) for more information.
+See the docs at [https://www.prefect.io/docs/integrations/prefect-dbt](https://www.prefect.io/docs/integrations/prefect-dbt) for more information.

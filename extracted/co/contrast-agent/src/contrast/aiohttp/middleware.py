@@ -46,61 +46,60 @@ class AioHttpMiddleware(BaseMiddleware):
         super().__init__()
 
     async def __call__(self, request, handler) -> StreamResponse:
-        if request_state.get_request_id() is not None:
-            # This can happen if a single app is wrapped by multiple instances of the
-            # middleware (usually caused by automatic instrumentation)
-            logger.debug("Detected preexisting request_id - passing through")
-            return await handler(request)
+        with scope.contrast_scope():
+            if request_state.get_request_id() is not None:
+                # This can happen if a single app is wrapped by multiple instances of
+                # the middleware (usually caused by automatic instrumentation)
+                logger.debug("Detected preexisting request_id - passing through")
+                with scope.pop_contrast_scope():
+                    return await handler(request)
 
-        contrast_rewriter.stop_profiler("start_aiohttp_middleware_call")
+            contrast_rewriter.stop_profiler("start_aiohttp_middleware_call")
 
-        self.app = request.app
+            self.app = request.app
 
-        with self.context_stack(request.method, request.path) as context_stack:
-            with scope.contrast_scope():
+            with self.context_stack(request.method, request.path) as context_stack:
                 environ = await sources.aiohttp_request_to_environ(request)
 
-            context, web_context = self.should_analyze_request(environ)
-            if context is not None:
-                self.enter_agent_call_contexts(context_stack, context, web_context)
-                return await self.call_with_agent(
-                    context, web_context, request, handler
-                )
+                context, web_context = self.should_analyze_request(environ)
+                if context is not None:
+                    self.enter_agent_call_contexts(context_stack, context, web_context)
+                    return await self.call_with_agent(
+                        context, web_context, request, handler
+                    )
 
-            return await self.call_without_agent_async(request, handler)
+                return await self.call_without_agent_async(request, handler)
 
     async def call_with_agent(
         self, context: ContrastContext, web_context, request, handler
     ) -> StreamResponse:
-        with scope.contrast_scope():
-            sources.track_aiohttp_request_sources(context, request)
+        sources.track_aiohttp_request_sources(context, request)
 
-            try:
-                self.prefilter(context)
+        try:
+            self.prefilter(context)
 
-                with scope.pop_contrast_scope():
-                    try:
-                        response = await handler(request)
-                        wrapped_response = AioHttpResponseWrapper(response)
-                        web_context.extract_response(wrapped_response)
-                    except Exception as exc:
-                        web_context.response_exception = exc
-                        raise
+            with scope.pop_contrast_scope():
+                try:
+                    response = await handler(request)
+                    wrapped_response = AioHttpResponseWrapper(response)
+                    web_context.extract_response(wrapped_response)
+                except Exception as exc:
+                    web_context.response_exception = exc
+                    raise
 
-                self.postfilter(context, web_context)
-                self.check_for_blocked(context)
+            self.postfilter(context, web_context)
+            self.check_for_blocked(context)
 
-                return response
+            return response
 
-            finally:
-                if context.assess_enabled:
-                    self.do_aiohttp_first_request_analysis(context, web_context)
-                    self.do_aiohttp_route_observation(context, web_context, request)
-                    contrast.STRING_TRACKER.ageoff()
+        finally:
+            if context.assess_enabled:
+                self.do_aiohttp_first_request_analysis(context, web_context)
+                self.do_aiohttp_route_observation(context, web_context, request)
+                contrast.STRING_TRACKER.ageoff()
 
     async def call_without_agent_async(self, request, handler) -> StreamResponse:
-        with scope.contrast_scope():
-            return await handler(request)
+        return await handler(request)
 
     @fail_quietly()
     def do_aiohttp_first_request_analysis(

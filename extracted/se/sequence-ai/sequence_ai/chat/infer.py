@@ -110,7 +110,7 @@ def chat(
     `server="openrouter"` with your own OpenRouter key (`api_key`, else $OPENROUTER_API_KEY), or the
     address of a server of your own with the OpenAI chat completions API
     (`server="http://localhost:8000/v1"`), `api_key` sent to it only as given. `model` is that
-    server's own name for the model (`"qwen/qwen3-8b"`), and `cost_usd` what the server reports the
+    server's own name for the model (`"qwen/qwen3-next-80b-a3b-instruct"`), and `cost_usd` what the server reports the
     turn cost, else 0. Your General Sequences key is never sent there. With `cache`, a named server's
     system prompt is marked for the models that need a mark, as on General Sequences; `base_url` is
     General Sequences' own. Without `server`, the turn goes to General Sequences with

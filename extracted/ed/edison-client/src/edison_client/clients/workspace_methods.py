@@ -3,12 +3,7 @@ from typing import NoReturn
 from uuid import UUID
 
 from httpx import AsyncClient, Client, HTTPStatusError, codes
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 
 from edison_client.models.data_storage_methods import DataStorageResponse
 from edison_client.models.workspace import (
@@ -55,10 +50,8 @@ class WorkspaceMethods:
             "async_client property must be implemented by subclass"
         )
 
-    def _handle_workspace_http_errors(  # noqa: PLR6301
-        self,
-        e: HTTPStatusError,
-        operation: str,
+    def _handle_workspace_http_errors(  # ruff: ignore[no-self-use]
+        self, e: HTTPStatusError, operation: str
     ) -> NoReturn:
         if e.response.status_code in RETRYABLE_HTTP_STATUS_CODES:
             raise e
@@ -108,10 +101,7 @@ class WorkspaceMethods:
         """
         try:
             payload = CreateWorkspacePayload(
-                name=name,
-                description=description,
-                project_id=project_id,
-                tags=tags,
+                name=name, description=description, project_id=project_id, tags=tags
             )
             response = self.client.post(
                 _WORKSPACES_PATH,
@@ -156,10 +146,7 @@ class WorkspaceMethods:
         """
         try:
             payload = CreateWorkspacePayload(
-                name=name,
-                description=description,
-                project_id=project_id,
-                tags=tags,
+                name=name, description=description, project_id=project_id, tags=tags
             )
             response = await self.async_client.post(
                 _WORKSPACES_PATH,

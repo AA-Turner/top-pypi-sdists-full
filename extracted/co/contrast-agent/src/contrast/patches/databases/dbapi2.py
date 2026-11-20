@@ -149,42 +149,50 @@ class Dbapi2Patcher:
 
     @contextmanager
     def _storage_query_span(self):
-        context = contrast.CONTEXT.get()
-        if context is None or not context.observe_enabled or scope.in_observe_scope():
-            yield
-            return
-
-        with scope.observe_scope():
-            if (trace := context.observability_trace) is None:
-                yield
+        with scope.contrast_scope():
+            context = contrast.CONTEXT.get()
+            if (
+                context is None
+                or not context.observe_enabled
+                or scope.in_observe_scope()
+            ):
+                with scope.pop_contrast_scope():
+                    yield
                 return
 
-            with trace.child_span(SpanType.StorageQuery) as span:
-                logger.debug(
-                    "entered new child span",
-                    child_span=span,
-                    action_type=SpanType.StorageQuery,
-                )
-                try:
-                    yield
-                finally:
-                    if span:
-                        db_attrs = {
-                            "db.system": self.system,
-                            "db.user": self.user,
-                            "db.name": self.db_name,
-                            "server.address": self.host,
-                            "server.port": self.port,
-                        }
-                        db_attrs = {
-                            name: value for name, value in db_attrs.items() if value
-                        }
-                        span.update(db_attrs)
-                        logger.debug(
-                            "updated child_span attributes",
-                            child_span=span,
-                            action_attrs=db_attrs,
-                        )
+            with scope.observe_scope():
+                if (trace := context.observability_trace) is None:
+                    with scope.pop_contrast_scope():
+                        yield
+                    return
+
+                with trace.child_span(SpanType.StorageQuery) as span:
+                    logger.debug(
+                        "entered new child span",
+                        child_span=span,
+                        action_type=SpanType.StorageQuery,
+                    )
+                    try:
+                        with scope.pop_contrast_scope():
+                            yield
+                    finally:
+                        if span:
+                            db_attrs = {
+                                "db.system": self.system,
+                                "db.user": self.user,
+                                "db.name": self.db_name,
+                                "server.address": self.host,
+                                "server.port": self.port,
+                            }
+                            db_attrs = {
+                                name: value for name, value in db_attrs.items() if value
+                            }
+                            span.update(db_attrs)
+                            logger.debug(
+                                "updated child_span attributes",
+                                child_span=span,
+                                action_attrs=db_attrs,
+                            )
 
     @property
     def _build_execute_patch(self):

@@ -11,12 +11,12 @@ import contextlib
 import operator
 import re
 from abc import ABC, abstractmethod
+from collections import Counter as Counter
 from collections import (
-    Counter,  # noqa: F401  # Preserve the established parser.base export.
     defaultdict,
 )
 from contextvars import ContextVar
-from copy import deepcopy  # noqa: F401  # Preserve the established parser.base export.
+from copy import deepcopy as deepcopy
 from functools import cached_property, partial
 from itertools import chain
 from pathlib import Path
@@ -48,19 +48,22 @@ from datamodel_code_generator import (
     ModuleSplitMode,
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
-    cached_path_exists,  # noqa: F401  # Preserve the established parser.base export.
+)
+from datamodel_code_generator import cached_path_exists as cached_path_exists
+from datamodel_code_generator._constraint_applicability import (
+    overridden_declared_constraints as overridden_declared_constraints,
 )
 from datamodel_code_generator._constraint_applicability import (
-    overridden_declared_constraints,  # noqa: F401  # Preserve the established parser.base export.
-    resplit_overridden_constraints,  # noqa: F401  # Preserve the established parser.base export.
-    untaken_minimums,  # noqa: F401  # Preserve the established parser.base export.
+    resplit_overridden_constraints as resplit_overridden_constraints,
 )
+from datamodel_code_generator._constraint_applicability import untaken_minimums as untaken_minimums
 from datamodel_code_generator._container_kinds import CONTAINERS
 from datamodel_code_generator._context_scope import context_values
 from datamodel_code_generator._graph import reaching
 from datamodel_code_generator._internal_utils import HashableComparable
 from datamodel_code_generator._internal_utils import get_most_of_parent as _get_most_of_parent
 from datamodel_code_generator._json_pointer import fragment_tokens
+from datamodel_code_generator._lazy_exports import module_hooks as _module_hooks
 from datamodel_code_generator._model_keys import ModelKey, is_item_counts_site, model_key_of
 from datamodel_code_generator._module_paths import (
     dotted_module,
@@ -72,29 +75,25 @@ from datamodel_code_generator._module_paths import (
     relative,
     written_names,
 )
-from datamodel_code_generator._mro import c3_merge  # noqa: F401  # Preserve the established parser.base export.
+from datamodel_code_generator._mro import c3_merge as c3_merge
 from datamodel_code_generator._name_words import pascal_words
 from datamodel_code_generator._parse_memo import PARSE_MEMO, MemoTable
 from datamodel_code_generator._parser_context import ParserSourceContext
 from datamodel_code_generator._paths import files_under
-from datamodel_code_generator._python_syntax import (
-    normalize_newlines,  # noqa: F401  # Preserve the established parser.base export.
-)
+from datamodel_code_generator._python_syntax import normalize_newlines as normalize_newlines
 from datamodel_code_generator._python_target_names import target_builtin_names
 from datamodel_code_generator._records import mutable_record, record
 from datamodel_code_generator._reference_graph import (
     EdgeKind,
     GraphSnapshot,
 )
-from datamodel_code_generator._requirements import (
-    REQUIREMENTS,  # noqa: F401  # Preserve the established parser.base export.
-)
+from datamodel_code_generator._requirements import REQUIREMENTS as REQUIREMENTS
 from datamodel_code_generator._shared_types import (
     DefaultPutDict,
     LiteralType,
 )
+from datamodel_code_generator._source import YamlValue as YamlValue
 from datamodel_code_generator._source import (
-    YamlValue,
     _is_parsed_source_cache_enabled,
     _read_parser_source_data_from_path,
 )
@@ -132,10 +131,10 @@ from datamodel_code_generator.imports import (
 )
 from datamodel_code_generator.model._decisions.enum_kind import enum_is_open, open_enum_base
 from datamodel_code_generator.model._render_plan import RENDER_READY, NestedFactoryMetadata, RenderReady
+from datamodel_code_generator.model.base import ALL_MODEL as ALL_MODEL
+from datamodel_code_generator.model.base import BaseClassDataType as BaseClassDataType
+from datamodel_code_generator.model.base import ConstraintsBase as ConstraintsBase
 from datamodel_code_generator.model.base import (
-    ALL_MODEL,  # noqa: F401  # Preserve the established parser.base export.
-    BaseClassDataType,  # noqa: F401  # Preserve the established parser.base export.
-    ConstraintsBase,  # noqa: F401  # Preserve the established parser.base export.
     DataModel,
     DataModelFieldBase,
     _bind_bare_loads,
@@ -183,8 +182,8 @@ from datamodel_code_generator.parser._model_shapes import (
     ModelShapes,
     ReuseGroups,
     ShapeRow,
-    stdout_fingerprint,  # noqa: F401  # Preserve the established parser.base export.
 )
+from datamodel_code_generator.parser._model_shapes import stdout_fingerprint as stdout_fingerprint
 from datamodel_code_generator.parser._naming import NamingFrames, NamingPlan, NamingRules, rw_variant_class_name
 from datamodel_code_generator.parser._passes import _shared, _state, settle, structure
 from datamodel_code_generator.parser._passes import modules as _modules
@@ -200,7 +199,6 @@ from datamodel_code_generator.parser._passes._keys import (
 )
 from datamodel_code_generator.parser._passes._name_allocation import scheme_resolver
 from datamodel_code_generator.parser._passes._shared import (
-    _TYPE_DEPENDENT_CONSTRAINTS_KEY,  # noqa: F401  # Preserve the established parser.base export.
     DiscriminatorValue,
     _assign_module_name,
     _data_types_beside_fields,
@@ -210,17 +208,17 @@ from datamodel_code_generator.parser._passes._shared import (
     _parsed_rule_data_types,
     _ReuseOptimizationContext,
     _string_or_identifier_pattern,
-    add_model_path_to_list,  # noqa: F401  # Preserve the established parser.base export.
     apply_inherited_field_default,
     enum_discriminator_literal,
     enum_discriminator_members,
-    enum_site_override_import,  # noqa: F401  # Preserve the established parser.base export.
     field_name_model_type_of,
     normalize_default_value_constraints,
-    placeholder_identity,  # noqa: F401  # Preserve the established parser.base export.
     register_runtime_expression,
     unique_items_positions,
 )
+from datamodel_code_generator.parser._passes._shared import add_model_path_to_list as add_model_path_to_list
+from datamodel_code_generator.parser._passes._shared import enum_site_override_import as enum_site_override_import
+from datamodel_code_generator.parser._passes._shared import placeholder_identity as placeholder_identity
 from datamodel_code_generator.parser._passes._state import (
     ForwarderMap,
     ModuleModels,
@@ -269,20 +267,21 @@ from datamodel_code_generator.reference import (
     _rw_suffix,
     _rw_variant_of,
     location_of,
-    split_module_name,  # noqa: F401  # Preserve the established parser.base export.
 )
+from datamodel_code_generator.reference import split_module_name as split_module_name
+from datamodel_code_generator.types import NONE as NONE
 from datamodel_code_generator.types import (
-    NONE,  # noqa: F401  # Preserve the established parser.base export.
     DataType,
     DataTypeManager,
     _copy_data_type,
-    build_union,  # noqa: F401  # Preserve the established parser.base export.
-    union_members,  # noqa: F401  # Preserve the established parser.base export.
 )
+from datamodel_code_generator.types import build_union as build_union
+from datamodel_code_generator.types import union_members as union_members
 from datamodel_code_generator.util import record_watch_dependency, yaml_number_reading
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Generator, Hashable, Iterable, Iterator, Mapping, Sequence
+    from types import ModuleType
 
     from datamodel_code_generator._format_types import Formatter, PythonVersion
     from datamodel_code_generator._python_type_annotation import PythonTypeExpr
@@ -342,28 +341,28 @@ def _get_field_dependency_ordering_model_type(model_type: type[DataModel]) -> ty
     return model_type if model_type.REQUIRES_FIELD_DEPENDENCY_ORDERING else None
 
 
-def __getattr__(name: str) -> Any:
-    """Return compatibility model modules without importing them on parser load."""
-    match name:
-        case "dataclass_model":
-            from datamodel_code_generator.model import dataclass as dataclass_model  # noqa: PLC0415
+def _dataclass_model() -> ModuleType:
+    """Return the dataclass model module, imported on the first read of ``dataclass_model``."""
+    from datamodel_code_generator.model import dataclass as dataclass_model  # noqa: PLC0415
 
-            return dataclass_model
-        case "msgspec_model":
-            from datamodel_code_generator.model import msgspec as msgspec_model  # noqa: PLC0415
+    return dataclass_model
 
-            return msgspec_model
-        case "Child" | "T" | "to_hashable":
-            from datamodel_code_generator._internal_utils import Child, T, to_hashable  # noqa: PLC0415
 
-            match name:
-                case "Child":
-                    return Child
-                case "T":
-                    return T
-                case _:
-                    return to_hashable
-    raise AttributeError(name)
+def _msgspec_model() -> ModuleType:
+    """Return the msgspec model module, imported on the first read of ``msgspec_model``."""
+    from datamodel_code_generator.model import msgspec as msgspec_model  # noqa: PLC0415
+
+    return msgspec_model
+
+
+_LAZY_EXPORTS = {
+    "dataclass_model": _dataclass_model,
+    "msgspec_model": _msgspec_model,
+    "Child": "datamodel_code_generator._internal_utils",
+    "T": "datamodel_code_generator._internal_utils",
+    "to_hashable": "datamodel_code_generator._internal_utils",
+}
+__getattr__, __dir__ = _module_hooks(__name__, _LAZY_EXPORTS, missing_message="name")
 
 
 DroppedConstraintFields: TypeAlias = frozenset[tuple[ModulePath, str]]
@@ -643,7 +642,8 @@ class _ModelShapeSource:
         The type alias of an item-count site (``ITEM_COUNTS_SITE_KEY``), an array that was inline up to 0.89.0, is
         compared only with other such aliases, so deduplication and reuse group the models those releases wrote as
         they did: none of them becomes a duplicate of such an alias, which a root model naming it would then reach.
-        The uniqueItems positions of the fields are added where they hold any (``unique_items``).
+        The uniqueItems positions of the fields are added where they hold any (``unique_items``); without it, none are
+        (row ``legacy-dedup-keys-without-unique-items``).
         """
         site = (("item-counts-site",),) if is_item_counts_site(model.reference) else ()
         return (*site, ("unique-items", unique_items_positions(model))) if self.unique_items else site
@@ -718,7 +718,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         Returns:
             Schema features instance with version-specific flags.
         """
-        ...
 
     _generation_store_factory = staticmethod(GenerationStore.create_with_results)
     _model_resolver_factory = staticmethod(ModelResolver)
@@ -1665,7 +1664,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             for source in cached_sources:
                 if source.raw_data is None:
                     yield Source(path=source.path, text=source.text)
-                else:  # pragma: no cover
+                else:
                     yield source.model_copy(deep=True)
             return
         yield from self._iter_source_uncached()
@@ -1682,7 +1681,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                         yield self._source_from_path(source_path, data=data)
                 else:
                     yield self._source_from_path(path)
-            case list() as paths:  # pragma: no cover
+            case list() as paths:
                 for path in paths:
                     yield self._source_from_path(path)
             case _:

@@ -138,84 +138,53 @@ docstring-code-format = true
 [tool.mypy]
 python_version = "3.11"
 files = [
-    "ag2/__init__.py",
-    "ag2/_import_utils.py",
-    "ag2/_model_input.py",
-    "ag2/_replay.py",
-    "ag2/_run_lifecycle.py",
-    "ag2/_telemetry_consts.py",
-    "ag2/a2a",
-    "ag2/a2ui",
-    "ag2/acp",
-    "ag2/ag_ui",
-    "ag2/agent.py",
-    "ag2/aggregate.py",
-    "ag2/annotations.py",
-    "ag2/assembly.py",
-    "ag2/compact.py",
-    "ag2/config",
-    "ag2/context.py",
-    "ag2/eval",
-    "ag2/events",
-    "ag2/exceptions.py",
-    "ag2/extensions",
-    "ag2/files",
-    "ag2/history.py",
-    "ag2/hitl.py",
-    "ag2/knowledge",
-    "ag2/live",
-    "ag2/mcp",
-    "ag2/mcp_ui",
-    "ag2/middleware",
-    "ag2/mypy.py",
-    "ag2/network/__init__.py",
-    "ag2/network/adapters/__init__.py",
-    "ag2/network/auth.py",
-    "ag2/network/channel.py",
-    "ag2/network/client/__init__.py",
-    "ag2/network/client/agent_client.py",
-    "ag2/network/client/channel.py",
-    "ag2/network/client/checkpoint.py",
-    "ag2/network/client/human_client.py",
-    "ag2/network/client/inject.py",
-    "ag2/network/client/network_client.py",
-    "ag2/network/client/task.py",
-    "ag2/network/client/tools/__init__.py",
-    "ag2/network/client/tools/say.py",
-    "ag2/network/envelope.py",
-    "ag2/network/errors.py",
-    "ag2/network/handoff.py",
-    "ag2/network/hub/arbiter.py",
-    "ag2/network/hub/expectations.py",
-    "ag2/network/hub/layout.py",
-    "ag2/network/hub/sweepers.py",
-    "ag2/network/identity.py",
-    "ag2/network/ids.py",
-    "ag2/network/policies.py",
-    "ag2/network/remote.py",
-    "ag2/network/rule.py",
-    "ag2/network/task_mirror.py",
-    "ag2/network/testing.py",
-    "ag2/network/transport",
-    "ag2/network/views",
-    "ag2/network/workflow_helpers.py",
-    "ag2/observers",
-    "ag2/plugin.py",
-    "ag2/policies",
-    "ag2/response",
-    "ag2/scopes.py",
-    "ag2/spec.py",
-    "ag2/stream.py",
-    "ag2/streams",
-    "ag2/task.py",
-    "ag2/testing.py",
-    "ag2/textual.py",
-    "ag2/tools",
-    "ag2/types.py",
-    "ag2/usage.py",
-    "ag2/utils.py",
-    "ag2/version.py",
-    "ag2/watch.py",
+    "ag2",
+    "test/__init__.py",
+    "test/_helpers.py",
+    "test/_serving.py",
+    "test/ag_ui",
+    "test/beta",
+    "test/conftest.py",
+    "test/dynamic",
+    "test/eval/__init__.py",
+    "test/eval/dataset",
+    "test/eval/results",
+    "test/eval/runtime/__init__.py",
+    "test/eval/runtime/test_eval_stream.py",
+    "test/eval/runtime/test_evaluate.py",
+    "test/eval/runtime/test_produce_evaluate.py",
+    "test/eval/runtime/test_run_pairwise.py",
+    "test/eval/runtime/test_smoke_weather.py",
+    "test/eval/runtime/test_variants.py",
+    "test/eval/scorers",
+    "test/eval/sources",
+    "test/eval/test_evaluate_pairwise.py",
+    "test/eval/test_scorer_decorator.py",
+    "test/eval/test_trace.py",
+    "test/events",
+    "test/files",
+    "test/knowledge",
+    "test/mcp_ui",
+    "test/observer",
+    "test/orchestration",
+    "test/policies",
+    "test/response",
+    "test/spec",
+    "test/stream",
+    "test/test_agent_composition.py",
+    "test/test_agent_resume.py",
+    "test/test_aggregate.py",
+    "test/test_alert_halt.py",
+    "test/test_assembly.py",
+    "test/test_compact.py",
+    "test/test_history.py",
+    "test/test_optional_imports.py",
+    "test/test_plugin",
+    "test/test_task.py",
+    "test/test_textual.py",
+    "test/test_usage.py",
+    "test/test_watch.py",
+    "test/test_watch_advanced.py",
 ]
 strict = true
 ignore_missing_imports = true
@@ -225,13 +194,13 @@ plugins = [
     "pydantic.mypy",
     "ag2.mypy",
 ]
-follow_imports = "silent"
 disallow_untyped_defs = true
 no_implicit_optional = true
 check_untyped_defs = true
 warn_return_any = true
 show_error_codes = true
-warn_unused_ignores = false
+warn_unused_ignores = true
+untyped_calls_exclude = ["google.auth.credentials"]
 disallow_incomplete_defs = true
 disallow_untyped_decorators = true
 disallow_any_unimported = true
@@ -260,10 +229,6 @@ module = "ag2.extensions.mi4afa.*"
 disallow_any_unimported = false
 
 [[tool.mypy.overrides]]
-module = "ag2.ag_ui.*"
-disable_error_code = ["no-any-unimported"]
-
-[[tool.mypy.overrides]]
 module = "ag2.live.sound_device"
 disable_error_code = ["no-any-unimported"]
 
@@ -271,6 +236,14 @@ disable_error_code = ["no-any-unimported"]
 module = "numpy.*"
 follow_imports = "skip"
 follow_imports_for_stubs = true
+
+[[tool.mypy.overrides]]
+module = "test.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+disallow_any_unimported = false
+disallow_any_generics = false
 
 [tool.codespell]
 skip = "*.js,*.map,*.pdf,*.po,*.ts,*.json,*.svg"
@@ -293,7 +266,7 @@ keywords = [
     "agentic",
 ]
 requires-python = ">=3.11"
-version = "1.3.2"
+version = "1.3.3"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
@@ -350,7 +323,8 @@ ag-ui = ["ag-ui-protocol>=1.0,<2"]
 openai = ["openai>=3.45.0,<4"]
 anthropic = ["anthropic>=1.15.0,<3"]
 gemini = [
-    "google-genai>=1.68.0,<3.0",
+    "google-genai>=1.68.0,<4",
+    "httpx2>=2.0.0,<3",
     "google-auth",
 ]
 elevenlabs = ["elevenlabs>=2.73.0,<3"]
@@ -482,6 +456,8 @@ types = [
     "types-PyYAML",
     "types-jsonschema",
     "types-aiobotocore[bedrock-runtime]",
+    "types-grpcio",
+    "types-protobuf",
     { include-group = "test" },
     "ag2[openai, anthropic, gemini, mistral, xai, zai, ollama, dashscope, typesafe, elevenlabs, a2a, ag-ui, acp]",
     "ag2[ddgs, perplexity]",

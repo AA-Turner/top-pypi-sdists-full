@@ -882,7 +882,7 @@ class LinkedinSearchPostsFullInput(TypedDict, total=False):
     authorIndustryIds: NotRequired[list[str]]
     """Only return posts by authors associated with these LinkedIn industry IDs."""
     authorKeywords: NotRequired[str]
-    """Only return posts whose author profile headline or job title contains at least one of these keywords."""
+    """Only return posts whose author headline or job title contains these keywords. To match any of several words, join them with OR (psicologa OR psicologo); spaces or commas between words do not do that. If an accented word returns no results, try it without accents."""
     authorUrls: NotRequired[list[str]]
     """Only return posts authored by these LinkedIn profile or company URLs."""
     contentType: NotRequired[
@@ -5497,7 +5497,7 @@ class LinkedinNamespace:
         List the employees of a LinkedIn company by name or company URL, with
         optional job-title filtering.
 
-        Price: $0.02 per request.
+        Price: $0.006 per request.
 
         Example:
             res = client.linkedin.company_employees(company="stripe", limit=3)
@@ -5562,7 +5562,7 @@ class LinkedinNamespace:
         tagline. No follower count, founded year, office locations, or funding data
         - for those use linkedin.company.
 
-        Price: $0.0008 per request.
+        Price: $0.001 per request.
 
         Example:
             res = client.linkedin.company_thin(url="https://www.linkedin.com/company/stripe")
@@ -5653,7 +5653,7 @@ class LinkedinNamespace:
         hiring team, the applicant tracking system behind it, and the hiring company
         with its size, follower count, website and description.
 
-        Price: $0.0012 per request.
+        Price: $0.0015 per request.
 
         Example:
             res = client.linkedin.job(url="https://www.linkedin.com/jobs/view/4431721875/")
@@ -6466,7 +6466,7 @@ class AsyncLinkedinNamespace:
         List the employees of a LinkedIn company by name or company URL, with
         optional job-title filtering.
 
-        Price: $0.02 per request.
+        Price: $0.006 per request.
 
         Example:
             res = client.linkedin.company_employees(company="stripe", limit=3)
@@ -6531,7 +6531,7 @@ class AsyncLinkedinNamespace:
         tagline. No follower count, founded year, office locations, or funding data
         - for those use linkedin.company.
 
-        Price: $0.0008 per request.
+        Price: $0.001 per request.
 
         Example:
             res = client.linkedin.company_thin(url="https://www.linkedin.com/company/stripe")
@@ -6622,7 +6622,7 @@ class AsyncLinkedinNamespace:
         hiring team, the applicant tracking system behind it, and the hiring company
         with its size, follower count, website and description.
 
-        Price: $0.0012 per request.
+        Price: $0.0015 per request.
 
         Example:
             res = client.linkedin.job(url="https://www.linkedin.com/jobs/view/4431721875/")

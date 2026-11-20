@@ -1656,6 +1656,22 @@ class BoardDoctorConfig:
     flight. Default 3h — matches
     :data:`coord.state.BOARD_DOCTOR_OUTCOME_GRACE_HOURS`, the fallback used
     on the same read failure as every other knob in this section.
+
+    ``auto_refile`` (#4038) is the fleet-wide switch for the auto-refile
+    disposition, mirroring ``followthrough`` exactly: a repo must still opt
+    in via ``repos[].board_doctor.auto_refile``
+    (``BoardDoctorRepoConfig.auto_refile``, default ``False``).
+
+    ``auto_split`` (#4034) is the fleet-wide switch for the auto-split
+    disposition, mirroring ``auto_refile`` exactly: a repo must still opt
+    in via ``repos[].board_doctor.auto_split``
+    (``BoardDoctorRepoConfig.auto_split``, default ``False``).
+
+    ``config_drift_autofix`` (#4035) is the fleet-wide switch for the
+    config-drift autofix disposition, mirroring ``auto_split`` exactly: a
+    repo must still opt in via ``repos[].board_doctor.
+    config_drift_autofix`` (``BoardDoctorRepoConfig.config_drift_autofix``,
+    default ``False``).
     """
 
     investigate: bool = True
@@ -1669,6 +1685,9 @@ class BoardDoctorConfig:
     backoff_cap_hours: float = 24.0
     fixit_leg_budget: int = 1
     outcome_grace_hours: float = 3.0
+    auto_refile: bool = True
+    auto_split: bool = True
+    config_drift_autofix: bool = True
 
 
 KNOWN_GATE_NAMES = ("test", "review", "uat", "merge")
@@ -3761,6 +3780,21 @@ def _parse_board_doctor(raw: Any) -> BoardDoctorConfig:
         ):
             raise ConfigError("board_doctor.outcome_grace_hours must be a positive number")
         cfg.outcome_grace_hours = float(outcome_grace_hours)
+    if "auto_refile" in raw:
+        auto_refile = raw["auto_refile"]
+        if not isinstance(auto_refile, bool):
+            raise ConfigError("board_doctor.auto_refile must be a boolean")
+        cfg.auto_refile = auto_refile
+    if "auto_split" in raw:
+        auto_split = raw["auto_split"]
+        if not isinstance(auto_split, bool):
+            raise ConfigError("board_doctor.auto_split must be a boolean")
+        cfg.auto_split = auto_split
+    if "config_drift_autofix" in raw:
+        config_drift_autofix = raw["config_drift_autofix"]
+        if not isinstance(config_drift_autofix, bool):
+            raise ConfigError("board_doctor.config_drift_autofix must be a boolean")
+        cfg.config_drift_autofix = config_drift_autofix
     return cfg
 
 
@@ -4241,6 +4275,28 @@ def _parse_board_doctor_repo_config(raw: Any, repo_index: int) -> BoardDoctorRep
                 f"repos[{repo_index}].board_doctor.followthrough_auto_queue must be a boolean"
             )
         cfg.followthrough_auto_queue = auto_queue
+    if "auto_refile" in raw:
+        auto_refile = raw["auto_refile"]
+        if not isinstance(auto_refile, bool):
+            raise ConfigError(
+                f"repos[{repo_index}].board_doctor.auto_refile must be a boolean"
+            )
+        cfg.auto_refile = auto_refile
+    if "auto_split" in raw:
+        auto_split = raw["auto_split"]
+        if not isinstance(auto_split, bool):
+            raise ConfigError(
+                f"repos[{repo_index}].board_doctor.auto_split must be a boolean"
+            )
+        cfg.auto_split = auto_split
+    if "config_drift_autofix" in raw:
+        config_drift_autofix = raw["config_drift_autofix"]
+        if not isinstance(config_drift_autofix, bool):
+            raise ConfigError(
+                f"repos[{repo_index}].board_doctor.config_drift_autofix "
+                "must be a boolean"
+            )
+        cfg.config_drift_autofix = config_drift_autofix
     return cfg
 
 

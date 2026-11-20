@@ -13,16 +13,20 @@ from edison_client.models.directive import ResolvedSystemPromptDirective
 
 
 class _Stub(DirectiveMethods):
-    def __init__(self, sync=None, async_=None):
+    def __init__(
+        self, sync: httpx.Client | None = None, async_: httpx.AsyncClient | None = None
+    ) -> None:
         self._sync = sync
         self._async = async_
 
     @property
-    def client(self):
+    def client(self) -> httpx.Client:
+        assert self._sync is not None
         return self._sync
 
     @property
-    def async_client(self):
+    def async_client(self) -> httpx.AsyncClient:
+        assert self._async is not None
         return self._async
 
 
@@ -44,7 +48,7 @@ def _ok_response() -> MagicMock:
                 "dss_entry_id": None,
                 "version_created_at": datetime.now(UTC).isoformat(),
             }
-        ],
+        ]
     }
     resp = MagicMock()
     resp.raise_for_status = MagicMock()
@@ -58,7 +62,7 @@ def _error_response(status: int = 400) -> httpx.Response:
 
 
 class TestResolveDirectivesSync:
-    def test_returns_typed_response(self):
+    def test_returns_typed_response(self) -> None:
         sync = MagicMock()
         sync.post = MagicMock(return_value=_ok_response())
         stub = _Stub(sync=sync)
@@ -71,7 +75,7 @@ class TestResolveDirectivesSync:
         assert directive.version == 3
         assert directive.body == "Be terse."
 
-    def test_sends_expected_payload(self):
+    def test_sends_expected_payload(self) -> None:
         sync = MagicMock()
         sync.post = MagicMock(return_value=_ok_response())
         stub = _Stub(sync=sync)
@@ -82,7 +86,7 @@ class TestResolveDirectivesSync:
         assert args[0] == "/v0.1/directives/resolve"
         assert kwargs["json"] == {"profile_key": "my-profile"}
 
-    def test_non_retryable_http_error_raises_directive_error(self):
+    def test_non_retryable_http_error_raises_directive_error(self) -> None:
         error_resp = _error_response(400)
         sync = MagicMock()
         sync.post = MagicMock(
@@ -102,7 +106,7 @@ class TestResolveDirectivesSync:
 
 class TestResolveDirectivesAsync:
     @pytest.mark.asyncio
-    async def test_returns_typed_response(self):
+    async def test_returns_typed_response(self) -> None:
         async_client = MagicMock()
         async_client.post = AsyncMock(return_value=_ok_response())
         stub = _Stub(async_=async_client)

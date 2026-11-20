@@ -237,7 +237,7 @@ class PersonEnrichmentProspeoInput(TypedDict, total=False):
     email: NotRequired[str]
     """Known email address, used as the sole identity seed for a reverse lookup."""
     enrichMobile: NotRequired[bool]
-    """Reveal the mobile number. Without it the number comes back masked."""
+    """Reveal the mobile number. Without it the number comes back masked. Adds $0.5892 to the call, charged to your balance only when a mobile number is found; a call paid on its own with x402 or MPP pays it either way."""
     firstName: NotRequired[str]
     """First name. Send with lastName plus companyWebsite for the best hit rate."""
     fullName: NotRequired[str]
@@ -3463,7 +3463,10 @@ class PersonEnrichmentNamespace:
 
         Enrich one person into work email, mobile phone, full job history and
         employer firmographics from a LinkedIn URL, an email, or a name plus company
-        domain.
+        domain. Revealing the mobile number with enrichMobile costs extra, charged
+        to your balance only when a mobile number is found. A call paid on its own
+        with x402 or MPP pays the quoted price, mobile charge included, whether or
+        not a number is found.
 
         Price: $0.066 per request.
 
@@ -3697,7 +3700,10 @@ class AsyncPersonEnrichmentNamespace:
 
         Enrich one person into work email, mobile phone, full job history and
         employer firmographics from a LinkedIn URL, an email, or a name plus company
-        domain.
+        domain. Revealing the mobile number with enrichMobile costs extra, charged
+        to your balance only when a mobile number is found. A call paid on its own
+        with x402 or MPP pays the quoted price, mobile charge included, whether or
+        not a number is found.
 
         Price: $0.066 per request.
 

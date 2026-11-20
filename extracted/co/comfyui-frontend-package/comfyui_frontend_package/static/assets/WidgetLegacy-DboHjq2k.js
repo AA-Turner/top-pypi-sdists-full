@@ -1,0 +1,1 @@
+import{t as e}from"./WidgetLegacy-DnpNTqmJ.js";export{e as default};

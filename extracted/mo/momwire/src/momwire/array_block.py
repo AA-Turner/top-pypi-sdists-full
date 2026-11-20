@@ -932,6 +932,8 @@ class ArrayBlockSolver(HMatrixSolver):
     forcing the block decomposition (issue #143); see `_degenerate_partition`.
     """
 
+    _fill_report_route_name = "array-block"
+
     # Inherits HMatrixSolver's row in every other respect — same basis, same
     # testing, same served axes — and differs in the one cell this class
     # exists for. Spelled as `_replace` on the parent for the same reason
@@ -1247,6 +1249,9 @@ class ArrayBlockSolver(HMatrixSolver):
                 "fell back to the H-matrix (no exploitable element partition)"
             )
             return H
+        # Ahead of the operator cache: a hit builds nothing, and reads no hint
+        # either (momwire#2020).
+        self._decline_unread_hint("the array-block operator does not read the hint")
         key = (
             self._geometry_cache_key(),
             float(self.k),
@@ -1431,6 +1436,7 @@ class ArrayBlockSolver(HMatrixSolver):
             tol = self.aca_tol
         if k is None:
             k = self.k
+        self._decline_unread_hint("the array-block operator does not read the hint")
         part = self.array_partition()
         ctx = self._context()
         n = ctx["n_basis"]

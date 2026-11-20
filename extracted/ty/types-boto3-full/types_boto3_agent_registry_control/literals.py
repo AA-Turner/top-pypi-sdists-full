@@ -26,6 +26,7 @@ __all__ = (
     "AgentCoreGatewayProtocolTypeType",
     "AgentCoreRuntimeServerProtocolType",
     "AgentRegistryControlServiceName",
+    "AgentSkillsRepositoryProviderType",
     "AutoApprovalRuleType",
     "AutoDetectionScopeType",
     "AutoDetectionStatusType",
@@ -56,6 +57,7 @@ __all__ = (
 
 AgentCoreGatewayProtocolTypeType = Literal["MCP"]
 AgentCoreRuntimeServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
+AgentSkillsRepositoryProviderType = Literal["GITHUB"]
 AutoApprovalRuleType = Literal["APPROVE_ALL"]
 AutoDetectionScopeType = Literal["ORGANIZATION"]
 AutoDetectionStatusType = Literal["ACTIVE", "INACTIVE"]
@@ -73,16 +75,18 @@ RegistryReadyWaiterName = Literal["registry_ready"]
 RegistryRecordApprovedWaiterName = Literal["registry_record_approved"]
 RegistryRecordCredentialProviderTypeType = Literal["IAM", "OAUTH"]
 RegistryRecordFilterNameType = Literal["name", "recordType", "status"]
-RegistryRecordOAuthGrantTypeType = Literal["CLIENT_CREDENTIALS"]
+RegistryRecordOAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
 RegistryRecordStatusType = Literal[
     "APPROVED",
     "CREATE_FAILED",
+    "CREATE_PENDING_AUTH",
     "CREATING",
     "DEPRECATED",
     "DRAFT",
     "PENDING_APPROVAL",
     "REJECTED",
     "UPDATE_FAILED",
+    "UPDATE_PENDING_AUTH",
     "UPDATING",
 ]
 RegistryStatusType = Literal[
@@ -393,6 +397,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

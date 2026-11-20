@@ -743,6 +743,7 @@ __all__ = (
     "IpPoolCreateRequestTypeDef",
     "IpPoolTypeDef",
     "IpPoolUpdateRequestTypeDef",
+    "JpegXsInputSpecificationTypeDef",
     "KeyProviderSettingsTypeDef",
     "LinkedChannelSettingsTypeDef",
     "ListAlertsRequestPaginateTypeDef",
@@ -1405,6 +1406,12 @@ class InputSpecificationTypeDef(TypedDict):
     Codec: NotRequired[InputCodecType]
     MaximumBitrate: NotRequired[InputMaximumBitrateType]
     Resolution: NotRequired[InputResolutionType]
+
+
+class JpegXsInputSpecificationTypeDef(TypedDict):
+    Codec: NotRequired[InputCodecType]
+    MaximumBitrate: NotRequired[Literal["MAX_500_MBPS"]]
+    Resolution: NotRequired[Literal["HD"]]
 
 
 class MaintenanceStatusTypeDef(TypedDict):
@@ -6456,6 +6463,7 @@ class ChannelSummaryTypeDef(TypedDict):
     LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[list[str]]
     InferenceSettings: NotRequired[DescribeInferenceSettingsTypeDef]
+    JpegXsInputSpecification: NotRequired[JpegXsInputSpecificationTypeDef]
 
 
 class ChannelTypeDef(TypedDict):
@@ -6482,6 +6490,7 @@ class ChannelTypeDef(TypedDict):
     LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[list[str]]
     InferenceSettings: NotRequired[DescribeInferenceSettingsTypeDef]
+    JpegXsInputSpecification: NotRequired[JpegXsInputSpecificationTypeDef]
 
 
 class DeleteChannelResponseTypeDef(TypedDict):
@@ -6508,6 +6517,7 @@ class DeleteChannelResponseTypeDef(TypedDict):
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
     InferenceSettings: DescribeInferenceSettingsTypeDef
+    JpegXsInputSpecification: JpegXsInputSpecificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6535,6 +6545,7 @@ class DescribeChannelResponseTypeDef(TypedDict):
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
     InferenceSettings: DescribeInferenceSettingsTypeDef
+    JpegXsInputSpecification: JpegXsInputSpecificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6563,6 +6574,7 @@ class RestartChannelPipelinesResponseTypeDef(TypedDict):
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
     InferenceSettings: DescribeInferenceSettingsTypeDef
+    JpegXsInputSpecification: JpegXsInputSpecificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6590,6 +6602,7 @@ class StartChannelResponseTypeDef(TypedDict):
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
     InferenceSettings: DescribeInferenceSettingsTypeDef
+    JpegXsInputSpecification: JpegXsInputSpecificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6617,6 +6630,7 @@ class StopChannelResponseTypeDef(TypedDict):
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
     InferenceSettings: DescribeInferenceSettingsTypeDef
+    JpegXsInputSpecification: JpegXsInputSpecificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6726,6 +6740,7 @@ class CreateChannelRequestTypeDef(TypedDict):
     LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[Sequence[str]]
     InferenceSettings: NotRequired[InferenceSettingsTypeDef]
+    JpegXsInputSpecification: NotRequired[JpegXsInputSpecificationTypeDef]
 
 
 class UpdateChannelRequestTypeDef(TypedDict):
@@ -6746,3 +6761,4 @@ class UpdateChannelRequestTypeDef(TypedDict):
     ChannelSecurityGroups: NotRequired[Sequence[str]]
     InferenceSettings: NotRequired[InferenceSettingsTypeDef]
     SpecialRouterSettings: NotRequired[SpecialRouterSettingsTypeDef]
+    JpegXsInputSpecification: NotRequired[JpegXsInputSpecificationTypeDef]

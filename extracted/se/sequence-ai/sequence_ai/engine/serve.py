@@ -10,65 +10,95 @@ A policy server in one call: your model as a function, served to robots elsewher
 
     sequence_ai.serve(policy, port=8000, example=observation)
 
-On the robot, sequence_ai.connect("http://<this machine>:8000") acts on it (sequence_ai.network.link).
+On the robot, sequence_ai.connect("http://<this machine>:8000") gives the same Policy a deployed policy's name gives:
+observe(observation) as the robot makes each, act() when it wants an answer.
 
-In one sentence: serve() listens on every address of this machine → a robot POSTs an observation to /act as msgpack →
-the server restores what the robot compressed and turns each picture the robot sent as JPEG back into its array → the
-policy is called with it on a thread of its own, one call at a time (with `batch`, on a list of the observations
-waiting) → its output goes back as msgpack, numpy arrays as arrays, in one write, with how long the server took
-(Server-Timing).
+In one sentence: serve() listens on every address of this machine → a robot opens its stream (GET /stream, a
+WebSocket) → each observation goes on it as it is made (POST /observe: a sequence_ai.Video item as video), kept in order
+by episode and turned back on a thread of its own (engine.data_plane) → each act names how many observations of its
+episode came before it (POST /act, {"call": "act", "episode_id", "seq"}) → once those are in, the policy is called with
+the newest on a thread of its own, one call at a time (with `batch`, on a list of the observations waiting) → its
+output goes back in msgpack, numpy arrays as arrays, with how long the server took ({"outputs", "perf"}).
 
 What each part does by default, and how to change it:
 
-    one call at a time   the policy runs on one thread of its own, one call at a time; requests that   -
-                         arrive meanwhile wait their turn, in order
-    batching             off                                                                          batch=[1, 2, 4, 8]
+    one call at a time   the policy runs on one thread of its own, one call at a time; acts that arrive  -
+                         meanwhile wait their turn, in order
+    batching             off; with batch, the acts that wait while the policy runs go in one call,    batch=[1, 2, 4, 8]
+                         none held back for more
     addresses            every address of this machine: 0.0.0.0, and :: where it has IPv6             host="127.0.0.1"
-    pictures as JPEG     says it reads them (X-Seq-Reads), so a robot's connect() sends each HxWx3    jpeg=False
-                         uint8 picture as JPEG; each is turned back into its array before the policy
-    compression          says it reads zstd and zlib, so a robot's connect() compresses its large     compress=False
-                         arrays where that saves time; they are restored byte for byte
+    the robot's stream   each robot's observations and acts on one WebSocket (GET /stream), each        -
+                         message answered as a request; the robot pinged every 60 s, let go 20 s after
+                         a ping it did not answer; X-Seq-Act-Formats names it on every answer
+    observations         kept by episode, in order, the robot's Video, Depth and Tactile items turned    -
+                         back into the arrays they were; one that is missing is asked for again, an
+                         act waiting for it (engine.data_plane, engine.stream)
     ping                 GET /ping is answered at once, even while the policy runs: 503 with          -
                          Retry-After until the warm-up is done, then 200 with what it is, as JSON
-                         (server, version, up_s, pid, policy)
-    identity             X-Seq-Server: sequence-ai/<version> on every response, so a robot can tell   -
-                         serve() from another program at the address it was given
-    once per act         copies of one act - a robot's over each of its uplinks (network.lines),      -
-                         each with the act's X-Seq-Request-Id - run the policy once: each copy gets
-                         that answer, kept 30 s, and X-Seq-Reads says "once"
-    halves               an act a robot sends in two halves, each on a connection of its own          -
-                         (X-Seq-Half), is joined and run as one: the first half gets the answer, the
-                         second 202 when it is here; X-Seq-Reads says "split"
+                         (server, version, up_s, pid, policy, and the speed-ups on: optimized)
+    identity             X-Seq-Server: sequence-ai/<version> on every response                        -
     warm-up              with `example`, the policy runs on it twice at each batch size before        example=None
                          /ping says ready, and GET /example hands it out
+    speed-ups            during the warm-up, those that keep the policy's outputs exactly as they     cuda_graphs=False
+                         are - CUDA graphs of its modules, and of its whole run - each checked on     whole_graph=False
+                         `example` (or `examples`) and kept where it is faster (engine.optimize);
+                         /ping says which are on. Those that change the outputs are yours to turn     torch_compile=True
+                         on, each with the difference you accept                                      tolerance=1e-3
     inputs               numpy arrays as arrays, each the policy's own to write into                  -
     outputs              torch tensors and JAX arrays come back as numpy arrays (bfloat16 as          -
                          float32), copied on the policy's thread
     one write            each response leaves in one write (one_write)                                -
-    server time          Server-Timing: act;dur= the ms from the request's last byte to its           -
-                         response, model;dur= the ms of the policy call that served it
+    server time          each answer's perf: handler_ms, from the act's last byte to its answer, and  -
+                         inference_ms, the policy call's
+    recording            the last minute of the robots' steps in memory, for a recorder to read as     record=False
+                         they come (GET /record: engine.recorder, network.record)
     token                none, unless $SEQ_SERVE_TOKEN is set                                         token="..."
     keep-alive           an idle connection is kept open 5 minutes                                    -
+    each robot's time    off: no act waits for another. Told how a robot plays an answer, an act      hz=20, ...
+                         waits for others only as long as its own robot's answer leaves it time, and
+                         a far robot's act goes first, apart, where a batch with the others would make
+                         it late (engine.slack.Aligner)
+    seats                with hz: a robot is let in at its first act only where every robot let in    -
+                         is still answered in time however their acts fall, each by its own round
+                         trip, none put out for it (engine.slack.Seating); any other is refused 503,
+                         saying why
+    several processes    one; started by a launcher as several (torchrun: WORLD_SIZE, RANK,            torchrun
+                         MASTER_ADDR, MASTER_PORT), rank 0 serves the robots and every call of the
+                         policy goes to every rank first, each running it on its part of the model;
+                         a rank that leaves halts them all, each act after refused, saying why
+                         (engine.ranks)
 
-Only the switches above change what the server says it reads: whatever arrives compressed or as JPEG is restored all
-the same, since restoring it is what the robot that sent it asked for.
+Each robot's time and its seat (`hz`, with `action_chunk_valid_len` or `action_chunk_replan_at`, as @seq.policy declares
+them; `example` times the batches): the warm-up times each listed batch size (engine.slack.measure's rules: one untimed
+run, then slack.RUNS) → a robot's Policy takes them from /ping and names its robot on each act (X-Seq-Session), with the
+round trip its acts spend outside the server (X-Seq-Outside-Ms) and what is left of the answer it plays as it asks
+(X-Seq-Chunk-Left-Ms) → at a robot's first act it is seated if the robots seated and it are all answered in time
+however their acts fall, each by its own round trip (slack.Seating, which runs them on a clock from every start), none
+of them put out for it; else that act is refused 503, unavailable, reason not_seated, with why, and so is each next one
+until there is room → each act of a seated robot waits for the others' only as long as its own answer leaves it time
+(slack.Aligner.hold_s), and goes first, apart, where one batch with them would make it late (Aligner.split) → each
+forward pass and each answer's time goes into the times its seats and waits are counted by (slack.Table, slack.Served).
+A robot gives its seat up once it has no act in flight and has sent none for slack.GONE_PERIODS of its answers' N steps.
+An act that names no robot is served as without `hz`: not seated, and not held. Without `hz` no act waits for another:
+what goes in one batch is what waited while the policy ran. The platform's workers seat and hold robots by these rules;
+engine/slack.py has the measurements behind them.
 
 WHY a thread of its own: a model's forward pass blocks for tens of milliseconds, and on the event loop it would hold
 every ping and every upload in progress for as long: with a 200 ms stand-in model, a ping's p50 was 153 ms with the
-model on the event loop and 1.0 ms with it on its own thread. It makes no request faster: with one policy, requests
-wait their turn either way (316 ms against 320 ms there), and what serves several robots sooner is `batch`. CUDA and
-JAX keep state per thread (the current device and stream, a trace's context), so the policy always runs on the same
-one, its warm-up included.
-WHY /ping answers from the event loop: a robot pings its idle connection to keep its window open, and waits for the
-answer before its next request when the two meet (link.py); a ping queued behind the model would cost that request the
-model's time.
+model on the event loop and 1.0 ms with it on its own thread. It makes no act faster: with one policy, acts wait their
+turn either way (316 ms against 320 ms there), and what serves several robots sooner is `batch`. CUDA and JAX keep
+state per thread (the current device and stream, a trace's context), so the policy always runs on the same one, its
+warm-up included.
+WHY /ping answers from the event loop: a robot asks it while it waits for the server to be ready
+(wait_until_ready()), and a ping queued behind the model would tell it nothing until the model is done.
 WHY torch and JAX outputs are copied to numpy on the policy's thread: copying a GPU tensor waits for the GPU to finish
 it, which must not happen on the event loop; msgpack carries numpy arrays.
 
 `App` is the ASGI app serve() runs, for an ASGI server of your own: uvicorn.run(WholeResponse(App(policy)),
-http=one_write_http()) is serve() without its listening sockets and logging.
+http=one_write_http(), ws=network.websocket.protocol()) is serve() without its listening sockets, logging and limits.
 
-Standard library and sequence-ai's own modules; uvicorn, which sequence-ai installs, is imported when serve() starts.
+Needs sequence-base (Python 3.10 or later), which sequence-ai installs there; uvicorn, which sequence-ai installs, is
+imported when serve() starts.
 """
 from __future__ import annotations
 
@@ -82,75 +112,304 @@ import json
 import logging
 import os
 import socket
+import sys
+import threading
 import time
 from typing import Any, Callable, Iterable, Optional
 
-from ..network import compressed, frames, msgpack_io
-from ..network.link import (COPY_HEADER, HALF_HEADER, HALF_MISSING, ONCE, READS_HEADER, REQUEST_HEADER, SERVER_HEADER,
-                            SPLIT)
+from .._core.outside import HEADER as OUTSIDE_HEADER
+from .._core.outside import LEFT_HEADER
+from ..network import msgpack_io
+from . import ranks as _ranks
+from . import recorder as _record
+from . import slack
+
+try:                                    # the platform's data plane, where sequence-base is installed (Python 3.10+)
+    from .data_plane import Refused as _Refused
+except ImportError:                     # none: App() says what to install (_data_plane), and nothing raises this
+    class _Refused(Exception):          # type: ignore[no-redef]
+        """Never raised: with no data plane there is no App to refuse anything."""
 from .batcher import Batcher
+from .stream_intake import FORMAT as STREAM_FORMAT
+from .stream_intake import StreamIntake
 
 __all__ = ["App", "serve", "TOKEN_ENV", "LIMIT", "KEEP_ALIVE_S"]
 
 log = logging.getLogger("sequence_ai.serve")
+# Said once a server starts with no example: what it leaves out, and what gives one
+NO_EXAMPLE = ("no example observation, so the policy is not warmed up and no speed-up is tried: add a @seq.sample "
+              "method to the policy")
 
 TOKEN_ENV = "SEQ_SERVE_TOKEN"     # read where serve() is given no token, as the check command reads it for --token
 LIMIT = 64 << 20                  # the most bytes a request's body, and each item in it restored, may hold
 KEEP_ALIVE_S = 300                # how long an idle connection is kept open: a robot paused for minutes resumes on it
 RETRY_AFTER_S = 1                 # what a ping during the warm-up says to wait
-# How long, and for how many acts, an act's answer is kept for another copy of it (REQUEST_HEADER): a robot's copies
-# of one act, one over each of its uplinks, reach the server within the slower uplink's delay of each other.
-ONCE_KEEP_S = 30.0
-ONCE_KEEP_N = 256
-# An act's halves (HALF_HEADER): how long its first half waits for its second before it is answered HALF_MISSING, and
-# for how many acts halves are kept while they wait. Two halves sent at once over one path come within its jitter of
-# each other, a lost packet's resend within a few hundred milliseconds.
-HALF_WAIT_S = 2.0
-HALF_KEEP_N = 64
+FAILED_SAID_S = 3.0               # how long a server whose warm-up failed answers /ping 500, why, before it stops
+# A robot's stream (GET /stream): how often the server pings the robot, and how long it waits for the pong before it
+# lets the stream go - a robot whose network went holds it no longer than that. The robot's own pings, every 0.1 s
+# while it is idle, keep it warm.
+WS_PING_S = 60.0
+WS_PONG_S = 20.0
 
+SERVER_HEADER = "X-Seq-Server"    # what the server says it is, on every response: sequence-ai/<version>
 _TEXT = b"text/plain; charset=utf-8"
-_REQUEST = REQUEST_HEADER.lower().encode()
-_HALF = HALF_HEADER.lower().encode()
-_FIRST, _SECOND = b"1/2", b"2/2"
-_COPY = (COPY_HEADER.lower().encode(), b"1")
+_JSON = b"application/json"
+_SESSION = b"x-seq-session"
+_SERVER = SERVER_HEADER.lower().encode()
+# What X-Seq-Act-Formats names on every answer - the platform's own words: the stream's format, and that the policy
+# reads each act's newest observation alone, so a robot leaves out a frame a newer one stood behind before it was sent
+# (never a video's).
+LATEST_FORMAT = "x-seq-latest/1"
+_OUTSIDE, _LEFT = (name.lower().encode() for name in (OUTSIDE_HEADER, LEFT_HEADER))
+SESSION_MAX = 128          # the longest robot name X-Seq-Session is read as; a longer one names no robot
+NOT_SEATED = 503           # the status of an act whose robot has no seat, with why in its body
+NOT_SEATED_REASON = "not_seated"   # and the reason the platform's refusal (ErrorBody) names
+# A count of seats runs on a thread of its own, and the interpreter passes from it to the event loop every
+# COUNT_SWITCH_S while it runs (_count), where Python's own switch interval (5 ms) is set.
+# WHY: a count takes from about 5 ms for 2 robots to seconds for 16 and more (engine/slack.py, in_time). In the serving
+# stack these rules were taken from, a count on the event loop held every robot's request for as long (33 ms for a
+# server that seated 3, 161 ms for 8); on a thread at Python's own interval, the loop's steps were 16 ms apart while it
+# ran, and 1.9 ms at 0.2 ms, against 1.3 ms idle.
+_PYTHON_SWITCH_S = 0.005
+COUNT_SWITCH_S = 0.0002
 
 
-class _Halves:
-    """One act's halves as they come (App._half): each half's bytes, when the first of them came, the act's answer and
-    when its body was whole once both are here (joined), and whether a first half has taken that answer."""
+class _Seat:
+    """A robot seated (_Fleet): the round trip its acts last reported (None: none yet), its acts in flight, and when it
+    was last heard - its latest act's arrival or answer."""
 
-    __slots__ = ("first", "second", "came", "joined", "taken")
+    __slots__ = ("outside", "acting", "heard")
 
-    def __init__(self) -> None:
-        self.first: Optional[bytes] = None
-        self.second: Optional[bytes] = None
-        self.came = time.monotonic()
-        self.joined: asyncio.Future = asyncio.get_running_loop().create_future()
-        self.taken = False
+    def __init__(self, outside: Optional[float], now: float) -> None:
+        self.outside, self.acting, self.heard = outside, 0, now
+
+
+class _Fleet:
+    """The robots App schedules by the slack their chunks leave (engine.slack), told how they play an answer: the time
+    each batch size takes, as the warm-up timed it and then as served (slack.Table, slack.Served); each robot's
+    requests as they arrive and its answers as they leave (slack.Aligner); and the robots seated, each by the round trip
+    it reports (slack.Seating), with why a robot is not."""
+
+    def __init__(self, play: "slack.Playback", plays: dict, sizes: list) -> None:
+        self.play, self.plays, self.sizes = play, plays, sizes
+        self.table, self.served = slack.Table(), slack.Served()
+        self.seats: "dict[str, _Seat]" = {}
+        self.aligner = slack.Aligner(self.table, play, seated=self.seats.keys, served=self.served)
+        self.seating: Optional[slack.Seating] = None       # once the warm-up has timed each size (timed)
+        self.capacity: Optional[int] = None                # the seats the latest count gave
+        self.gone_s = slack.GONE_PERIODS * play["play_s"]  # how long a robot with no act in flight keeps its seat
+        self._lock: Optional[asyncio.Lock] = None
+        self._counter = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="sequence_ai-seats")
+
+    def timed(self) -> None:
+        """The seating, once the warm-up has timed each listed size: the capacity of this one policy by the rules the
+        platform's workers seat robots by, its largest listed size the most robots it seats."""
+        play = self.play
+        self.seating = slack.Seating(self.table, play["buffer_s"] * 1000.0, sizes=self.sizes, served=self.served,
+                                     cycle_ms=(play["play_s"] - play["buffer_s"]) * 1000.0, most=self.sizes[-1],
+                                     wait_ms=play["wait_s"] * 1000.0 if "wait_s" in play else None,
+                                     step_ms=play["step_s"] * 1000.0)
+
+    async def count(self, robots: list) -> tuple:
+        """seating.seat(robots) - (seats, the robots over them) - on the thread counts run on."""
+        return await asyncio.get_running_loop().run_in_executor(self._counter, _count, self.seating, robots)
+
+    async def admit(self, robot: str, outside: Optional[float]) -> Optional[str]:
+        """None once `robot` is seated - now, or at an earlier act; else why it is not, in words its robot is shown. A
+        robot is seated where fewer robots are seated than its largest batch holds and, beside them, it is not over and
+        none of them is put over for it: each by its own round trip (Seating.seat, which takes one that reported none
+        at slack.ROUND_TRIP_MS), in every start their requests can fall in (slack.in_time).
+        WHY each by its own round trip and not first by the seats: the seats count each robot to come at ROUND_TRIP_MS,
+        and a robot nearer than that may fit where they leave none. The platform's workers ask the seats as well, as its
+        gateway sends robots to them by the seats; a robot reaches serve() by itself."""
+        if robot in self.seats:
+            return None
+        if self._lock is None:
+            self._lock = asyncio.Lock()        # made on the loop that serves: Python 3.9 binds a lock to a loop as made
+        async with self._lock:                 # one robot's count at a time: two counted at once would both be seated
+            if robot in self.seats:
+                return None
+            self.let_go(time.perf_counter())
+            robots = [(name, seat.outside) for name, seat in self.seats.items()]
+            seats, over = await self.count(robots)
+            self.capacity = seats
+            if len(robots) >= self.sizes[-1]:
+                return self._full(robots)
+            _, beside = await self.count(robots + [(robot, outside)])
+            put_out = set(beside) - set(over) - {robot}
+            if robot in beside or put_out:
+                return self._late(robot, outside, robots, sorted(put_out))
+            self.seats[robot] = _Seat(outside, time.perf_counter())
+            log.info("seated a robot %s (%d seated, %d seats)",
+                     "that has reported no round trip yet" if outside is None else f"{outside:.0f} ms away",
+                     len(self.seats), seats)
+            return None
+
+    def let_go(self, now: float) -> None:
+        """The seats of the robots gone: no act of theirs in flight, and none heard for gone_s. No batch waits for them
+        from now on (Aligner.left)."""
+        for name in [n for n, seat in self.seats.items() if not seat.acting and now - seat.heard > self.gone_s]:
+            del self.seats[name]
+            self.aligner.left(name)
+
+    def arrived(self, robot: str, entered: float, outside: Optional[float], left: Optional[float]) -> None:
+        """An act of seated `robot` that entered the server at `entered` (its last byte), its robot reporting a round
+        trip of `outside` ms and `left` ms of the answer it plays."""
+        seat, now = self.seats[robot], time.perf_counter()
+        seat.acting, seat.heard = seat.acting + 1, now
+        if outside is not None:
+            seat.outside = outside
+        self.aligner.arrived(robot, now, entered=entered, outside_ms=outside, left_ms=left)
+
+    def answered(self, robot: Optional[str], size: int, dispatched: float, model_s: float) -> None:
+        """An act answered, its batch of `size` dispatched at `dispatched` and the policy's call `model_s`: its time in
+        the server once dispatched into slack.Served, and its robot's answer, leaving now, into the Aligner."""
+        now = time.perf_counter()
+        self.served.add(size, (now - dispatched) * 1000.0, model_s * 1000.0)
+        if robot is not None:
+            self.aligner.answered([robot], now)
+
+    def done(self, robot: str) -> None:
+        """An act of `robot` answered, or failed: no longer in flight."""
+        seat = self.seats.get(robot)
+        if seat is not None:
+            seat.acting, seat.heard = max(0, seat.acting - 1), time.perf_counter()
+
+    def close(self) -> None:
+        self._counter.shutdown(wait=False, cancel_futures=True)
+
+    def _chunk(self) -> str:
+        """What a robot's answers must come within, for a refusal."""
+        if "wait_s" in self.play:
+            return f"the {self.play['wait_s'] * 1000:.0f} ms a robot waits for an answer"
+        plays = self.plays
+        return (f"the {self.play['buffer_s'] * 1000:.0f} ms left of each answer as a robot asks for the next "
+                f"({plays['action_chunk_valid_len'] - plays['action_chunk_replan_at']} of "
+                f"{plays['action_chunk_valid_len']} steps at {plays['hz']:g} Hz)")
+
+    def _batches(self) -> str:
+        """What each listed batch size takes here, for a refusal."""
+        sizes = [n for n in self.sizes if self.served.post_ms(n, self.table) is not None]
+        said = ", ".join(f"{n}: {self.served.post_ms(n, self.table):.0f} ms" for n in sizes)
+        return f"a batch takes {said} here"
+
+    def _again(self) -> str:
+        return f"a robot gives its place up {self.gone_s:.0f} s after its last act"
+
+    def _full(self, robots: list) -> str:
+        return (f"this server already serves {_robots(len(robots))}, as many as its largest batch holds "
+                f"({self.sizes[-1]}). Serve this robot from another GPU, or act again once one of them has stopped: "
+                f"{self._again()}")
+
+    def _late(self, robot: str, outside: Optional[float], robots: list, put_out: list) -> str:
+        away = (f"{outside:.0f} ms away" if outside is not None else
+                f"taken as {slack.ROUND_TRIP_MS:.0f} ms away, having reported no round trip")
+        if put_out:
+            far = " and ".join(f"{_or_default(self.seats[name].outside):.0f} ms" for name in put_out)
+            why = (f"seated beside the {_robots(len(robots))} it serves, this robot, {away}, would leave the "
+                   f"{'one' if len(put_out) == 1 else 'ones'} {far} away without "
+                   f"{'its' if len(put_out) == 1 else 'their'} answers within {self._chunk()}")
+        else:
+            why = (f"this server cannot answer this robot within {self._chunk()} beside the {_robots(len(robots))} it "
+                   f"serves, however their requests fall: this robot is {away}")
+        return (f"{why} ({self._batches()}). Serve it from a GPU nearer it, or from this one once the others have "
+                f"stopped: {self._again()}")
+
+
+def _robots(n: int) -> str:
+    return f"{n} robot" if n == 1 else f"{n} robots"
+
+
+def _or_default(outside: Optional[float]) -> float:
+    """A robot's round trip as a count takes it: slack.ROUND_TRIP_MS for one that reported none."""
+    return slack.ROUND_TRIP_MS if outside is None else outside
+
+
+def _count(seating: "slack.Seating", robots: list) -> tuple:
+    """seating.seat(robots), on the thread counts run on, the interpreter passing to the event loop every COUNT_SWITCH_S
+    while it runs - where Python's own interval is set; one something else set stays as it set it."""
+    was = sys.getswitchinterval()
+    ours = abs(was - _PYTHON_SWITCH_S) < 1e-9
+    if ours:
+        sys.setswitchinterval(COUNT_SWITCH_S)
+    try:
+        return seating.seat(robots)
+    finally:
+        if ours:
+            sys.setswitchinterval(was)
+
+
+def _plays(hz: Any, valid: Any, replan_at: Any, wait_s: Any) -> Optional[tuple]:
+    """(slack.playback's playback, what /ping says of it - @seq.policy's declarations, by their names) for how a robot
+    plays an answer: its hz, action_chunk_valid_len, action_chunk_replan_at and max_wait_for_batch; None when none is
+    given. ValueError for numbers that do not say it."""
+    if hz is None and valid is None and replan_at is None and wait_s is None:
+        return None
+    whole = [n for n in (valid, replan_at) if n is not None]
+    play = slack.playback(hz, valid, replan_at, wait_s)
+    if (play is None or any(not isinstance(n, int) or isinstance(n, bool) or n < 1 for n in whole)
+            or (wait_s is not None and "wait_s" not in play)):
+        raise ValueError(f"serve() times each robot by how it plays an answer: hz, the steps it plays a second "
+                         f"(above 0, up to 1000), and action_chunk_valid_len, the steps of an answer it may play, or "
+                         f"action_chunk_replan_at, the step at which it asks for the next (whole numbers, 1 or more); "
+                         f"max_wait_for_batch, if given, how long it waits for an answer (above 0, up to "
+                         f"{slack.WAIT_MAX_S:g} s). It was given hz={hz!r}, action_chunk_valid_len={valid!r}, "
+                         f"action_chunk_replan_at={replan_at!r}, max_wait_for_batch={wait_s!r}")
+    valid = valid if valid is not None else replan_at
+    plays = {"hz": float(hz), "action_chunk_valid_len": valid,
+             "action_chunk_replan_at": min(replan_at, valid) if replan_at else valid}
+    if wait_s is not None:
+        plays["max_wait_for_batch"] = float(wait_s)
+    return play, plays
+
+
+def _robot(scope) -> Optional[str]:
+    """The robot an act names (SESSION_HEADER): None for none, or for a name longer than SESSION_MAX."""
+    name = _header(scope, _SESSION).decode("latin-1").strip()
+    return name if 0 < len(name) <= SESSION_MAX else None
 
 
 class App:
     """
-    The ASGI app serve() runs (the module's docstring has what each part does): POST /act, GET /ping, GET /example.
-    The policy is warmed up when the server starts (its lifespan) or, with no lifespan, at the first request.
+    The ASGI app serve() runs (the module's docstring has what each part does): GET /stream, POST /observe, POST /act,
+    POST /act/episode_end, GET /ping, GET /example, GET /record. The policy is warmed up when the server starts (its
+    lifespan) or, with no lifespan, at the first request. ImportError where sequence-base is not installed.
 
     policy     a function: an observation in, the response's value out. With `batch`, a function from a list of
                observations to a list of outputs, one for each, in order
     batch      None: one observation per call. A list of sizes, 1 among them: the observations waiting are passed as
-               a list of the largest listed size they fill (engine.batcher)
-    wait_ms    with `batch`, how long a batch that is not full waits for more while the policy is free
+               a list of the largest listed size they fill (engine.batcher), none held back for more unless `hz` says
+               how long each robot can wait
     token      requests must carry Authorization: Bearer <token>; None or "": no token is asked for
     example    an observation: the warm-up runs the policy on it, and GET /example hands it out
-    jpeg       whether the server says it reads pictures sent as JPEG
-    compress   whether it says it reads compressed arrays
-    limit      the most bytes a body may hold, and each compressed item or picture in it once restored
+    limit      the most bytes a request's body, or a message of a robot's stream, may hold
+    record     whether it keeps the last minute of the robots' steps in memory for a recorder to read as they come
+               (GET /record: engine.recorder)
+    examples   observations the speed-ups are checked on during the warm-up (engine.optimize); `example` alone when
+               none are given, and the first of them is `example` when it is not
+    cuda_graphs, whole_graph   None: tried on a PyTorch policy, not a JAX one; True: tried; False: not
+               (engine.optimize)
+    torch_compile, fused_kernels, tensorrt, precision, tolerance   the speed-ups that change the outputs, tried with
+               the `tolerance` given (engine.optimize); ValueError at once when one is on without it
+    copy       the copy of the policy each episode's frames go to (engine.episodes.PolicyCopy, a @seq.policy class's:
+               its episodes, observe function, on_episode and plans), handed this server's policy thread; None: one
+               that keeps each episode's newest observation
+    hz, action_chunk_valid_len, action_chunk_replan_at, max_wait_for_batch
+               how a robot plays an answer, as @seq.policy declares it: each robot's acts are held and its robots
+               seated by it (the module's docstring), with `example` to time the batches. max_wait_for_batch: how long
+               a robot waits for an answer at most, in seconds from when it sent its act, which it is held and seated
+               by instead
     """
 
-    def __init__(self, policy: Callable[[Any], Any], *, batch: Optional[Iterable[int]] = None, wait_ms: float = 2.0,
-                 token: Optional[str] = None, example: Any = None, jpeg: bool = True, compress: bool = True,
-                 limit: int = LIMIT) -> None:
+    def __init__(self, policy: Callable[[Any], Any], *, batch: Optional[Iterable[int]] = None,
+                 token: Optional[str] = None, example: Any = None, limit: int = LIMIT, record: bool = True,
+                 copy: Any = None, hz: Optional[float] = None, action_chunk_valid_len: Optional[int] = None,
+                 action_chunk_replan_at: Optional[int] = None, max_wait_for_batch: Optional[float] = None,
+                 examples: Optional[list] = None, cuda_graphs: Optional[bool] = None,
+                 whole_graph: Optional[bool] = None, torch_compile: bool = False, fused_kernels: bool = False,
+                 tensorrt: bool = False, precision: Optional[str] = None, tolerance: Any = None) -> None:
         if not callable(policy):
-            hint = ": an openpi Policy is served as policy.infer" if hasattr(policy, "infer") else ""
+            hint = ": an object with an infer method is served as policy.infer" if hasattr(policy, "infer") else ""
             raise TypeError(f"serve() takes the policy as a function, an observation in and its output out; it was "
                             f"given a {type(policy).__name__}{hint}")
         if inspect.iscoroutinefunction(policy) or inspect.iscoroutinefunction(type(policy).__call__):
@@ -160,23 +419,68 @@ class App:
         self._sizes = None if batch is None else sorted({int(n) for n in batch})
         if self._sizes is not None and self._sizes[0] < 1:
             raise ValueError(f"batch sizes {self._sizes}: each is a number of observations, 1 or more")
-        self._batcher = Batcher(self._run, sizes=self._sizes or (1,), wait_ms=wait_ms, runners=1)
+        played = _plays(hz, action_chunk_valid_len, action_chunk_replan_at, max_wait_for_batch)
+        if played is not None and example is None:
+            raise ValueError("serve() holds and seats robots by the time a batch of each size takes, which its warm-up "
+                             "times on the example: pass example=, an observation as a robot sends it")
+        # the robots it schedules by their answers' slack: with hz (and action_chunk_valid_len or _replan_at), else None
+        self._fleet = None if played is None else _Fleet(*played, sizes=list(self._sizes or (1,)))
+        hold = first = None
+        if self._fleet is not None:
+            aligner, sizes = self._fleet.aligner, list(self._sizes or (1,))
+            hold = lambda keys: aligner.hold_s(keys, time.perf_counter())                       # noqa: E731
+            first = lambda keys, free: aligner.split(keys, time.perf_counter(), sizes, free)    # noqa: E731
+        # without a robot's time no act waits for another: the batch is what waited while the policy ran
+        self._batcher = Batcher(self._run, sizes=self._sizes or (1,), wait_ms=0.0, runners=1, hold=hold,
+                                first=first)
         self._token = token.encode() if token else None
         self._limit = int(limit)
+        if example is None and examples:
+            example = examples[0]
         self._example_body = None if example is None else msgpack_io.pack(example)
-        # what it restores, that it runs an act once by its request id (ONCE) and that it joins an act's halves (SPLIT):
-        # a robot sends an act over two uplinks, or in two halves, only to a server that says so
-        said = ([frames.PICTURE_KIND] if jpeg else []) + (list(compressed.CODECS) if compress else []) + [ONCE, SPLIT]
-        self._reads, self._jpeg = ", ".join(said).encode(), bool(jpeg)
-        # each act's answer by its request id, while its copies may still come: (when it was first seen, its answer)
-        self._once: "collections.OrderedDict[bytes, tuple[float, asyncio.Future]]" = collections.OrderedDict()
-        # the halves of each act by its request id, while the other half may still come (_half)
-        self._halves: "collections.OrderedDict[bytes, _Halves]" = collections.OrderedDict()
-        # what it says it is, on every response and, at more length, in its ping's answer (link.SERVER_HEADER)
+        # what the warm-up checks the speed-ups on, and which it tries (engine.optimize); what it kept, for /ping
+        self._examples = [example] if example is not None and not examples else list(examples or [])
+        from .optimize import check_switches   # a switch that changes the outputs, without a tolerance: said now
+
+        self._speedups = check_switches(cuda_graphs=cuda_graphs, whole_graph=whole_graph, torch_compile=torch_compile,
+                                        fused_kernels=fused_kernels, tensorrt=tensorrt, precision=precision,
+                                        tolerance=tolerance)
+        self._trying = self._speedups["precision"] is not None or any(
+            self._speedups[name] or self._speedups[name] is None
+            for name in ("cuda_graphs", "whole_graph", "torch_compile", "fused_kernels", "tensorrt"))
+        self.optimized: dict = {"on": []}
+        # each robot's observations as they are made and its acts after them, on its stream - the platform's data
+        # plane (engine.data_plane); the robots' steps for whoever records them, the last minute in memory
+        # (engine.recorder)
+        self._plane = _data_plane(copy)
+        self._window = _record.Window() if record else None
+        if self._window is not None:
+            self._plane.copy.on_frame = lambda episode, seq, frame: self._window.observe(
+                self._robots.get(episode, ""), episode, seq, frame)
+        self._robots: "collections.OrderedDict[str, str]" = collections.OrderedDict()   # episode -> its robot's session
+        self._formats = f"{STREAM_FORMAT}, {LATEST_FORMAT}".encode()
+        self._intake = StreamIntake(self._http, headers=self._stream_headers, authorized=self._may_open,
+                                    carried=(b"authorization", b"x-seq-session", b"user-agent", b"host"))
+        # what it says it is, on every response (SERVER_HEADER) and, at more length, in its ping's answer
         self._version, self._began = _version(), time.monotonic()
         self._name = getattr(policy, "__qualname__", None) or type(policy).__name__
         self._identity = f"sequence-ai/{self._version}".encode()
         self._thread = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="sequence_ai-policy")
+        # one rank of several, where a launcher started this process so (engine.ranks: WORLD_SIZE, RANK): every call of
+        # the policy goes to every rank; rank 0 serves robots, each other rank follows it (serve()). None: alone
+        self._group = _ranks.from_env()
+        # a copy of the policy's own (engine.episodes.PolicyCopy) runs every call of the policy's code on this thread
+        if hasattr(self._plane.copy, "attach"):
+            self._plane.copy.attach(self._thread)
+        # what a copy of the policy's own runs of its code beside its acts (its observe function, on_episode): on rank
+        # 0, sent to every rank before it runs (engine.ranks.Mirrored); on any other rank, run as rank 0 sends it
+        self._mirrored: dict = {}
+        self._wire = self._unwire = lambda items: items
+        if self._group is not None and copy is not None:
+            self._mirrored = copy.mirrored()
+            self._wire, self._unwire = copy.wire, copy.unwire
+            if self._group.leads:
+                copy.attach(_ranks.Mirrored(self._thread, self._group, self._mirrored))
         # "starting" until the server starts, "warming" while the policy runs on the example, then "ready" or "failed"
         self._state = "starting"
         self._warming: Optional[asyncio.Future] = None
@@ -191,7 +495,14 @@ class App:
     # ── the policy, on its own thread ────────────────────────────────────────────────────────────────────────────────
     def _call(self, items: list) -> list:
         """On the policy's thread: the policy's outputs for `items`, each with arrays of other libraries as numpy
-        arrays, and how long that took, as [(output, seconds)]."""
+        arrays, and how long that took, as [(output, seconds)] - on rank 0 of a group, `items` sent to every rank first,
+        each rank's policy called on them, and rank 0's outputs (engine.ranks: GroupHalted where a rank failed it)."""
+        if self._group is None:
+            return self._call_here(items)
+        return self._group.run("call", [self._wire(items)], lambda: self._call_here(items))
+
+    def _call_here(self, items: list) -> list:
+        """_call, on this process's policy alone - rank 0's own part, and each other rank's when rank 0 sends it."""
         started = time.perf_counter()
         if self._sizes is None:
             outputs = [self._policy(items[0])]
@@ -209,52 +520,100 @@ class App:
         return [(output, took) for output in outputs]
 
     async def _run(self, items: list) -> list:
-        return await asyncio.get_running_loop().run_in_executor(self._thread, self._call, items)
+        """The batcher's call: each item's (output, the policy's seconds, when its batch was dispatched, its size), the
+        forward pass into the times robots are held and seated by."""
+        dispatched = time.perf_counter()
+        answered = await asyncio.get_running_loop().run_in_executor(self._thread, self._call, items)
+        if self._fleet is not None:
+            self._fleet.table.add(len(items), answered[0][1] * 1000.0)
+        return [(output, took, dispatched, len(items)) for output, took in answered]
 
     def _start(self) -> None:
         if self._state != "starting":
             return
         if self._example_body is None:
+            log.warning(NO_EXAMPLE)
+        if self._group is not None:
+            self._group.listen()                         # rank 0: the other ranks join it as they come up
+        elif self._example_body is None:
             self._state = "ready"
             return
         self._state = "warming"
         self._warming = asyncio.ensure_future(self._warm_up())
 
     async def _warm_up(self) -> None:
-        """The policy on the example, twice at each batch size: the first call compiles what it compiles, the second
-        shows the time it settles at. The example reaches it as a robot's observation does: read back from msgpack and,
-        where the server reads JPEG, its pictures sent as JPEG and restored - so the first robot's request does not pay
-        for loading the JPEG decoder, which it would on the event loop."""
+        """Every rank of a group joined first, where this is rank 0 of one; then the policy on the example, twice at
+        each batch size: the first call compiles what it compiles, the second shows the time it settles at. The example
+        reaches it as a robot's observation does: read back from msgpack."""
         loop = asyncio.get_running_loop()
-        try:
-            body = self._example_body                 # the body a robot sends: its pictures as JPEG, where read
-            if self._jpeg:
-                body = msgpack_io.pack(frames.pack_pictures(msgpack_io.unpack(body))[0])
-            example = _own(self._restore(body))
-        except Exception as e:  # noqa: BLE001 (Pillow missing or broken: the robots' pictures would fail the same way)
-            self._fail(e)
+        if self._group is not None:
+            try:
+                await loop.run_in_executor(None, self._group.wait_joined)
+            except _ranks.GroupHalted as e:
+                self._fail(e)
+                return
+            log.info("every rank joined: %d of %d", self._group.joined(), self._group.size)
+        if self._example_body is None:
+            self._state = "ready"
+            log.info("ready")
             return
+        example = _own(msgpack_io.unpack(self._example_body))
+        if self._trying and self._group is None:   # a group's ranks serve the policy as it is: a trial
+            # runs it on rank 0 alone, where a model that exchanges with its other ranks would wait for them
+            try:   # the speed-ups first, so the warm-up below runs, and times, what the robots will be served
+                examples = [_own(msgpack_io.unpack(msgpack_io.pack(observation))) for observation in self._examples]
+                self.optimized = await loop.run_in_executor(self._thread, self._optimize, examples)
+            except Exception as e:  # noqa: BLE001 (the policy raised on an example in eager mode, as it would below)
+                self._fail(e)
+                return
+        runs = 2 if self._fleet is None else 1 + slack.RUNS       # timed as slack.measure times a size
         try:
             for n in self._sizes or [1]:
-                took = []
-                for _ in range(2):
+                took, forward = [], []
+                for _ in range(runs):
                     started = time.perf_counter()
                     answered = await loop.run_in_executor(self._thread, self._call, [example] * n)
                     for output, _ in answered:
                         msgpack_io.pack(output)       # an output that cannot be sent fails here, not at a robot
                     took.append(time.perf_counter() - started)
+                    forward.append(answered[0][1])
                 what = "one observation" if self._sizes is None else f"a batch of {n}"
-                log.info("warm-up: %s took %s, then %s", what, _duration(took[0]), _duration(took[1]))
+                if self._fleet is None:
+                    log.info("warm-up: %s took %s, then %s", what, _duration(took[0]), _duration(took[1]))
+                else:
+                    self._fleet.table.first_ms[n] = forward[0] * 1000.0
+                    for seconds in forward[1:]:
+                        self._fleet.table.add(n, seconds * 1000.0)
+                    log.info("warm-up: %s took %s, then %s at the median of %d", what, _duration(took[0]),
+                             _duration(sorted(took[1:])[len(took[1:]) // 2]), len(took) - 1)
+            if self._fleet is not None:
+                self._fleet.timed()
+                seats, _ = await self._fleet.count([])
+                self._fleet.capacity = seats
+                log.info("seats %d robot%s %g ms away, each robot by the round trip it reports", seats,
+                         "" if seats == 1 else "s", slack.ROUND_TRIP_MS)
         except Exception as e:  # noqa: BLE001 (whatever the policy raised: serve() raises it once the server stops)
             self._fail(e)
             return
         self._state = "ready"
         log.info("ready")
 
+    def _optimize(self, examples: list) -> dict:
+        """On the policy's thread: the speed-ups tried on `examples`, each read back from msgpack as a robot's
+        observation is (engine.optimize), and its report."""
+        from .optimize import optimize
+
+        said = optimize(self._policy, examples, batch=self._sizes, say=lambda line: log.info("%s", line),
+                        **self._speedups)
+        return said.report
+
     def _fail(self, e: BaseException) -> None:
         self.failure = e
         self._state = "failed"
-        log.error("the policy failed on the example (%s): stopping", _said(e))
+        if isinstance(e, _ranks.GroupHalted):
+            log.error("the ranks of this server did not come together (%s): stopping", e)
+        else:
+            log.error("the policy failed on the example (%s): stopping", _said(e))
         if self.on_failure is not None:
             self.on_failure()
 
@@ -262,15 +621,45 @@ class App:
         """Stop the warm-up and the policy's thread; a call in progress finishes on it."""
         if self._warming is not None and not self._warming.done():
             self._warming.cancel()
+        self._plane.close()
         self._thread.shutdown(wait=False, cancel_futures=True)
+        if self._fleet is not None:
+            self._fleet.close()
+        if self._group is not None and self._group.leads:
+            self._group.close()                          # each rank told the server stopped: it returns from serve()
 
     # ── HTTP ──────────────────────────────────────────────────────────────────────────────────────────────────────────
     async def __call__(self, scope, receive, send) -> None:
         if scope["type"] == "lifespan":
             await self._lifespan(receive, send)
             return
+        if scope["type"] == "websocket" and self._window is not None and scope.get("path") == _record.PATH:
+            await _record.serve_recorder(scope, receive, send, self._window, self._may_open)
+            return
+        if scope["type"] == "websocket":
+            self._start()
+            await self._intake(scope, receive, send)     # GET /stream: each message served as a request (_http)
+            return
+        await self._http(scope, receive, send)
+
+    def _may_open(self, scope) -> bool:
+        """Whether a WebSocket's upgrade carries the token, where the server asks for one."""
+        return self._token is None or self._authorized(scope)
+
+    def _stream_headers(self) -> list:
+        """What the answer that opens a robot's stream carries: the stream's format - and that the policy reads each
+        act's newest observation alone, so a robot leaves out a frame a newer one stood behind - beside what every
+        answer carries."""
+        return [(b"x-seq-act-formats", self._formats), (_SERVER, self._identity)]
+
+    async def _http(self, scope, receive, send) -> None:
+        """Every request - over HTTP, or carried by a robot's stream (StreamIntake) - by its path."""
+        if scope["type"] == "websocket":                 # a WebSocket at any other path: refused (403)
+            if (await receive()).get("type") == "websocket.connect":
+                await send({"type": "websocket.close", "code": 1008})
+            return
         if scope["type"] != "http":
-            return                                       # serve() runs uvicorn with no WebSocket protocol
+            return
         self._start()
         path, method = scope["path"], scope["method"]
         if self._token is not None and not self._authorized(scope):
@@ -286,6 +675,16 @@ class App:
                 await self._ping(send)
             else:
                 await self._respond(send, 405, b"GET /ping", extra=[(b"allow", b"GET, HEAD")])
+        elif path == "/observe":
+            if method == "POST":
+                await self._observe(scope, receive, send)
+            else:
+                await self._respond(send, 405, b"POST /observe", extra=[(b"allow", b"POST")])
+        elif path == "/act/episode_end":
+            if method == "POST":
+                await self._episode_end(scope, receive, send)
+            else:
+                await self._respond(send, 405, b"POST /act/episode_end", extra=[(b"allow", b"POST")])
         elif path == "/example":
             if method != "GET":
                 await self._respond(send, 405, b"GET /example", extra=[(b"allow", b"GET")])
@@ -294,7 +693,8 @@ class App:
             else:
                 await self._respond(send, 200, self._example_body, content_type=msgpack_io.MEDIA_TYPE.encode())
         else:
-            await self._respond(send, 404, b"this server answers POST /act, GET /ping and GET /example")
+            await self._respond(send, 404, b"this server answers GET /stream, POST /observe, POST /act, "
+                                           b"POST /act/episode_end, GET /ping and GET /example")
 
     async def _lifespan(self, receive, send) -> None:
         while True:
@@ -307,23 +707,32 @@ class App:
                 await send({"type": "lifespan.shutdown.complete"})
                 return
 
-    def _restore(self, body: bytes) -> Any:
-        """A request's body as its observation: msgpack read, what the robot compressed restored, each picture it sent
-        as JPEG turned back into its array. ValueError for a body that is none of these."""
-        return frames.unpack_pictures(compressed.expand(msgpack_io.unpack(body), limit=self._limit)[0],
-                                      limit=self._limit)
-
     def _authorized(self, scope) -> bool:
         scheme, _, credential = _header(scope, b"authorization").partition(b" ")
         return scheme.lower() == b"bearer" and hmac.compare_digest(credential.strip(), self._token or b"")
 
     async def _ping(self, send) -> None:
-        if self._state == "ready":
+        if self._group is not None and self._group.halted is not None and self._state == "ready":
+            await self._respond(send, 500, f"this server's ranks serve no more: {self._group.halted}".encode())
+        elif self._state == "ready":
             said = {"server": "sequence-ai", "version": self._version, "up_s": round(time.monotonic() - self._began, 1),
-                    "pid": os.getpid(), "policy": self._name}
+                    "pid": os.getpid(), "policy": self._name,
+                    "optimized": list(self.optimized.get("on") or [])}
+            if self._fleet is not None:
+                # how its robots play an answer, which a robot's Policy counts what is left of one by; the robots
+                # seated against the seats the latest count gave; and what a batch of each size takes here, which
+                # robots are seated and held by
+                fleet = self._fleet
+                fleet.let_go(time.perf_counter())
+                said.update(play=fleet.plays, robots=len(fleet.seats), seats=fleet.capacity,
+                            batch_ms={str(n): round(ms, 1) for n in fleet.sizes
+                                      if (ms := fleet.served.post_ms(n, fleet.table)) is not None})
             await self._respond(send, 200, json.dumps(said).encode(), content_type=b"application/json")
         elif self._state == "failed":
             await self._respond(send, 500, f"the policy failed on the example: {_said(self.failure)}".encode())
+        elif self._group is not None and self._group.joined() < self._group.size:
+            await self._respond(send, 503, f"waiting for its ranks: {self._group.joined()} of {self._group.size} "
+                                           f"joined".encode(), extra=[(b"retry-after", str(RETRY_AFTER_S).encode())])
         else:
             await self._respond(send, 503, b"warming up: the policy is running on the example",
                                 extra=[(b"retry-after", str(RETRY_AFTER_S).encode())])
@@ -337,144 +746,174 @@ class App:
         if body is None:
             await self._too_large(send)
             return
-        began = time.perf_counter()
-        rid, half = _header(scope, _REQUEST), _header(scope, _HALF)
-        if half:
-            await self._half(send, rid, half, body)
-            return
-        held = self._held(rid) if rid else None
-        extra: list = []
-        if held is not None:
-            # another copy of this act came in first (REQUEST_HEADER): its answer, the policy run for that one alone
-            extra.append(_COPY)
-        else:
-            held = asyncio.ensure_future(self._reply(body))
-            if rid:
-                self._hold(rid, held)
-        await self._answer(send, held, began, extra)
+        await self._act_call(scope, send, body, time.perf_counter(), self._said(scope))
 
-    async def _half(self, send, rid: bytes, half: bytes, body: bytes) -> None:
-        """One half of an act (HALF_HEADER), in either order: kept until the other is here, then the act's body joined
-        and run as an act of its own - its answer to the first half, 202 to the second as soon as it is here. The first
-        half waits HALF_WAIT_S at most from when either came, then is answered HALF_MISSING: the robot sends the act
-        whole. A half of an act already run (its copy came whole, over another uplink) gets what that act got."""
-        if half not in (_FIRST, _SECOND) or not rid:
-            await self._respond(send, 400, f"{HALF_HEADER} is 1/2 or 2/2, beside the act's {REQUEST_HEADER}".encode())
-            return
-        held, halves, extra = self._held(rid), None, []
-        if held is not None:
-            extra.append(_COPY)
-        else:
-            halves = self._halves.get(rid)
-            if halves is None:
-                self._let_go_of_halves()
-                halves = self._halves[rid] = _Halves()
-            if half == _FIRST:
-                halves.first = body
-            else:
-                halves.second = body
-            if halves.first is not None and halves.second is not None:
-                held = asyncio.ensure_future(self._reply(halves.first + halves.second))
-                self._hold(rid, held, joined=True)
-        if half == _SECOND:
-            await self._respond(send, 202, b"")
-            return
-        began = time.perf_counter()
-        if held is None:
-            try:
-                held, began, copy = await asyncio.wait_for(asyncio.shield(halves.joined),
-                                                           max(0.0, HALF_WAIT_S - (time.monotonic() - halves.came)))
-            except asyncio.TimeoutError:
-                if self._halves.get(rid) is halves:
-                    del self._halves[rid]
-                await self._respond(send, HALF_MISSING, f"the second half of this act ({HALF_HEADER} 2/2) did not "
-                                    f"come within {HALF_WAIT_S:g} s: send the act whole".encode())
-                return
-            if copy:                                 # a whole copy of the act ran it while this half waited
-                extra.append(_COPY)
-        if halves is not None:
-            if halves.taken and not extra:           # another copy's first half took the answer first
-                extra.append(_COPY)
-            halves.taken = True
-        await self._answer(send, held, began, extra)
-
-    async def _answer(self, send, held: asyncio.Future, began: float, extra: list) -> None:
-        """An act's answer, from `held`, with how long the server took from `began` (the act's last byte) to it."""
-        # shielded: a copy whose robot is gone takes nothing from the other copy's answer
-        status, payload, content_type, model_s = await asyncio.shield(held)
-        timing = None if model_s is None else (f"act;dur={(time.perf_counter() - began) * 1000:.1f}, "
-                                               f"model;dur={model_s * 1000:.1f}")
-        await self._respond(send, status, payload, content_type=content_type, timing=timing, extra=extra)
-
-    async def _reply(self, body: bytes) -> tuple:
-        """What /act answers `body` with: (status, body, its content type, the policy's seconds - None where the policy
-        did not answer it)."""
-        if len(body) > self._limit:                  # an act's two halves joined, each of them within it
-            return 413, f"the act's halves are over this server's limit of {self._limit} bytes".encode(), _TEXT, None
-        try:
-            observation = _own(self._restore(body))
-        except ValueError as e:                      # MsgpackError, CompressedError, a picture that is not a JPEG
-            return 400, f"not an observation this server can read: {e}".encode(), _TEXT, None
-        try:
-            output, model_s = await self._batcher(observation)
-        except Exception as e:  # noqa: BLE001 (whatever the policy raised: the robot is told, and the log has where)
-            log.exception("the policy raised on an observation")
-            return 500, f"the policy raised {_said(e)}".encode(), _TEXT, None
-        try:
-            payload = msgpack_io.pack(output)
-        except msgpack_io.MsgpackError as e:
-            log.error("the policy's output cannot be sent: %s", e)
-            return 500, f"the policy's output cannot be sent as msgpack: {e}".encode(), _TEXT, None
-        return 200, payload, msgpack_io.MEDIA_TYPE.encode(), model_s
-
-    def _held(self, rid: bytes) -> Optional[asyncio.Future]:
-        """The answer, done or coming, of the act with request id `rid` if it came within ONCE_KEEP_S; else None."""
-        kept = self._once.get(rid)
-        if kept is None or time.monotonic() - kept[0] > ONCE_KEEP_S:
+    def _said(self, scope) -> Optional[tuple]:
+        """What an act says of its robot, where robots are scheduled: (its name, its round trip in ms, what is left of
+        the answer it plays in ms), each None where it says none; None for an act that names no robot."""
+        if self._fleet is None:
             return None
-        return kept[1]
+        robot = _robot(scope)
+        if robot is None:
+            return None
+        return (robot, slack.outside_ms(_header(scope, _OUTSIDE).decode("latin-1")),
+                slack.left_ms(_header(scope, _LEFT).decode("latin-1")))
 
-    def _hold(self, rid: bytes, answer: asyncio.Future, *, joined: bool = False) -> None:
-        """Keep `answer` for the other copies of the act `rid` names, and hand it to a first half of that act waiting
-        for it: the act its halves made (`joined`), or a copy of it that came whole. The oldest answers kept are let go
-        once past ONCE_KEEP_S or ONCE_KEEP_N, never one still being worked out."""
-        now = time.monotonic()
-        self._once[rid] = (now, answer)
-        self._once.move_to_end(rid)
-        while self._once:
-            oldest, (seen, kept) = next(iter(self._once.items()))
-            if not (now - seen > ONCE_KEEP_S or len(self._once) > ONCE_KEEP_N) or not kept.done():
-                break
-            del self._once[oldest]
-        halves = self._halves.pop(rid, None)         # its halves: `joined` here, or waiting while a whole copy ran it
-        if halves is not None and not halves.joined.done():
-            halves.joined.set_result((answer, time.perf_counter(), not joined))
+    # ── a robot's stream: its observations as they are made, and the acts after them ─────────────────────────────────
+    async def _observe(self, scope, receive, send) -> None:
+        """POST /observe: a post of one episode's observations kept and forwarded (engine.data_plane), answered
+        {"through": how far its episode is whole} - or the platform's refusal (ErrorBody)."""
+        declared = _header(scope, b"content-length")
+        if declared.isdigit() and int(declared) > self._limit:
+            await self._too_large(send)
+            return
+        body = await _body(receive, self._limit)
+        if body is None:
+            await self._too_large(send)
+            return
+        kind = _header(scope, b"content-type").split(b";")[0].strip().lower().decode("latin-1")
+        try:
+            through = await self._plane.observe(body, kind)
+        except _Refused as e:
+            await self._refuse(send, e)
+            return
+        await self._respond(send, 200, json.dumps({"through": through}).encode(), content_type=_JSON)
 
-    def _let_go_of_halves(self) -> None:
-        """Before another act's halves are kept: those kept past HALF_WAIT_S let go, and the oldest until fewer than
-        HALF_KEEP_N acts' are - a first half that waited for them is answered HALF_MISSING at its wait's end."""
-        now = time.monotonic()
-        while self._halves:
-            rid, halves = next(iter(self._halves.items()))
-            if now - halves.came <= HALF_WAIT_S and len(self._halves) < HALF_KEEP_N:
-                break
-            del self._halves[rid]
+    async def _act_call(self, scope, send, body: bytes, began: float, said: Optional[tuple] = None) -> None:
+        """The platform's act (POST /act, JSON): {"call": "act", "episode_id", "seq"} - the policy on its episode's
+        newest observation once the `seq` before it are in; answered {"outputs": what the policy returned}, in msgpack
+        where the robot asks for it (Accept), else JSON - or the platform's refusal (ErrorBody). `said`: what the act
+        says of its robot (_said), which is seated - or refused unavailable for NOT_SEATED_REASON, with why - before the
+        act waits for its observation."""
+        try:
+            call = json.loads(body)
+            if not isinstance(call, dict):
+                raise ValueError("an act's body is a JSON object")
+        except ValueError as e:
+            await self._refuse(send, _Refused("INVALID_REQUEST", f"the act does not read: {e}",
+                                              details={"reason": "body"}))
+            return
+        episode = call.get("episode_id")
+        robot = _header(scope, _SESSION).decode("latin-1")
+        if self._group is not None and self._group.halted is not None:   # no rank answers alone: said before it waits
+            await self._refuse(send, _Refused("UNAVAILABLE", f"this server's ranks serve no more: {self._group.halted}",
+                                              details={"reason": "crashed"}))
+            return
+        if said is not None:
+            refused = await self._fleet.admit(said[0], said[1])
+            if refused is not None:
+                await self._refuse(send, _Refused("UNAVAILABLE", refused, details={"reason": NOT_SEATED_REASON}))
+                return
+        try:
+            if call.get("call") == "act" and "inputs" not in call:     # the call alone, as the platform's worker
+                observation = _own(await self._plane.act(episode, call.get("seq")))
+                if isinstance(episode, str) and robot:
+                    self._robots[episode] = robot
+                    while len(self._robots) > 1024:
+                        self._robots.popitem(last=False)
+            else:
+                raise _Refused("INVALID_REQUEST", 'an act\'s body is {"call": "act", "episode_id", "seq"}: it '
+                               "carries no data, which goes by POST /observe", details={"reason": "call"})
+        except _Refused as e:
+            await self._refuse(send, e)
+            return
+        wants = msgpack_io.MEDIA_TYPE.encode() in _header(scope, b"accept").lower()
+        status, payload, content_type = await self._policy_on(
+            observation, robot=robot, episode=episode if isinstance(episode, str) else None, step=call.get("seq"),
+            binary=wants, began=began, said=said)
+        await self._respond(send, status, payload, content_type=content_type)
+
+    async def _episode_end(self, scope, receive, send) -> None:
+        """POST /act/episode_end {"episode_id"}: everything kept of the episode goes - {"ok": true, "episode_id"}."""
+        body = await _body(receive, self._limit)
+        try:
+            episode = json.loads(body or b"{}").get("episode_id")
+        except (ValueError, AttributeError):
+            episode = None
+        try:
+            self._plane.end(episode)
+        except _Refused as e:
+            await self._refuse(send, e)
+            return
+        self._robots.pop(episode, None)
+        await self._respond(send, 200, json.dumps({"ok": True, "episode_id": episode}).encode(), content_type=_JSON)
+
+    async def _refuse(self, send, refused: Any) -> None:
+        extra = [(b"retry-after", str(max(1, int(-(-refused.retry_after_s // 1)))).encode())] \
+            if refused.retry_after_s is not None else []
+        await self._respond(send, refused.status, refused.body(), content_type=_JSON, extra=extra)
+
+    async def _policy_on(self, observation: Any, *, robot: str = "", episode: Optional[str] = None,
+                         step: Optional[int] = None, binary: bool = True,
+                         began: Optional[float] = None, said: Optional[tuple] = None) -> tuple:
+        """The platform's answer to one act, (status, body, its content type): {"outputs": what the policy returned,
+        "perf": {"handler_ms" - from the act's last byte (`began`) to its answer, which the robot takes off its round
+        trip -, "inference_ms"}}, in msgpack with `binary`, else JSON - or the platform's refusal (ErrorBody). Kept for
+        the recorders (engine.recorder) as an act of `robot`'s answered from the observation `step` of `episode` (None:
+        one it carried). `said`: what the act says of a robot seated (_said): its act held for others only as long as
+        the answer it plays leaves it (slack.Aligner), from `began`."""
+        name = None if said is None else said[0]
+        if name is not None:
+            self._fleet.arrived(name, time.perf_counter() if began is None else began, said[1], said[2])
+        try:
+            return await self._answered(observation, robot, episode, step, binary, began, name)
+        finally:
+            if name is not None:
+                self._fleet.done(name)
+
+    async def _answered(self, observation: Any, robot: str, episode: Optional[str], step: Optional[int],
+                        binary: bool, began: Optional[float], name: Optional[str]) -> tuple:
+        """_policy_on's answer, the policy run on `observation` in its batch (the robot it is held for: `name`)."""
+        try:
+            output, model_s, dispatched, size = await self._batcher(observation, key=name)
+        except _ranks.GroupHalted as e:          # a rank left, or failed a call: no rank can answer alone
+            refused = _Refused("UNAVAILABLE", f"this server's ranks serve no more: {e}", details={"reason": "crashed"})
+            return refused.status, refused.body(), _JSON
+        except Exception as e:  # noqa: BLE001 (whatever the policy raised: the robot is told, and the log has where)
+            log.exception("the policy raised on an observation")       # its traceback: here, never to the robot
+            refused = _Refused("POLICY_ERROR", f"the policy raised {_said(e)}",
+                               details={"exception": {"type": type(e).__name__, "message": str(e)}})
+            return refused.status, refused.body(), _JSON
+        perf = {"inference_ms": round(model_s * 1000, 3)}
+        if began is not None:
+            perf["handler_ms"] = round((time.perf_counter() - began) * 1000, 3)
+        answer = {"outputs": output, "perf": perf}
+        try:
+            payload = msgpack_io.pack(answer) if binary else json.dumps(answer).encode()
+        except (msgpack_io.MsgpackError, TypeError, ValueError) as e:
+            log.error("the policy's output cannot be sent: %s", e)
+            refused = _Refused("POLICY_ERROR", f"the policy's answer cannot go back as msgpack: {e}"[:1000])
+            return refused.status, refused.body(), _JSON
+        if self._fleet is not None:
+            self._fleet.answered(name, size, dispatched, model_s)
+        if self._window is not None:
+            self._window.act(robot, episode, step, output)
+        return 200, payload, msgpack_io.MEDIA_TYPE.encode() if binary else _JSON
 
     async def _too_large(self, send) -> None:
         await self._respond(send, 413, f"the body is over this server's limit of {self._limit} bytes".encode(),
                             close=True)
 
-    async def _respond(self, send, status: int, body: bytes, *, content_type: bytes = _TEXT,
-                       timing: Optional[str] = None, close: bool = False, extra: Iterable = ()) -> None:
+    async def _respond(self, send, status: int, body: bytes, *, content_type: bytes = _TEXT, close: bool = False,
+                       extra: Iterable = ()) -> None:
         headers = [(b"content-type", content_type), (b"content-length", str(len(body)).encode()),
-                   (READS_HEADER.lower().encode(), self._reads), (SERVER_HEADER.lower().encode(), self._identity),
-                   *extra]
-        if timing is not None:
-            headers.append((b"server-timing", timing.encode()))
+                   (_SERVER, self._identity), (b"x-seq-act-formats", self._formats), *extra]
         if close:
             headers.append((b"connection", b"close"))  # the rest of a body over the limit is not read
         await send({"type": "http.response.start", "status": status, "headers": headers})
         await send({"type": "http.response.body", "body": body})
+
+
+def _data_plane(copy: Any = None) -> Any:
+    """The robots' data plane (engine.data_plane), its frames going to `copy` (engine.episodes.PolicyCopy) where one is
+    given. ImportError where sequence-base is not installed (Python 3.9): a robot's stream is the one way a robot
+    reaches the server."""
+    try:
+        from .data_plane import DataPlane
+    except ImportError as missing:
+        raise ImportError(f"serve() takes each robot's stream, which needs sequence-base: Python 3.10 or later, where "
+                          f"pip install sequence-ai installs it ({missing})") from missing
+    return DataPlane(copy=copy)
 
 
 def _header(scope, name: bytes) -> bytes:
@@ -569,15 +1008,21 @@ def _duration(seconds: float) -> str:
 
 # ── serve() ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 def serve(policy: Callable[[Any], Any], *, host: Optional[str] = None, port: int = 8000,
-          batch: Optional[Iterable[int]] = None, wait_ms: float = 2.0, token: Optional[str] = None,
-          example: Any = None, jpeg: bool = True, compress: bool = True, limit: int = LIMIT,
-          log_level: str = "info") -> None:
+          batch: Optional[Iterable[int]] = None, token: Optional[str] = None, example: Any = None,
+          limit: int = LIMIT, log_level: str = "info", record: bool = True, copy: Any = None,
+          hz: Optional[float] = None, action_chunk_valid_len: Optional[int] = None,
+          action_chunk_replan_at: Optional[int] = None, max_wait_for_batch: Optional[float] = None,
+          examples: Optional[list] = None, cuda_graphs: Optional[bool] = None, whole_graph: Optional[bool] = None,
+          torch_compile: bool = False, fused_kernels: bool = False, tensorrt: bool = False,
+          precision: Optional[str] = None, tolerance: Any = None) -> None:
     """
     Serve `policy` to robots elsewhere until the process is stopped (Ctrl-C), the module's docstring having what each
     part does by default:
 
         sequence_ai.serve(policy, port=8000, example=observation)                        # one observation per call
         sequence_ai.serve(policy_on_a_list, batch=[1, 2, 4, 8], example=observation)     # a list per call
+        sequence_ai.serve(policy_on_a_list, batch=[1, 2, 4], example=observation,        # each robot by its own time
+                          hz=20, action_chunk_valid_len=15, action_chunk_replan_at=8)
 
     policy     a function: an observation in - a dict, as the robot sent it, numpy arrays as arrays, each its own to
                write into - and what the robot gets back out: a dict, an array, a list; torch tensors and JAX arrays
@@ -586,41 +1031,78 @@ def serve(policy: Callable[[Any], Any], *, host: Optional[str] = None, port: int
     port       the port, 8000
     batch      None: one observation per call. A list of batch sizes, 1 among them: `policy` takes a list of
                observations and returns a list of outputs, one for each, in order, and is called with the largest
-               listed number of the observations waiting; with an openpi policy, engine.openpi.batched(policy)
-    wait_ms    with `batch`, how long a batch that is not full waits for more while the policy is free (2 ms)
+               listed number of the observations waiting; examples/serve_openpi_batched.py has one
     token      a robot must send Authorization: Bearer <token> (connect(url, token=...)); None: $SEQ_SERVE_TOKEN if
                it is set, else no token; "": no token
     example    an observation the policy is run on before /ping says ready, at each batch size, and that GET /example
                hands out (the check command uses it)
-    jpeg       False: the server does not say it reads JPEG, so a robot's connect() sends pictures as arrays, exactly
-    compress   False: it does not say it reads compressed arrays, so a robot's connect() sends them as they are
-    limit      the most bytes a request's body may hold, and each compressed item or picture in it restored: 64 MB
+    limit      the most bytes a request's body, or a message of a robot's stream, may hold: 64 MB
     log_level  uvicorn's and this module's: "info" says where it listens and how the warm-up went
+    record     False: the server keeps nothing of the robots' steps for a recorder (GET /record, engine.recorder); else
+               the last minute of them, in memory, for network.record to read as they come
+    examples   observations the speed-ups are checked on before /ping says ready (engine.optimize): 32 or more of
+               your robot's own check more than `example` alone, which is used when none are given
+    cuda_graphs   False: no module of the policy is replayed from CUDA graphs (engine.optimize)
+    whole_graph   False: no run's whole call into the model is replayed as one graph
+    torch_compile, fused_kernels, tensorrt   True: tried during the warm-up, each kept where its outputs stay within
+               `tolerance` of eager mode's and acts are faster (engine.optimize)
+    precision  "fp16", "fp32" or "fp8": tried the same way; None, the default: the model's own dtype
+    tolerance  the difference you accept from eager mode's outputs for the switches above: a number (the largest
+               absolute difference), or {"max_abs": ..., "mean_abs": ..., "cosine": ...}; one of them on without it
+               is refused (ValueError) before the server starts
+    copy       the copy of the policy each episode's frames go to (engine.episodes.PolicyCopy: a @seq.policy class's
+               episodes, observe function, on_episode and plans, as a deployment's worker runs them); `policy` is then
+               its call - `seq serve` gives both
+    hz, action_chunk_valid_len, action_chunk_replan_at
+               how a robot plays an answer, as @seq.policy declares it: how many of an answer's steps it plays a second,
+               how many of them it may play (N; None: action_chunk_replan_at) and the step, counted from when an act was
+               sent, at which it sends the next (k; None: N, a robot asking once an answer is played out, which leaves
+               its acts no time to wait for others). Given, each robot's acts wait for a batch only as long as its own
+               answer leaves it time, and only the robots it answers in time are seated, each by its own round trip
+               (the module's docstring). Needs `example`, to time the batches
+    max_wait_for_batch
+               how long a robot waits for an answer at most, in seconds from when it sent its act: its acts are held and
+               its robots seated by that instead of what is left of the answer it plays (its actions may run out)
 
-    Raises what the policy raised on the example, once the server has stopped; OSError when the port is taken.
+    Raises what the policy raised on the example, once the server has stopped; OSError when the port is taken;
+    ImportError where sequence-base is not installed (Python 3.9); ValueError for hz, action_chunk_valid_len,
+    action_chunk_replan_at or max_wait_for_batch that do not say how a robot plays an answer, or given with no example.
     """
     if token is None:
         token = os.environ.get(TOKEN_ENV) or None
-    app = App(policy, batch=batch, wait_ms=wait_ms, token=token, example=example, jpeg=jpeg, compress=compress,
-              limit=limit)
-    server = _uvicorn(app, log_level)
+    app = App(policy, batch=batch, token=token, example=example, limit=limit, record=record, copy=copy, hz=hz,
+              action_chunk_valid_len=action_chunk_valid_len, action_chunk_replan_at=action_chunk_replan_at,
+              max_wait_for_batch=max_wait_for_batch, examples=examples, cuda_graphs=cuda_graphs,
+              whole_graph=whole_graph, torch_compile=torch_compile, fused_kernels=fused_kernels, tensorrt=tensorrt,
+              precision=precision, tolerance=tolerance)
+    if app._group is not None and not app._group.leads:
+        _follow(app, log_level)                       # a rank other than 0: no port of robots', rank 0's calls alone
+        return
+    server = _uvicorn(app, log_level, limit=limit)
     sockets = _listen(host, port)
-    app.on_failure = lambda: setattr(server, "should_exit", True)
+    # the policy failed on the example: /ping says so with why for FAILED_SAID_S - a robot waiting on it hears the
+    # reason, where a server gone at once left it waiting out its whole bound - then the server stops
+    app.on_failure = lambda: threading.Timer(FAILED_SAID_S, lambda: setattr(server, "should_exit", True)).start()
     _log_with(log_level)
 
     where = " and ".join(_url(sock) for sock in sockets)
-    paths = "POST /act, GET /ping" + (", GET /example" if example is not None else "")
+    paths = ("GET /stream, POST /observe, POST /act, GET /ping"
+             + (", GET /example" if example is not None or examples else "")
+             + (", GET /record" if record else ""))
     calls = "one observation per call" if batch is None else \
         f"batches of {', '.join(str(n) for n in sorted({int(n) for n in batch}))}"
-    restores = ", ".join(word for word in app._reads.decode().split(", ") if word and word not in (ONCE, SPLIT))
-    log.info("serving %s on %s (%s); %s; reads %s; an act's copies run it once, its halves joined",
-             getattr(policy, "__qualname__", type(policy).__name__), where, paths, calls,
-             restores or "nothing but plain msgpack")
+    log.info("serving %s on %s (%s); %s", getattr(policy, "__qualname__", type(policy).__name__), where, paths, calls)
+    if app._fleet is not None:
+        plays = app._fleet.plays
+        log.info("holds and seats each robot by its own time: %g Hz, %d valid steps, the next asked for at step %d%s",
+                 plays["hz"], plays["action_chunk_valid_len"], plays["action_chunk_replan_at"],
+                 f", answers waited for {plays['max_wait_for_batch']:g} s at most" if "max_wait_for_batch" in plays
+                 else "")
     if token:
         log.info("a robot needs the token: connect(url, token=...)")
     elif not all(_loopback(sock) for sock in sockets):
-        log.warning("no token: anyone who can reach port %d can run the policy (serve(token=...) or $%s asks for one)",
-                    sockets[0].getsockname()[1], TOKEN_ENV)
+        log.warning("no token: anyone who can reach port %d can run the policy (seq serve --token TOKEN or $%s asks "
+                    "for one)", sockets[0].getsockname()[1], TOKEN_ENV)
     try:
         server.run(sockets=sockets)
     except KeyboardInterrupt:
@@ -633,31 +1115,81 @@ def serve(policy: Callable[[Any], Any], *, host: Optional[str] = None, port: int
         raise app.failure
 
 
-def _uvicorn(app: App, log_level: Optional[str]) -> Any:
-    """The uvicorn server serve() runs `app` on: each response in one write, the app's lifespan for its warm-up, no
-    WebSocket protocol, no line per request, idle connections kept KEEP_ALIVE_S."""
+def _follow(app: App, log_level: Optional[str]) -> None:
+    """A rank other than 0 of a group (engine.ranks): rank 0 joined, then each call of the policy it sends run on this
+    rank's policy thread - as rank 0 runs its own - until rank 0 stops."""
+    group = app._group
+    _log_with(log_level)
+    log.info("%s: following rank 0 at %s:%d - it serves the robots, and sends this rank each call of the policy",
+             group, group.host, group.port)
+
+    def run_one(op: str, args: list) -> Any:
+        if op == "call":                              # a batch of acts, or the warm-up's
+            return app._thread.submit(app._call_here, app._unwire(args[0])).result()
+        fn = app._mirrored.get(op)                    # an episode's frames to its observe function, its end, ...
+        if fn is None:
+            raise ValueError(f"rank 0 sent a call this rank does not know: {op!r}")
+        return app._thread.submit(fn, *args).result()
+
+    try:
+        group.follow(run_one)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        app.close()
+    log.info("%s: rank 0 stopped, and so does this rank", group)
+
+
+def _uvicorn(app: App, log_level: Optional[str], *, limit: int = LIMIT) -> Any:
+    """The uvicorn server serve() runs `app` on: each response in one write, the app's lifespan for its warm-up, a
+    robot's stream on the WebSocket network.websocket serves - a message as large as a request may be, the robot pinged
+    every WS_PING_S -, no line per request, idle connections kept KEEP_ALIVE_S."""
     try:
         import uvicorn
     except ImportError as missing:
         raise ImportError("serve() runs uvicorn, which sequence-ai installs and this environment lacks: "
                           "pip install sequence-ai") from missing
+    from ..network import websocket
     from ..network.one_write import WholeResponse, one_write_http
 
-    config = uvicorn.Config(WholeResponse(app), http=one_write_http(), lifespan="on", ws="none", log_level=log_level,
+    config = uvicorn.Config(WholeResponse(app), http=one_write_http(), lifespan="on",
+                            ws=websocket.protocol(), ws_max_size=limit + (1 << 20),
+                            ws_ping_interval=WS_PING_S, ws_ping_timeout=WS_PONG_S, log_level=log_level,
                             access_log=False, timeout_keep_alive=KEEP_ALIVE_S, server_header=False)
     return uvicorn.Server(config)
 
 
+def _resolve(host: Optional[str], port: int) -> tuple:
+    """The one (family, address) serve() binds for `host`, and the addresses to probe for a server already there. For
+    `host` None the bind is None - the caller's dual 0.0.0.0/:: bind - and the probe is this machine's loopback; for a
+    wildcard host, the probe is loopback of that family (macOS lets 0.0.0.0 bind over a port held on 127.0.0.1); for a
+    concrete host, both are that address."""
+    loopbacks = [(socket.AF_INET, "127.0.0.1")] + ([(socket.AF_INET6, "::1")] if socket.has_ipv6 else [])
+    if host is None:
+        return None, loopbacks
+    family, _, _, _, address = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM, flags=socket.AI_PASSIVE)[0]
+    if address[0] in ("0.0.0.0", "::"):
+        return (family, address[0]), [(f, a) for f, a in loopbacks if f == family]
+    return (family, address[0]), [(family, address[0])]
+
+
+def answered_at(host: Optional[str], port: int) -> None:
+    """Raise OSError(EADDRINUSE), worded, when a server already answers at `host`:`port` on this machine; return when
+    nothing does. `seq serve` calls this before it prints that it is serving, so a taken port is one line, not a bind
+    traceback after the "serving ..." line. `host` is as serve() takes it: None is this machine's loopback."""
+    _unanswered(port, _resolve(host, port)[1])
+
+
 def _listen(host: Optional[str], port: int) -> list:
     """The bound sockets serve() listens on: for `host` None, 0.0.0.0 and, where this machine has IPv6, :: (IPv6 only,
-    beside the first, on the same port); else the first address `host` resolves to. OSError when the port is taken."""
-    loopbacks = [(socket.AF_INET, "127.0.0.1")] + ([(socket.AF_INET6, "::1")] if socket.has_ipv6 else [])
-    if host is not None:
-        family, _, _, _, address = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM, flags=socket.AI_PASSIVE)[0]
-        if address[0] in ("0.0.0.0", "::"):
-            _unanswered(port, [(f, a) for f, a in loopbacks if f == family])
-        return [_bind(family, address[0], port)]
-    _unanswered(port, loopbacks)
+    beside the first, on the same port); else the one address `host` resolves to. OSError when the port is taken - a
+    concrete host is probed too, not only a wildcard, so a second server on 127.0.0.1 over one already on 0.0.0.0 is
+    refused rather than left to split this machine's robots between the two (macOS)."""
+    bind_to, probe = _resolve(host, port)
+    _unanswered(port, probe)
+    if bind_to is not None:
+        family, address = bind_to
+        return [_bind(family, address, port)]
     sockets = [_bind(socket.AF_INET, "0.0.0.0", port)]
     if socket.has_ipv6:
         try:
@@ -683,7 +1215,8 @@ def _unanswered(port: int, loopbacks: list) -> None:
                 continue                              # refused, or no such address here: nothing answers there
         where = f"[{address}]:{port}" if family == socket.AF_INET6 else f"{address}:{port}"
         raise OSError(errno.EADDRINUSE, f"port {port} is taken: a server already answers at {where} on this machine "
-                                        "(an earlier serve() still running?); stop it, or pass another port")
+                                        "(an earlier seq serve still running?); stop it, or give seq serve another "
+                                        "--port")
 
 
 def _bind(family: int, address: str, port: int, *, v6only: Optional[bool] = None) -> socket.socket:
@@ -698,7 +1231,7 @@ def _bind(family: int, address: str, port: int, *, v6only: Optional[bool] = None
         sock.close()
         if e.errno == errno.EADDRINUSE:
             raise OSError(e.errno, f"port {port} on {address} is taken: another server listens there (an earlier "
-                                   "serve() still running?); stop it, or pass another port") from e
+                                   "seq serve still running?); stop it, or give seq serve another --port") from e
         raise
     return sock
 

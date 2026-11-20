@@ -4,12 +4,12 @@
 #include <ur_rtde/rtde_utility.h>
 
 #include <bitset>
-#include <boost/thread/thread.hpp>
 #include <chrono>
 #include <iostream>
 #include <iomanip>
 #include <thread>
 #include <fstream>
+#include <functional>
 
 namespace ur_rtde
 {
@@ -85,7 +85,7 @@ RTDEReceiveInterface::RTDEReceiveInterface(std::string hostname, double frequenc
   rtde_->sendStart();
 
   // Start executing receiveCallback
-  th_.start(boost::bind(&RTDEReceiveInterface::receiveCallback, this, boost::placeholders::_1));
+  th_.start(std::bind(&RTDEReceiveInterface::receiveCallback, this, std::placeholders::_1));
 
   // Wait until the first robot state has been received
   while (isConnected() && !robot_state_->getFirstStateReceived())
@@ -307,7 +307,7 @@ bool RTDEReceiveInterface::reconnect()
     rtde_->sendStart();
 
     // Start executing receiveCallback
-    th_.start(boost::bind(&RTDEReceiveInterface::receiveCallback, this, boost::placeholders::_1));
+    th_.start(std::bind(&RTDEReceiveInterface::receiveCallback, this, std::placeholders::_1));
 
     // Wait until the first robot state has been received
     while (!robot_state_->getFirstStateReceived())
@@ -374,7 +374,7 @@ bool RTDEReceiveInterface::startFileRecording(const std::string &filename, const
   *file_recording_ << std::endl;
 
   // Start recorder thread
-  record_thrd_.start(boost::bind(&RTDEReceiveInterface::recordCallback, this, boost::placeholders::_1));
+  record_thrd_.start(std::bind(&RTDEReceiveInterface::recordCallback, this, std::placeholders::_1));
   return true;
 }
 

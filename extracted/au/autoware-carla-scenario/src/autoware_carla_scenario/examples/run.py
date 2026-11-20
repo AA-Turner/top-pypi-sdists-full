@@ -71,7 +71,10 @@ from autoware_carla_scenario import (
 )
 import autoware_carla_scenario.hydra_compat  # noqa: F401  (Python 3.14 argparse)
 from autoware_carla_scenario.actions.background_traffic import parse_constraints
-from autoware_carla_scenario.autoware_stack.launcher import AutowareLauncher
+from autoware_carla_scenario.autoware_stack.launcher import (
+    DEFAULT_BRIDGE_PARAMETERS,
+    AutowareLauncher,
+)
 from autoware_carla_scenario.batch_report import print_summary as _print_summary
 from autoware_carla_scenario.batch_report import write_batch_result_json
 from autoware_carla_scenario.batch_resume import (
@@ -778,8 +781,7 @@ def build_autoware_launcher(cfg: DictConfig) -> AutowareLauncher | None:
             )
         options["ros_domain_ids"] = _launcher_ros_domain_ids(settings)
         options["stop_timeout_s"] = stop_timeout_s
-        if "bridge_parameters" in options:
-            options["bridge_parameters"] = _launcher_bridge_parameters(settings)
+        options["bridge_parameters"] = _launcher_bridge_parameters(settings)
     else:
         argv = _launcher_str_list("command", settings.get("command"))
         env = _launcher_str_mapping("env", settings.get("env"))
@@ -940,21 +942,37 @@ def _launcher_str_mapping(name: str, value: object) -> dict[str, str]:
 
 def _launcher_bridge_parameters(settings: dict[str, Any]) -> dict[str, Any]:
     """``autoware.launcher.bridge_parameters`` of *settings*: a mapping of ROS
-    parameters (values of any type: ``use_sim_time: true``); null or absent is
-    none.
+    parameters (values of any type: ``auto_engage: false``) merged over the
+    default, ``{use_sim_time: true}``
+    (:data:`~autoware_carla_scenario.autoware_stack.launcher.DEFAULT_BRIDGE_PARAMETERS`),
+    for both launcher types; null or absent is the default (#2217).  Merged,
+    so a mapping that sets something else keeps the node on CARLA's clock: a
+    parameter is turned off by setting it (``use_sim_time: false``), or left
+    at the node's own default by a null.
 
     Raises:
-        ValueError: naming the key.
+        ValueError: naming the key, for a value that is no mapping, or a
+            parameter the node would refuse as it starts (a fraction for an
+            integer one, :func:`~autoware_carla_scenario.autoware_stack.bridge_node.bridge_ros_args`).
     """
+    from autoware_carla_scenario.autoware_stack.bridge_node import (  # noqa: PLC0415
+        bridge_ros_args,
+    )
+
     value = settings.get("bridge_parameters")
     if value is None:
-        return {}
+        return dict(DEFAULT_BRIDGE_PARAMETERS)
     if not isinstance(value, dict):
         raise ValueError(
             "autoware.launcher.bridge_parameters must be a mapping of ROS "
             f"parameters, not {type(value).__name__} {value!r}"
         )
-    return dict(value)
+    parameters = {**DEFAULT_BRIDGE_PARAMETERS, **value}
+    try:
+        bridge_ros_args("", parameters)
+    except ValueError as exc:
+        raise ValueError(f"autoware.launcher.bridge_parameters.{exc}") from None
+    return parameters
 
 
 def _launcher_ros_domain_ids(settings: dict[str, Any]) -> tuple[int, ...]:
@@ -1018,6 +1036,7 @@ def _autoware_bridge_config(cfg: DictConfig) -> "AutowareBridgeConfig":
     from autoware_carla_scenario import AutowareBridgeConfig  # noqa: PLC0415
     from autoware_carla_scenario.utils.config import (  # noqa: PLC0415
         checked_options,
+        null_as_default,
     )
 
     autoware_cfg = cfg.get("autoware")
@@ -1030,7 +1049,10 @@ def _autoware_bridge_config(cfg: DictConfig) -> "AutowareBridgeConfig":
     except ValueError as exc:
         raise ValueError(f"autoware: {exc}") from None
     try:
-        return AutowareBridgeConfig(**bridge_options)
+        # A null setting is its default (#2217), as an absent one.
+        return AutowareBridgeConfig(
+            **null_as_default(AutowareBridgeConfig, bridge_options)
+        )
     except ValueError as exc:
         raise ValueError(f"autoware.{exc}") from None
 
@@ -1189,11 +1211,24 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
         )
         from autoware_carla_scenario.utils.config import (  # noqa: PLC0415
             checked_options,
+            checked_section,
+            null_as_default,
         )
 
-        bridge_options = checked_options(AutowareBridgeConfig, bridge_dict)
         try:
-            bridge_cfg = AutowareBridgeConfig(**bridge_options)
+            bridge_options = checked_options(
+                AutowareBridgeConfig,
+                checked_section("driver.bridge", bridge_dict) or {},
+            )
+        except ValueError as exc:
+            # Headed as the autoware group's (_autoware_bridge_config).
+            if str(exc).startswith("driver.bridge "):
+                raise
+            raise ValueError(f"driver.bridge: {exc}") from None
+        try:
+            bridge_cfg = AutowareBridgeConfig(
+                **null_as_default(AutowareBridgeConfig, bridge_options)
+            )
         except ValueError as exc:
             raise ValueError(f"driver.bridge.{exc}") from None
         scenario_cfg = cfg.get("scenario") or {}
@@ -1604,20 +1639,33 @@ def _with_fog_density_scale(driver: dict[str, Any], cfg: DictConfig) -> dict[str
     }
 
 
-def _map_source(cfg: DictConfig) -> str | None:
+def _map_source(cfg: DictConfig, map_paths: Any) -> str | None:
     """Where the map came from: ``map.directory``, else ``map.pack`` (as
-    ``carla-pack:OWNER/REPO/PACK[@VERSION]``), else ``map.source``.
+    ``carla-pack:OWNER/REPO/PACK@VERSION``), else ``map.source``.
 
     The same order :func:`resolve_map_paths` resolves them in: a directory on
     this machine wins over a pack, and a pack over a source, so the map the
-    run read is the one named.
+    run read is the one named.  The pack is named as *map_paths* resolved it
+    (:attr:`~autoware_carla_scenario.maps.config.MapPaths.pack`), with its
+    version, not as configured -- ``map.pack=OWNER/REPO`` searches a pack
+    repository, and a pack without ``@VERSION`` is its newest -- so the log
+    says which pack the run read (#2198).  A pack that carries no Lanelet2
+    map leaves it to ``map.source``, which is then the source named.
     """
-    map_cfg = cfg.get("map") or {}
-    for key in ("directory", "pack", "source"):
-        value = map_cfg.get(key)
-        if value:
-            return f"carla-pack:{value}" if key == "pack" else str(value)
-    return None
+    # Read as resolve_map_paths reads them: a blank setting is unset (#2198).
+    directory = _map_setting(cfg, "directory")
+    if directory:
+        return str(directory)
+    source = _map_setting(cfg, "source")
+    pack = getattr(map_paths, "pack", None)
+    if isinstance(pack, str) and pack:
+        resolved = getattr(map_paths, "resolved", None)
+        # The pack's Lanelet2 map is read as a directory (no source); a
+        # resolved source means the Lanelet2 map is map.source's.
+        from_pack = resolved is not None and resolved.source is None
+        if from_pack or not source:
+            return f"carla-pack:{pack}"
+    return str(source) if source else None
 
 
 def build_map_pack(cfg: DictConfig, map_paths: Any) -> MapPack | None:
@@ -1631,7 +1679,7 @@ def build_map_pack(cfg: DictConfig, map_paths: Any) -> MapPack | None:
 
     Raises:
         ValueError: ``map.pack`` or ``map.pack_sha256`` is malformed, or
-            ``server.packs_dir`` is not text.
+            ``server.packs_dir`` is not text or is blank (#2198).
     """
     reference = getattr(map_paths, "pack", None)
     if not isinstance(reference, str) or not reference:
@@ -1902,11 +1950,20 @@ def metrics_heavy(cfg: DictConfig) -> bool | None:
     off, a typo refused, #1761); ``None`` when it is unset or null, which
     leaves the decision to ``$AUTOWARE_CARLA_SCENARIO_HEAVY_METRICS``.
 
+    A ``metrics`` block that is absent or null is the default (nothing
+    set); one that is not a mapping (``false``, ``0``, ``''``, a list) is
+    refused rather than read as unset.
+
     Raises:
-        ValueError: naming ``metrics.heavy``, for a value that is not a
-            switch.
+        ValueError: naming ``metrics``, for a block that is not a mapping, or
+            ``metrics.heavy``, for a value that is not a switch.
     """
-    value = (cfg.get("metrics") or {}).get("heavy")
+    block = cfg.get("metrics")
+    if block is None:
+        return None
+    if not isinstance(block, (DictConfig, Mapping)):
+        raise ValueError(f"metrics must be a mapping, got {shown(block)}")
+    value = block.get("heavy")
     if value is None:
         return None
     return check_flag("metrics.heavy", value)
@@ -2396,7 +2453,7 @@ def _batch_queue(
         odd=_odd_spec(first_cfg),
         autoware_launcher=build_autoware_launcher(first_cfg),
         server_extra_args=[*server_extra_args(first_cfg), *(extra_server_args or [])],
-        map_source=_map_source(first_cfg),
+        map_source=_map_source(first_cfg, map_paths),
         rerun=rerun,
         t4=build_t4_recorder(first_cfg),
         world_reset=world_reset,
@@ -3266,9 +3323,18 @@ def _check_driver_settings(cfg: DictConfig) -> None:
     ``noise_seed``, ``driver.control.kp``, ...), building only the configs:
     nothing dials a policy.
 
+    And ``t4.enabled`` with ``driver.lidars`` but not
+    ``driver.send_renderer_data``: the dataset of a driver entity takes its
+    sweeps from the LiDARs the entity attaches for the policy's
+    ``renderer_data``, which it attaches only with it, so the dataset would
+    have no point cloud (no sample at all with no camera) -- refused as
+    ``driver.t4_scene`` is without it (#2208).
+
     Raises:
         ValueError: When :class:`~autoware_carla_scenario.driver.DriverClientConfig`
-            or the trajectory follower's ``driver.control`` refuses them.
+            or the trajectory follower's ``driver.control`` refuses them, or
+            ``t4.enabled`` asks for the driver's LiDARs without
+            ``driver.send_renderer_data``.
     """
     if _ego_entity_setting(cfg) != "carla_driver":
         return
@@ -3279,7 +3345,17 @@ def _check_driver_settings(cfg: DictConfig) -> None:
 
     driver_dict = _with_fog_density_scale(_to_dict(driver_cfg), cfg)
     _control_config(driver_dict, "driver")
-    DriverClientConfig.from_mapping(driver_dict)
+    driver = DriverClientConfig.from_mapping(driver_dict)
+    if (
+        _switch(cfg, "t4", "enabled")
+        and driver.lidars
+        and not driver.send_renderer_data
+    ):
+        raise ValueError(
+            "t4.enabled takes the LiDAR sweeps of an ego.entity=carla_driver "
+            "from its renderer_data: driver.lidars needs "
+            "driver.send_renderer_data"
+        )
 
 
 def _control_config(section: Mapping[str, Any], name: str) -> "ControlConfig":
@@ -4069,7 +4145,7 @@ def _run_scenario(
         autoware_launcher=build_autoware_launcher(cfg),
         case=_odd_case(cfg),
         server_extra_args=server_extra_args(cfg),
-        map_source=_map_source(cfg),
+        map_source=_map_source(cfg, map_paths),
         rerun=rerun,
         t4=build_t4_recorder(cfg),
         world_reset=world_reset,

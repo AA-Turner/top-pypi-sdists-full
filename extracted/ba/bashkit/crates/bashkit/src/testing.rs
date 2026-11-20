@@ -18,8 +18,10 @@
 //!    fuzzer can forge the canary into its own input — see
 //!    `assert_fuzz_invariants`).
 
+mod checked_fs;
 mod counting_fs;
 
+pub use checked_fs::CheckedFs;
 pub use counting_fs::{CallCounts, CountingFs};
 
 use crate::{Bash, ControlFlow, ExecResult};
@@ -108,6 +110,8 @@ pub fn fuzz_init() {
 /// A test that needs to *assert* on the child's profraw (as a bounded-artifact
 /// receipt, say) should set `LLVM_PROFILE_FILE` to its own path instead; the
 /// point is only that the child never writes into tarpaulin's merge set.
+// Host temp dir, not a VFS path: the host separator is correct here.
+#[allow(clippy::disallowed_methods)]
 pub fn child_profile_path() -> std::path::PathBuf {
     use std::sync::OnceLock;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -400,10 +404,7 @@ fn is_clap_error_chrome_line(line: &str) -> bool {
     }
     // `For more information, try '--help'.` /
     // `For more information, try '<cmd> --help'.`
-    if line.starts_with("For more information, try '") && line.ends_with("'.") {
-        return true;
-    }
-    false
+    line.starts_with("For more information, try '") && line.ends_with("'.")
 }
 
 /// Full fuzz-invariant check. Like [`assert_no_leak`] but tolerates

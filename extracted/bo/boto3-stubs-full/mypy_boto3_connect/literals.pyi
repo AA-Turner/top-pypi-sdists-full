@@ -713,6 +713,10 @@ FileUseCaseTypeType = Literal[
     "EMAIL_MESSAGE_PLAIN_TEXT",
     "EMAIL_MESSAGE_PLAIN_TEXT_REDACTED",
     "EMAIL_MESSAGE_REDACTED",
+    "VOICEMAIL_ANALYSIS",
+    "VOICEMAIL_ANALYSIS_REDACTED",
+    "VOICEMAIL_RECORDING",
+    "VOICEMAIL_RECORDING_REDACTED",
     "VOICE_RECORDING",
 ]
 FilterV2StringConditionComparisonOperatorType = Literal["NOT_EXISTS"]
@@ -1278,6 +1282,10 @@ ReferenceTypeType = Literal[
     "NUMBER",
     "STRING",
     "URL",
+    "VOICEMAIL_ANALYSIS",
+    "VOICEMAIL_ANALYSIS_REDACTED",
+    "VOICEMAIL_RECORDING",
+    "VOICEMAIL_RECORDING_REDACTED",
 ]
 RehydrationTypeType = Literal["ENTIRE_PAST_SESSION", "FROM_SEGMENT"]
 ResponseModeType = Literal["COMPLETE", "INCREMENTAL"]
@@ -1726,6 +1734,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

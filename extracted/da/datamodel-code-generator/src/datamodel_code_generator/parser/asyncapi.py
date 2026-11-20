@@ -25,6 +25,7 @@ from datamodel_code_generator._document_reader import (
 )
 from datamodel_code_generator._json_pointer import escape_token
 from datamodel_code_generator._json_schema import definition_ref
+from datamodel_code_generator._lazy_exports import module_hooks as _module_hooks
 from datamodel_code_generator._name_words import (
     ASCII_WORD as NAME_PART_PATTERN,  # noqa: F401  # Keep the public asyncapi name.
 )
@@ -38,12 +39,12 @@ from datamodel_code_generator.parser._schema_refs import _ref_path_parts
 from datamodel_code_generator.parser.jsonschema import (
     JsonSchemaParser,
     _named_path,
-    get_model_by_path,  # noqa: F401  # Preserve the established parser.asyncapi export.
-    unescape_json_pointer_segment,  # noqa: F401  # Preserve the established parser.asyncapi export.
 )
+from datamodel_code_generator.parser.jsonschema import get_model_by_path as get_model_by_path
+from datamodel_code_generator.parser.jsonschema import unescape_json_pointer_segment as unescape_json_pointer_segment
 from datamodel_code_generator.parser.openapi import OpenAPIParser, _DiscriminatorScan
 from datamodel_code_generator.python_literal import stable_repr
-from datamodel_code_generator.util import BaseModel, create_module_getattr
+from datamodel_code_generator.util import BaseModel
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -96,17 +97,12 @@ SCHEMA_FORMAT_KIND_BY_MEDIA_TYPE: dict[str, str] = {
     **dict.fromkeys(XML_SCHEMA_FORMATS, "xmlschema"),
 }
 INTERNAL_SCHEMA_CONTAINER = "x-datamodel-code-generator-asyncapi-schemas"
-__getattr__ = create_module_getattr(
-    __name__,
-    {
-        "convert_avro_schema_data": ("datamodel_code_generator.parser.avro", "convert_avro_schema_data"),
-        "convert_protobuf_schema_data": (
-            "datamodel_code_generator.parser.protobuf",
-            "convert_protobuf_schema_data",
-        ),
-        "convert_xml_schema_data": ("datamodel_code_generator.parser.xmlschema", "convert_xml_schema_data"),
-    },
-)
+_LAZY_EXPORTS = {
+    "convert_avro_schema_data": "datamodel_code_generator.parser.avro",
+    "convert_protobuf_schema_data": "datamodel_code_generator.parser.protobuf",
+    "convert_xml_schema_data": "datamodel_code_generator.parser.xmlschema",
+}
+__getattr__, __dir__ = _module_hooks(__name__, _LAZY_EXPORTS)
 
 
 @record(slots=False)
@@ -623,6 +619,7 @@ class AsyncAPIParser(OpenAPIParser):
         schemas = self._member_format_schemas(
             message, "payload", _make_model_name(name, "Payload"), path, payload_schema_format
         )
+        self._walked_message(message, schemas[0] if schemas else None)
         headers_name = _make_model_name(name, "Headers")
         trait_headers_name = None if "headers" in message else headers_name
         if self.config.merge_message_trait_headers and len(headers := self._message_headers(message)) > 1:
@@ -636,6 +633,13 @@ class AsyncAPIParser(OpenAPIParser):
         )
         schemas.extend(_member_schemas(message, "bindings", self._iter_binding_schemas, name, path, seen_paths))
         return schemas
+
+    def _walked_message(self, message: object, payload: AsyncAPISchema | None) -> None:
+        """Note a Message Object the walk reached, after every `$ref` and `oneOf`, and its payload schema, if any.
+
+        ``payload`` is the first schema of the payload, the payload itself where it is read in place. The model walk
+        keeps nothing of it; the target walk records it.
+        """
 
     def _message_headers(self, message: dict[str, Any]) -> list[YamlValue]:
         """Return the headers of each trait of a message that defines them, in order, then the message's own.

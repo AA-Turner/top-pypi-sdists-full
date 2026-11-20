@@ -3,7 +3,7 @@ A policy class's methods as the worker calls them, and how it builds the class: 
 what the worker hands each method, init= is how the class is built, and naming methods on @seq.policy is refused,
 saying how it is written now.
 
-    @seq.policy(hz=15, gpu="L4", weights="hf://org/model",
+    @seq.policy(hz=15, weights="hf://org/model",
                 init={"cfg": seq.config("deploy.yml", ckpt_dir="{weights}")})
     class Policy(Model):                   # your repository's class, as it is, subclassed in seq_policy.py
         @seq.observe

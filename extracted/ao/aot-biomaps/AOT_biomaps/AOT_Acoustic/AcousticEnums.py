@@ -66,3 +66,26 @@ class WaveType(Enum):
     PlaneWave = 'plane'
     """A wave type where the wavefronts are parallel and travel in a single direction."""
 
+class ApodType(Enum):
+    """
+    Enum for different types of apodization.
+
+    Selection of apodization types:
+    - Rectangular: A simple rectangular apodization.
+    - Hanning: A Hanning window apodization.
+    - Hamming: A Hamming window apodization.
+    - Blackman: A Blackman window apodization.
+    - gaussian: A Gaussian window apodization.
+    """
+    Rectangular = 'rectangular'
+    """A simple rectangular apodization."""
+    Hanning = 'hanning'
+    """A Hanning window apodization."""
+    Hamming = 'hamming'
+    """A Hamming window apodization."""
+    Blackman = 'blackman'
+    """A Blackman window apodization."""
+    Gaussian = 'gaussian'
+    """A Gaussian window apodization."""
+    Tukey = 'tukey'
+    """A Tukey window apodization."""

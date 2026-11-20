@@ -89,6 +89,7 @@ from .literals import (
     MemoryViewType,
     MetadataValueTypeType,
     MonitoringType,
+    NestedVirtualizationType,
     NetworkModeType,
     OAuthGrantTypeType,
     OnBehalfOfTokenExchangeGrantTypeTypeType,
@@ -176,6 +177,7 @@ __all__ = (
     "AuthorizingClaimMatchValueTypeOutputTypeDef",
     "AuthorizingClaimMatchValueTypeTypeDef",
     "AuthorizingClaimMatchValueTypeUnionTypeDef",
+    "AwsBillingConnectorConfigurationTypeDef",
     "BatchPutGatewayRateLimitsRequestTypeDef",
     "BatchPutGatewayRateLimitsResponseTypeDef",
     "BatchPutLimitEntryTypeDef",
@@ -251,6 +253,7 @@ __all__ = (
     "ContainerConfigurationTypeDef",
     "ContentConfigurationTypeDef",
     "ContentTypeDef",
+    "CpuOptionsTypeDef",
     "CreateAgentRuntimeEndpointRequestTypeDef",
     "CreateAgentRuntimeEndpointResponseTypeDef",
     "CreateAgentRuntimeRequestTypeDef",
@@ -1281,6 +1284,9 @@ class ClaimMatchValueTypeOutputTypeDef(TypedDict):
     matchValueString: NotRequired[str]
     matchValueStringList: NotRequired[list[str]]
 
+class AwsBillingConnectorConfigurationTypeDef(TypedDict):
+    iamRoleArn: str
+
 class InferenceConfigurationOutputTypeDef(TypedDict):
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
@@ -1474,6 +1480,9 @@ ContentConfigurationTypeDef = TypedDict(
 
 class ContentTypeDef(TypedDict):
     rawText: NotRequired[str]
+
+class CpuOptionsTypeDef(TypedDict):
+    nestedVirtualization: NotRequired[NestedVirtualizationType]
 
 class CreateAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
@@ -3802,6 +3811,7 @@ class HarnessGatewayOutboundAuthOutputTypeDef(TypedDict):
 class CredentialsProviderConfigurationTypeDef(TypedDict):
     coinbaseCDP: NotRequired[PaymentCredentialProviderConfigurationTypeDef]
     stripePrivy: NotRequired[PaymentCredentialProviderConfigurationTypeDef]
+    awsBilling: NotRequired[AwsBillingConnectorConfigurationTypeDef]
 
 class SummaryOverrideConfigurationInputTypeDef(TypedDict):
     consolidation: NotRequired[SummaryOverrideConsolidationConfigurationInputTypeDef]
@@ -4798,8 +4808,10 @@ CreatePaymentConnectorRequestTypeDef = TypedDict(
         "paymentManagerId": str,
         "name": str,
         "type": PaymentConnectorTypeType,
-        "credentialProviderConfigurations": Sequence[CredentialsProviderConfigurationTypeDef],
         "description": NotRequired[str],
+        "credentialProviderConfigurations": NotRequired[
+            Sequence[CredentialsProviderConfigurationTypeDef]
+        ],
         "provisionMode": NotRequired[PaymentConnectorProvisionModeType],
         "clientToken": NotRequired[str],
     },
@@ -4919,6 +4931,7 @@ class LaunchParametersOutputTypeDef(TypedDict):
     sshKeyName: NotRequired[str]
     instanceProfileArn: NotRequired[str]
     propagatedTags: NotRequired[dict[str, str]]
+    cpuOptions: NotRequired[CpuOptionsTypeDef]
 
 class LaunchParametersTypeDef(TypedDict):
     operatingSystem: OperatingSystemType
@@ -4930,6 +4943,7 @@ class LaunchParametersTypeDef(TypedDict):
     sshKeyName: NotRequired[str]
     instanceProfileArn: NotRequired[str]
     propagatedTags: NotRequired[Mapping[str, str]]
+    cpuOptions: NotRequired[CpuOptionsTypeDef]
 
 ListDatasetVersionsRequestPaginateTypeDef = TypedDict(
     "ListDatasetVersionsRequestPaginateTypeDef",

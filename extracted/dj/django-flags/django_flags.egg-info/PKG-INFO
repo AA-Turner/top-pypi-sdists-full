@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-flags
-Version: 5.2.0
+Version: 5.3.0
 Summary: Feature flags for Django projects
 Author-email: CFPB <tech@cfpb.gov>
 License-Expression: CC0-1.0

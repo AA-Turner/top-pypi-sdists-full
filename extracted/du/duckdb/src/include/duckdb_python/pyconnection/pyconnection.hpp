@@ -280,6 +280,7 @@ public:
 			// The holder of the mutex may be running a query that is waiting for this very call
 			conn.con.ThrowIfBusy();
 			nb::gil_scoped_release release;
+			DUCKDB_PY_ASSERT_GIL_RELEASED();
 			lock_.lock();
 		}
 
@@ -297,8 +298,8 @@ public:
 	// DuckDBPyConnection cannot dereference an already-freed result — see
 	// duckdb-python#435.
 	std::recursive_mutex py_connection_lock;
-	//! MemoryFileSystem used to temporarily store file-like objects for reading
-	std::shared_ptr<ModifiedMemoryFileSystem> internal_object_filesystem;
+	//! The database's store of file-like objects for reading, kept once this connection has found it
+	shared_ptr<ObjectStore> object_store;
 	case_insensitive_map_t<unique_ptr<ExternalDependency>> registered_functions;
 	//! The names register() succeeded with on this connection, bounded oldest out. Only a hint: unregister() of a
 	//! name it holds refuses beside an open DB-API result, and of one it does not hold, such as a view renamed in SQL,
@@ -337,6 +338,8 @@ public:
 	static void SetDefaultConnection(std::shared_ptr<DuckDBPyConnection> conn);
 	static PythonImportCache *ImportCache();
 	static nb::object ConsumedArrowReaders();
+	//! The dict of numpy's own scalar classes to the id of the DuckDB type each converts to; call with the GIL held
+	static nb::object NumpyScalarTypes();
 	//! Keeps adapt and the nodes module of the duckdb._sources package the package passes in as it imports
 	static void SetArrowSources(const nb::object &sources);
 	//! duckdb._sources.adapt; call with the GIL held
@@ -387,6 +390,10 @@ public:
 	                                                      const std::optional<string> &source);
 
 	std::shared_ptr<DuckDBPyConnection> RegisterPythonObject(const string &name, const nb::object &python_object);
+	//! Registers a pandas DataFrame whose object columns take the given types, one per column in frame order, in place
+	//! of a type sampled from the values; None declares no type for that column
+	std::shared_ptr<DuckDBPyConnection> RegisterDeclared(const string &name, const PandasDataFrame &df,
+	                                                     const nb::list &types);
 	std::shared_ptr<DuckDBPyConnection> RegisterArrowSource(const string &name, const nb::object &source);
 
 	void InstallExtension(const string &extension, bool force_install = false,

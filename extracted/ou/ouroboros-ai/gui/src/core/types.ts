@@ -102,10 +102,16 @@ export interface Overview {
   default_runtime: string;
   llm_backend: string;
   clients: { total: number; installed: number; connected: number; attention: number };
-  doctor: { pass: number; warn: number; fail: number };
+  /** `warn` leaves out `optional`: integrations that are simply not set up. */
+  doctor: { pass: number; warn: number; fail: number; optional?: number };
   providers: { configured: number; total: number };
   runs: RunSummary[];
+  /** Why the runs could not be read, when they could not. */
+  runs_error?: string | null;
   running_jobs: JobSnapshot[];
+  /** For showing paths short: the home folder, and [resolved root, name it is reached by]. */
+  home?: string;
+  path_aliases?: [string, string][];
 }
 
 export interface DoctorSurface {
@@ -117,6 +123,8 @@ export interface DoctorSurface {
   expected_version: string | null;
   launcher: string | null;
   remediation: string | null;
+  /** Part of an optional integration that is not set up at all: not a problem to fix. */
+  optional?: boolean;
 }
 
 export interface Doctor {
@@ -166,6 +174,8 @@ export interface StageView {
   model_env: string[];
   completion_backend: string;
   models: string[];
+  /** Display names the agent gives some of `models` (Codex's own list). */
+  model_labels?: Record<string, string>;
   default_hint: string | null;
 }
 
@@ -331,6 +341,20 @@ export interface RunProgress {
   activity: string | null;
 }
 
+/** A model the agent said it cannot use (src/ouroboros/gui/model_refusal.py). */
+export interface ModelRejection {
+  /** Canonical backend name. */
+  backend: string;
+  /** `null` when neither the agent nor the request named one. */
+  model: string | null;
+  /** The provider's own one-line reason. */
+  reason: string;
+  /** A reason the page says in the reader's language. */
+  reason_code: "chatgpt_account" | null;
+  /** "chat": the chat named the model; "settings": it came from Agents & models. */
+  source: "chat" | "settings";
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "system";
@@ -371,12 +395,20 @@ export interface ChatMessage {
   base?: string;
   files?: string[];
   file_count?: number;
+  /** An Auto result: Ouroboros' state and Python bytecode, listed apart from `files` but counted. */
+  internal_files?: string[];
+  internal_count?: number;
   uncommitted?: number;
   /** An Auto result: how it ended, the run status it reported, and the folder it worked in. */
   outcome?: "completed" | "failed" | "stopped" | "unverified";
   handoff_status?: string | null;
   folder?: string;
   in_repo?: boolean;
+  /** An error the page explains on its own: `model_rejected` carries `rejection`. */
+  code?: "model_rejected";
+  rejection?: ModelRejection;
+  /** The provider's raw error behind a rejection, shown only on request. */
+  detail?: string;
 }
 
 /** One round of the interview Auto runs with itself, paired by round number. */
@@ -390,7 +422,11 @@ export interface AutoRound {
   ambiguity?: number | null;
 }
 
-/** An Auto chat's structured view, folded from `ouroboros auto --progress-jsonl` (gui/auto_progress.py). */
+/**
+ * An Auto chat's structured view, folded from `ouroboros auto --progress-jsonl` (gui/auto_progress.py).
+ * A view saved before #3064 can still carry the Seed review's fields (grade, grades, findings, …):
+ * nothing reads them.
+ */
 export interface AutoView {
   v: number;
   auto_session_id: string | null;
@@ -403,12 +439,6 @@ export interface AutoView {
   /** One point per round that reported an ambiguity, in round order. */
   ambiguity_trend?: { round: number; value: number }[];
   max_rounds: number | null;
-  max_repair_rounds: number | null;
-  grade: string | null;
-  grades: { grade: string; repair_round: number; at: string | null }[];
-  review_message: string | null;
-  findings: string[];
-  repair_round: number;
   execution_id: string | null;
   seed_loaded: boolean;
   outcome: "completed" | "failed" | "stopped" | "unverified" | null;
@@ -433,9 +463,13 @@ export interface Suggestion {
   source?: "repo" | "model";
   evidence?: string[];
   error?: string;
+  /** Set when the error is the agent refusing the Interview stage's model. */
+  rejection?: ModelRejection;
   /** Started by Ouroboros for a question the server marked as answerable from code. */
   auto?: boolean;
   repo_checked?: boolean;
+  /** The drafted answer's script is not the goal's language, even after one retry. */
+  language_mismatch?: boolean;
 }
 
 /** One per-dimension floor of the server's completion gate. */
@@ -489,6 +523,8 @@ export interface ChatSession extends ChatSessionRow {
   auto_job_id?: string;
   /** Auto chats started since the structured view exists; older ones have only their log. */
   auto?: AutoView | null;
+  /** The agent and Execute model an Auto chat's run uses, as configured when it started. */
+  auto_model?: { model: string; backend: string | null; configured: string | null } | null;
   suggestion?: Suggestion;
   activity?: string[];
 }
@@ -497,6 +533,10 @@ export interface BackendChoice {
   id: string;
   installed: boolean;
   models: string[];
+  /** Display names the agent gives some of `models` (Codex's own list). */
+  model_labels?: Record<string, string>;
+  /** Ask backends: what an empty model field runs on, when the console knows. */
+  default_model?: string | null;
 }
 
 export interface ChatDefaults {

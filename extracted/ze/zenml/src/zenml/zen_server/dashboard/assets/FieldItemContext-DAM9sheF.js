@@ -1,0 +1,1 @@
+import{o as e}from"./rolldown-runtime-BCiCTKAo.js";import{t}from"./react-D2YmWxFb.js";var n=e(t()),r=n.createContext({disabled:!1});function i(){return n.useContext(r)}export{i as t};

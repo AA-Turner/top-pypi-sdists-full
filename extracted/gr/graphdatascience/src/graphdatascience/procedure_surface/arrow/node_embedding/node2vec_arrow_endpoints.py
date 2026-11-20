@@ -8,15 +8,17 @@ from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, AL
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
 from graphdatascience.procedure_surface.api.node_embedding.node2vec_endpoints import (
-    Node2VecEndpoints,
     Node2VecMutateResult,
     Node2VecWriteResult,
+)
+from graphdatascience.procedure_surface.api.node_embedding.node2vec_session_endpoints import (
+    Node2VecSessionEndpoints,
 )
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
 from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
-class Node2VecArrowEndpoints(Node2VecEndpoints):
+class Node2VecArrowEndpoints(Node2VecSessionEndpoints):
     def __init__(
         self,
         arrow_client: AuthenticatedArrowClient,
@@ -54,6 +56,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
         walk_buffer_size: int = 1000,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
     ) -> JobHandle:
         config = self._node_property_endpoints.create_base_config(
             G,
@@ -80,6 +83,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
             walk_buffer_size=walk_buffer_size,
             relationship_weight_property=relationship_weight_property,
             random_seed=random_seed,
+            result_as_vector=result_as_vector,
         )
         return self._node_property_endpoints.run_job(G, "v2/embeddings.node2vec", config)
 
@@ -110,6 +114,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
         walk_buffer_size: int = 1000,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
     ) -> Node2VecMutateResult:
         config = self._node_property_endpoints.create_base_config(
             G,
@@ -136,6 +141,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
             walk_buffer_size=walk_buffer_size,
             relationship_weight_property=relationship_weight_property,
             random_seed=random_seed,
+            result_as_vector=result_as_vector,
         )
 
         result = self._node_property_endpoints.run_job_and_mutate("v2/embeddings.node2vec", config, mutate_property)
@@ -169,6 +175,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
         walk_buffer_size: int = 1000,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
     ) -> DataFrame:
         config = self._node_property_endpoints.create_base_config(
             G,
@@ -195,6 +202,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
             walk_buffer_size=walk_buffer_size,
             relationship_weight_property=relationship_weight_property,
             random_seed=random_seed,
+            result_as_vector=result_as_vector,
         )
 
         return self._node_property_endpoints.run_job_and_stream("v2/embeddings.node2vec", G, config)
@@ -226,6 +234,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
         walk_buffer_size: int = 1000,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
+        result_as_vector: bool = False,
         write_concurrency: int | None = None,
     ) -> Node2VecWriteResult:
         config = self._node_property_endpoints.create_base_config(
@@ -253,6 +262,7 @@ class Node2VecArrowEndpoints(Node2VecEndpoints):
             walk_buffer_size=walk_buffer_size,
             relationship_weight_property=relationship_weight_property,
             random_seed=random_seed,
+            result_as_vector=result_as_vector,
             write_concurrency=write_concurrency,
             write_property=write_property,
         )

@@ -19,15 +19,11 @@ from edison_client.models.data_storage_methods import (
     RawFetchResponse,
     ShareStatus,
 )
-from edison_client.models.rest import (
-    FilterLogic,
-    SearchCriterion,
-    SearchOperator,
-)
+from edison_client.models.rest import FilterLogic, SearchCriterion, SearchOperator
 
 
 @pytest.mark.timeout(300)
-def test_store_raw_content_sync(admin_client: RestClient):
+def test_store_raw_content_sync(admin_client: RestClient) -> None:
     test_content = "This is random content for the sync test"
     # Store the text content
     response = admin_client.store_text_content(
@@ -55,7 +51,7 @@ def test_store_raw_content_sync(admin_client: RestClient):
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_store_raw_content_async(admin_client: RestClient):
+async def test_store_raw_content_async(admin_client: RestClient) -> None:
     test_content = "This is random content for the async test"
     response = await admin_client.astore_text_content(
         name=f"E2E test entry text: {uuid4()}",
@@ -83,11 +79,10 @@ async def test_store_raw_content_async(admin_client: RestClient):
 
 
 @pytest.mark.timeout(300)
-def test_store_file_content_sync(admin_client: RestClient):
+def test_store_file_content_sync(admin_client: RestClient) -> None:
     file_path = Path("packages/edison-client/tests/test_data/test_file.txt")
     response = admin_client.store_file_content(
-        name=f"E2E test entry file: {uuid4()}",
-        file_path=file_path,
+        name=f"E2E test entry file: {uuid4()}", file_path=file_path
     )
 
     assert response is not None
@@ -108,7 +103,7 @@ def test_store_file_content_sync(admin_client: RestClient):
 
 
 @pytest.mark.timeout(300)
-def test_store_file_content_with_path_override_sync(admin_client: RestClient):
+def test_store_file_content_with_path_override_sync(admin_client: RestClient) -> None:
     file_path = Path("packages/edison-client/tests/test_data/test_file.txt")
     file_path_override = Path("test_file_override.txt")
     response = admin_client.store_file_content(
@@ -135,7 +130,7 @@ def test_store_file_content_with_path_override_sync(admin_client: RestClient):
 
 
 @pytest.mark.timeout(300)
-def test_store_dir_content_sync(admin_client: RestClient):
+def test_store_dir_content_sync(admin_client: RestClient) -> None:
     response = admin_client.store_file_content(
         name=f"E2E test entry dir: {uuid4()}",
         file_path=Path("packages/edison-client/tests/test_data"),
@@ -156,11 +151,10 @@ def test_store_dir_content_sync(admin_client: RestClient):
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_store_file_content_async(admin_client: RestClient):
+async def test_store_file_content_async(admin_client: RestClient) -> None:
     file_path = Path("packages/edison-client/tests/test_data/test_file.txt")
     response = await admin_client.astore_file_content(
-        name=f"E2E test entry file: {uuid4()}",
-        file_path=file_path,
+        name=f"E2E test entry file: {uuid4()}", file_path=file_path
     )
 
     assert response is not None
@@ -184,7 +178,9 @@ async def test_store_file_content_async(admin_client: RestClient):
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_store_file_content_with_path_override_async(admin_client: RestClient):
+async def test_store_file_content_with_path_override_async(
+    admin_client: RestClient,
+) -> None:
     file_path = Path("packages/edison-client/tests/test_data/test_file.txt")
     file_path_override = Path("test_file_override.txt")
     response = await admin_client.astore_file_content(
@@ -214,7 +210,7 @@ async def test_store_file_content_with_path_override_async(admin_client: RestCli
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_store_dir_content_async(admin_client: RestClient):
+async def test_store_dir_content_async(admin_client: RestClient) -> None:
     response = await admin_client.astore_file_content(
         name=f"E2E test entry dir: {uuid4()}",
         file_path=Path("packages/edison-client/tests/test_data"),
@@ -237,7 +233,7 @@ async def test_store_dir_content_async(admin_client: RestClient):
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_store_dir_with_manifest_async(admin_client: RestClient):
+async def test_store_dir_with_manifest_async(admin_client: RestClient) -> None:
     response = await admin_client.astore_file_content(
         name=f"E2E test dir: {uuid4()}",
         file_path=Path("packages/edison-client/tests/test_data"),
@@ -260,10 +256,9 @@ async def test_store_dir_with_manifest_async(admin_client: RestClient):
 
 
 @pytest.mark.timeout(300)
-def test_register_existing_content_gcs_sync_rejected(admin_client: RestClient):
+def test_register_existing_content_gcs_sync_rejected(admin_client: RestClient) -> None:
     with pytest.raises(
-        DataStorageError,
-        match="Registering existing GCS locations is not supported",
+        DataStorageError, match="Registering existing GCS locations is not supported"
     ):
         admin_client.register_existing_data_source(
             name=f"E2E test entry gcs: {uuid4()}",
@@ -281,10 +276,9 @@ def test_register_existing_content_gcs_sync_rejected(admin_client: RestClient):
 @pytest.mark.asyncio
 async def test_register_existing_content_gcs_async_rejected(
     admin_client: RestClient,
-):
+) -> None:
     with pytest.raises(
-        DataStorageError,
-        match="Registering existing GCS locations is not supported",
+        DataStorageError, match="Registering existing GCS locations is not supported"
     ):
         await admin_client.aregister_existing_data_source(
             name=f"E2E test entry gcs: {uuid4()}",
@@ -299,7 +293,7 @@ async def test_register_existing_content_gcs_async_rejected(
 
 
 @pytest.mark.timeout(300)
-def test_register_existing_content_postgres_sync(admin_client: RestClient):
+def test_register_existing_content_postgres_sync(admin_client: RestClient) -> None:
     test_trajectory_id = "39510f66-c2ee-41c7-94de-64eb142c3f2a"
 
     response = admin_client.register_existing_data_source(
@@ -308,10 +302,7 @@ def test_register_existing_content_postgres_sync(admin_client: RestClient):
         existing_location=DataStorageLocationPayload(
             storage_type=DataStorageType.PG_TABLE,
             content_type=DataContentType.TEXT,
-            metadata={
-                "table_name": "trajectories",
-                "row_id": test_trajectory_id,
-            },
+            metadata={"table_name": "trajectories", "row_id": test_trajectory_id},
         ),
     )
 
@@ -329,7 +320,9 @@ def test_register_existing_content_postgres_sync(admin_client: RestClient):
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_register_existing_content_postgres_async(admin_client: RestClient):
+async def test_register_existing_content_postgres_async(
+    admin_client: RestClient,
+) -> None:
     test_trajectory_id = "39510f66-c2ee-41c7-94de-64eb142c3f2a"
 
     response = await admin_client.aregister_existing_data_source(
@@ -338,10 +331,7 @@ async def test_register_existing_content_postgres_async(admin_client: RestClient
         existing_location=DataStorageLocationPayload(
             storage_type=DataStorageType.PG_TABLE,
             content_type=DataContentType.TEXT,
-            metadata={
-                "table_name": "trajectories",
-                "row_id": test_trajectory_id,
-            },
+            metadata={"table_name": "trajectories", "row_id": test_trajectory_id},
         ),
     )
 
@@ -360,7 +350,7 @@ async def test_register_existing_content_postgres_async(admin_client: RestClient
 
 
 @pytest.mark.timeout(300)
-def test_register_existing_content_bigquery_sync(admin_client: RestClient):
+def test_register_existing_content_bigquery_sync(admin_client: RestClient) -> None:
     response = admin_client.register_existing_data_source(
         name=f"E2E test entry bigquery table: {uuid4()}",
         description="This is data that already exists",
@@ -384,7 +374,9 @@ def test_register_existing_content_bigquery_sync(admin_client: RestClient):
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_register_existing_content_bigquery_async(admin_client: RestClient):
+async def test_register_existing_content_bigquery_async(
+    admin_client: RestClient,
+) -> None:
     response = await admin_client.aregister_existing_data_source(
         name=f"E2E test entry bigquery table: {uuid4()}",
         description="This is data that already exists",
@@ -409,7 +401,7 @@ async def test_register_existing_content_bigquery_async(admin_client: RestClient
 class TestDataset:
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_dataset_async(self, admin_client: RestClient):
+    async def test_dataset_async(self, admin_client: RestClient) -> None:
         dataset_name_id = uuid4()
         create_response = await admin_client.acreate_dataset(
             name=f"E2E test dataset: {dataset_name_id}",
@@ -433,7 +425,7 @@ class TestDataset:
             await admin_client.aget_dataset(dataset_id=create_response.id)
 
     @pytest.mark.timeout(300)
-    def test_dataset_sync(self, admin_client: RestClient):
+    def test_dataset_sync(self, admin_client: RestClient) -> None:
         dataset_name_id = uuid4()
         create_response = admin_client.create_dataset(
             name=f"E2E test dataset: {dataset_name_id}",
@@ -458,7 +450,7 @@ class TestDataset:
 
 @pytest.mark.timeout(300)
 @pytest.mark.asyncio
-async def test_astore_link_success(admin_client: RestClient):
+async def test_astore_link_success(admin_client: RestClient) -> None:
     """Test successful asynchronous link storage."""
     result = await admin_client.astore_link(
         name="Test API Link",
@@ -484,7 +476,7 @@ async def test_astore_link_success(admin_client: RestClient):
 
 class TestDataStorageSearch:
     @pytest.mark.timeout(300)
-    def test_data_storage_search_sync(self, admin_client: RestClient):
+    def test_data_storage_search_sync(self, admin_client: RestClient) -> None:
         test_query = "test"
 
         test_criteria = SearchCriterion(
@@ -499,7 +491,7 @@ class TestDataStorageSearch:
 
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_data_storage_search_async(self, admin_client: RestClient):
+    async def test_data_storage_search_async(self, admin_client: RestClient) -> None:
         test_query = "test"
 
         name_test_criteria = SearchCriterion(
@@ -516,7 +508,9 @@ class TestDataStorageSearch:
 
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_complex_data_storage_search_async(self, admin_client: RestClient):
+    async def test_complex_data_storage_search_async(
+        self, admin_client: RestClient
+    ) -> None:
         test_query = "test"
 
         name_test_criteria = SearchCriterion(
@@ -574,15 +568,8 @@ class TestDataStorageSearch:
     @pytest.mark.asyncio
     async def test_fulltext_or_returns_results_for_non_cooccurring_terms(
         self, admin_client: RestClient
-    ):
-        """FULLTEXT criteria with OR should return results for non-co-occurring terms.
-
-        Seeds two docs with unique hex tokens so:
-        - Each returns results individually
-        - Don't co-occur in any document (AND returns 0)
-        - With the fix: OR returns the union (> 0)
-        - With the bug: OR incorrectly returns 0 (treated as AND)
-        """
+    ) -> None:
+        """FULLTEXT OR returns both documents whose terms do not co-occur."""
         token_a, token_b = uuid4().hex, uuid4().hex
         entry_a = await admin_client.astore_text_content(
             name=f"or-{token_a}", content=token_a
@@ -590,7 +577,6 @@ class TestDataStorageSearch:
         entry_b = await admin_client.astore_text_content(
             name=f"or-{token_b}", content=token_b
         )
-        await asyncio.sleep(5)  # wait for ES refresh
         try:
             criteria = [
                 SearchCriterion(
@@ -601,34 +587,42 @@ class TestDataStorageSearch:
                 ),
             ]
 
+            async with asyncio.timeout(60):
+                for criterion, entry in zip(criteria, (entry_a, entry_b), strict=True):
+                    while True:
+                        results = await admin_client.asearch_data_storage(
+                            criteria=[criterion]
+                        )
+                        if str(entry.data_storage.id) in {
+                            str(result["id"]) for result in results
+                        }:
+                            break
+                        await asyncio.sleep(1)
+
             or_results = await admin_client.asearch_data_storage(
-                criteria=criteria,
-                filter_logic=FilterLogic.OR,
-                limit=50,
+                criteria=criteria, filter_logic=FilterLogic.OR, limit=50
             )
 
             and_results = await admin_client.asearch_data_storage(
-                criteria=criteria,
-                filter_logic=FilterLogic.AND,
-                limit=50,
+                criteria=criteria, filter_logic=FilterLogic.AND, limit=50
             )
 
-            # AND should return 0 (terms don't co-occur)
             assert len(and_results) == 0, (
                 f"Expected AND to return 0 for non-co-occurring terms, got {len(and_results)}"
             )
-            # OR should return results (union of both term matches)
-            assert len(or_results) > 0, (
-                "FULLTEXT OR should return results when individual terms match documents. "
-                "Got 0 results - this indicates the bug where OR is treated as AND."
-            )
+            assert {str(result["id"]) for result in or_results} == {
+                str(entry_a.data_storage.id),
+                str(entry_b.data_storage.id),
+            }
         finally:
             await admin_client.adelete_data_storage_entry(entry_a.data_storage.id)
             await admin_client.adelete_data_storage_entry(entry_b.data_storage.id)
 
     @pytest.mark.timeout(300)
     @pytest.mark.asyncio
-    async def test_fulltext_or_results_sorted_by_score(self, admin_client: RestClient):
+    async def test_fulltext_or_results_sorted_by_score(
+        self, admin_client: RestClient
+    ) -> None:
         """FULLTEXT OR results must be sorted by score descending.
 
         Uses non-co-occurring terms to verify OR behavior:
@@ -667,7 +661,7 @@ class TestEntryPermissions:
     @pytest.mark.timeout(300)
     def test_data_update_entry_permissions_sync(
         self, admin_client: RestClient, pub_client: RestClient
-    ):
+    ) -> None:
         test_content = "This is random content for the sync test"
 
         # Store the text content
@@ -685,10 +679,7 @@ class TestEntryPermissions:
         update_entry_response = admin_client.update_entry_permissions(
             data_storage_id=create_entry_response.data_storage.id,
             share_status=ShareStatus.PUBLIC,
-            permitted_accessors=PermittedAccessors(
-                users=[],
-                organizations=[],
-            ),
+            permitted_accessors=PermittedAccessors(users=[], organizations=[]),
         )
 
         assert update_entry_response.data_storage.share_status == ShareStatus.PUBLIC
@@ -710,7 +701,7 @@ class TestEntryPermissions:
     @pytest.mark.asyncio
     async def test_data_update_entry_permissions_async(
         self, admin_client: RestClient, pub_client: RestClient
-    ):
+    ) -> None:
         test_content = "This is random content for the async test"
 
         # Store the text content
@@ -730,10 +721,7 @@ class TestEntryPermissions:
         update_entry_response = await admin_client.aupdate_entry_permissions(
             data_storage_id=create_entry_response.data_storage.id,
             share_status=ShareStatus.PUBLIC,
-            permitted_accessors=PermittedAccessors(
-                users=[],
-                organizations=[],
-            ),
+            permitted_accessors=PermittedAccessors(users=[], organizations=[]),
         )
 
         fetch_entry_response = await pub_client.afetch_data_from_storage(

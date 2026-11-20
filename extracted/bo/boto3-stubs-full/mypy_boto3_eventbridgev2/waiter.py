@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_eventbridgev2.waiter import (
         EventBusActiveWaiter,
         EventBusDeletedWaiter,
+        MskSubscriberActiveWaiter,
     )
 
     session = Session()
@@ -21,6 +22,7 @@ Usage::
 
     event_bus_active_waiter: EventBusActiveWaiter = client.get_waiter("event_bus_active")
     event_bus_deleted_waiter: EventBusDeletedWaiter = client.get_waiter("event_bus_deleted")
+    msk_subscriber_active_waiter: MskSubscriberActiveWaiter = client.get_waiter("msk_subscriber_active")
     ```
 """
 
@@ -30,7 +32,11 @@ import sys
 
 from botocore.waiter import Waiter
 
-from .type_defs import DescribeEventBusRequestWaitExtraTypeDef, DescribeEventBusRequestWaitTypeDef
+from .type_defs import (
+    DescribeEventBusRequestWaitExtraTypeDef,
+    DescribeEventBusRequestWaitTypeDef,
+    DescribeSubscriberRequestWaitTypeDef,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Unpack
@@ -38,7 +44,7 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("EventBusActiveWaiter", "EventBusDeletedWaiter")
+__all__ = ("EventBusActiveWaiter", "EventBusDeletedWaiter", "MskSubscriberActiveWaiter")
 
 
 class EventBusActiveWaiter(Waiter):
@@ -68,4 +74,19 @@ class EventBusDeletedWaiter(Waiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eventbridgev2/waiter/EventBusDeleted.html#EventBridgeV2.Waiter.EventBusDeleted.wait)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eventbridgev2/waiters/#eventbusdeletedwaiter)
+        """
+
+
+class MskSubscriberActiveWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eventbridgev2/waiter/MskSubscriberActive.html#EventBridgeV2.Waiter.MskSubscriberActive)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eventbridgev2/waiters/#msksubscriberactivewaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSubscriberRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eventbridgev2/waiter/MskSubscriberActive.html#EventBridgeV2.Waiter.MskSubscriberActive.wait)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eventbridgev2/waiters/#msksubscriberactivewaiter)
         """

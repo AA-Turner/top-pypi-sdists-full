@@ -210,6 +210,7 @@ from arthur_client.api_bindings.models.dimension import Dimension
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
 from arthur_client.api_bindings.models.discovery_denied_scope import DiscoveryDeniedScope
 from arthur_client.api_bindings.models.discovery_device_coverage import DiscoveryDeviceCoverage
+from arthur_client.api_bindings.models.discovery_project_state import DiscoveryProjectState
 from arthur_client.api_bindings.models.discovery_query_language import DiscoveryQueryLanguage
 from arthur_client.api_bindings.models.discovery_run import DiscoveryRun
 from arthur_client.api_bindings.models.discovery_run_list import DiscoveryRunList
@@ -248,6 +249,9 @@ from arthur_client.api_bindings.models.discovery_source_type_schema import Disco
 from arthur_client.api_bindings.models.discovery_source_type_schema_field import DiscoverySourceTypeSchemaField
 from arthur_client.api_bindings.models.discovery_source_vendor import DiscoverySourceVendor
 from arthur_client.api_bindings.models.endpoint_agent_creation_source import EndpointAgentCreationSource
+from arthur_client.api_bindings.models.engine_task_sync import EngineTaskSync
+from arthur_client.api_bindings.models.engine_task_sync_run import EngineTaskSyncRun
+from arthur_client.api_bindings.models.engine_task_sync_unavailable_reason import EngineTaskSyncUnavailableReason
 from arthur_client.api_bindings.models.eval import Eval
 from arthur_client.api_bindings.models.eval_config import EvalConfig
 from arthur_client.api_bindings.models.eval_type import EvalType
@@ -474,6 +478,7 @@ from arthur_client.api_bindings.models.put_model_metrics_schedule import PutMode
 from arthur_client.api_bindings.models.put_retrieved_data import PutRetrievedData
 from arthur_client.api_bindings.models.put_task_connection_info import PutTaskConnectionInfo
 from arthur_client.api_bindings.models.put_task_state_cache_request import PutTaskStateCacheRequest
+from arthur_client.api_bindings.models.put_workspace_discovery_project import PutWorkspaceDiscoveryProject
 from arthur_client.api_bindings.models.reasoning_effort_enum import ReasoningEffortEnum
 from arthur_client.api_bindings.models.regenerate_task_validation_key_job_spec import RegenerateTaskValidationKeyJobSpec
 from arthur_client.api_bindings.models.regex_config import RegexConfig
@@ -601,5 +606,6 @@ from arthur_client.api_bindings.models.webhook_response import WebhookResponse
 from arthur_client.api_bindings.models.webhook_result import WebhookResult
 from arthur_client.api_bindings.models.webhook_sort import WebhookSort
 from arthur_client.api_bindings.models.workspace import Workspace
+from arthur_client.api_bindings.models.workspace_discovery_project import WorkspaceDiscoveryProject
 from arthur_client.api_bindings.models.workspace_sort import WorkspaceSort
 from arthur_client.api_bindings.models.workspace_statistics import WorkspaceStatistics

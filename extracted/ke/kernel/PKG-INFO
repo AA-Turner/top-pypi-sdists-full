@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: kernel
-Version: 0.149.0
+Version: 0.153.0
 Summary: The official Python library for the kernel API
 Project-URL: Homepage, https://github.com/kernel/kernel-python-sdk
 Project-URL: Repository, https://github.com/kernel/kernel-python-sdk
@@ -32,6 +32,8 @@ Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
+Provides-Extra: aws
+Requires-Dist: boto3>=1.41.0; extra == 'aws'
 Description-Content-Type: text/markdown
 
 # Kernel Python API library
@@ -239,9 +241,9 @@ from kernel import Kernel
 client = Kernel()
 
 browser = client.browsers.create(
-    fingerprint={"os": "macos"},
+    captcha_solver={"enabled": True},
 )
-print(browser.fingerprint)
+print(browser.captcha_solver)
 ```
 
 ## File uploads

@@ -1635,7 +1635,7 @@ class TwitterNamespace:
         Fetch a Twitter/X account's public profile (followers, tweets, bio,
         verification) by handle.
 
-        Price: $0.00021 per request.
+        Price: $0.0002 per request.
 
         Example:
             res = client.twitter.profile(handle="nasa")
@@ -1657,7 +1657,7 @@ class TwitterNamespace:
         text, and engagement. An empty result is valid and does not assert whether
         the target post exists.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.twitter.replies(url="https://x.com/jack/status/20")
@@ -2174,7 +2174,7 @@ class AsyncTwitterNamespace:
         Fetch a Twitter/X account's public profile (followers, tweets, bio,
         verification) by handle.
 
-        Price: $0.00021 per request.
+        Price: $0.0002 per request.
 
         Example:
             res = client.twitter.profile(handle="nasa")
@@ -2196,7 +2196,7 @@ class AsyncTwitterNamespace:
         text, and engagement. An empty result is valid and does not assert whether
         the target post exists.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.twitter.replies(url="https://x.com/jack/status/20")

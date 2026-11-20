@@ -241,6 +241,9 @@ class ChatMixin:
         callers can detect the failure today. Raising instead is a 2.0 decision.
         """
         self._last_error = exc
+        from ..llm.error_classifier import is_shutdown_error
+        if is_shutdown_error(exc):  # cut off by Ctrl-C/exit: nobody is waiting for this turn
+            return None
         # Stable text (no str(exc): request IDs/timestamps would defeat the
         # default once-per-location filter). Under ``-W error`` the warning
         # must not escape or replace the saved error: the contract is None.
@@ -587,7 +590,7 @@ class ChatMixin:
                     resolved = int(resolver())
                     used_resolver = True
                 except Exception:
-                    pass
+                    logger.debug("resolved_max_steps() failed; using max_steps as set", exc_info=True)
             if not used_resolver:
                 max_steps = getattr(execution, "max_steps", None)
                 if max_steps is not None:
@@ -611,7 +614,7 @@ class ChatMixin:
                 try:
                     return int(resolver())
                 except Exception:
-                    pass
+                    logger.debug("resolved_max_tool_calls() failed; using max_tool_calls_per_turn", exc_info=True)
             return int(getattr(execution, "max_tool_calls_per_turn", default))
         return default
 
@@ -1115,7 +1118,7 @@ Your Role: {self.role}"""
                 try:
                     return schema_model.model_validate(parsed)
                 except Exception:
-                    pass
+                    logger.debug("%s.model_validate failed on parsed output", getattr(schema_model, "__name__", schema_model), exc_info=True)
         return self._coerce_structured_output(response_text, schema_model)
 
     def _coerce_structured_output(self, response_text, schema_model):
@@ -1140,12 +1143,12 @@ Your Role: {self.role}"""
             try:
                 return schema_model.model_validate_json(payload)
             except Exception:
-                pass
+                logger.debug("%s.model_validate_json failed", getattr(schema_model, "__name__", schema_model), exc_info=True)
             if hasattr(schema_model, "model_validate"):
                 try:
                     return schema_model.model_validate(json.loads(payload))
                 except Exception:
-                    pass
+                    logger.debug("%s.model_validate failed on decoded JSON", getattr(schema_model, "__name__", schema_model), exc_info=True)
             return None
 
         validated = _try_validate(candidate)
@@ -1213,6 +1216,10 @@ Your Role: {self.role}"""
         _openai_client was set -- which is the default path for OpenAI models.
         """
         if not self._history_enabled or self._session_store is None:
+            return []
+        if self._history_session_id == self._session_id:
+            # The persisting session is already restored into chat_history by
+            # _init_session_store; injecting it again would send it twice.
             return []
         try:
             # Prefer compacted working history (summary + tail) on resume when a
@@ -1851,6 +1858,32 @@ Your Role: {self.role}"""
         
         return CompactionRoute.FITS, messages
 
+    def _compaction_hook_payload(self, messages):
+        """Window snapshot for BEFORE_COMPACTION. Never raises."""
+        from ..context.budgeter import compaction_context_payload
+        from ..context.tokens import estimate_messages_tokens
+
+        msgs = list(messages or [])
+        try:
+            tokens = estimate_messages_tokens(msgs)
+        except Exception:
+            logger.debug("compaction payload token estimate failed", exc_info=True)
+            tokens = 0
+        llm = getattr(self, "llm", None)
+        if isinstance(llm, str):
+            model = llm
+        else:
+            model = getattr(llm, "model", None) if llm is not None else None
+        from ..hooks.types import HookInput
+        return HookInput(
+            session_id=str(getattr(self, "_session_id", None) or ""),
+            cwd=os.getcwd(),
+            event_name="before_compaction",
+            timestamp=str(time.time()),
+            agent_name=getattr(self, "name", None),
+            extra=compaction_context_payload(tokens, model, len(msgs)),
+        )
+
     def _apply_compaction(self, messages, compactor, policy):
         """Apply standard context compaction."""
         from ..compaction.strategy import CompactionStrategy as LegacyStrategy
@@ -1862,7 +1895,9 @@ Your Role: {self.role}"""
         
         # Execute hooks
         try:
-            self._hook_runner.execute_sync(_HookEvent.BEFORE_COMPACTION, None)
+            self._hook_runner.execute_sync(
+                _HookEvent.BEFORE_COMPACTION, self._compaction_hook_payload(messages)
+            )
         except Exception as e:
             logger.warning(f"BEFORE_COMPACTION hook failed: {e}")
             if getattr(self, '_strict_hooks', False):
@@ -2049,7 +2084,9 @@ Your Role: {self.role}"""
         
         # Execute hooks
         try:
-            await self._hook_runner.execute(_HookEvent.BEFORE_COMPACTION, None)
+            await self._hook_runner.execute(
+                _HookEvent.BEFORE_COMPACTION, self._compaction_hook_payload(messages)
+            )
         except Exception as e:
             logger.warning(f"BEFORE_COMPACTION hook failed: {e}")
             if getattr(self, '_strict_hooks', False):
@@ -2916,7 +2953,7 @@ Your Role: {self.role}"""
                 prompt_tokens = estimate_messages_tokens(messages)
                 context_length = prompt_tokens
             except Exception:
-                pass  # Token estimation failed, continue without counts
+                logger.debug("Token estimation failed; reporting the error without token counts", exc_info=True)
             
             # Classify error with structured recovery hints
             classification = classify_llm_error(
@@ -3104,7 +3141,7 @@ Your Role: {self.role}"""
             prompt_tokens = estimate_messages_tokens(messages)
             context_length = prompt_tokens
         except Exception:
-            pass  # Token estimation failed, continue without counts
+            logger.debug("Token estimation failed; reporting the error without token counts", exc_info=True)
         
         # Classify error with structured recovery hints
         classification = classify_llm_error(
@@ -4410,7 +4447,7 @@ Your Role: {self.role}"""
 
                     # Apply guardrail validation for custom LLM response
                     try:
-                        validated_response = self._apply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=processed_history)
+                        validated_response = self._apply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=[{"role": "system", "content": system_prompt_for_llm}] + list(processed_history) if system_prompt_for_llm else processed_history)
                         # Commit only the approved reply (never the rejected one).
                         self._commit_assistant_reply(validated_response)
                         # Coerce into the requested Pydantic model so callers
@@ -4873,6 +4910,10 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             if self._db is not None:
                 await self._ainit_db_session()
                 await self._astart_run(prompt if isinstance(prompt, str) else str(prompt))
+            elif not self._session_store_initialized:
+                # Parity with sync chat(): restore/persist the JSON session
+                # store (blocking file I/O, so off the event loop).
+                await asyncio.to_thread(self._init_session_store)
             _scope_token = self._enter_turn_tool_scope(tools)
             try:
                 result = await self._achat_impl(
@@ -5091,13 +5132,14 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     )
 
                 try:
+                    _custom_system_prompt = self._build_system_prompt(
+                        tools,
+                        memory_prefetch_context=memory_prefetch_context,
+                    )
                     # C1 - per-call seed forwarding (async path)  
                     llm_kwargs = {
                         'prompt': prompt,
-                        'system_prompt': self._build_system_prompt(
-                            tools,
-                            memory_prefetch_context=memory_prefetch_context,
-                        ),
+                        'system_prompt': _custom_system_prompt,
                         'chat_history': self._history_before_turn(effective_history, normalized_content),
                         'temperature': temperature,
                         'tools': tools,
@@ -5157,7 +5199,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     
                     # Apply guardrail validation for custom LLM response
                     try:
-                        validated_response = await self._aapply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id, messages=effective_history)
+                        validated_response = await self._aapply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id, messages=[{"role": "system", "content": _custom_system_prompt}] + list(effective_history) if _custom_system_prompt else effective_history)
                         # Commit + persist only the approved reply (matches sync chat()).
                         await self._acommit_assistant_reply(validated_response)
                         # Coerce into the requested Pydantic model so callers
@@ -6883,7 +6925,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             try:
                 fallback_error._praisonai_stream_fallback_exhausted = True
             except Exception:
-                pass
+                logger.debug("Could not mark the stream fallback error as exhausted", exc_info=True)
             raise fallback_error from streaming_error
         finally:
             _stream_traced_agent.reset(_traced)
@@ -6985,7 +7027,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 
             # Execute BEFORE_COMPACTION hook
             try:
-                self._hook_runner.execute_sync(hook_event_class.BEFORE_COMPACTION, None)
+                self._hook_runner.execute_sync(
+                    hook_event_class.BEFORE_COMPACTION, self._compaction_hook_payload(messages)
+                )
             except Exception as e:
                 logger.warning(f"BEFORE_COMPACTION hook failed: {e}")
                 if getattr(self, '_strict_hooks', False):
@@ -7076,7 +7120,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 
             # Execute BEFORE_COMPACTION hook
             try:
-                await self._hook_runner.execute(hook_event_class.BEFORE_COMPACTION, None)
+                await self._hook_runner.execute(
+                    hook_event_class.BEFORE_COMPACTION, self._compaction_hook_payload(messages)
+                )
             except Exception as e:
                 logger.warning(f"BEFORE_COMPACTION hook failed: {e}")
                 if getattr(self, '_strict_hooks', False):

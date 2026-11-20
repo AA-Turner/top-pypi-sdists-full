@@ -28,6 +28,7 @@ from .literals import (
     ApprovalActionTypeType,
     ApprovalStatusType,
     AuthFlowType,
+    AwsSourceModeType,
     CapabilityTypeType,
     ChatArchiveStatusType,
     DayOfWeekType,
@@ -41,6 +42,7 @@ from .literals import (
     MCPServerAuthorizationMethodType,
     NewRelicRegionType,
     OrderTypeType,
+    OrgSourceAccountReasonCodeType,
     PostRegisterServiceSupportedServiceType,
     PriorityType,
     PrivateConnectionStatusType,
@@ -251,6 +253,10 @@ __all__ = (
     "NewRelicServiceAuthorizationConfigTypeDef",
     "NewRelicServiceDetailsTypeDef",
     "OAuthAdditionalStepDetailsTypeDef",
+    "OrgSourceDeploymentStateOutputTypeDef",
+    "OrgSourceDeploymentStateTypeDef",
+    "OrgSourceIssueOutputTypeDef",
+    "OrgSourceIssueTypeDef",
     "PagerDutyAuthorizationConfigTypeDef",
     "PagerDutyConfigurationOutputTypeDef",
     "PagerDutyConfigurationTypeDef",
@@ -333,6 +339,10 @@ __all__ = (
     "SlackConfigurationTypeDef",
     "SlackTransmissionTargetTypeDef",
     "SourceAwsConfigurationTypeDef",
+    "SourceAwsOrgConfigurationOutputTypeDef",
+    "SourceAwsOrgConfigurationTypeDef",
+    "SourceAwsOrgUnitOutputTypeDef",
+    "SourceAwsOrgUnitTypeDef",
     "TagResourceRequestTypeDef",
     "TaskFilterTypeDef",
     "TaskTypeDef",
@@ -385,6 +395,7 @@ class AWSConfigurationTypeDef(TypedDict):
     accountType: Literal["monitor"]
     agentElevatedRoleArn: NotRequired[str]
     agentElevatedRoleArnStatus: NotRequired[ValidationStatusType]
+    serviceManagementRoleArn: NotRequired[str]
 
 class RegisteredAzureDevOpsServiceDetailsTypeDef(TypedDict):
     organizationName: str
@@ -469,6 +480,7 @@ class AgentSpaceTypeDef(TypedDict):
     locale: NotRequired[str]
     kmsKeyArn: NotRequired[str]
     preferences: NotRequired[dict[Literal["elevatedActionsEnabled"], bool]]
+    awsSourceMode: NotRequired[AwsSourceModeType]
 
 class ApprovalActionTypeDef(TypedDict):
     toolUseId: NotRequired[str]
@@ -561,6 +573,7 @@ class CreateAgentSpaceInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     preferences: NotRequired[Mapping[Literal["elevatedActionsEnabled"], bool]]
+    awsSourceMode: NotRequired[AwsSourceModeType]
 
 class ReferenceInputTypeDef(TypedDict):
     system: str
@@ -952,6 +965,18 @@ class NewRelicApiKeyConfigTypeDef(TypedDict):
     entityGuids: NotRequired[Sequence[str]]
     alertPolicyIds: NotRequired[Sequence[str]]
 
+class OrgSourceIssueOutputTypeDef(TypedDict):
+    reasonCode: OrgSourceAccountReasonCodeType
+    accountCount: int
+    accountIds: list[str]
+    message: NotRequired[str]
+
+class OrgSourceIssueTypeDef(TypedDict):
+    reasonCode: OrgSourceAccountReasonCodeType
+    accountCount: int
+    accountIds: Sequence[str]
+    message: NotRequired[str]
+
 class PagerDutyOAuthClientCredentialsConfigTypeDef(TypedDict):
     clientId: str
     clientSecret: str
@@ -1110,6 +1135,14 @@ class SlackChannelTypeDef(TypedDict):
     channelId: str
     channelName: NotRequired[str]
 
+class SourceAwsOrgUnitOutputTypeDef(TypedDict):
+    organizationalUnitId: str
+    accountIds: NotRequired[list[str]]
+
+class SourceAwsOrgUnitTypeDef(TypedDict):
+    organizationalUnitId: str
+    accountIds: NotRequired[Sequence[str]]
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -1124,6 +1157,7 @@ class UpdateAgentSpaceInputTypeDef(TypedDict):
     description: NotRequired[str]
     locale: NotRequired[str]
     preferences: NotRequired[Mapping[Literal["elevatedActionsEnabled"], bool]]
+    awsSourceMode: NotRequired[AwsSourceModeType]
 
 class UpdateBacklogTaskRequestTypeDef(TypedDict):
     agentSpaceId: str
@@ -1591,6 +1625,16 @@ class NetworkAccessConfigurationTypeDef(TypedDict):
 class NewRelicServiceAuthorizationConfigTypeDef(TypedDict):
     apiKey: NotRequired[NewRelicApiKeyConfigTypeDef]
 
+class OrgSourceDeploymentStateOutputTypeDef(TypedDict):
+    deployedAccountCount: NotRequired[int]
+    issues: NotRequired[list[OrgSourceIssueOutputTypeDef]]
+    lastEvaluatedAt: NotRequired[datetime]
+
+class OrgSourceDeploymentStateTypeDef(TypedDict):
+    deployedAccountCount: NotRequired[int]
+    issues: NotRequired[Sequence[OrgSourceIssueTypeDef]]
+    lastEvaluatedAt: NotRequired[TimestampTypeDef]
+
 class PagerDutyAuthorizationConfigTypeDef(TypedDict):
     oAuthClientCredentials: NotRequired[PagerDutyOAuthClientCredentialsConfigTypeDef]
 
@@ -1798,6 +1842,16 @@ class ReleaseManagementConfigurationTypeDef(TypedDict):
 class NewRelicServiceDetailsTypeDef(TypedDict):
     authorizationConfig: NewRelicServiceAuthorizationConfigTypeDef
 
+class SourceAwsOrgConfigurationOutputTypeDef(TypedDict):
+    accountType: Literal["source"]
+    organizationalUnit: SourceAwsOrgUnitOutputTypeDef
+    deploymentState: NotRequired[OrgSourceDeploymentStateOutputTypeDef]
+
+class SourceAwsOrgConfigurationTypeDef(TypedDict):
+    accountType: Literal["source"]
+    organizationalUnit: SourceAwsOrgUnitTypeDef
+    deploymentState: NotRequired[OrgSourceDeploymentStateTypeDef]
+
 class PagerDutyDetailsTypeDef(TypedDict):
     scopes: Sequence[str]
     authorizationConfig: PagerDutyAuthorizationConfigTypeDef
@@ -1953,6 +2007,7 @@ class ServiceDetailsTypeDef(TypedDict):
 
 class ServiceConfigurationOutputTypeDef(TypedDict):
     sourceAws: NotRequired[SourceAwsConfigurationTypeDef]
+    sourceAwsOrg: NotRequired[SourceAwsOrgConfigurationOutputTypeDef]
     aws: NotRequired[AWSConfigurationTypeDef]
     github: NotRequired[GitHubConfigurationTypeDef]
     slack: NotRequired[SlackConfigurationTypeDef]
@@ -1976,6 +2031,7 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
 
 class ServiceConfigurationTypeDef(TypedDict):
     sourceAws: NotRequired[SourceAwsConfigurationTypeDef]
+    sourceAwsOrg: NotRequired[SourceAwsOrgConfigurationTypeDef]
     aws: NotRequired[AWSConfigurationTypeDef]
     github: NotRequired[GitHubConfigurationTypeDef]
     slack: NotRequired[SlackConfigurationTypeDef]

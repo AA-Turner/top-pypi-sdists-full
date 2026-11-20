@@ -60,6 +60,8 @@ __all__ = (
     "InsightTypeType",
     "InsightsFailureCategoryType",
     "InstrumentBalanceTokenType",
+    "JwkEllipticCurveType",
+    "JwkKeyTypeType",
     "LanguageRuntimeType",
     "ListABTestsPaginatorName",
     "ListActorsPaginatorName",
@@ -245,6 +247,8 @@ InsightsFailureCategoryType = Literal[
     "task-instruction-category-problem-id",
 ]
 InstrumentBalanceTokenType = Literal["USDC"]
+JwkEllipticCurveType = Literal["P-256", "P-384", "P-521"]
+JwkKeyTypeType = Literal["EC"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListABTestsPaginatorName = Literal["list_ab_tests"]
 ListActorsPaginatorName = Literal["list_actors"]
@@ -280,7 +284,7 @@ PaymentInstrumentStatusType = Literal["ACTIVE", "BLOCKED", "DELETED", "FAILED", 
 PaymentInstrumentTypeType = Literal["EMBEDDED_CRYPTO_WALLET"]
 PaymentSessionStatusType = Literal["ACTIVE", "DELETED", "EXPIRED"]
 PaymentStatusType = Literal["PROOF_GENERATED"]
-PaymentTypeType = Literal["CRYPTO_X402", "MPP"]
+PaymentTypeType = Literal["AWS_BILLING_X402", "CRYPTO_X402", "MPP"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 RecommendationStatusType = Literal["COMPLETED", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]
 RecommendationTypeType = Literal["SYSTEM_PROMPT_RECOMMENDATION", "TOOL_DESCRIPTION_RECOMMENDATION"]
@@ -419,6 +423,7 @@ ValidationExceptionReasonType = Literal[
 ]
 BedrockAgentCoreServiceName = Literal["bedrock-agentcore"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -720,6 +725,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

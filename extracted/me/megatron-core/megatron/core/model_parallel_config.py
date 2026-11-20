@@ -159,6 +159,9 @@ class ModelParallelConfig:
     dp_balanced: DP-balanced scheduler for sequence packing.
     """
 
+    pad_packed_seq_alignment: int | Literal['max'] | None = None
+    """Pad packed THD inputs to a CP-local multiple or to max_seqlen_per_dp_cp_rank."""
+
     expert_model_parallel_size: int = 1
     """Distributes Moe Experts across sub data parallel dimension."""
 
@@ -287,7 +290,8 @@ class ModelParallelConfig:
        fused_weight_gradient_mlp_cuda module. To use gradient_accumulation_fusion you must install
        APEX with --cpp_ext and --cuda_ext. For example: "pip install --global-option=\"--cpp_ext\"
        --global-option=\"--cuda_ext\" ". Note that the extension requires CUDA>=11. Otherwise, you
-       must turn off gradient accumulation fusion.
+       must turn off gradient accumulation fusion. VocabParallelEmbedding then also adds its weight
+       gradient into main_grad in its backward.
     """
 
     use_te_rng_tracker: bool = field(
@@ -544,6 +548,32 @@ class ModelParallelConfig:
         See https://docs.python.org/3/library/dataclasses.html#post-init-processing for more
         details.
         """
+        if self.pad_packed_seq_alignment is not None:
+            if self.pad_packed_seq_alignment != 'max':
+                try:
+                    self.pad_packed_seq_alignment = int(self.pad_packed_seq_alignment)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "pad_packed_seq_alignment must be 'max' or a positive integer"
+                    ) from exc
+                if self.pad_packed_seq_alignment <= 0:
+                    raise ValueError("pad_packed_seq_alignment must be 'max' or a positive integer")
+            if self.max_seqlen_per_dp_cp_rank is None:
+                raise ValueError(
+                    "max_seqlen_per_dp_cp_rank is required for packed sequence padding"
+                )
+            if self.pad_packed_seq_alignment == "max":
+                if self.sequence_parallel:
+                    assert (
+                        self.max_seqlen_per_dp_cp_rank % self.tensor_model_parallel_size == 0
+                    ), "Packed padding must preserve sequence-parallel TP divisibility."
+                assert (
+                    self.max_seqlen_per_dp_cp_rank % 2 == 0
+                ), "Packed padding must preserve zigzag CP alignment."
+            # Integer alignment is combined with TP/CP/MXFP8 requirements by
+            # get_packed_sequence_alignment, so the requested multiple need not
+            # itself be divisible by TP.
+
         if self.sequence_parallel:
             if self.tensor_model_parallel_size <= 1:
                 raise ValueError("Cannot use sequence parallelism without tensor parallelism")

@@ -39,9 +39,7 @@ class ChatCloneRequest(BaseModel):
         description="UUID of the session to copy conversations from"
     )
     limit: int | None = Field(
-        ge=1,
-        default=None,
-        description="Messages will only be copied up to this limit.",
+        ge=1, default=None, description="Messages will only be copied up to this limit."
     )
     target_project_id: UUID = Field(
         description="UUID of the project the new session will be created under"

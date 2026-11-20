@@ -1,0 +1,1 @@
+var e=/^(?:(?:https?|mailto|ftp|tel|file|sms):|[^&:/?#]*(?:[/?#]|$))/i,t=/^data:(?:image\/(?:bmp|gif|jpeg|jpg|png|tiff|webp)|video\/(?:mpeg|mp4|ogg|webm)|audio\/(?:mp3|oga|ogg|opus));base64,[a-z0-9+/]+=*$/i;function n(n){let r=String(n??``).trim();if(r&&r!==`null`&&r!==`about:blank`&&(e.test(r)||t.test(r)))return r}export{n as t};

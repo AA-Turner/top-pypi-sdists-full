@@ -1,0 +1,427 @@
+# Copyright Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+import importlib
+import warnings
+from typing import TYPE_CHECKING
+
+# The build publishes this code twice: as "daytona" and as the deprecated
+# "daytona_sdk" alias (same code, renamed dir). Warn only the alias's importers.
+if __name__ == "daytona_sdk":
+    warnings.warn(
+        "The 'daytona_sdk' package is deprecated and will eventually be discontinued. "
+        + "Please migrate to the 'daytona' package's 0.x line: pip install \"daytona<1\", then `import daytona`.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+if TYPE_CHECKING:
+    from daytona_api_client import SandboxListSortDirection, SandboxListSortField, SandboxState
+    from daytona_api_client_async import GpuType, SandboxClass
+    from daytona_toolbox_api_client import SessionExecuteResponse
+
+    from ._async.computer_use import AsyncComputerUse, AsyncDisplay, AsyncKeyboard, AsyncMouse, AsyncScreenshot
+    from ._async.daytona import AsyncDaytona as _AsyncDaytona
+    from ._async.sandbox import AsyncSandbox, AsyncSandboxNode, AsyncSandboxNodeCollection
+    from ._sync.daytona import Daytona as _Daytona
+    from ._sync.sandbox import Sandbox, SandboxNode, SandboxNodeCollection
+    from .common.charts import (
+        BarChart,
+        BoxAndWhiskerChart,
+        Chart,
+        ChartType,
+        CompositeChart,
+        LineChart,
+        PieChart,
+        ScatterChart,
+    )
+    from .common.code_interpreter import ExecutionError, ExecutionResult, OutputMessage
+    from .common.computer_use import ScreenshotOptions, ScreenshotRegion
+    from .common.daytona import (
+        CodeLanguage,
+        CreateSandboxBaseParams,
+        CreateSandboxFromImageParams,
+        CreateSandboxFromSnapshotParams,
+        DaytonaConfig as _DaytonaConfig,
+    )
+    from .common.errors import (
+        DaytonaA11yUnavailableError,
+        DaytonaAuthenticationError,
+        DaytonaAuthorizationError,
+        DaytonaBadGatewayError,
+        DaytonaBadRequestError,
+        DaytonaCommandAlreadyCompletedError,
+        DaytonaConflictError,
+        DaytonaConnectionError,
+        DaytonaConnectionTimeoutError,
+        DaytonaError,
+        DaytonaFileAccessDeniedError,
+        DaytonaFileNotFoundError,
+        DaytonaFileReadFailedError,
+        DaytonaForbiddenError,
+        DaytonaGitAuthFailedError,
+        DaytonaGitBranchExistsError,
+        DaytonaGitBranchNotFoundError,
+        DaytonaGitDirtyWorktreeError,
+        DaytonaGitMergeConflictError,
+        DaytonaGitPushRejectedError,
+        DaytonaGitRemoteRejectedError,
+        DaytonaGitRepoNotFoundError,
+        DaytonaGitTransportFailedError,
+        DaytonaGoneError,
+        DaytonaInternalServerError,
+        DaytonaInvalidFilePathError,
+        DaytonaLspServerNotInitializedError,
+        DaytonaNotFoundError,
+        DaytonaProcessExecutionTimeoutError,
+        DaytonaProcessNotFoundError,
+        DaytonaQueueTimeoutError,
+        DaytonaRateLimitError,
+        DaytonaRecordingFfmpegNotFoundError,
+        DaytonaRecordingStillActiveError,
+        DaytonaServiceUnavailableError,
+        DaytonaSessionEndedError,
+        DaytonaSpotEvictedError,
+        DaytonaTimeoutError,
+        DaytonaUnprocessableEntityError,
+        DaytonaValidationError,
+    )
+    from .common.filesystem import (
+        CancelEvent,
+        DownloadProgress,
+        FileDownloadErrorDetails,
+        FileDownloadRequest,
+        FileDownloadResponse,
+        FileUpload,
+        UploadProgress,
+    )
+    from .common.image import Image
+    from .common.lsp_server import LspCompletionPosition, LspLanguageId
+    from .common.process import CodeRunParams, ExecuteResponse, ExecutionArtifacts, OutputHandler, SessionExecuteRequest
+    from .common.pty import PtySize
+    from .common.sandbox import CreateSandboxResources, ListSandboxesQuery, NodeResources, Resources, SandboxMetrics
+    from .common.secret import CreateSecretParams, ListSecretsResponse, Secret, UpdateSecretParams
+    from .common.snapshot import CreateSnapshotParams
+    from .common.volume import VolumeMount
+    from .common.warm_pool import WarmPool
+
+__all__ = [
+    "CodeLanguage",
+    "SessionExecuteRequest",
+    "SessionExecuteResponse",
+    "DaytonaError",
+    "DaytonaNotFoundError",
+    "DaytonaRateLimitError",
+    "LspLanguageId",
+    "CodeRunParams",
+    "Sandbox",
+    "SandboxNode",
+    "SandboxNodeCollection",
+    "NodeResources",
+    "Resources",
+    "CreateSandboxResources",
+    "SandboxMetrics",
+    "GpuType",
+    "SandboxClass",
+    "SandboxState",
+    "SandboxListSortField",
+    "SandboxListSortDirection",
+    "ChartType",
+    "Chart",
+    "LineChart",
+    "ScatterChart",
+    "BarChart",
+    "PieChart",
+    "BoxAndWhiskerChart",
+    "CompositeChart",
+    "FileDownloadRequest",
+    "FileDownloadResponse",
+    "FileDownloadErrorDetails",
+    "DownloadProgress",
+    "UploadProgress",
+    "CancelEvent",
+    "FileUpload",
+    "VolumeMount",
+    "WarmPool",
+    "Secret",
+    "CreateSecretParams",
+    "UpdateSecretParams",
+    "ListSecretsResponse",
+    "ListSandboxesQuery",
+    "AsyncSandbox",
+    "AsyncSandboxNode",
+    "AsyncSandboxNodeCollection",
+    "AsyncComputerUse",
+    "AsyncMouse",
+    "AsyncKeyboard",
+    "AsyncScreenshot",
+    "AsyncDisplay",
+    "ScreenshotRegion",
+    "ScreenshotOptions",
+    "Image",
+    "CreateSandboxBaseParams",
+    "CreateSandboxFromImageParams",
+    "CreateSandboxFromSnapshotParams",
+    "CreateSnapshotParams",
+    "PtySize",
+    "LspCompletionPosition",
+    "ExecutionArtifacts",
+    "ExecuteResponse",
+    "ExecutionResult",
+    "ExecutionError",
+    "OutputMessage",
+    "OutputHandler",
+    "DaytonaTimeoutError",
+    "DaytonaAuthenticationError",
+    "DaytonaAuthorizationError",
+    "DaytonaBadRequestError",
+    "DaytonaConflictError",
+    "DaytonaForbiddenError",
+    "DaytonaValidationError",
+    "DaytonaConnectionError",
+    "DaytonaConnectionTimeoutError",
+    "DaytonaGoneError",
+    "DaytonaUnprocessableEntityError",
+    "DaytonaInternalServerError",
+    "DaytonaBadGatewayError",
+    "DaytonaServiceUnavailableError",
+    "DaytonaGitAuthFailedError",
+    "DaytonaGitRepoNotFoundError",
+    "DaytonaGitBranchNotFoundError",
+    "DaytonaGitBranchExistsError",
+    "DaytonaGitPushRejectedError",
+    "DaytonaGitDirtyWorktreeError",
+    "DaytonaGitMergeConflictError",
+    "DaytonaGitTransportFailedError",
+    "DaytonaGitRemoteRejectedError",
+    "DaytonaFileNotFoundError",
+    "DaytonaFileAccessDeniedError",
+    "DaytonaInvalidFilePathError",
+    "DaytonaFileReadFailedError",
+    "DaytonaLspServerNotInitializedError",
+    "DaytonaProcessExecutionTimeoutError",
+    "DaytonaProcessNotFoundError",
+    "DaytonaQueueTimeoutError",
+    "DaytonaSessionEndedError",
+    "DaytonaCommandAlreadyCompletedError",
+    "DaytonaA11yUnavailableError",
+    "DaytonaRecordingStillActiveError",
+    "DaytonaRecordingFfmpegNotFoundError",
+    "DaytonaSpotEvictedError",
+]
+
+# Mapping of symbol name -> (absolute module path, attribute name) for external packages
+_EXTERNAL_IMPORTS: dict[str, tuple[str, str]] = {
+    "GpuType": ("daytona_api_client_async.models.gpu_type", "GpuType"),
+    "SandboxClass": ("daytona_api_client_async.models.sandbox_class", "SandboxClass"),
+    "SandboxState": ("daytona_api_client.models.sandbox_state", "SandboxState"),
+    "SandboxListSortField": ("daytona_api_client.models.sandbox_list_sort_field", "SandboxListSortField"),
+    "SandboxListSortDirection": (
+        "daytona_api_client.models.sandbox_list_sort_direction",
+        "SandboxListSortDirection",
+    ),
+    "SessionExecuteResponse": ("daytona_toolbox_api_client.models.session_execute_response", "SessionExecuteResponse"),
+}
+
+# Mapping of symbol name -> relative submodule path (within the daytona package)
+_DYNAMIC_IMPORTS: dict[str, str] = {
+    # _sync
+    "Sandbox": "_sync.sandbox",
+    "SandboxNode": "_sync.sandbox",
+    "SandboxNodeCollection": "_sync.sandbox",
+    # _async
+    "AsyncSandbox": "_async.sandbox",
+    "AsyncSandboxNode": "_async.sandbox",
+    "AsyncSandboxNodeCollection": "_async.sandbox",
+    "AsyncComputerUse": "_async.computer_use",
+    "AsyncMouse": "_async.computer_use",
+    "AsyncKeyboard": "_async.computer_use",
+    "AsyncScreenshot": "_async.computer_use",
+    "AsyncDisplay": "_async.computer_use",
+    # common.charts
+    "BarChart": "common.charts",
+    "BoxAndWhiskerChart": "common.charts",
+    "Chart": "common.charts",
+    "ChartType": "common.charts",
+    "CompositeChart": "common.charts",
+    "LineChart": "common.charts",
+    "PieChart": "common.charts",
+    "ScatterChart": "common.charts",
+    # common.code_interpreter
+    "ExecutionError": "common.code_interpreter",
+    "ExecutionResult": "common.code_interpreter",
+    "OutputMessage": "common.code_interpreter",
+    # common.computer_use
+    "ScreenshotOptions": "common.computer_use",
+    "ScreenshotRegion": "common.computer_use",
+    # common.daytona
+    "CodeLanguage": "common.daytona",
+    "CreateSandboxBaseParams": "common.daytona",
+    "CreateSandboxFromImageParams": "common.daytona",
+    "CreateSandboxFromSnapshotParams": "common.daytona",
+    # common.errors
+    "DaytonaError": "common.errors",
+    "DaytonaNotFoundError": "common.errors",
+    "DaytonaRateLimitError": "common.errors",
+    "DaytonaTimeoutError": "common.errors",
+    "DaytonaAuthenticationError": "common.errors",
+    "DaytonaAuthorizationError": "common.errors",
+    "DaytonaBadRequestError": "common.errors",
+    "DaytonaConflictError": "common.errors",
+    "DaytonaForbiddenError": "common.errors",
+    "DaytonaValidationError": "common.errors",
+    "DaytonaConnectionError": "common.errors",
+    "DaytonaConnectionTimeoutError": "common.errors",
+    "DaytonaGoneError": "common.errors",
+    "DaytonaUnprocessableEntityError": "common.errors",
+    "DaytonaInternalServerError": "common.errors",
+    "DaytonaBadGatewayError": "common.errors",
+    "DaytonaServiceUnavailableError": "common.errors",
+    "DaytonaGitAuthFailedError": "common.errors",
+    "DaytonaGitRepoNotFoundError": "common.errors",
+    "DaytonaGitBranchNotFoundError": "common.errors",
+    "DaytonaGitBranchExistsError": "common.errors",
+    "DaytonaGitPushRejectedError": "common.errors",
+    "DaytonaGitDirtyWorktreeError": "common.errors",
+    "DaytonaGitMergeConflictError": "common.errors",
+    "DaytonaGitTransportFailedError": "common.errors",
+    "DaytonaGitRemoteRejectedError": "common.errors",
+    "DaytonaFileNotFoundError": "common.errors",
+    "DaytonaFileAccessDeniedError": "common.errors",
+    "DaytonaInvalidFilePathError": "common.errors",
+    "DaytonaFileReadFailedError": "common.errors",
+    "DaytonaLspServerNotInitializedError": "common.errors",
+    "DaytonaProcessExecutionTimeoutError": "common.errors",
+    "DaytonaProcessNotFoundError": "common.errors",
+    "DaytonaQueueTimeoutError": "common.errors",
+    "DaytonaSessionEndedError": "common.errors",
+    "DaytonaCommandAlreadyCompletedError": "common.errors",
+    "DaytonaA11yUnavailableError": "common.errors",
+    "DaytonaRecordingStillActiveError": "common.errors",
+    "DaytonaRecordingFfmpegNotFoundError": "common.errors",
+    "DaytonaSpotEvictedError": "common.errors",
+    # common.filesystem
+    "FileDownloadErrorDetails": "common.filesystem",
+    "DownloadProgress": "common.filesystem",
+    "UploadProgress": "common.filesystem",
+    "CancelEvent": "common.filesystem",
+    "FileDownloadRequest": "common.filesystem",
+    "FileDownloadResponse": "common.filesystem",
+    "FileUpload": "common.filesystem",
+    # common.image
+    "Image": "common.image",
+    # common.lsp_server
+    "LspCompletionPosition": "common.lsp_server",
+    "LspLanguageId": "common.lsp_server",
+    # common.process
+    "CodeRunParams": "common.process",
+    "ExecuteResponse": "common.process",
+    "ExecutionArtifacts": "common.process",
+    "OutputHandler": "common.process",
+    "SessionExecuteRequest": "common.process",
+    # common.pty
+    "PtySize": "common.pty",
+    # common.sandbox
+    "ListSandboxesQuery": "common.sandbox",
+    "Resources": "common.sandbox",
+    "CreateSandboxResources": "common.sandbox",
+    "NodeResources": "common.sandbox",
+    "SandboxMetrics": "common.sandbox",
+    # common.snapshot
+    "CreateSnapshotParams": "common.snapshot",
+    # common.volume
+    "VolumeMount": "common.volume",
+    # common.warm_pool
+    "WarmPool": "common.warm_pool",
+    # common.secret
+    "Secret": "common.secret",
+    "CreateSecretParams": "common.secret",
+    "UpdateSecretParams": "common.secret",
+    "ListSecretsResponse": "common.secret",
+}
+
+
+def __getattr__(attr_name: str) -> object:
+    # Check external package imports first
+    external = _EXTERNAL_IMPORTS.get(attr_name)
+    if external is not None:
+        module_path, name = external
+        mod = importlib.import_module(module_path)
+        value = getattr(mod, name)
+        globals()[attr_name] = value
+        return value
+
+    # Check internal submodule imports
+    submodule = _DYNAMIC_IMPORTS.get(attr_name)
+    if submodule is not None:
+        mod = importlib.import_module(f".{submodule}", __name__)
+        value = getattr(mod, attr_name)
+        globals()[attr_name] = value
+        return value
+
+    raise AttributeError(f"module {__name__!r} has no attribute {attr_name!r}")
+
+
+def __dir__() -> list[str]:
+    return list(__all__)
+
+# --- added by scripts/bundle-v0.sh: version-suffixed aliases for the
+# names daytona.v2 exports too, and the
+# client classes under the private names only the root's `.v0` reads.
+import importlib as _bundle_importlib
+import sys as _bundle_sys
+from typing import TYPE_CHECKING as _BUNDLE_TYPE_CHECKING
+
+_BUNDLE_ALIASES = {'AsyncSandboxV0': 'AsyncSandbox', 'DaytonaErrorV0': 'DaytonaError', 'ImageV0': 'Image', 'ResourcesV0': 'Resources', 'SandboxV0': 'Sandbox', 'SandboxClassV0': 'SandboxClass', 'SandboxStateV0': 'SandboxState', 'SecretV0': 'Secret', 'VolumeMountV0': 'VolumeMount'}
+_BUNDLE_HIDDEN = {'_AsyncDaytona': ('_async.daytona', 'AsyncDaytona'), '_Daytona': ('_sync.daytona', 'Daytona'), '_DaytonaConfig': ('common.daytona', 'DaytonaConfig')}
+_BUNDLE_HIDDEN_PUBLIC = frozenset(['AsyncDaytona', 'AsyncDaytonaV0', 'Daytona', 'DaytonaConfig', 'DaytonaConfigV0', 'DaytonaV0'])
+_bundle_previous_getattr = globals().get("__getattr__")
+
+
+def __getattr__(attr_name: str) -> object:
+    if attr_name in _BUNDLE_HIDDEN_PUBLIC:
+        # An ImportError, not an AttributeError: `from daytona.v0 import Daytona`
+        # would replace the latter with a generic message (daytona.__getattr__
+        # does the same for names moved off the root).
+        from daytona._client import _client_not_exported
+
+        raise ImportError(_client_not_exported('v0', attr_name), name=__name__)
+    target = _BUNDLE_ALIASES.get(attr_name)
+    if target is not None:
+        return getattr(_bundle_sys.modules[__name__], target)
+    hidden = _BUNDLE_HIDDEN.get(attr_name)
+    if hidden is None and _bundle_previous_getattr is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {attr_name!r}")
+    try:
+        if hidden is None:
+            return _bundle_previous_getattr(attr_name)
+        value = getattr(_bundle_importlib.import_module(f".{hidden[0]}", __name__), hidden[1])
+        globals()[attr_name] = value
+        return value
+    except ModuleNotFoundError as _bundle_error:
+        # v0 resolves exports lazily, so a dependency the v0-sdk extra
+        # installs is first imported here: name the extra.
+        if (_bundle_error.name or '').startswith(__name__ + '.'):
+            raise
+        from daytona._client import _V0_EXTRA_HINT
+
+        raise ImportError(
+            f"{_V0_EXTRA_HINT} (importing the v0 namespace failed on {_bundle_error.name!r}: {_bundle_error})",
+            name=__name__,
+        ) from _bundle_error
+
+
+if _BUNDLE_TYPE_CHECKING:
+    AsyncSandboxV0 = AsyncSandbox
+    DaytonaErrorV0 = DaytonaError
+    ImageV0 = Image
+    ResourcesV0 = Resources
+    SandboxV0 = Sandbox
+    SandboxClassV0 = SandboxClass
+    SandboxStateV0 = SandboxState
+    SecretV0 = Secret
+    VolumeMountV0 = VolumeMount
+
+__all__ += ['AsyncSandboxV0', 'DaytonaErrorV0', 'ImageV0', 'ResourcesV0', 'SandboxV0', 'SandboxClassV0', 'SandboxStateV0', 'SecretV0', 'VolumeMountV0']

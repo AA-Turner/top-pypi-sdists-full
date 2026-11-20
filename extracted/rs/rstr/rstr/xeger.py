@@ -1,56 +1,46 @@
-import random
 import string
-from itertools import chain
 import typing
-from typing import Any, Callable, Dict, Mapping, Pattern, Sequence, Union
-
-from rstr.rstr_base import RstrBase
-
-if typing.TYPE_CHECKING:
-    from random import Random
+from collections.abc import Callable, Mapping, Sequence
+from random import Random, SystemRandom
+from re import Pattern
+from typing import Any
 
 try:
     import re._parser as sre_parse  # type: ignore[import-not-found]
+    from re._constants import MAXREPEAT  # type: ignore[import-not-found]
 except ImportError:  # Python < 3.11
     import sre_parse
+    from sre_constants import MAXREPEAT
+
+SYSTEM_RANDOM = SystemRandom()
 
 
-# The * and + characters in a regular expression
-# match up to any number of repeats in theory,
-# (and actually 65535 repeats in python) but you
-# probably don't want that many repeats in your
-# generated strings. This sets an upper-bound on
-# repeats generated from + and * characters.
-STAR_PLUS_LIMIT = 100
+class Xeger:
+    """Inspired by the Java library Xeger: http://code.google.com/p/xeger/
+    Allows users to generate a semi-random string from a regular expression."""
 
-
-class Xeger(RstrBase):
-    '''Inspired by the Java library Xeger: http://code.google.com/p/xeger/
-    This class adds functionality to Rstr allowing users to generate a
-    semi-random string from a regular expression.'''
-
-    def __init__(
-        self, _random: 'Random' = typing.cast('Random', random), **custom_alphabets: str,
-    ) -> None:
-        super().__init__(_random, **custom_alphabets)
-        self._cache: Dict[str, str] = {}
-        self._categories: Mapping[str, Callable[[], str]] = {
-            'category_digit': lambda: self._alphabets['digits'],
-            'category_not_digit': lambda: self._alphabets['nondigits'],
-            'category_space': lambda: self._alphabets['whitespace'],
-            'category_not_space': lambda: self._alphabets['nonwhitespace'],
-            'category_word': lambda: self._alphabets['word'],
-            'category_not_word': lambda: self._alphabets['nonword'],
+    def __init__(self, random: Random = SYSTEM_RANDOM, *, star_plus_limit: int = 100) -> None:
+        self._random = random
+        self.star_plus_limit = star_plus_limit
+        self._cache: dict[str, str] = {}
+        _wordchars = string.ascii_letters + string.digits + '_'
+        self._categories: dict[str, str] = {
+            'category_digit': string.digits,
+            'category_not_digit': string.ascii_letters + string.punctuation,
+            'category_space': string.whitespace,
+            'category_not_space': string.printable.strip(),
+            'category_word': _wordchars,
+            'category_not_word': ''.join(set(string.printable).difference(_wordchars)),
         }
-
+        _any_but_newline = ''.join(string.printable.split('\n'))
         self._cases: Mapping[str, Callable[..., Any]] = {
             'literal': lambda x: chr(x),
             'not_literal': lambda x: self._random.choice(string.printable.replace(chr(x), '')),
             'at': lambda x: '',
             'in': lambda x: self._handle_in(x),
-            'any': lambda x: self.printable(1, exclude='\n'),
+            'any': lambda x: self._random.choice(_any_but_newline),
             'range': lambda x: [chr(i) for i in range(x[0], x[1] + 1)],
-            'category': lambda x: self._categories[x](),
+            'category': lambda x: self._categories[x],
             'branch': lambda x: ''.join(self._handle_state(i) for i in self._random.choice(x[1])),
             'subpattern': lambda x: self._handle_group(x),
             'assert': lambda x: ''.join(self._handle_state(i) for i in x[1]),
@@ -61,7 +51,16 @@ class Xeger(RstrBase):
             'negate': lambda x: [False],
         }
 
-    def xeger(self, string_or_regex: Union[str, Pattern[str]]) -> str:
+    def xeger(self, string_or_regex: str | Pattern[str]) -> str:
+        """Generate a random string from a regular expression
+
+        By default, * and + metacharacters will generate a maximum of 100
+        repetitions of the character or group of characters that they modify
+        for each occurance in the regular expression. You can provide a second
+        argument to change this limit (note that the maximum amount of repeats
+        in Python is 65535).
+
+        """
         try:
             pattern = typing.cast(Pattern[str], string_or_regex).pattern
         except AttributeError:
@@ -81,8 +80,10 @@ class Xeger(RstrBase):
     def _handle_state(self, state: Any) -> Any:
         opcode, value = state
         opcode = opcode.name.lower()
-        if opcode == 'category':
-            value = value.name.lower()
+        # Python 3.16 parses a single-member class as a bare CATEGORY/RANGE
+        # atom, so route it through _handle_in to get a single character
+        if opcode in ('category', 'range'):
+            return self._handle_in([state])
         return self._cases[opcode](value)
 
     def _handle_group(self, value: Sequence[Any]) -> str:
@@ -92,14 +93,28 @@ class Xeger(RstrBase):
         return result
 
     def _handle_in(self, value: Any) -> Any:
-        candidates = list(chain(*(self._handle_state(i) for i in value)))
-        if candidates[0] is False:
+        # Expand set members here so a bare CATEGORY/RANGE atom still yields
+        # one character in _handle_state
+        candidates: list[Any] = []
+        for state in value:
+            opcode = state[0].name.lower()
+            if opcode == 'category':
+                candidates.extend(self._categories[state[1].name.lower()])
+            elif opcode == 'range':
+                candidates.extend(chr(i) for i in range(state[1][0], state[1][1] + 1))
+            elif opcode == 'negate':
+                candidates.append(False)
+            else:
+                candidates.extend(self._handle_state(state))
+        if candidates and candidates[0] is False:
             candidates = list(set(string.printable).difference(candidates[1:]))
         return self._random.choice(candidates)
 
     def _handle_repeat(self, start_range: int, end_range: int, value: str) -> str:
         result = []
-        end_range = min((end_range, STAR_PLUS_LIMIT))
+        if end_range is MAXREPEAT:
+            end_range = self.star_plus_limit
+
         times = self._random.randint(start_range, end_range)
         for i in range(times):
             result.append(''.join(self._handle_state(i) for i in value))

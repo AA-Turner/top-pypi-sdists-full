@@ -3,6 +3,7 @@
 
 use crate::egor::{Egor, MooSetup, Outcome, check_doe};
 use crate::gp_config::GpConfig;
+use crate::interrupt_flag::InterruptFlag;
 use crate::moo_config::MooConfig;
 use crate::qei_config::QEiConfig;
 use crate::types::*;
@@ -75,6 +76,10 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 ///     Random generator seed used by `minimize()` and `suggest()` when they are not given one.
 /// verbose : Verbose or int, optional
 ///     Logging verbosity level used by `minimize()` and `suggest()` when `minimize()` is not given one.
+/// feasibility_first : bool
+///     With `cstr_infill`, while no feasible point is known, only the probability of feasibility
+///     drives the infill (feasibility-first). Default False: the infill criterion weighted by the
+///     probability of feasibility is used from the first iteration. No effect without `cstr_infill`.
 ///
 /// Returns
 /// -------
@@ -112,6 +117,7 @@ impl Belfegor {
         failsafe_strategy = FailsafeStrategy::Rejection,
         seed = None,
         verbose = None,
+        feasibility_first = false,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -139,6 +145,7 @@ impl Belfegor {
         seed: Option<u64>,
         #[gen_stub(override_type(type_repr = "Verbose | builtins.int | None", imports = ("typing", "builtins")))]
         verbose: Option<Py<PyAny>>,
+        feasibility_first: bool,
     ) -> PyResult<Self> {
         if n_obj == 0 {
             return Err(PyValueError::new_err("n_obj should be at least 1"));
@@ -176,6 +183,7 @@ impl Belfegor {
             failsafe_strategy,
             seed,
             verbose,
+            feasibility_first,
         )?;
         let moo = MooSetup {
             n_obj,
@@ -238,6 +246,10 @@ impl Belfegor {
     /// stop_on_error : bool
     ///     If true, terminate optimization when the objective function raises an error.
     ///     Otherwise, the error is handled according to failsafe_strategy.
+    /// interrupt : InterruptFlag, optional
+    ///     the optimization is interrupted once this flag is set, from another thread or
+    ///     from within `fun`: the result obtained so far is returned with
+    ///     status.exit == ExitStatus.INTERRUPT (see Notes).
     ///
     /// Returns
     /// -------
@@ -256,11 +268,24 @@ impl Belfegor {
     ///
     /// Notes
     /// -----
-    /// Ctrl-C (KeyboardInterrupt) stops the optimization after the current iteration and the
-    /// result obtained so far is returned with status.exit == ExitStatus.INTERRUPT.
-    /// An objective evaluation interrupted by Ctrl-C counts as a failed evaluation.
+    /// Ctrl-C (KeyboardInterrupt) stops the optimization and the result obtained so far is
+    /// returned with status.exit == ExitStatus.INTERRUPT, also when Ctrl-C is pressed again
+    /// meanwhile. Ctrl-C is acted on at once, also while surrogates are trained or the infill
+    /// criterion is optimized: an iteration interrupted before its point is evaluated is
+    /// dropped, and when interrupted while surrogates are updated with the evaluated point,
+    /// the update is done at the next iteration, so that a hot start goes on as if the
+    /// optimization had not been interrupted. When Ctrl-C interrupts `fun`, the current
+    /// iteration is dropped as well (not counted as a failed evaluation), and KeyboardInterrupt
+    /// is raised when there is no result yet (initial DOE evaluation). Called from another
+    /// thread than the main one, or with a custom SIGINT handler, Ctrl-C is acted on after the
+    /// current computation.
+    /// Setting the `interrupt` flag interrupts the optimization the same way, except that an
+    /// evaluation of `fun` in progress is not interrupted (`fun` may check the flag).
+    /// Other exceptions raised by signal handlers (e.g. SystemExit from sys.exit()) stop the
+    /// optimization the same way, then are raised. Within `fun` or `fcstrs`, this applies to
+    /// exceptions which are not Exception subclasses, others being evaluation errors.
     ///
-    #[pyo3(signature = (fun, fcstrs=None, fcstr_specs=None, max_iters = 20, run_info = None, outdir = None, warm_start = false, hot_start = None, seed = None, timeout = None, verbose = None, stop_on_error = false))]
+    #[pyo3(signature = (fun, fcstrs=None, fcstr_specs=None, max_iters = 20, run_info = None, outdir = None, warm_start = false, hot_start = None, seed = None, timeout = None, verbose = None, stop_on_error = false, interrupt = None))]
     #[allow(clippy::too_many_arguments)]
     fn minimize(
         &self,
@@ -283,6 +308,7 @@ impl Belfegor {
         #[gen_stub(override_type(type_repr = "Verbose | builtins.int | None", imports = ("typing", "builtins")))]
         verbose: Option<Py<PyAny>>,
         stop_on_error: bool,
+        interrupt: Option<Py<InterruptFlag>>,
     ) -> PyResult<BelfegorOptim> {
         let (outcome, status) = self.egor.optimize(
             py,
@@ -299,6 +325,7 @@ impl Belfegor {
             verbose,
             stop_on_error,
             Some(&self.moo),
+            interrupt.as_ref().map(|flag| flag.get()),
         )?;
         let Outcome::Pareto(res) = outcome else {
             unreachable!("multi-objective optimization gives a Pareto front")
@@ -330,6 +357,9 @@ impl Belfegor {
     /// seed : int >= 0, optional
     ///     Random generator seed to allow computation reproducibility.
     ///     When None, the seed given to the constructor (if any) is used.
+    /// interrupt : InterruptFlag, optional
+    ///     the suggestion is interrupted (Interrupted raised) once this flag is set,
+    ///     e.g. from another thread
     ///
     /// Returns
     /// -------
@@ -337,16 +367,29 @@ impl Belfegor {
     ///     suggested locations where to evaluate objectives and constraints
     ///     where batch is the batch size (moo_config.batch, 1 by default)
     ///
-    #[pyo3(signature = (x_doe, y_doe, seed = None))]
+    /// Notes
+    /// -----
+    /// Ctrl-C (KeyboardInterrupt) stops the surrogate training and the infill optimization at
+    /// once, unless called from another thread than the main one or with a custom SIGINT
+    /// handler.
+    ///
+    #[pyo3(signature = (x_doe, y_doe, seed = None, interrupt = None))]
     fn suggest(
         &self,
         py: Python,
         x_doe: PyReadonlyArray2<f64>,
         y_doe: PyReadonlyArray2<f64>,
         seed: Option<u64>,
+        interrupt: Option<Py<InterruptFlag>>,
     ) -> PyResult<Py<PyArray2<f64>>> {
-        self.egor
-            .suggest_points(py, x_doe, y_doe, seed, Some(&self.moo))
+        self.egor.suggest_points(
+            py,
+            x_doe,
+            y_doe,
+            seed,
+            Some(&self.moo),
+            interrupt.as_ref().map(|flag| flag.get()),
+        )
     }
 
     /// This function gives the indices of the points of the (constrained) Pareto front

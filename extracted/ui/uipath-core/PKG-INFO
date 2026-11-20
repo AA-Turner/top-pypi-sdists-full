@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uipath-core
-Version: 0.5.34
+Version: 0.5.35
 Summary: UiPath Core abstractions
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-python
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.11
 Requires-Dist: opentelemetry-instrumentation<1.0.0,>=0.60b0
-Requires-Dist: opentelemetry-sdk<2.0.0,>=1.39.0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.45.2
 Requires-Dist: pydantic<3.0.0,>=2.12.5
 Description-Content-Type: text/markdown
 

@@ -56,7 +56,8 @@ class DecoratedProductionServiceV2APIModel(object):
         'traffic_distribution': 'ServiceTrafficDistribution',
         'creator': 'MiniUser',
         'is_multi_version': 'bool',
-        'error_message': 'str'
+        'error_message': 'str',
+        'kuberay_source': 'WorkloadSource'
     }
 
     attribute_map = {
@@ -83,10 +84,11 @@ class DecoratedProductionServiceV2APIModel(object):
         'traffic_distribution': 'traffic_distribution',
         'creator': 'creator',
         'is_multi_version': 'is_multi_version',
-        'error_message': 'error_message'
+        'error_message': 'error_message',
+        'kuberay_source': 'kuberay_source'
     }
 
-    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, secondary_auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, traffic_distribution=None, creator=None, is_multi_version=None, error_message=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, secondary_auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, traffic_distribution=None, creator=None, is_multi_version=None, error_message=None, kuberay_source=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionServiceV2APIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -116,6 +118,7 @@ class DecoratedProductionServiceV2APIModel(object):
         self._creator = None
         self._is_multi_version = None
         self._error_message = None
+        self._kuberay_source = None
         self.discriminator = None
 
         self.id = id
@@ -150,6 +153,8 @@ class DecoratedProductionServiceV2APIModel(object):
         self.is_multi_version = is_multi_version
         if error_message is not None:
             self.error_message = error_message
+        if kuberay_source is not None:
+            self.kuberay_source = kuberay_source
 
     @property
     def id(self):
@@ -734,6 +739,29 @@ class DecoratedProductionServiceV2APIModel(object):
         """
 
         self._error_message = error_message
+
+    @property
+    def kuberay_source(self):
+        """Gets the kuberay_source of this DecoratedProductionServiceV2APIModel.  # noqa: E501
+
+        Who submitted this service's KubeRay CRs: EXTERNAL for a RayService applied in the customer's cluster and imported by Anyscale, PLATFORM for a service deployed through Anyscale onto a KubeRay cloud. Null for a service not backed by KubeRay.  # noqa: E501
+
+        :return: The kuberay_source of this DecoratedProductionServiceV2APIModel.  # noqa: E501
+        :rtype: WorkloadSource
+        """
+        return self._kuberay_source
+
+    @kuberay_source.setter
+    def kuberay_source(self, kuberay_source):
+        """Sets the kuberay_source of this DecoratedProductionServiceV2APIModel.
+
+        Who submitted this service's KubeRay CRs: EXTERNAL for a RayService applied in the customer's cluster and imported by Anyscale, PLATFORM for a service deployed through Anyscale onto a KubeRay cloud. Null for a service not backed by KubeRay.  # noqa: E501
+
+        :param kuberay_source: The kuberay_source of this DecoratedProductionServiceV2APIModel.  # noqa: E501
+        :type: WorkloadSource
+        """
+
+        self._kuberay_source = kuberay_source
 
     def to_dict(self):
         """Returns the model properties as a dict"""

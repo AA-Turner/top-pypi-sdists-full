@@ -42,10 +42,16 @@ class TestAPIKeys:
                     {
                         "action": "browsers:use",
                         "resource": "projects/proj_abc123/browsers/br_abc123",
+                        "condition": {
+                            "key": "source_ip",
+                            "operator": "in",
+                            "values": ["203.0.113.0/24"],
+                        },
                     }
                 ]
             },
             project_id="proj_abc123",
+            service_account_id="x",
         )
         assert_matches_type(CreatedAPIKey, api_key, path=["response"])
 
@@ -131,7 +137,28 @@ class TestAPIKeys:
     def test_method_update(self, client: Kernel) -> None:
         api_key = client.api_keys.update(
             id="id",
+        )
+        assert_matches_type(APIKey, api_key, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_update_with_all_params(self, client: Kernel) -> None:
+        api_key = client.api_keys.update(
+            id="id",
             name="new-api-name",
+            policy={
+                "statements": [
+                    {
+                        "action": "browsers:use",
+                        "resource": "projects/proj_abc123/browsers/br_abc123",
+                        "condition": {
+                            "key": "source_ip",
+                            "operator": "in",
+                            "values": ["203.0.113.0/24"],
+                        },
+                    }
+                ]
+            },
         )
         assert_matches_type(APIKey, api_key, path=["response"])
 
@@ -140,7 +167,6 @@ class TestAPIKeys:
     def test_raw_response_update(self, client: Kernel) -> None:
         response = client.api_keys.with_raw_response.update(
             id="id",
-            name="new-api-name",
         )
 
         assert response.is_closed is True
@@ -153,7 +179,6 @@ class TestAPIKeys:
     def test_streaming_response_update(self, client: Kernel) -> None:
         with client.api_keys.with_streaming_response.update(
             id="id",
-            name="new-api-name",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -169,7 +194,6 @@ class TestAPIKeys:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             client.api_keys.with_raw_response.update(
                 id="",
-                name="new-api-name",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -182,11 +206,15 @@ class TestAPIKeys:
     @parametrize
     def test_method_list_with_all_params(self, client: Kernel) -> None:
         api_key = client.api_keys.list(
+            created_by="created_by",
             include_deleted=True,
             limit=100,
             name="name",
             offset=0,
+            principal_type="user",
+            project_id="project_id",
             query="query",
+            service_account_id="service_account_id",
             sort_by="created_at",
             sort_direction="asc",
             status="active",
@@ -335,10 +363,16 @@ class TestAsyncAPIKeys:
                     {
                         "action": "browsers:use",
                         "resource": "projects/proj_abc123/browsers/br_abc123",
+                        "condition": {
+                            "key": "source_ip",
+                            "operator": "in",
+                            "values": ["203.0.113.0/24"],
+                        },
                     }
                 ]
             },
             project_id="proj_abc123",
+            service_account_id="x",
         )
         assert_matches_type(CreatedAPIKey, api_key, path=["response"])
 
@@ -424,7 +458,28 @@ class TestAsyncAPIKeys:
     async def test_method_update(self, async_client: AsyncKernel) -> None:
         api_key = await async_client.api_keys.update(
             id="id",
+        )
+        assert_matches_type(APIKey, api_key, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_update_with_all_params(self, async_client: AsyncKernel) -> None:
+        api_key = await async_client.api_keys.update(
+            id="id",
             name="new-api-name",
+            policy={
+                "statements": [
+                    {
+                        "action": "browsers:use",
+                        "resource": "projects/proj_abc123/browsers/br_abc123",
+                        "condition": {
+                            "key": "source_ip",
+                            "operator": "in",
+                            "values": ["203.0.113.0/24"],
+                        },
+                    }
+                ]
+            },
         )
         assert_matches_type(APIKey, api_key, path=["response"])
 
@@ -433,7 +488,6 @@ class TestAsyncAPIKeys:
     async def test_raw_response_update(self, async_client: AsyncKernel) -> None:
         response = await async_client.api_keys.with_raw_response.update(
             id="id",
-            name="new-api-name",
         )
 
         assert response.is_closed is True
@@ -446,7 +500,6 @@ class TestAsyncAPIKeys:
     async def test_streaming_response_update(self, async_client: AsyncKernel) -> None:
         async with async_client.api_keys.with_streaming_response.update(
             id="id",
-            name="new-api-name",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -462,7 +515,6 @@ class TestAsyncAPIKeys:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             await async_client.api_keys.with_raw_response.update(
                 id="",
-                name="new-api-name",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -475,11 +527,15 @@ class TestAsyncAPIKeys:
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncKernel) -> None:
         api_key = await async_client.api_keys.list(
+            created_by="created_by",
             include_deleted=True,
             limit=100,
             name="name",
             offset=0,
+            principal_type="user",
+            project_id="project_id",
             query="query",
+            service_account_id="service_account_id",
             sort_by="created_at",
             sort_direction="asc",
             status="active",

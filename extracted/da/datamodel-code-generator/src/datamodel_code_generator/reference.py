@@ -39,13 +39,14 @@ from typing_extensions import TypeIs, override
 
 from datamodel_code_generator import Error, NamingStrategy, _model_keys
 from datamodel_code_generator._context_scope import context_values
+from datamodel_code_generator._format_types import PythonVersion as PythonVersion
 from datamodel_code_generator._format_types import (
-    PythonVersion,  # Preserve the established reference export.
     PythonVersionMin,
 )
 from datamodel_code_generator._free_names import Numbering, candidate_at, first_free, is_numbered
 from datamodel_code_generator._graph_links import data_type_children
 from datamodel_code_generator._json_pointer import document_part, is_pointer_fragment, join_pointer
+from datamodel_code_generator._lazy_exports import module_hooks as _module_hooks
 from datamodel_code_generator._message_text import printable_text
 from datamodel_code_generator._model_keys import MODEL_KEY_ATTRIBUTE
 from datamodel_code_generator._python_target_names import target_builtin_type_attributes
@@ -180,7 +181,6 @@ class ReferenceChild(Protocol):
     @property
     def reference(self) -> Reference | None:
         """Return the reference associated with this object."""
-        ...
 
 
 if TYPE_CHECKING:
@@ -904,33 +904,27 @@ def _default_field_name_resolver_class(model_type: ModelType) -> type[FieldNameR
     return resolver_class
 
 
-_LAZY_EXPORTS: Final = ("PydanticFieldNameResolver", "MsgspecFieldNameResolver", "DEFAULT_FIELD_NAME_RESOLVERS")
+_LAZY_EXPORTS = {
+    "PydanticFieldNameResolver": lambda: _default_field_name_resolver_class(ModelType.PYDANTIC),
+    "MsgspecFieldNameResolver": lambda: _default_field_name_resolver_class(ModelType.MSGSPEC),
+    "DEFAULT_FIELD_NAME_RESOLVERS": lambda: {
+        model_type: _default_field_name_resolver_class(model_type) for model_type in _FIELD_NAME_RESOLVER_MODEL_TYPES
+    },
+}
+_lazy_getattr, __dir__ = _module_hooks(__name__, _LAZY_EXPORTS, cache=True)
 
 
 def __getattr__(name: str) -> Any:
-    """Lazily preserve legacy resolver imports without owning output policy."""
-    match name:
-        case "PydanticFieldNameResolver":
-            value = _default_field_name_resolver_class(ModelType.PYDANTIC)
-        case "MsgspecFieldNameResolver":
-            value = _default_field_name_resolver_class(ModelType.MSGSPEC)
-        case "DEFAULT_FIELD_NAME_RESOLVERS":
-            value = {
-                model_type: _default_field_name_resolver_class(model_type)
-                for model_type in _FIELD_NAME_RESOLVER_MODEL_TYPES
-            }
-        case "__all__":
-            value = (*(public_name for public_name in globals() if not public_name.startswith("_")), *_LAZY_EXPORTS)
-        case _:
-            msg = f"module {__name__!r} has no attribute {name!r}"
-            raise AttributeError(msg)
+    """Lazily preserve legacy resolver imports without owning output policy.
+
+    ``__all__`` lists the public names of the module, then the lazy ones, each once whichever were read before.
+    """
+    if name != "__all__":
+        return _lazy_getattr(name)
+    public_names = (public_name for public_name in globals() if not public_name.startswith("_"))
+    value = (*(public_name for public_name in public_names if public_name not in _LAZY_EXPORTS), *_LAZY_EXPORTS)
     globals()[name] = value
     return value
-
-
-def __dir__() -> list[str]:
-    """Include lazily preserved exports in module discovery."""
-    return sorted((*globals(), *_LAZY_EXPORTS))
 
 
 class _FieldNameResolverOptions(NamedTuple):
@@ -1915,7 +1909,7 @@ class ModelResolver:  # noqa: PLR0904
 
         if is_url(ref):
             file_part, path_part = ref.split("#", 1)
-            if file_part == self.root_id:  # pragma: no cover
+            if file_part == self.root_id:
                 return f"{self.current_document}#{path_part}"
             target_url: ParseResult = urlparse(file_part)
             if not (self.root_id and self.current_base_path):
@@ -1924,7 +1918,7 @@ class ModelResolver:  # noqa: PLR0904
             if (target_url.scheme, target_url.netloc) == (
                 root_id_url.scheme,
                 root_id_url.netloc,
-            ):  # pragma: no cover
+            ):
                 target_url_path = Path(target_url.path)
                 target_path = (
                     self.current_base_path
@@ -2224,7 +2218,7 @@ class ModelResolver:  # noqa: PLR0904
             name = self.get_valid_field_name(name, model_type=ModelType.CLASS)
             if singular_name:  # pragma: no cover
                 name = self._singular_name(name, singular_name_suffix)
-            elif unique:  # pragma: no cover
+            elif unique:
                 unique_name = self._get_unique_name(name, path=joined_path)
                 if unique_name != name:
                     duplicate_name = name

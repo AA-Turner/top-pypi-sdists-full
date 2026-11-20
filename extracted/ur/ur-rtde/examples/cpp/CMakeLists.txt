@@ -26,6 +26,9 @@ target_link_libraries(movej_path_with_blend PUBLIC ur_rtde::rtde)
 add_executable(servoj servoj_example.cpp)
 target_link_libraries(servoj PUBLIC ur_rtde::rtde)
 
+add_executable(servoj_timescale servoj_timescale_example.cpp)
+target_link_libraries(servoj_timescale PUBLIC ur_rtde::rtde)
+
 add_executable(speedj speedj_example.cpp)
 target_link_libraries(speedj PUBLIC ur_rtde::rtde)
 

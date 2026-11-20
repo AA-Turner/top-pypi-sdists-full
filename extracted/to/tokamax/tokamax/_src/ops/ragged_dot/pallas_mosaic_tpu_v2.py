@@ -14,7 +14,10 @@
 # ==============================================================================
 """Ragged dot Pallas-Mosaic-TPU implementation."""
 
+from collections.abc import Callable
 import dataclasses
+import functools
+import itertools
 from typing import ClassVar, override
 
 import jax
@@ -23,7 +26,9 @@ import jax.numpy as jnp
 from jax.sharding import ManualAxisType
 import pydantic
 from tokamax._src import quantization
+from tokamax._src.ops import fuser_adapter
 from tokamax._src.ops import op
+from tokamax._src.ops.gmm_v2 import gmm_fuser
 from tokamax._src.ops.gmm_v2 import gmm_v2 as gmm_backend
 from tokamax._src.ops.gmm_v2 import tgmm_v2 as tgmm_backend
 from tokamax._src.ops.ragged_dot import base
@@ -32,6 +37,9 @@ from tokamax._src.ops.ragged_dot import base
 QArray = base.QArray
 AsQArray = base.AsQArray
 Residuals = None
+type FusibleOperand = (
+    jax.Array | QArray | AsQArray | fuser_adapter.InputFusion
+)
 
 @pydantic.dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class Config:
@@ -46,6 +54,7 @@ class Config:
   tile_k: pydantic.PositiveInt | None = None
   tile_n: pydantic.PositiveInt | None = None
   bucket_base: pydantic.PositiveInt | None = None
+  lhs_buffer_count: pydantic.PositiveInt | None = None
 
 DEFAULT_RAGGED_DOT_DIM_NUMS = base.DEFAULT_RAGGED_DOT_DIM_NUMS
 DLHS_RAGGED_DOT_DIM_NUMS = base.TRANS_RHS_RAGGED_DOT_DIM_NUMS
@@ -86,6 +95,7 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
   """
 
   config_cls: ClassVar[type[Config]] = Config
+  fusible_argnames: ClassVar[tuple[str, ...]] = ("lhs", "rhs")
   qdtype: jax.typing.DTypeLike | None = None
   # Local weight group count for the drhs (tgmm) path. Under expert
   # parallelism this differs from `group_sizes.shape[0]` (which is global).
@@ -110,17 +120,13 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
             config=config,
         )(*args, **kw)
 
-      if self.dlhs_config is not None:
-        dlhs_config = self.dlhs_config
-      elif self.config is not None:
-        dlhs_config = Config(
-            tile_m=self.config.tile_m,
-            tile_k=self.config.tile_n,
-            tile_n=self.config.tile_k,
-            bucket_base=self.config.bucket_base,
-        )
-      else:
-        dlhs_config = None
+      # The dlhs pass is a transposed-rhs gmm whose output dimension is the
+      # forward `k`, so the forward tiling does not carry over to it. For
+      # example, swapping a forward `tile_n` that splits `n` across MegaCore
+      # TensorCores into the dlhs `tile_k` leaves a single dlhs output tile
+      # that runs on one core. Without an explicit `dlhs_config`, the dlhs
+      # sub-op picks its own tiling (autotuning cache or heuristic).
+      dlhs_config = self.dlhs_config
 
       if self.drhs_config is not None:
         drhs_config = self.drhs_config
@@ -166,6 +172,75 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
       zero_initialize: bool = False,
       fuse_gateup_activation: str | None = None,
   ) -> tuple[jax.Array, base.Residuals]:
+    return self._run_fwd(
+        lhs,
+        rhs,
+        group_sizes=group_sizes,
+        ragged_dot_dimension_numbers=ragged_dot_dimension_numbers,
+        precision=precision,
+        preferred_element_type=preferred_element_type,
+        return_residuals=return_residuals,
+        config=config,
+        group_offset=group_offset,
+        activation=activation,
+        manual_axis_type=manual_axis_type,
+        zero_initialize=zero_initialize,
+        fuse_gateup_activation=fuse_gateup_activation,
+    )
+
+  @override
+  def _fusible_fwd(
+      self,
+      lhs: FusibleOperand,
+      rhs: FusibleOperand,
+      *,
+      out_fusions: fuser_adapter.OutputFusion | None = None,
+      config: Config,
+      **kwargs,
+  ) -> jax.Array:
+    if isinstance(lhs, QArray):
+      lhs = fuser_adapter.materialize(lhs)
+    if isinstance(rhs, (QArray, AsQArray)):
+      rhs = fuser_adapter.materialize(rhs)
+    out, _ = self._run_fwd(
+        lhs,
+        rhs,
+        return_residuals=False,
+        config=config,
+        gmm_fn=functools.partial(
+            gmm_fuser.gmm_v2_fusible, out_fusions=out_fusions
+        ),
+        tgmm_fn=functools.partial(
+            gmm_fuser.tgmm_v2_fusible, out_fusions=out_fusions
+        ),
+        **kwargs,
+    )
+    return out
+
+  def _run_fwd(
+      self,
+      lhs: FusibleOperand,
+      rhs: FusibleOperand,
+      *,
+      group_sizes: jax.Array | base.GroupSizes,
+      ragged_dot_dimension_numbers: jax.lax.RaggedDotDimensionNumbers,
+      precision: base.CanonicalPrecision,
+      preferred_element_type: jax.typing.DTypeLike | None,
+      return_residuals: bool = False,
+      config: Config,
+      group_offset: jax.Array | None = None,
+      activation: base.ActivationFunction | None = None,
+      manual_axis_type: ManualAxisType | None = None,
+      zero_initialize: bool = False,
+      fuse_gateup_activation: str | None = None,
+      gmm_fn: Callable[..., jax.Array] | None = None,
+      tgmm_fn: Callable[..., jax.Array] | None = None,
+  ) -> tuple[jax.Array, base.Residuals]:
+    """Dispatches forward or VJP ragged dot shapes to `gmm_fn` or `tgmm_fn`."""
+    if gmm_fn is None:
+      gmm_fn = gmm_backend.gmm_v2
+    if tgmm_fn is None:
+      tgmm_fn = tgmm_backend.tgmm_v2
     if _has_manual_axes(manual_axis_type):
       raise NotImplementedError(
           "v2 does not support manual_axis_type yet. But got"
@@ -201,6 +276,9 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
             bucket_base=config.bucket_base
             if config.bucket_base is not None
             else config.tile_m,
+            lhs_buffer_count=config.lhs_buffer_count
+            if config.lhs_buffer_count is not None
+            else gmm_backend.TileSizes.lhs_buffer_count,
         )
     )
     if ragged_dot_dimension_numbers == DEFAULT_RAGGED_DOT_DIM_NUMS:  # gmm fwd
@@ -315,7 +393,7 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
         lhs_scale = None
         lhs_quant_dtype = None
 
-      out = gmm_backend.gmm_v2(
+      out = gmm_fn(
           lhs_val,
           rhs_val,
           group_sizes,
@@ -325,7 +403,7 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
           lhs_scale,
           tile_info=explicit_tiles
           if explicit_tiles is not None
-          else gmm_backend.calculate_tiling,
+          else gmm_backend.calculate_tiling_from_request,
           vmem_limit_bytes=vmem_limit_bytes,
           precision=precision,
           preferred_element_type=preferred_element_type,
@@ -355,9 +433,13 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
         lhs_scale = None
         lhs_quant_dtype = None
 
-      rhs_val = quantization.as_array(rhs)
+      rhs_val = (
+          quantization.as_array(rhs)
+          if isinstance(rhs, (QArray, AsQArray))
+          else rhs
+      )
 
-      out = gmm_backend.gmm_v2(
+      out = gmm_fn(
           lhs_val,  # [m, n]
           rhs_val,  # [num_groups, k, n]
           group_sizes,
@@ -367,7 +449,7 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
           lhs_scale,
           tile_info=explicit_tiles
           if explicit_tiles is not None
-          else gmm_backend.calculate_tiling,
+          else gmm_backend.calculate_tiling_from_request,
           vmem_limit_bytes=vmem_limit_bytes,
           precision=precision,
           preferred_element_type=preferred_element_type
@@ -392,7 +474,11 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
         )
       num_actual_groups = self.num_actual_groups
 
-      lhs_val = quantization.as_array(lhs)
+      lhs_val = (
+          quantization.as_array(lhs)
+          if isinstance(lhs, (QArray, AsQArray))
+          else lhs
+      )
 
       if isinstance(rhs, AsQArray):
         rhs = rhs.as_qarray()
@@ -405,7 +491,7 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
         rhs_val = rhs
         rhs_scale = None
 
-      out = tgmm_backend.tgmm_v2(
+      out = tgmm_fn(
           lhs_val,  # [m, k]
           rhs_val,  # [m, n]
           group_sizes,
@@ -414,7 +500,7 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
           group_offset=group_offset,
           tile_info=explicit_tiles
           if explicit_tiles is not None
-          else tgmm_backend.calculate_tgmm_tiling,
+          else tgmm_backend.calculate_tgmm_tiling_from_request,
           vmem_limit_bytes=vmem_limit_bytes,
           precision=precision,
           preferred_element_type=preferred_element_type
@@ -447,6 +533,78 @@ class PallasMosaicTpuV2RaggedDot(base.RaggedDot[Config, None]):
     # caller that wants fixed tiles can pass an explicit `Config` to the op.
     del ba
     return Config()
+
+  @override
+  def _get_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:
+    lhs, rhs = ba.args[:2]
+    dims = ba.arguments.get(
+        "ragged_dot_dimension_numbers", DEFAULT_RAGGED_DOT_DIM_NUMS
+    )
+    if dims == DEFAULT_RAGGED_DOT_DIM_NUMS:
+      (m, k), (_, _, n) = lhs.shape, rhs.shape
+      if ba.arguments.get("fuse_gateup_activation") is not None:
+        n //= 2
+    elif dims == DLHS_RAGGED_DOT_DIM_NUMS:
+      (m, k), (_, n, _) = lhs.shape, rhs.shape
+    elif dims == DRHS_RAGGED_DOT_DIM_NUMS:
+      (m, k), (_, n) = lhs.shape, rhs.shape
+    else:
+      raise NotImplementedError(UNSUPPORTED_DIMENSIONS_MSG.format(dims))
+
+    k_ = ((k + 128 - 1) // 128) * 128
+    n_ = ((n + 128 - 1) // 128) * 128
+
+    try:
+      tpu_gen = getattr(pltpu.get_tpu_info(), "generation", 0)
+    except ValueError:
+      tpu_gen = 0
+    max_tile_m = 2048 if tpu_gen >= 8 else 1024
+    tile_m_range = [
+        128 * (2**i)
+        for i in range(8)
+        if 128 * (2**i) <= m and 128 * (2**i) <= max_tile_m
+    ]
+    tile_k_range = (
+        {128 * (2**i) for i in range(8) if 128 * (2**i) <= k_}
+        | {
+            k_ // (2**i)
+            for i in range(6)
+            if k_ // (2**i) >= 128 and (k_ // (2**i)) % 128 == 0
+        }
+        | {k_}
+    )
+    tile_n_range = (
+        {128 * (2**i) for i in range(8) if 128 * (2**i) <= n_}
+        | {
+            n_ // (2**i)
+            for i in range(6)
+            if n_ // (2**i) >= 128 and (n_ // (2**i)) % 128 == 0
+        }
+        | {n_}
+    )
+    lhs_buffer_count_range = (
+        [None]
+        if dims == DRHS_RAGGED_DOT_DIM_NUMS
+        else ([2, 3, 4] if tpu_gen >= 8 else [2, 3])
+    )
+    buckets_range = (1, 2, 4, 8) if tpu_gen >= 8 else (1, 2, 4)
+    return {
+        Config(
+            tile_m=tile_m,
+            tile_k=tile_k,
+            tile_n=tile_n,
+            bucket_base=tile_m // num_buckets,
+            lhs_buffer_count=lhs_buffer_count,
+        )
+        for tile_m, tile_k, tile_n, num_buckets, lhs_buffer_count in itertools.product(
+            tile_m_range,
+            tile_k_range,
+            tile_n_range,
+            buckets_range,
+            lhs_buffer_count_range,
+        )
+        if tile_m // num_buckets >= 64
+    }
 
   @override
   def supported_on(self, device: jax.Device) -> bool:

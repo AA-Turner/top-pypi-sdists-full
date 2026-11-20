@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pm4py
-Version: 2.7.23.12
+Version: 2.7.23.13
 Summary: Process mining for Python
 Author-email: "Process Intelligence Solutions (PIS)" <contact@processintelligence.solutions>
 Maintainer-email: "Process Intelligence Solutions (PIS)" <contact@processintelligence.solutions>
@@ -38,6 +38,9 @@ Provides-Extra: calendars
 Requires-Dist: workalendar; extra == "calendars"
 Provides-Extra: connectors
 Requires-Dist: requests; extra == "connectors"
+Provides-Extra: drift
+Requires-Dist: hdbscan>=0.8.39; extra == "drift"
+Requires-Dist: river>=0.21; extra == "drift"
 Provides-Extra: llm
 Requires-Dist: openai; extra == "llm"
 Requires-Dist: requests; extra == "llm"
@@ -77,7 +80,7 @@ Requires-Dist: pygetwindow; sys_platform == "win32" and extra == "windows"
 Requires-Dist: pynput; sys_platform == "win32" and extra == "windows"
 Requires-Dist: pywin32; sys_platform == "win32" and extra == "windows"
 Provides-Extra: all
-Requires-Dist: pm4py[calendars,connectors,llm,ml,ocel,polars,visualization,windows]; extra == "all"
+Requires-Dist: pm4py[calendars,connectors,drift,llm,ml,ocel,polars,visualization,windows]; extra == "all"
 Dynamic: license-file
 
 # PM4Py

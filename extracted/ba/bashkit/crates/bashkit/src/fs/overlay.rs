@@ -441,7 +441,8 @@ impl OverlayFs {
         let mut current = PathBuf::from("/");
         let mut missing = 0u64;
         for component in path.components().skip(1) {
-            current.push(component);
+            // vfs_join, not `push`: keep `/` separators on Windows (#2933).
+            current = vfs_join(&current, component);
             if !self.upper.exists(&current).await.unwrap_or(false) {
                 missing = missing.saturating_add(1);
             }
@@ -2164,7 +2165,6 @@ mod tests {
     /// tests construct `OverlayFs` directly and never touch `Bash`, so
     /// they belong with the type they exercise.
     mod path_validation {
-        use super::super::*;
         use super::*;
 
         fn make_overlay() -> OverlayFs {

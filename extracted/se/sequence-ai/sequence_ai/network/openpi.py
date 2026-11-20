@@ -45,7 +45,7 @@ WHY JPEG: a 224 x 224 picture is 150,528 bytes as an array, and its JPEG at fram
 that (the run below has two of them in each request), at a quality that moves a π0.5 policy's actions by about a tenth
 of what its own sampling noise does (frames.DEFAULT_JPEG_QUALITY has the measurement).
 
-Verified against openpi-client 0.1.0 on a local connection (tests/network/test_openpi.py), and patch() against a server
+Verified against openpi-client 0.1.2 on a local connection (tests/network/test_openpi.py), and patch() against a server
 module built as openpi's websocket_policy_server.py is (tests/network/test_openpi_server.py). Measured on a WebSocket
 connection of the kind openpi's client holds (the websockets library on both ends, a stand-in for the client, two cloud
 machines; bench/ws_bench.py, docs/measurements.md): a 100 KB upload 0.53 s after each response took 37.6, 44.4, 82.4 and
@@ -64,6 +64,9 @@ bench/ measures your link.
 keep() reads the client's `_ws`, the connection it keeps, and patch() the server module's `_server` and
 WebsocketPolicyServer: a client or a server built otherwise (another version, another transport) raises TypeError
 with that reason.
+
+Adapted from Physical-Intelligence/openpi packages/openpi-client/src/openpi_client/image_tools.py (Apache-2.0):
+image_tools.convert_to_uint8, for an array (THIRD_PARTY_NOTICES.md).
 """
 from __future__ import annotations
 
@@ -306,7 +309,7 @@ def patch(*, every_s: float = ping.EVERY_S, timeout_s: Optional[float] = None, s
 USAGE = """usage: python -m sequence_ai.network.openpi SCRIPT [ARGUMENTS...]
 
 Runs SCRIPT - openpi's scripts/serve_policy.py, unchanged - as `python SCRIPT ARGUMENTS...` runs it, with openpi's
-policy server changed first (patch()): each robot pinged every 100 ms, and each picture a robot sends as JPEG handed to
+policy server changed first (patch()): each robot pinged every 100 ms while no inference runs, and each picture a robot sends as JPEG handed to
 the policy as the array it reads. Run it where openpi's server runs, from its repository and in its environment:
 
     uv run python -m sequence_ai.network.openpi scripts/serve_policy.py --env=DROID"""
@@ -325,7 +328,27 @@ def main(argv: Optional[list] = None) -> None:
     sys.argv = argv
     if not getattr(sys.flags, "safe_path", False):
         sys.path[0] = os.path.dirname(os.path.abspath(script))     # as `python SCRIPT` puts the script's folder first
+    _frames_known()
     runpy.run_path(script, run_name="__main__")
+
+
+def _frames_known() -> None:
+    """Each frame under this one that runs from no file on disk told to inspect by its module's name: `python -m`'s
+    own, from runpy, which Python 3.11 and later runs frozen ("<frozen runpy>") - and so runpy.run_path's frames under
+    the script, from the same file.
+    WHY: inspect looks the module of such a frame up through every module loaded, each time it meets one
+    (inspect.getmodule), and openpi's typecheck calls inspect.stack() at each Observation it makes
+    (openpi/shared/array_typing.py). Measured on an L4 with pi05_droid and 2,400 modules loaded, 60 acts each: an act
+    served under runpy took 23 ms longer than the same script run as `python SCRIPT` (server infer p50 220.03 ms,
+    against 195.46 and 197.99 before and after it), all of it in Observation.from_dict (27.75 ms against 4.41)."""
+    import inspect
+
+    frame = sys._getframe()
+    while frame is not None:
+        name, file = frame.f_globals.get("__name__"), frame.f_code.co_filename
+        if isinstance(name, str) and name in sys.modules and not os.path.exists(file):
+            inspect.modulesbyfile.setdefault(file, name)
+        frame = frame.f_back
 
 
 if __name__ == "__main__":

@@ -44,14 +44,25 @@ class IssueDetails:
             comments (list[DetailsComment]): The conversation, oldest first, at most the first 50.
             comment_count (int): How many comments the forge has on the issue.
             comments_truncated (bool): True when `commentCount` is more than the comments returned.
-            references (list[ItemReference]): The items that refer to this one, as the forge's own timeline
-                records them, newest first, at most the first 50. They are read
-                from the forge, so a closed or merged item shows them as well as an
-                open one: the board's own pills list open pull requests only. An
-                empty array means nothing refers to it. Only the entries whose
-                `direction` is `incoming` are returned for now; `outgoing` is part
-                of the contract so a later release can add what this item refers
-                to without another change.
+            references (list[ItemReference]): The items related to this one, incoming first and then outgoing.
+                An empty array means nothing is related. A closed or merged item
+                has them as well as an open one: the board's own pills list open
+                pull requests only.
+
+                The `incoming` entries are the items that refer to this one, as
+                the forge's own timeline records them, newest first, at most the
+                first 50.
+
+                The `outgoing` entries are the items this one's own title and
+                description refer to, in the order the text names them (closing
+                ones first, then references, then mentions), at most 20. The
+                forge records only what refers to an item, so the text is read
+                the way the board reads a pull request's and each named item is
+                looked up for its title and state. An item that can't be read
+                (missing, no access) is left out, and a lookup that fails leaves
+                the outgoing entries out without failing the read. A closing
+                keyword counts as `closes` only in a pull request, and the base
+                branch isn't checked; in an issue it is a `mentions`.
             pull_request (IssuePullRequest | Unset): Present only when `kind` is `pullRequest`: what the header of a pull
                 request needs when the board has no row for it, because it is closed,
                 merged or in a repository the board doesn't track. The dialog words it.

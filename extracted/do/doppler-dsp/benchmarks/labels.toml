@@ -62,6 +62,12 @@ definition = "A Costas loop tracking a BPSK carrier: phase detector, loop filter
 samples = 1
 headline = true
 
+["c:costas::steps[order=3]"]
+name = "Costas carrier loop, third order"
+unit = "sample"
+definition = "The Costas loop of c:costas::steps switched to third order (dp_costas_set_order), its loop filter the StateFilter, per input sample."
+samples = 1
+
 ["c:dll::steps"]
 name = "Delay-locked loop (code tracking)"
 unit = "sample"
@@ -762,6 +768,96 @@ unit = "sample"
 definition = "The push[full,n=4,threads=4] row with a 2.2 GHz carrier set, so every side tile of the search runs its code-rate ramp over the block: four AsyncDsssReceivers searching plus or minus 50 kHz on four threads, a 1,023-chip Gold code at 5 Mcps captured at 11 MSa/s, through one RateConverter to 10 MSa/s inside the timed push, block-coherent over 150 code periods; one push is one dwell of noise; throughput counts input samples."
 samples = 1
 
+["c:async_dsss_pool::push[air,K=0,D=150,threads=4]"]
+name = "Async DSSS pool on the air: noise only, deep search, 4 threads"
+unit = "sample"
+definition = "No emitter on the air, the deep search (D = 150, the 500-symbol code-only block) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=1,design,D=150,threads=4]"]
+name = "Async DSSS pool on the air: 1 emitter at the design C/N0, deep search, 4 threads"
+unit = "sample"
+definition = "One emitter at the pool's design C/N0, held, the deep search (D = 150) running for the idle receivers on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=1,+6dB,D=150,threads=4]"]
+name = "Async DSSS pool on the air: 1 emitter 6 dB above the design C/N0, deep search, 4 threads"
+unit = "sample"
+definition = "One emitter 6 dB above the design C/N0, held, the deep search (D = 150) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=5,design,D=150,threads=4]"]
+name = "Async DSSS pool on the air: 5 emitters at the design C/N0, deep search, 4 threads"
+unit = "sample"
+definition = "Five emitters at the design C/N0, all held, the deep search (D = 150) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=9,design,D=150,threads=1]"]
+name = "Async DSSS pool on the air: 9 emitters at the design C/N0, deep search, 1 thread"
+unit = "sample"
+definition = "Nine emitters at the design C/N0, all held by nine of the ten receivers, the deep search (D = 150) on one thread: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=9,design,D=150,threads=4]"]
+name = "Async DSSS pool on the air: 9 emitters at the design C/N0, deep search, 4 threads"
+unit = "sample"
+definition = "Nine emitters at the design C/N0, all held, the deep search (D = 150) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=9,design,D=150,threads=10]"]
+name = "Async DSSS pool on the air: 9 emitters at the design C/N0, deep search, 10 threads"
+unit = "sample"
+definition = "Nine emitters at the design C/N0, all held, the deep search (D = 150) on 10 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=9,+6dB,D=150,threads=4]"]
+name = "Async DSSS pool on the air: 9 emitters 6 dB above the design C/N0, deep search, 4 threads"
+unit = "sample"
+definition = "Nine emitters 6 dB above the design C/N0, all held, the deep search (D = 150) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,near-far+20dB,D=150,threads=4]"]
+name = "Async DSSS pool on the air: near-far, one emitter 20 dB above another, deep search, 4 threads"
+unit = "sample"
+definition = "One emitter 20 dB above the design C/N0 beside one at it; the deep search takes the weaker only to about +14 dB (async-dsss-receiver.md section 7.2), so one receiver tracks and the deep search (D = 150) runs on 4 threads with the strong signal held and the weak one on the air: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=0,D=1,threads=4]"]
+name = "Async DSSS pool on the air: noise only, one-epoch search, 4 threads"
+unit = "sample"
+definition = "No emitter on the air, the search one epoch deep (D = 1, a code-only block of one code period) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=1,design,D=1,threads=4]"]
+name = "Async DSSS pool on the air: 1 emitter at the design C/N0, one-epoch search, 4 threads"
+unit = "sample"
+definition = "One emitter at the design C/N0, held, the one-epoch search (D = 1) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=9,design,D=1,threads=1]"]
+name = "Async DSSS pool on the air: 9 emitters at the design C/N0, one-epoch search, 1 thread"
+unit = "sample"
+definition = "Nine emitters at the design C/N0, all held, the one-epoch search (D = 1) on one thread: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=9,design,D=1,threads=4]"]
+name = "Async DSSS pool on the air: 9 emitters at the design C/N0, one-epoch search, 4 threads"
+unit = "sample"
+definition = "Nine emitters at the design C/N0, all held, the one-epoch search (D = 1) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,K=9,design,D=1,threads=10]"]
+name = "Async DSSS pool on the air: 9 emitters at the design C/N0, one-epoch search, 10 threads"
+unit = "sample"
+definition = "Nine emitters at the design C/N0, all held, the one-epoch search (D = 1) on 10 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[air,near-far+20dB,D=1,threads=4]"]
+name = "Async DSSS pool on the air: near-far, one emitter 20 dB above another, one-epoch search, 4 threads"
+unit = "sample"
+definition = "One emitter 20 dB above the design C/N0 beside one at it, the strong one held, the one-epoch search (D = 1) on 4 threads: the AsyncDsssPool at its specification, ten receivers fed 11 MSa/s directly (its search resamples to a 2,048-sample epoch), a 1,023-chip Gold code at 5 Mcps, 3,000 symbols a second, plus or minus 50 kHz, a 2.5 GHz carrier, emitters from the library's continuous DSSS synth with PRBS data and a 500-symbol data-free block opening every 1,000-symbol frame, each through a DopplerChannel at its own Doppler (spread over plus or minus 40 kHz, 98.5 chips apart), plus AWGN; one push is one D = 150 dwell of input, timed only in steady state (each expected emitter held by its own receiver, nothing released, one settled push after lock skipped, the search fed every period), so a row is the cost of holding those signals while searching, not of acquiring them; throughput counts input samples."
+samples = 1
+
 ["c:dsss_burst_receiver::push_idle"]
 name = "DSSS burst receiver listening, 31-chip preamble"
 unit = "sample"
@@ -1265,3 +1361,332 @@ unit = "call"
 definition = "Constructing one HalfbandDecimatorR2C from a one-tap float32 filter: the cost of building the object, paid once per object."
 domain = "call"
 count = 1
+
+# Square QAM beside the M-PSK maps (PR qam). One unit is one symbol; the
+# page reads it in symbols per second.
+
+["c:mpsk::qam_map[m=4]"]
+name = "QAM map, 4 points"
+unit = "symbol"
+definition = "Mapping 65,536 labels (2 bits each, 16-bit) to 4-QAM constellation points, one table-free level computation per axis; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_demap[m=4]"]
+name = "QAM hard demap, 4 points"
+unit = "symbol"
+definition = "Hard-deciding 65,536 received 4-QAM points to their labels, each axis rounded to the nearest level; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_map[m=16]"]
+name = "QAM map, 16 points"
+unit = "symbol"
+definition = "Mapping 65,536 labels (4 bits each, 16-bit) to 16-QAM constellation points, one table-free level computation per axis; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_demap[m=16]"]
+name = "QAM hard demap, 16 points"
+unit = "symbol"
+definition = "Hard-deciding 65,536 received 16-QAM points to their labels, each axis rounded to the nearest level; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_map[m=64]"]
+name = "QAM map, 64 points"
+unit = "symbol"
+definition = "Mapping 65,536 labels (6 bits each, 16-bit) to 64-QAM constellation points, one table-free level computation per axis; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_demap[m=64]"]
+name = "QAM hard demap, 64 points"
+unit = "symbol"
+definition = "Hard-deciding 65,536 received 64-QAM points to their labels, each axis rounded to the nearest level; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_map[m=256]"]
+name = "QAM map, 256 points"
+unit = "symbol"
+definition = "Mapping 65,536 labels (8 bits each, 16-bit) to 256-QAM constellation points, one table-free level computation per axis; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_demap[m=256]"]
+name = "QAM hard demap, 256 points"
+unit = "symbol"
+definition = "Hard-deciding 65,536 received 256-QAM points to their labels, each axis rounded to the nearest level; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_map[m=1024]"]
+name = "QAM map, 1024 points"
+unit = "symbol"
+definition = "Mapping 65,536 labels (10 bits each, 16-bit) to 1024-QAM constellation points, one table-free level computation per axis; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["c:mpsk::qam_demap[m=1024]"]
+name = "QAM hard demap, 1024 points"
+unit = "symbol"
+definition = "Hard-deciding 65,536 received 1024-QAM points to their labels, each axis rounded to the nearest level; throughput counts symbols."
+domain = "sym"
+count = 1
+
+["py:ofdm::test_bench_create"]
+name = "OFDM modulator setup, from Python"
+unit = "call"
+definition = "Constructing one Ofdm with an empty layout: the cost of building the object before any class or run is added, paid once per object."
+domain = "call"
+count = 1
+
+["py:ofdm::test_bench_modulate[64-0]"]
+name = "OFDM modulate, n_fft 64, from Python"
+unit = "call"
+definition = "Ofdm.modulate over a whole generic layout (n_fft 64, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy), about 64k samples a call, into a caller buffer: the C row of the same layout plus the binding."
+domain = "call"
+count = 1
+
+["py:ofdm::test_bench_modulate[64-2]"]
+name = "OFDM modulate, n_fft 64 with a 2-sample window, from Python"
+unit = "call"
+definition = "Ofdm.modulate over a whole generic layout (n_fft 64, 2-sample window, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy), about 64k samples a call, into a caller buffer: the C row of the same layout plus the binding."
+domain = "call"
+count = 1
+
+["py:ofdm::test_bench_modulate[256-0]"]
+name = "OFDM modulate, n_fft 256, from Python"
+unit = "call"
+definition = "Ofdm.modulate over a whole generic layout (n_fft 256, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy), about 64k samples a call, into a caller buffer: the C row of the same layout plus the binding."
+domain = "call"
+count = 1
+
+["py:ofdm::test_bench_modulate[1024-0]"]
+name = "OFDM modulate, n_fft 1024, from Python"
+unit = "call"
+definition = "Ofdm.modulate over a whole generic layout (n_fft 1024, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy), about 64k samples a call, into a caller buffer: the C row of the same layout plus the binding."
+domain = "call"
+count = 1
+
+["py:ofdm::test_bench_modulate[4096-0]"]
+name = "OFDM modulate, n_fft 4096, from Python"
+unit = "call"
+definition = "Ofdm.modulate over a whole generic layout (n_fft 4096, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy), about 64k samples a call, into a caller buffer: the C row of the same layout plus the binding."
+domain = "call"
+count = 1
+
+["c:ofdm::modulate[n_fft=64]"]
+name = "OFDM modulate, n_fft 64"
+unit = "symbol"
+definition = "Rendering OFDM symbols of one generic layout (n_fft 64, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy) from constellation points, about 64k samples a round; throughput counts OFDM symbols."
+domain = "sym"
+count = 1
+
+["c:ofdm::modulate[n_fft=64,window=2]"]
+name = "OFDM modulate, n_fft 64 with a 2-sample window"
+unit = "symbol"
+definition = "Rendering OFDM symbols of one generic layout (n_fft 64 with a 2-sample window, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy) from constellation points, about 64k samples a round; throughput counts OFDM symbols."
+domain = "sym"
+count = 1
+
+["c:ofdm::modulate[n_fft=256]"]
+name = "OFDM modulate, n_fft 256"
+unit = "symbol"
+definition = "Rendering OFDM symbols of one generic layout (n_fft 256, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy) from constellation points, about 64k samples a round; throughput counts OFDM symbols."
+domain = "sym"
+count = 1
+
+["c:ofdm::modulate[n_fft=1024]"]
+name = "OFDM modulate, n_fft 1024"
+unit = "symbol"
+definition = "Rendering OFDM symbols of one generic layout (n_fft 1024, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy) from constellation points, about 64k samples a round; throughput counts OFDM symbols."
+domain = "sym"
+count = 1
+
+["c:ofdm::modulate[n_fft=4096]"]
+name = "OFDM modulate, n_fft 4096"
+unit = "symbol"
+definition = "Rendering OFDM symbols of one generic layout (n_fft 4096, a quarter-length cyclic prefix, four pilots with a polarity sequence, 7/8 occupancy) from constellation points, about 64k samples a round; throughput counts OFDM symbols."
+domain = "sym"
+["c:wlan::mpdu[body=1500]"]
+name = "802.11 minimal MAC, FCS over a 1500-octet body"
+unit = "frame"
+definition = "Wrapping a 1500-octet body as one MPDU: copying it and appending the CRC-32 frame check sequence, one frame per unit."
+domain = "call"
+count = 1
+
+["c:wlan::data_chain[octets=100,16qam,r34]"]
+name = "802.11 Data field bits, 100 octets, 16-QAM rate 3/4"
+unit = "frame"
+definition = "Assembling the Data field of a 100-octet PSDU (SERVICE, octets, tail, pad), scrambling it and encoding it with the punctured BCC, one frame per unit; the interleaver and the mapper are not included."
+domain = "call"
+count = 1
+
+["c:wlan::interleave[octets=1000,64qam,r34]"]
+name = "802.11 interleaver, 1000 octets at 64-QAM rate 3/4"
+unit = "frame"
+definition = "The first and second interleaver permutations over the coded bits of one frame, one OFDM symbol at a time. One 1000-octet PSDU at 64-QAM, code rate 3/4 (54 Mb/s, the largest rate pair Clause 17 has), 38 Data OFDM symbols, one frame per unit."
+domain = "call"
+count = 1
+
+["c:wlan::map[octets=1000,64qam,r34]"]
+name = "802.11 mapper, 1000 octets at 64-QAM rate 3/4"
+unit = "frame"
+definition = "The constellation mapper over the interleaved bits of one frame: groups of six bits to 64-QAM points (the standard's relabeling included). One 1000-octet PSDU at 64-QAM, code rate 3/4 (54 Mb/s, the largest rate pair Clause 17 has), 38 Data OFDM symbols, one frame per unit."
+domain = "call"
+count = 1
+
+["c:wlan::points[octets=1000,64qam,r34]"]
+name = "802.11 points, 1000 octets at 64-QAM rate 3/4"
+unit = "frame"
+definition = "The points of one PPDU's layout, end to end from the PSDU: the SERVICE, tail and pad assembly, the scrambler, the punctured BCC, the interleaver and the mapper, with the SIGNAL field's 48. One 1000-octet PSDU at 64-QAM, code rate 3/4 (54 Mb/s, the largest rate pair Clause 17 has), 38 Data OFDM symbols, one frame per unit."
+domain = "call"
+count = 1
+
+["c:wlan::layout[octets=1000,64qam,r34]"]
+name = "802.11 layout, 1000 octets at 64-QAM rate 3/4"
+unit = "frame"
+definition = "Building the PPDU's OFDM layout in a fresh modulator and destroying it: the four classes, the pilots with the polarity, the runs, and the check. One 1000-octet PSDU at 64-QAM, code rate 3/4 (54 Mb/s, the largest rate pair Clause 17 has), 38 Data OFDM symbols, one frame per unit."
+domain = "call"
+count = 1
+
+["c:wlan::ppdu[octets=1000,64qam,r34]"]
+name = "802.11 PPDU, 1000 octets at 64-QAM rate 3/4"
+unit = "frame"
+definition = "dp_wlan_ppdu: the whole PPDU from the PSDU to samples (L-STF, L-LTF, SIGNAL and the Data field): the points, the layout and the OFDM modulator. One 1000-octet PSDU at 64-QAM, code rate 3/4 (54 Mb/s, the largest rate pair Clause 17 has), 38 Data OFDM symbols, one frame per unit."
+domain = "call"
+count = 1
+
+["py:wlan::test_bench_create"]
+name = "802.11 rate holder setup, from Python"
+unit = "call"
+definition = "Constructing one Wlan: the cost of building the object, paid once per object."
+domain = "call"
+count = 1
+
+["py:wlan::test_bench_n_sym"]
+name = "802.11 symbol count, from Python"
+unit = "call"
+definition = "One Wlan.n_sym call for a 1500-octet PSDU: the arithmetic plus the call across the binding."
+domain = "call"
+count = 1
+
+["c:state_filter::step"]
+name = "Third-order state filter, one update at a time"
+unit = "sample"
+definition = "The inline three-line update of the third-order loop filter (rate, frequency, control), called once per input error; throughput counts input errors."
+samples = 1
+
+["c:state_filter::steps"]
+name = "Third-order state filter, 65,536-error blocks"
+unit = "sample"
+definition = "The block path of the third-order loop filter fed 65,536 loop errors per round; throughput counts input errors."
+samples = 1
+
+["c:state_filter::create"]
+name = "Third-order state filter construction, from C"
+unit = "call"
+definition = "dp_state_filter_create then destroy, bn varied per call: the same bisection as a retune plus the allocation and the free, paid once per filter built."
+domain = "call"
+count = 1
+
+["c:state_filter::configure"]
+name = "Third-order state filter retune, from C"
+unit = "call"
+definition = "Retuning the gains of a third-order loop filter for a new bn and t: the bisection on the exact bandwidth, paid once per retune."
+domain = "call"
+count = 1
+
+["c:state_filter::stable"]
+name = "Third-order state filter stability test, from C"
+unit = "call"
+definition = "dp_state_filter_stable at a detector delay of two updates: the doubling sum over the balanced state matrix that decides stability exactly; the Kalman flavor's start rule calls it along a covariance trajectory."
+domain = "call"
+count = 1
+
+["c:state_filter::bandwidth"]
+name = "Third-order state filter exact bandwidth, from C"
+unit = "call"
+definition = "dp_state_filter_bandwidth at a detector delay of two updates: the same doubling sum, read as the exact noise bandwidth; the Kalman flavor's noise-ratio bisection calls it a hundred times."
+domain = "call"
+count = 1
+
+["c:state_filter_kalman::step"]
+name = "Kalman state filter, one update at a time"
+unit = "sample"
+definition = "One update of the Kalman flavor of the third-order loop filter: the loop's three lines, the covariance recursion and the gain refresh, called once per input error; throughput counts input errors."
+samples = 1
+
+["c:state_filter_kalman::steps"]
+name = "Kalman state filter, 65,536-error blocks"
+unit = "sample"
+definition = "The block path of the Kalman flavor of the third-order loop filter fed 65,536 loop errors per round; throughput counts input errors."
+samples = 1
+
+["c:state_filter_kalman::configure"]
+name = "Kalman state filter retune, from C"
+unit = "call"
+definition = "Retuning the Kalman flavor for a new bn and t: the bisection on the noise ratio around the doubling solve of the steady state, paid once per retune."
+domain = "call"
+count = 1
+
+["c:state_filter_kalman::create_start_1e2"]
+name = "Kalman state filter create with a high-gain start, bn*t 0.01"
+unit = "call"
+definition = "Creating the Kalman flavor with a start of 3 times the steady state's frequency deviation at bn*t 0.01: the constructor walks the covariance trajectory (800 updates, sampled) against the stability rectangle. Paid once per object, and per configure with a start above 1."
+domain = "call"
+count = 1
+
+["c:state_filter_kalman::create_start_1e4"]
+name = "Kalman state filter create with a high-gain start, bn*t 1e-4"
+unit = "call"
+definition = "The same at bn*t 1e-4: a walk of 80,000 updates, sampled. The cost scales as 1/(bn*t)."
+domain = "call"
+count = 1
+
+["py:state_filter_kalman::test_bench_step"]
+name = "Kalman state filter update, from Python"
+unit = "call"
+definition = "One KalmanStateFilter.step call from Python: the filter update, the covariance recursion and the call across the binding, one input error per call."
+domain = "call"
+count = 1
+
+["py:state_filter_kalman::test_bench_steps_64k"]
+name = "Kalman state filter, 65,536-error blocks, from Python"
+unit = "call"
+definition = "KalmanStateFilter.steps over a 65,536-element float64 block from Python; throughput counts input errors."
+samples = 65536
+
+["py:state_filter::test_bench_step"]
+name = "Third-order state filter update, from Python"
+unit = "call"
+definition = "One StateFilter.step call from Python: the filter update plus the call across the binding, one input error per call."
+domain = "call"
+count = 1
+
+["py:state_filter::test_bench_create"]
+name = "Third-order state filter construction, from Python"
+unit = "call"
+definition = "StateFilter(0.01, 1.0) built and dropped from Python: the gain solve plus the binding and the free."
+domain = "call"
+count = 1
+
+["py:state_filter::test_bench_steps_64k"]
+name = "Third-order state filter, 65,536-error blocks, from Python"
+unit = "call"
+definition = "StateFilter.steps over a 65,536-element float64 block from Python; throughput counts input errors."
+samples = 65536
+
+["py:costas::test_bench_steps_64k"]
+name = "Costas carrier loop, from Python"
+unit = "sample"
+definition = "Costas.steps on 65,536 samples of a BPSK carrier at order 2, per input sample."
+samples = 1
+
+["py:costas::test_bench_steps_64k_order3"]
+name = "Costas carrier loop, third order, from Python"
+unit = "sample"
+definition = "Costas.steps on 65,536 samples of a BPSK carrier with the loop switched to third order (set_order), per input sample."
+samples = 1

@@ -4,12 +4,12 @@ from pydantic import ValidationError
 from edison_client.models.app import DockerContainerConfiguration
 
 
-def test_tmp_size_default():
+def test_tmp_size_default() -> None:
     config = DockerContainerConfiguration(cpu="1", memory="2Gi")
     assert config.tmp_size == "5Gi"
 
 
-def test_tmp_size_custom():
+def test_tmp_size_custom() -> None:
     config = DockerContainerConfiguration(cpu="4", memory="8Gi", tmp_size="20Gi")
     assert config.tmp_size == "20Gi"
 
@@ -23,6 +23,6 @@ def test_tmp_size_custom():
         ("abc", "tmp_size must be in Gi format"),
     ],
 )
-def test_tmp_size_validation(tmp_size, error_match):
+def test_tmp_size_validation(tmp_size: str, error_match: str) -> None:
     with pytest.raises(ValidationError, match=error_match):
         DockerContainerConfiguration(cpu="4", memory="8Gi", tmp_size=tmp_size)

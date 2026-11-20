@@ -411,7 +411,7 @@ class Juju:
         attach_storage: str | Iterable[str] | None = None,
         num_units: int = 1,
         to: str | Iterable[str] | None = None,
-    ):
+    ) -> None:
         """Add one or more units to a deployed application.
 
         Args:
@@ -1081,9 +1081,10 @@ class Juju:
         path: str | pathlib.Path | None = None,
         resources: Mapping[str, str] | None = None,
         revision: int | None = None,
+        switch: str | pathlib.Path | None = None,
         storage: Mapping[str, str] | None = None,
         trust: bool = False,
-    ):
+    ) -> None:
         """Refresh (upgrade) an application's charm.
 
         Args:
@@ -1096,12 +1097,21 @@ class Juju:
             resources: Specify named resources to use for deployment, for example:
                 ``{'bin': '/path/to/some/binary'}``.
             revision: Charmhub revision number to deploy.
+            switch: Crossgrade to a different charm, given as a Charmhub name or a local
+                path, for example, ``'postgresql'``.
             storage: Constraints for named storage(s), for example, ``{'data': 'tmpfs,1G'}``.
             trust: If true, allows charm to run hooks that require access to cloud credentials.
         """
         args = ['refresh', app]
 
-        with self._deploy_tempdir(path, resources) as (path, resources):
+        with self._deploy_tempdir(path if path is not None else switch, resources) as (
+            temp_charm,
+            resources,
+        ):
+            if path is not None:
+                path = temp_charm
+            elif switch is not None:
+                switch = temp_charm
             if base is not None:
                 args.extend(['--base', base])
             if channel is not None:
@@ -1118,6 +1128,8 @@ class Juju:
                     args.extend(['--resource', f'{k}={v}'])
             if revision is not None:
                 args.extend(['--revision', str(revision)])
+            if switch is not None:
+                args.extend(['--switch', str(switch)])
             if storage is not None:
                 for k, v in storage.items():
                     args.extend(['--storage', f'{k}={v}'])
@@ -1318,6 +1330,7 @@ class Juju:
         container: str | None = None,
         host_key_checks: bool = True,
         scp_options: Iterable[str] = (),
+        ssh_key: str | pathlib.Path | None = None,
     ) -> None:
         """Securely transfer files within a model.
 
@@ -1327,6 +1340,11 @@ class Juju:
             container: Name of container for Kubernetes charms. Defaults to the charm container.
             host_key_checks: Set to false to disable host key checking (insecure).
             scp_options: ``scp`` client options, for example ``['-r', '-C']``.
+                From Juju 4.1, ``-i`` doesn't apply to the connection to the controller.
+                Use *ssh_key* for that.
+            ssh_key: Path to an SSH private key to authenticate with the controller's SSH server.
+                The matching public key must be added to the model first, using
+                :meth:`add_ssh_key`. Requires Juju 4.1 or later.
         """
         # Need this check because str is also an iterable of str.
         if isinstance(scp_options, str):
@@ -1337,6 +1355,8 @@ class Juju:
             args.extend(['--container', container])
         if not host_key_checks:
             args.append('--no-host-key-checks')
+        if ssh_key is not None:
+            args.extend(['--ssh-key', str(ssh_key)])
         args.append('--')
         args.extend(scp_options)
 
@@ -1451,6 +1471,12 @@ class Juju:
     ) -> Secret | RevealedSecret:
         """Get the content of a secret.
 
+        Secret labels are not unique: for example, each unit of an application can own a
+        secret with the same label. Older versions of Juju return all matching secrets
+        when *identifier* is a label, in which case this method returns the first one.
+        Current versions of Juju raise an error if a label matches more than one secret.
+        To get a specific secret reliably, use its URI.
+
         Args:
             identifier: Name or URI of the secret to return.
             reveal: Whether to reveal the secret content.
@@ -1494,6 +1520,7 @@ class Juju:
         host_key_checks: bool = True,
         ssh_options: Iterable[str] = (),
         user: str | None = None,
+        ssh_key: str | pathlib.Path | None = None,
     ) -> str:
         """Executes a command using SSH on a machine or container and returns its standard output.
 
@@ -1507,7 +1534,12 @@ class Juju:
             container: Name of container for Kubernetes charms. Defaults to the charm container.
             host_key_checks: Set to false to disable host key checking (insecure).
             ssh_options: OpenSSH client options, for example ``['-i', '/path/to/private.key']``.
+                From Juju 4.1, ``-i`` doesn't apply to the connection to the controller.
+                Use *ssh_key* for that.
             user: User account to make connection with. Defaults to ``ubuntu`` account.
+            ssh_key: Path to an SSH private key to authenticate with the controller's SSH server.
+                The matching public key must be added to the model first, using
+                :meth:`add_ssh_key`. Requires Juju 4.1 or later.
         """
         # Need this check because str is also an iterable of str.
         if isinstance(ssh_options, str):
@@ -1518,6 +1550,8 @@ class Juju:
             cli_args.extend(['--container', container])
         if not host_key_checks:
             cli_args.append('--no-host-key-checks')
+        if ssh_key is not None:
+            cli_args.extend(['--ssh-key', str(ssh_key)])
         if user is not None:
             cli_args.append(f'{user}@{target}')
         else:
@@ -1689,6 +1723,10 @@ class Juju:
 
             logging.getLogger('jubilant.wait').setLevel('WARNING')
 
+        How long the wait took is logged to the ``jubilant`` logger at INFO level when the wait
+        succeeds, so it is still logged with the status logs disabled. If the wait fails, the
+        :class:`WaitError` message includes how long it took.
+
         Args:
             ready: Callable that takes a :class:`Status` object and returns ``True`` when the wait
                 should be considered ready. It needs to return ``True`` *successes* times in a row
@@ -1697,8 +1735,9 @@ class Juju:
                 should raise an error (:class:`WaitError`).
             delay: Delay in seconds between status calls.
             timeout: Overall timeout in seconds; :class:`TimeoutError` is raised if this
-                is reached. If not specified, uses the *wait_timeout* specified when the
-                instance was created.
+                is reached, including when a status call is still running at the deadline.
+                If not specified, uses the *wait_timeout* specified when the instance was
+                created.
             successes: Number of times *ready* must return ``True`` for the wait to succeed.
 
         Raises:
@@ -1717,7 +1756,13 @@ class Juju:
         while time.monotonic() - start < timeout:
             prev_status = status
 
-            stdout, _ = self._cli('status', '--format', 'json', log=False)
+            # Bound the status call by the time left, so that a hung "juju status" (for
+            # example, when the controller is unreachable) can't overrun the overall timeout.
+            remaining = timeout - (time.monotonic() - start)
+            try:
+                stdout, _ = self._cli('status', '--format', 'json', log=False, timeout=remaining)
+            except subprocess.TimeoutExpired:
+                break
             result = json.loads(stdout)
             status = Status._from_dict(result)
 
@@ -1746,11 +1791,16 @@ class Juju:
 
             if error is not None and error(status):
                 name = getattr(error, '__qualname__', repr(error))
-                raise WaitError(f'error function {name} returned true\n{status}')
+                elapsed = time.monotonic() - start
+                raise WaitError(
+                    f'error function {name} returned true after {elapsed:.1f}s\n{status}'
+                )
 
             if ready(status):
                 success_count += 1
                 if success_count >= successes:
+                    elapsed = time.monotonic() - start
+                    logger.info('wait: ready after %.1fs', elapsed)
                     return status
             else:
                 success_count = 0

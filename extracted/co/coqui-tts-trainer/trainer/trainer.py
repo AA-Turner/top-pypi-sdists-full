@@ -1,5 +1,4 @@
 import copy
-import functools
 import gc
 import logging
 import os
@@ -7,7 +6,6 @@ import platform
 import shutil
 import sys
 import time
-import traceback
 from collections.abc import Generator
 from contextlib import nullcontext, suppress
 from pathlib import Path
@@ -25,13 +23,15 @@ from trainer.config import TrainerArgs, TrainerConfig
 from trainer.generic_utils import (
     KeepAverage,
     count_parameters,
+    empty_cache,
     get_experiment_folder_path,
     get_git_branch,
+    is_autocast_available,
     is_pytorch_at_least_2_3,
     is_pytorch_at_least_2_4,
     remove_experiment_folder,
     set_partial_state_dict,
-    to_cuda,
+    to_device,
 )
 from trainer.io import (
     copy_model_files,
@@ -58,10 +58,13 @@ from trainer.utils.distributed import (
 
 logger = logging.getLogger("trainer")
 
-if is_pytorch_at_least_2_3():
-    GradScaler = functools.partial(torch.GradScaler, device="cuda")
-else:
-    GradScaler = torch.cuda.amp.GradScaler  # type: ignore[assignment]
+
+def get_grad_scaler(device_type: str) -> "torch.GradScaler":
+    """Create a gradient scaler for the given device type."""
+    if is_pytorch_at_least_2_3():
+        return torch.GradScaler(device=device_type)
+    # Before 2.3 the scaler was CUDA-only.
+    return torch.cuda.amp.GradScaler()  # ty: ignore[deprecated]
 
 
 class Trainer:
@@ -109,18 +112,20 @@ class Trainer:
                 initializes a model from the provided config. Defaults to None.
 
             train_samples (List):
-                A list of training samples used by the model's training dataloader to init the `dataset` and the
-                `data_loader`. Defaults to None.
+                A list of training samples passed to `model.get_data_loader()` to init the `dataset` and the
+                `data_loader`. Required for training unless `train_loader` is given. Defaults to None.
 
             eval_samples (List):
-                A list of evaluation samples used by `get_eval_dataloader` to init the `dataset` and the
-                `data_loader`. Defaults to None.
+                A list of evaluation samples passed to `model.get_data_loader()` to init the `dataset` and the
+                `data_loader`. Required if `config.run_eval` is set, unless `eval_loader` is given. Defaults to None.
 
             train_loader (DataLoader):
-                A pytorch data loader object for training epochs. Leave as None if you want it to be made during training. Defaults to None.
+                A pytorch data loader object for training epochs. Leave as None to make it from `train_samples`.
+                Defaults to None.
 
             eval_loader (DataLoader):
-                A pytorch data loader object for evaluation epochs. Leave as None to be generated during training. Defaults to None.
+                A pytorch data loader object for evaluation epochs. Leave as None to make it from `eval_samples`.
+                Defaults to None.
 
             parse_command_line_args (bool):
                 If true, parse command-line arguments and update `TrainerArgs` and model `config` values. Set it
@@ -162,6 +167,13 @@ class Trainer:
         else:
             new_fields = {}
 
+        if config.run_eval and not eval_samples and eval_loader is None:
+            msg = (
+                "Evaluation is enabled (`run_eval=True`), but neither `eval_samples` nor `eval_loader` was provided. "
+                "If you want to train without evaluation, set `config.run_eval = False`."
+            )
+            raise ValueError(msg)
+
         # set the output path
         if args.continue_path:
             self.continue_run = True
@@ -174,9 +186,6 @@ class Trainer:
             # create a new output folder name
             output_path = get_experiment_folder_path(output_path, config.run_name)
             output_path.mkdir(exist_ok=True, parents=True)
-
-        # copy training assets to the output folder
-        copy_model_files(config, output_path, new_fields)
 
         # init class members
         self.args = args
@@ -193,16 +202,34 @@ class Trainer:
         log_file = os.path.join(self.output_path, f"trainer_{args.rank}_log.txt")
         self._setup_logger_config(log_file)
 
+        self.log_model_step = (
+            self.config.log_model_step if self.config.log_model_step is not None else self.config.save_step
+        )
+        if self.log_model_step < self.config.save_step:
+            logger.warning(
+                " [!] `log_model_step` (%d) is smaller than `save_step` (%d), setting it to `save_step`.",
+                self.log_model_step,
+                self.config.save_step,
+            )
+            self.log_model_step = self.config.save_step
+            self.config.log_model_step = self.log_model_step
+        elif self.log_model_step % self.config.save_step != 0:
+            logger.warning(
+                " [!] `log_model_step` (%d) is not a multiple of `save_step` (%d), checkpoints will only be "
+                "uploaded to the logger at common multiples.",
+                self.log_model_step,
+                self.config.save_step,
+            )
+
+        # copy training assets to the output folder
+        copy_model_files(self.config, output_path, new_fields)
+
         # setup training environment
-        self.use_cuda, self.num_gpus = self.setup_training_environment(args=args, config=config, gpu=gpu)
+        self.device, self.num_gpus = self.setup_training_environment(args=args, config=config, gpu=gpu)
 
         # init loggers
         self.dashboard_logger, self.c_logger = self.init_loggers(self.config, output_path, dashboard_logger, c_logger)
         # self.c_logger.logger = logger
-
-        self.log_model_step = (
-            self.config.log_model_step if self.config.log_model_step is not None else self.config.save_step
-        )
 
         # make sure that start_with_eval is disabled if eval is disabled
         if not self.config.run_eval:
@@ -222,17 +249,13 @@ class Trainer:
         self.keep_avg_eval: KeepAverage | None = None
 
         self.use_amp_scaler = (
-            self.use_cuda
+            self.device.type in {"cuda", "mps"}
             if self.config.mixed_precision and self.config.precision == "fp16"
             else self.config.use_grad_scaler
         )
 
-        self.train_samples: list[Any] | None = None
-        self.eval_samples: list[Any] | None = None
-        if train_samples is not None:
-            # use provided samples, else expecting to load samples in `model.get_data_loader()`
-            self.train_samples = train_samples
-            self.eval_samples = eval_samples
+        self.train_samples = train_samples
+        self.eval_samples = eval_samples
 
         # define custom train and eval loader
         self.train_loader = train_loader
@@ -261,11 +284,10 @@ class Trainer:
                 self.config.distributed_url,
             )
 
-        if self.use_cuda:
-            self.model.cuda()
-            for criterion in self.criterion:
-                if isinstance(criterion, nn.Module):
-                    criterion.cuda()
+        self.model.to(self.device)
+        for criterion in self.criterion:
+            if isinstance(criterion, nn.Module):
+                criterion.to(self.device)
 
         # setup optimizer and scheduler
         self.optimizer = self.get_optimizer()
@@ -282,11 +304,17 @@ class Trainer:
                 )
                 self.criterion = [copy.deepcopy(self.criterion[0]) for _ in range(num_optimizers)]
             if len(self.scheduler) == 1:
-                logger.warning(
-                    "Single scheduler expanded to %i copies to match the number of optimizers.", num_optimizers
-                )
-                self.scheduler = [copy.deepcopy(self.scheduler[0]) for _ in range(num_optimizers)]
-        if len(self.optimizer) != len(self.scheduler) != len(self.criterion):
+                # A scheduler is bound to its optimizer, so it can't be copied for the others.
+                scheduler = self.scheduler[0]
+                self.scheduler = [None] * num_optimizers
+                if scheduler is not None:
+                    idx = next((i for i, o in enumerate(self.optimizer) if o is scheduler.optimizer), None)
+                    if idx is None:
+                        msg = "The scheduler returned by get_scheduler() is not bound to any of the optimizers."
+                        raise RuntimeError(msg)
+                    logger.warning("Single scheduler only applied to optimizer %i, the others are not scheduled.", idx)
+                    self.scheduler[idx] = scheduler
+        if not len(self.optimizer) == len(self.scheduler) == len(self.criterion):
             lengths = f"{len(self.optimizer)} != {len(self.scheduler)} != {len(self.criterion)}"
             msg = f"get_optimizer(), get_scheduler() and get_criterion must return the same number of items: {lengths}"
             raise RuntimeError(msg)
@@ -297,7 +325,7 @@ class Trainer:
         self.callbacks.on_init_start(self)
 
         # init AMP
-        self.scaler = GradScaler() if self.use_amp_scaler else None
+        self.scaler = get_grad_scaler(self.device.type) if self.use_amp_scaler else None
 
         # restore model
         if self.args.restore_path:
@@ -345,7 +373,7 @@ class Trainer:
     def prepare_accelerate_loader(self, data_loader: DataLoader[Any]) -> DataLoader[Any]:
         """Prepare the accelerator for the training."""
         if self.use_accelerate:
-            return self.accelerator.prepare_data_loader(data_loader)
+            return cast("DataLoader[Any]", self.accelerator.prepare_data_loader(data_loader))
         return data_loader
 
     @staticmethod
@@ -358,23 +386,23 @@ class Trainer:
         grad_accum_steps: int,
         mixed_precision: bool,
         precision: str,
-    ) -> tuple:
+    ) -> tuple[TrainerModel, list[torch.optim.Optimizer], DataLoader[Any] | None, list[LRScheduler | None], Any]:
         """Setup HF Accelerate for the training."""
         # check if accelerate is installed
         try:
-            from accelerate import Accelerator  # noqa: PLC0415
+            from accelerate import Accelerator  # ruff: ignore[import-outside-top-level]
         except ImportError as e:
             msg = "Please install accelerate to use this feature."
             raise ImportError(msg) from e
 
-        _precision = precision if precision is not None else "f16" if mixed_precision else None
-        if _precision == "float16":
-            _precision = "f16"
-        elif _precision == "float8":
-            _precision = "f8"
-        elif _precision == "bfloat16":
-            _precision = "bf16"
-        accelerator = Accelerator(gradient_accumulation_steps=grad_accum_steps, mixed_precision=_precision)
+        precision_ = precision if precision is not None else "f16" if mixed_precision else None
+        if precision_ == "float16":
+            precision_ = "f16"
+        elif precision_ == "float8":
+            precision_ = "f8"
+        elif precision_ == "bfloat16":
+            precision_ = "bf16"
+        accelerator = Accelerator(gradient_accumulation_steps=grad_accum_steps, mixed_precision=precision_)
         if isinstance(model, nn.Module):
             model = accelerator.prepare_model(model)
 
@@ -480,16 +508,18 @@ class Trainer:
         return config, new_fields
 
     @staticmethod
-    def setup_training_environment(args: TrainerArgs, config: TrainerConfig, gpu: int | None) -> tuple[bool, int]:
+    def setup_training_environment(
+        args: TrainerArgs, config: TrainerConfig, gpu: int | None
+    ) -> tuple[torch.device, int]:
         if platform.system() != "Windows":
             # https://github.com/pytorch/pytorch/issues/973
-            import resource  # pylint:disable=import-outside-toplevel  # noqa: PLC0415
+            import resource  # pylint:disable=import-outside-toplevel  # ruff: ignore[import-outside-top-level]
 
             rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
             resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
 
         # set and initialize Pytorch runtime
-        use_cuda, num_gpus = setup_torch_training_env(
+        device, num_gpus = setup_torch_training_env(
             args=args,
             cudnn_enable=config.cudnn_enable,
             cudnn_deterministic=config.cudnn_deterministic,
@@ -500,8 +530,16 @@ class Trainer:
             gpu=gpu if args.gpu is None else args.gpu,
         )
 
+        if config.mixed_precision and not is_autocast_available(device.type):
+            logger.warning(
+                "Mixed precision is not available on %s with torch %s, training in float32 instead.",
+                device.type,
+                torch.__version__,
+            )
+            config.mixed_precision = False
+
         print_training_env(args, config)
-        return use_cuda, num_gpus
+        return device, num_gpus
 
     def restore_model(self) -> None:
         """Restore training from an old run.
@@ -519,7 +557,7 @@ class Trainer:
         logger.info(" > %s from %s ...", verb, os.path.basename(self.args.restore_path))
         checkpoint = load_fsspec(self.args.restore_path, map_location="cpu")
 
-        try:
+        try:  # ruff: ignore[too-many-statements-in-try-clause]
             logger.info(" > Restoring Model...")
             self.model.load_state_dict(checkpoint["model"])
             if self.continue_run:
@@ -551,7 +589,7 @@ class Trainer:
             self.reset_lr()
 
         logger.info(" > Model restored from step %i", checkpoint["step"])
-        torch.cuda.empty_cache()
+        empty_cache(self.device)
 
     def reset_lr(self) -> None:
         """Reset learning rate to default values."""
@@ -564,7 +602,7 @@ class Trainer:
     # DATA LOADING FUNCTIONS
     #########################
 
-    def _get_loader(
+    def _get_loader(  # ruff: ignore[no-self-use]
         self,
         model: TrainerModel,
         config: TrainerConfig,
@@ -573,6 +611,10 @@ class Trainer:
         is_eval: bool,
         verbose: bool,
     ) -> DataLoader[Any]:
+        if samples is None:
+            stage = "eval" if is_eval else "train"
+            msg = f"Cannot create the {stage} data loader without samples. Pass `{stage}_samples` or `{stage}_loader`."
+            raise ValueError(msg)
         loader = model.get_data_loader(
             config=config,
             is_eval=is_eval,
@@ -580,9 +622,13 @@ class Trainer:
             verbose=verbose,
         )
 
-        assert len(loader) > 0, (
-            " ❗ len(DataLoader) returns 0. Make sure your dataset is not empty or len(dataset) > 0. "
-        )
+        if len(loader) == 0:
+            stage = "Evaluation" if is_eval else "Training"
+            msg = (
+                f"❗ {stage} DataLoader is empty (len=0). "
+                "Make sure your dataset is not empty and samples were not filtered out."
+            )
+            raise ValueError(msg)
         return loader
 
     def _get_model(self) -> TrainerModel:
@@ -630,6 +676,12 @@ class Trainer:
             verbose=verbose,
         )
 
+    def _ensure_eval_loader(self) -> DataLoader[Any]:
+        """Create the evaluation data loader from `eval_samples` if it does not exist yet."""
+        if self.eval_loader is None:
+            self.eval_loader = self.get_eval_dataloader(self.eval_samples, verbose=True)
+        return self.eval_loader
+
     def format_batch(self, batch: dict[str, Any] | list[Any]) -> dict[str, Any]:
         """Format the dataloader output and return a batch.
 
@@ -646,7 +698,7 @@ class Trainer:
         batch = self._get_model().format_batch(batch)
 
         for k, v in batch.items():
-            batch[k] = to_cuda(v)
+            batch[k] = to_device(v, self.device)
 
         return self._get_model().format_batch_on_device(batch)
 
@@ -688,10 +740,12 @@ class Trainer:
         return self._get_model().train_step(*input_args)
 
     def _get_autocast_args(self, *, mixed_precision: bool, precision: str) -> tuple[str, torch.dtype]:
-        device = "cpu"
-        dtype = torch.get_autocast_dtype("cpu") if is_pytorch_at_least_2_4() else torch.get_autocast_cpu_dtype()
-        if self.use_cuda:
-            device = "cuda"
+        device = self.device.type
+        if device == "cpu":
+            dtype = torch.get_autocast_dtype("cpu") if is_pytorch_at_least_2_4() else torch.get_autocast_cpu_dtype()
+            if mixed_precision:
+                dtype = torch.bfloat16
+        else:
             dtype = torch.float32
             if mixed_precision:
                 if precision == "fp16":
@@ -701,8 +755,6 @@ class Trainer:
                 else:
                     msg = f" ❗ Unknown precision {precision}"
                     raise ValueError(msg)
-        elif mixed_precision:
-            dtype = torch.bfloat16
         return device, dtype
 
     def detach_loss_dict(
@@ -756,7 +808,10 @@ class Trainer:
         return grad_clip
 
     def _compute_grad_norm(self, optimizer: torch.optim.Optimizer) -> torch.Tensor:
-        return torch.norm(torch.cat([param.grad.view(-1) for param in self.master_params(optimizer)], dim=0), p=2)
+        return cast(
+            "torch.Tensor",
+            torch.norm(torch.cat([param.grad.view(-1) for param in self.master_params(optimizer)], dim=0), p=2),
+        )
 
     def _grad_clipping(
         self, grad_clip: float, optimizer: torch.optim.Optimizer, scaler: Optional["torch.GradScaler"]
@@ -821,7 +876,7 @@ class Trainer:
         self.callbacks.before_backward_pass(self, loss_dict)
 
         # accumulated gradients adjustment
-        loss_dict["loss"] = loss_dict["loss"] / float(self.grad_accum_steps)
+        loss_dict["loss"] /= float(self.grad_accum_steps)
 
         if self.use_accelerate:
             with self.accelerator.accumulate(self.model):
@@ -922,7 +977,7 @@ class Trainer:
         loss_dict.update(lrs)
 
         # OPTIMIZATION
-        try:
+        try:  # ruff: ignore[too-many-statements-in-try-clause,too-many-nested-blocks]
             # custom optimize for the model
             step_time = time.time()
             device, dtype = self._get_autocast_args(
@@ -1036,10 +1091,10 @@ class Trainer:
                 and self.total_steps_done != 0
                 and self.config.save_checkpoints
             ):
-                self.save_checkpoint()
+                self.save_checkpoint(log_artifact=self.total_steps_done % self.log_model_step == 0)
 
             if self.total_steps_done % self.log_model_step == 0:
-                # log checkpoint as artifact
+                # log training visualizations
                 self.update_training_dashboard_logger(batch=batch, outputs=outputs)
 
             self.dashboard_logger.flush()
@@ -1101,7 +1156,7 @@ class Trainer:
             self.dashboard_logger.train_epoch_stats(self.total_steps_done, epoch_stats)
             if self.config.model_param_stats:
                 self.dashboard_logger.model_weights(self.model, self.total_steps_done)
-        torch.cuda.empty_cache()
+        empty_cache(self.device)
 
     #######################
     # EVAL FUNCTIONS
@@ -1160,15 +1215,14 @@ class Trainer:
         # initialize it when eval_epoch is called alone.
         self.keep_avg_eval = KeepAverage() if self.keep_avg_eval is None else self.keep_avg_eval
 
-        if self.eval_loader is None:
-            self.eval_loader = self.get_eval_dataloader(self.eval_samples, verbose=True)
+        eval_loader = self._ensure_eval_loader()
 
         self.model.eval()
         self.c_logger.print_eval_start()
         loader_start_time = time.time()
         batch = None
         outputs = None
-        for cur_step, batch in enumerate(self.eval_loader):
+        for cur_step, batch in enumerate(eval_loader):
             # format data
             batch = self.format_batch(batch)
             loader_time = time.time() - loader_start_time
@@ -1191,7 +1245,7 @@ class Trainer:
                     self.total_steps_done,
                 )
             self.dashboard_logger.eval_stats(self.total_steps_done, self.keep_avg_eval.avg_values)
-        torch.cuda.empty_cache()
+        empty_cache(self.device)
 
     ##################################
     # TESTING
@@ -1243,6 +1297,12 @@ class Trainer:
                 # let all processes sync up before starting with a new epoch of training
                 dist.barrier()
             self.callbacks.on_epoch_start(self)
+
+            # build the eval loader before training to catch an empty eval set early, but after
+            # `on_epoch_start` so that config changes made there are picked up
+            if self.config.run_eval:
+                self._ensure_eval_loader()
+
             self.keep_avg_train = KeepAverage()
             self.keep_avg_eval = KeepAverage() if self.config.run_eval else None
             self.epochs_done = epoch
@@ -1254,40 +1314,38 @@ class Trainer:
             if epoch >= self.config.test_delay_epochs and self.args.rank <= 0:
                 self.test_run()
 
-            self.c_logger.print_epoch_end(
-                epoch,
-                self.keep_avg_eval.avg_values if self.config.run_eval else self.keep_avg_train.avg_values,  # type: ignore[union-attr]
-            )
-            if self.args.rank in [None, 0]:
+            keep_avg = self.keep_avg_eval if self.config.run_eval else self.keep_avg_train
+            self.c_logger.print_epoch_end(epoch, keep_avg.avg_values if keep_avg is not None else {})
+            if self.args.rank in {None, 0}:
                 self.save_best_model()
             self.callbacks.on_epoch_end(self)
             self.start_with_eval = False
 
     def fit_with_largest_batch_size(self, starting_batch_size: int = 2048) -> None:
+        if not self.train_samples:
+            msg = "`fit_with_largest_batch_size()` needs `train_samples` to rebuild the train loader."
+            raise ValueError(msg)
         cuda_meminfo()
         bs = starting_batch_size
         while True:
+            # drop loaders built with the previous batch size so that they are rebuilt from the samples
+            self.train_loader = None
+            if self.eval_samples:
+                self.eval_loader = None
             gc.collect()
-            torch.cuda.empty_cache()
+            empty_cache(self.device)
             try:
                 gc.collect()
-                torch.cuda.empty_cache()
+                empty_cache(self.device)
                 self.config.batch_size = bs
                 logger.info(" > current batch size: %i", self.config.batch_size)
                 self._fit()
             except RuntimeError as exception:
+                # includes torch.cuda.OutOfMemoryError
                 if bs > 1 and should_reduce_batch_size(exception):
                     bs //= 2
                     gc.collect()
-                    torch.cuda.empty_cache()
-                else:
-                    raise
-            except Exception as exception:  # pylint: disable=broad-except
-                # catches the torch.cuda.OutOfMemoryError
-                if bs > 1 and should_reduce_batch_size(exception):
-                    bs //= 2
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                    empty_cache(self.device)
                 else:
                     raise
             else:
@@ -1305,10 +1363,10 @@ class Trainer:
                 logger.info(" > Saving model before exiting...")
                 # save the model on keyboard interrupt
                 self.save_checkpoint()
-                # update the training dashboard logger
-                self.update_training_dashboard_logger()
             # call the keyboard interrupt callback
             self.callbacks.on_keyboard_interrupt(self)
+            # release file logger handles before removing experiment folder
+            self._close_log_file()
             # if the output folder is empty remove the run.
             remove_experiment_folder(self.output_path)
             # clear the DDP processes
@@ -1321,11 +1379,11 @@ class Trainer:
             try:
                 sys.exit(130)
             except SystemExit:
-                os._exit(130)  # pylint: disable=protected-access
-        except BaseException:  # pylint: disable=broad-except
+                os._exit(130)
+        except BaseException:
+            self._close_log_file()
             remove_experiment_folder(self.output_path)
-            traceback.print_exc()
-            sys.exit(1)
+            raise
 
     def profile_fit(
         self, torch_profiler: torch.profiler.profile, epochs: int | None = None, small_run: int | None = None
@@ -1395,12 +1453,12 @@ class Trainer:
         )
 
     @rank_zero_only
-    def save_checkpoint(self) -> None:
-        """Save the current model checkpoint."""
+    def save_checkpoint(self, *, log_artifact: bool = True) -> None:
+        """Save the current model checkpoint and optionally upload it to the dashboard logger."""
         eval_loss = self._pick_target_avg_loss(self.keep_avg_eval)
         train_loss = self._pick_target_avg_loss(self.keep_avg_train)
 
-        save_checkpoint(
+        checkpoint_path = save_checkpoint(
             self.config,
             self._get_model(),
             self.output_path,
@@ -1413,18 +1471,20 @@ class Trainer:
             save_n_checkpoints=self.config.save_n_checkpoints,
         )
 
-    @rank_zero_only
-    def update_training_dashboard_logger(
-        self, batch: dict[str, Any] | None = None, outputs: dict[str, Any] | None = None
-    ) -> None:
+        if not log_artifact:
+            return
         aliases = [
             f"epoch-{self.epochs_done}",
             f"step-{self.total_steps_done}",
         ]
         self.dashboard_logger.add_artifact(
-            file_or_dir=self.output_path, name="checkpoint", artifact_type="model", aliases=aliases
+            file_or_dir=checkpoint_path, name="checkpoint", artifact_type="model", aliases=aliases
         )
 
+    @rank_zero_only
+    def update_training_dashboard_logger(
+        self, batch: dict[str, Any] | None = None, outputs: dict[str, Any] | None = None
+    ) -> None:
         # training visualizations
         if batch is not None and outputs is not None:
             model = self._get_model()
@@ -1459,16 +1519,23 @@ class Trainer:
             if self.config.optimizer is None:
                 msg = "No name specified in `optimizer`"
                 raise ValueError(msg) from e
+            optimizer_params = self.config.optimizer_params or {}
+            lr = self.config.lr
             if isinstance(self.config.optimizer, list):
-                optimizers = []
-                for i, optimizer_name in enumerate(self.config.optimizer):
-                    optimizer_params = {} if self.config.optimizer_params is None else self.config.optimizer_params[i]  # type: ignore[index]
-                    optimizers.append(get_optimizer(optimizer_name, optimizer_params, self.config.lr, self.model))  # type: ignore[arg-type]
-                optimizer = optimizers
+                optimizer = [
+                    get_optimizer(
+                        optimizer_name,
+                        optimizer_params[i] if isinstance(optimizer_params, list) else optimizer_params,
+                        lr[i] if isinstance(lr, list) else lr,
+                        self.model,
+                    )
+                    for i, optimizer_name in enumerate(self.config.optimizer)
+                ]
             else:
-                optimizer_name = self.config.optimizer
-                optimizer_params = {} if self.config.optimizer_params is None else self.config.optimizer_params
-                optimizer = get_optimizer(optimizer_name, optimizer_params, self.config.lr, self.model)  # type: ignore[arg-type]
+                if isinstance(optimizer_params, list) or isinstance(lr, list):
+                    msg = "`optimizer_params` and `lr` can only be lists when `optimizer` is a list"
+                    raise TypeError(msg) from e
+                optimizer = get_optimizer(self.config.optimizer, optimizer_params, lr, self.model)
         return optimizer if isinstance(optimizer, list) else [optimizer]
 
     def get_lr(self) -> list[float]:
@@ -1493,7 +1560,7 @@ class Trainer:
             logger.warning(
                 "Single learning rate expanded to %i copies to match the number of optimizers.", len(self.optimizer)
             )
-            lr_list = lr_list * len(self.optimizer)
+            lr_list *= len(self.optimizer)
         return lr_list
 
     def get_scheduler(self) -> list[LRScheduler | None]:
@@ -1514,7 +1581,15 @@ class Trainer:
         except NotImplementedError:
             lr_scheduler = self.config.lr_scheduler
             lr_scheduler_params = self.config.lr_scheduler_params
-            scheduler = get_scheduler(lr_scheduler, lr_scheduler_params, self.optimizer[0])  # type: ignore[arg-type]
+            if isinstance(lr_scheduler, list):
+                scheduler = [
+                    get_scheduler(name, lr_scheduler_params, optimizer)
+                    for name, optimizer in zip(lr_scheduler, self.optimizer, strict=True)
+                ]
+            else:
+                scheduler = [
+                    get_scheduler(lr_scheduler, lr_scheduler_params, optimizer) for optimizer in self.optimizer
+                ]
         return scheduler if isinstance(scheduler, list) else [scheduler]
 
     def get_criterion(self) -> list[nn.Module]:
@@ -1584,7 +1659,15 @@ class Trainer:
         fmt = logging.Formatter("")
         handler.setFormatter(fmt)
         logger_new.addHandler(handler)
+        self._log_handler: logging.FileHandler | None = handler
 
         # only log to a file if rank > 0 in DDP
         if self.args.rank > 0:
             logger_new.handlers = [h for h in logger_new.handlers if not isinstance(h, logging.StreamHandler)]
+
+    def _close_log_file(self) -> None:
+        """Detach and close this trainer's log file handler."""
+        if self._log_handler is not None:
+            logging.getLogger("trainer").removeHandler(self._log_handler)
+            self._log_handler.close()
+            self._log_handler = None

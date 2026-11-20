@@ -1,5 +1,7 @@
 """Tests for device detection in huawei_solar.device.__init__."""
 
+import asyncio
+import logging
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock
@@ -17,7 +19,13 @@ from huawei_solar.exceptions import DeviceDetectionError, ReadException
 from tmodbus.exceptions import IllegalDataAddressError
 
 from huawei_solar import register_names as rn
-from huawei_solar.device import DEFAULT_SDONGLE_UNIT_ID, detect_device_type, get_device_class_for_model
+from huawei_solar.device import (
+    DEFAULT_SDONGLE_UNIT_ID,
+    create_sub_device_instance,
+    detect_device_type,
+    get_device_class_for_model,
+)
+from huawei_solar.register_definitions import Result
 
 _READ_FAILED_MSG = "Failed to read register"
 
@@ -291,6 +299,48 @@ async def test_detect_device_type_raises_when_no_detection_path_matches() -> Non
         await detect_device_type(client)
 
 
+async def test_detect_device_type_failure_logs_probed_unit_id(caplog: pytest.LogCaptureFixture) -> None:
+    """A failed detection must name the probed unit ID, not the default SDongle unit ID."""
+    client = _client_with_get(
+        unit_id=7,
+        side_effect=ReadException(_READ_FAILED_MSG, modbus_exception_code=IllegalDataAddressError.error_code),
+    )
+
+    with (
+        caplog.at_level(logging.DEBUG, logger="huawei_solar.device"),
+        pytest.raises(DeviceDetectionError, match="for unit ID 7"),
+    ):
+        await detect_device_type(client)
+
+    assert f"unit ID {DEFAULT_SDONGLE_UNIT_ID}" not in caplog.text
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.WARNING] == [
+        "Failed to detect device type for unit ID 7."
+    ]
+
+
+async def test_detect_device_type_sdongle_fast_track_miss_does_not_warn(
+    patched_supports_device: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A device on unit ID 100 that is not an SDongle is detected via MODEL_NAME without a warning."""
+
+    def side_effect(register: str) -> Any:  # noqa: ANN401
+        if register == rn.SDONGLE_DEVICE_SEARCH_STATUS:
+            raise ReadException(_READ_FAILED_MSG, modbus_exception_code=IllegalDataAddressError.error_code)
+        if register == rn.MODEL_NAME:
+            return _value_result("sun2000-model")
+        msg = f"Unexpected register read: {register!r}"
+        raise AssertionError(msg)
+
+    client = _client_with_get(unit_id=DEFAULT_SDONGLE_UNIT_ID, side_effect=side_effect)
+
+    with caplog.at_level(logging.DEBUG, logger="huawei_solar.device"):
+        detected_class, _ = await detect_device_type(client)
+
+    assert detected_class is SUN2000Device
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
 @pytest.mark.parametrize(
     ("model_name", "expected_class"),
     [
@@ -306,3 +356,244 @@ async def test_detect_device_type_raises_when_no_detection_path_matches() -> Non
 def test_real_model_names_map_to_expected_classes(model_name: str, expected_class: type) -> None:
     """Test that real device models encountered in the wild map to the correct device classes."""
     assert get_device_class_for_model(model_name) is expected_class
+
+
+async def test_create_sub_device_instance_same_unit_id_raises() -> None:
+    """create_sub_device_instance raises ValueError when unit_id matches primary_device unit_id."""
+    primary_client = Mock()
+    primary_client.unit_id = 1
+    primary_device = Mock(spec=SUN2000Device)
+    primary_device.client = primary_client
+
+    with pytest.raises(ValueError, match="The unit_id for the sub-device must be different"):
+        await create_sub_device_instance(primary_device, 1)
+
+
+async def test_create_sub_device_instance_holds_lock_during_detection_and_creation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """primary_device.update_lock must be held during detect_device_type and device.create."""
+    primary_client = Mock()
+    primary_client.unit_id = 1
+    sub_client = Mock()
+    sub_client.unit_id = 2
+    primary_client.for_unit_id = Mock(return_value=sub_client)
+
+    primary_device = Mock(spec=SUN2000Device)
+    primary_device.client = primary_client
+    primary_device.update_lock = asyncio.Lock()
+    primary_device.serial_number = "PRIMARY_SN"
+
+    lock_held_during_detect = False
+    lock_held_during_populate = False
+
+    async def mock_detect(client: Any) -> tuple[type, str]:  # noqa: ANN401
+        nonlocal lock_held_during_detect
+        lock_held_during_detect = primary_device.update_lock.locked()
+        return MeterDevice, "PowerMeter"
+
+    monkeypatch.setattr("huawei_solar.device.detect_device_type", mock_detect)
+
+    original_populate = MeterDevice._populate_additional_fields
+
+    async def mock_populate(self: MeterDevice) -> None:
+        nonlocal lock_held_during_populate
+        lock_held_during_populate = primary_device.update_lock.locked()
+        await original_populate(self)
+
+    monkeypatch.setattr(MeterDevice, "_populate_additional_fields", mock_populate)
+
+    sub_device = await create_sub_device_instance(primary_device, 2)
+
+    assert isinstance(sub_device, MeterDevice)
+    assert lock_held_during_detect is True
+    assert lock_held_during_populate is True
+    assert not primary_device.update_lock.locked()
+
+
+async def test_create_sub_device_instance_sun2000_does_not_deadlock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """create_sub_device_instance creating a SUN2000Device sub-device does not deadlock on update_lock."""
+    primary_client = Mock()
+    primary_client.unit_id = 1
+    sub_client = Mock()
+    sub_client.unit_id = 2
+    primary_client.for_unit_id = Mock(return_value=sub_client)
+
+    primary_device = Mock(spec=SUN2000Device)
+    primary_device.client = primary_client
+    primary_device.update_lock = asyncio.Lock()
+    primary_device.serial_number = "PRIMARY_SN"
+
+    async def mock_detect(client: Any) -> tuple[type, str]:  # noqa: ANN401
+        return SUN2000Device, "SUN2000-10KTL"
+
+    monkeypatch.setattr("huawei_solar.device.detect_device_type", mock_detect)
+
+    async def mock_get_multiple(names: list[rn.RegisterName]) -> list[Result[str]]:
+        return [Result("SUB_SN", None), Result("PN", None), Result("V1", None), Result("V2", None)]
+
+    sub_client.get_multiple = mock_get_multiple
+
+    responses: dict[rn.RegisterName, Result[Any] | Exception] = {
+        rn.NB_PV_STRINGS: Result(2, None),
+        rn.NB_OPTIMIZERS: ReadException(_READ_FAILED_MSG),
+        rn.STORAGE_UNIT_1_PRODUCT_MODEL: ReadException(_READ_FAILED_MSG),
+        rn.STORAGE_UNIT_2_PRODUCT_MODEL: ReadException(_READ_FAILED_MSG),
+        rn.FEATURE_MASK_3: ReadException(_READ_FAILED_MSG),
+        rn.FEATURE_MASK_30308: ReadException(_READ_FAILED_MSG),
+        rn.FEATURE_MASK_30320: ReadException(_READ_FAILED_MSG),
+        rn.METER_STATUS: ReadException(_READ_FAILED_MSG),
+        rn.DAYLIGHT_SAVING_TIME: ReadException(_READ_FAILED_MSG),
+        rn.TIME_ZONE: ReadException(_READ_FAILED_MSG),
+    }
+
+    async def mock_get(name: rn.RegisterName) -> Result[Any]:
+        if name in responses:
+            val = responses[name]
+            if isinstance(val, Exception):
+                raise val
+            return val
+        msg = f"Unexpected get: {name}"
+        raise AssertionError(msg)
+
+    sub_client.get = mock_get
+
+    sub_device = await create_sub_device_instance(primary_device, 2)
+
+    assert isinstance(sub_device, SUN2000Device)
+    assert sub_device.serial_number == "SUB_SN"
+    assert sub_device.primary_device is primary_device
+    assert not primary_device.update_lock.locked()
+
+
+async def test_create_sub_device_instance_scharger_does_not_deadlock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """create_sub_device_instance creating an SChargerDevice sub-device does not deadlock on update_lock."""
+    primary_client = Mock()
+    primary_client.unit_id = 0
+    sub_client = Mock()
+    sub_client.unit_id = 2
+    primary_client.for_unit_id = Mock(return_value=sub_client)
+
+    primary_device = Mock(spec=EMMADevice)
+    primary_device.client = primary_client
+    primary_device.update_lock = asyncio.Lock()
+    primary_device.serial_number = "EMMA_SN"
+
+    async def mock_detect(client: Any) -> tuple[type, str]:  # noqa: ANN401
+        return SChargerDevice, "FusionCharge-22KT-S0"
+
+    monkeypatch.setattr("huawei_solar.device.detect_device_type", mock_detect)
+
+    async def mock_get_multiple(names: list[rn.RegisterName]) -> list[Result[str]]:
+        return [Result("SCHARGER_SN", None), Result("V100R024", None)]
+
+    sub_client.get_multiple = mock_get_multiple
+
+    async def mock_get(name: rn.RegisterName) -> Result[Any]:
+        if name == rn.CHARGER_MODEL:
+            return Result("SCharger-22KT-S0", None)
+        msg = f"Unexpected get: {name}"
+        raise AssertionError(msg)
+
+    sub_client.get = mock_get
+
+    sub_device = await asyncio.wait_for(create_sub_device_instance(primary_device, 2), timeout=1.0)
+
+    assert isinstance(sub_device, SChargerDevice)
+    assert sub_device.serial_number == "SCHARGER_SN"
+    assert sub_device.model_name == "SCharger-22KT-S0"
+    assert sub_device.primary_device is primary_device
+    assert not primary_device.update_lock.locked()
+
+
+async def test_create_sub_device_instance_smart_ac_gun_does_not_deadlock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """create_sub_device_instance creating a SmartAcGunDevice sub-device does not deadlock on update_lock."""
+    primary_client = Mock()
+    primary_client.unit_id = 0
+    sub_client = Mock()
+    sub_client.unit_id = 3
+    primary_client.for_unit_id = Mock(return_value=sub_client)
+
+    primary_device = Mock(spec=EMMADevice)
+    primary_device.client = primary_client
+    primary_device.update_lock = asyncio.Lock()
+    primary_device.serial_number = "EMMA_SN"
+
+    async def mock_detect(client: Any) -> tuple[type, str]:  # noqa: ANN401
+        return SmartAcGunDevice, "SmartAcGun"
+
+    monkeypatch.setattr("huawei_solar.device.detect_device_type", mock_detect)
+
+    async def mock_get(name: rn.RegisterName) -> Result[Any]:
+        if name == rn.CHARGER_SOFTWARE_VERSION:
+            return Result("V100R024", None)
+        msg = f"Unexpected get: {name}"
+        raise AssertionError(msg)
+
+    sub_client.get = mock_get
+
+    sub_device = await asyncio.wait_for(create_sub_device_instance(primary_device, 3), timeout=1.0)
+
+    assert isinstance(sub_device, SmartAcGunDevice)
+    assert sub_device.serial_number == "EMMA_SN_gun_3"
+    assert sub_device.software_version == "V100R024"
+    assert sub_device.primary_device is primary_device
+    assert not primary_device.update_lock.locked()
+
+
+async def test_create_sub_device_instance_emma_does_not_deadlock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """create_sub_device_instance creating an EMMADevice sub-device does not deadlock on update_lock."""
+    primary_client = Mock()
+    primary_client.unit_id = 1
+    sub_client = Mock()
+    sub_client.unit_id = 0
+    primary_client.for_unit_id = Mock(return_value=sub_client)
+
+    primary_device = Mock(spec=SUN2000Device)
+    primary_device.client = primary_client
+    primary_device.update_lock = asyncio.Lock()
+    primary_device.serial_number = "PRIMARY_SN"
+
+    async def mock_detect(client: Any) -> tuple[type, str]:  # noqa: ANN401
+        return EMMADevice, "EMMA-A02"
+
+    monkeypatch.setattr("huawei_solar.device.detect_device_type", mock_detect)
+
+    async def mock_get_multiple(names: list[rn.RegisterName]) -> list[Result[str]]:
+        return [Result("EMMA_SN", None), Result("V100R024", None)]
+
+    sub_client.get_multiple = mock_get_multiple
+
+    responses: dict[rn.RegisterName, Result[Any] | Exception] = {
+        rn.EMMA_MODEL: Result("EMMA-A02", None),
+        rn.EMMA_LOCAL_TIME: ReadException(_READ_FAILED_MSG),
+        rn.EMMA_BATTERY_PRODUCT_MODEL: ReadException(_READ_FAILED_MSG),
+        rn.EMMA_FEATURE_MASK_30164: ReadException(_READ_FAILED_MSG),
+    }
+
+    async def mock_get(name: rn.RegisterName) -> Result[Any]:
+        if name in responses:
+            val = responses[name]
+            if isinstance(val, Exception):
+                raise val
+            return val
+        msg = f"Unexpected get: {name}"
+        raise AssertionError(msg)
+
+    sub_client.get = mock_get
+
+    sub_device = await asyncio.wait_for(create_sub_device_instance(primary_device, 0), timeout=1.0)
+
+    assert isinstance(sub_device, EMMADevice)
+    assert sub_device.serial_number == "EMMA_SN"
+    assert sub_device.model_name == "EMMA-A02"
+    assert sub_device.primary_device is primary_device
+    assert not primary_device.update_lock.locked()

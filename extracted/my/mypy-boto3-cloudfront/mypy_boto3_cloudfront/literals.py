@@ -71,6 +71,7 @@ __all__ = (
     "ManagedCertificateStatusType",
     "MethodType",
     "MinimumProtocolVersionType",
+    "OnDomainTakeoverType",
     "OriginAccessControlOriginTypesType",
     "OriginAccessControlSigningBehaviorsType",
     "OriginAccessControlSigningProtocolsType",
@@ -88,6 +89,7 @@ __all__ = (
     "ResponseHeadersPolicyAccessControlAllowMethodsValuesType",
     "ResponseHeadersPolicyTypeType",
     "SSLSupportMethodType",
+    "ServeOnType",
     "ServiceName",
     "SslProtocolType",
     "StreamingDistributionDeployedWaiterName",
@@ -190,6 +192,7 @@ MinimumProtocolVersionType = Literal[
     "TLSv1.3_2025",
     "TLSv1_2016",
 ]
+OnDomainTakeoverType = Literal["allow", "reject"]
 OriginAccessControlOriginTypesType = Literal["lambda", "mediapackagev2", "mediastore", "s3"]
 OriginAccessControlSigningBehaviorsType = Literal[
     "always", "always-amz-auth", "never", "no-override"
@@ -220,6 +223,7 @@ ResponseHeadersPolicyAccessControlAllowMethodsValuesType = Literal[
 ]
 ResponseHeadersPolicyTypeType = Literal["custom", "managed"]
 SSLSupportMethodType = Literal["sni-only", "static-ip", "vip"]
+ServeOnType = Literal["any", "anycast-ip-list-only"]
 SslProtocolType = Literal["SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2"]
 StreamingDistributionDeployedWaiterName = Literal["streaming_distribution_deployed"]
 TrustStoreStatusType = Literal["active", "failed", "pending"]
@@ -229,6 +233,7 @@ ViewerProtocolPolicyType = Literal["allow-all", "https-only", "redirect-to-https
 VpcIpAddressTypeType = Literal["dualstack", "ipv4"]
 CloudFrontServiceName = Literal["cloudfront"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -337,6 +342,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -521,6 +527,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -528,6 +535,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -588,6 +596,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

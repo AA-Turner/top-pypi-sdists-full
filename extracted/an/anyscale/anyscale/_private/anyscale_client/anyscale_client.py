@@ -19,6 +19,7 @@ from openapi_client.models.sort_by_clause_job_run_sort_field import (
     SortByClauseJobRunSortField,
 )
 from openapi_client.models.sort_order import SortOrder
+from packaging.version import Version
 import requests
 from rich.style import Style
 import smart_open
@@ -383,8 +384,13 @@ class AnyscaleClient(AnyscaleClientInterface):
                 raise RuntimeError(
                     "Could not import the Amazon S3 Python API via `import boto3`.  Please check your installation or try running `pip install boto3`."
                 )
+            endpoint_url = None
+            # botocore before 1.31 ignores AWS_ENDPOINT_URL_S3 and sends the request to AWS.
+            if Version(botocore.__version__) < Version("1.31.0"):
+                endpoint_url = os.environ.get("AWS_ENDPOINT_URL_S3") or None
             self._s3_client = boto3.client(  # type: ignore
                 "s3",
+                endpoint_url=endpoint_url,
                 config=botocore.config.Config(
                     signature_version="s3v4",
                     user_agent_extra=AWS_PRM_USER_AGENT_STRING,

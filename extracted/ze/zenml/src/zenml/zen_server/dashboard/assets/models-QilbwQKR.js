@@ -1,0 +1,1 @@
+import{r as e}from"./utils-CinycaQR.js";import{n as t}from"./ProUpsell-BHscztR9.js";import{a as n}from"./index-DACdppmF.js";var r=e();function i(){return(0,r.jsx)(t,{name:n.useSearch().model})}export{i as component};

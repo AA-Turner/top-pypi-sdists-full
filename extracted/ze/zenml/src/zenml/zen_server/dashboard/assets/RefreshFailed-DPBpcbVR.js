@@ -1,0 +1,1 @@
+import{r as e}from"./utils-CinycaQR.js";var t=e();function n({what:e,onRetry:n}){return(0,t.jsxs)(`p`,{role:`alert`,className:`px-5 py-2 text-body text-destructive`,children:[`Couldn't refresh `,e,`.`,` `,(0,t.jsx)(`button`,{type:`button`,className:`underline`,onClick:n,children:`Retry`})]})}export{n as t};

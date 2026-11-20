@@ -187,6 +187,16 @@ class AdversarialAction(BaseAction):
         self._elapsed = elapsed
         super().tick(world, elapsed)
 
+    def _watch_trigger(self, world: "carla.World", elapsed: float) -> None:
+        """Not its own feasibility check (no ``condition`` given), while a
+        run is under way: it keeps no state between ticks but its draws from
+        the seed, so watching it would only build a scene each tick and spend
+        draws the next run's trigger would otherwise have made (#2219).  A
+        trigger the scenario gave is watched (:meth:`BaseAction._watch_trigger`)."""
+        if self._gated:
+            return
+        super()._watch_trigger(world, elapsed)
+
     def _control_claims(self) -> list[tuple[str, ControlDomain]]:
         """The entity's movement: the adversity drives it along its path."""
         return movement_of(str(self._entity_name))
@@ -194,6 +204,12 @@ class AdversarialAction(BaseAction):
     def execute(self, world: "carla.World") -> None:
         """Plan the command when triggered, then drive it a tick at a time."""
         if self.state is ActionState.STANDBY:
+            # A repeating action's earlier run: closed, not only dropped, so
+            # its follow's conditions are too, as AdversarialTrafficAction
+            # does (#1298, #2200).
+            if self._execution is not None:
+                previous: AdversarialExecution = self._execution
+                previous.close()
             self._execution = self._plan(world)
         if self._execution is None:
             return
@@ -211,6 +227,11 @@ class AdversarialAction(BaseAction):
         reset the feasibility check, which draws from its seed afresh."""
         super().reset()
         self._feasible.reset()
+        # Closed, not only dropped, as on a repeat and as
+        # AdversarialTrafficAction.reset() does (#1298, #2200).
+        if self._execution is not None:
+            execution: AdversarialExecution = self._execution
+            execution.close()
         self._execution = None
         self._elapsed = 0.0
 

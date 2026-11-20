@@ -233,7 +233,13 @@ class DuckDBPyConnection:
     def from_arrow(self, arrow_object: object) -> DuckDBPyRelation: ...
     def from_csv_auto(
         self,
-        path_or_buffer: str | bytes | os.PathLike[str] | os.PathLike[bytes] | typing.IO[bytes] | typing.IO[str],
+        path_or_buffer: str
+        | bytes
+        | os.PathLike[str]
+        | os.PathLike[bytes]
+        | typing.IO[bytes]
+        | typing.IO[str]
+        | Sequence[str | bytes | os.PathLike[str] | os.PathLike[bytes] | typing.IO[bytes] | typing.IO[str]],
         header: bool | int | None = None,
         compression: CsvCompression | None = None,
         sep: str | None = None,
@@ -320,7 +326,13 @@ class DuckDBPyConnection:
     def query_progress(self) -> float: ...
     def read_csv(
         self,
-        path_or_buffer: str | bytes | os.PathLike[str] | os.PathLike[bytes] | typing.IO[bytes] | typing.IO[str],
+        path_or_buffer: str
+        | bytes
+        | os.PathLike[str]
+        | os.PathLike[bytes]
+        | typing.IO[bytes]
+        | typing.IO[str]
+        | Sequence[str | bytes | os.PathLike[str] | os.PathLike[bytes] | typing.IO[bytes] | typing.IO[str]],
         header: bool | int | None = None,
         compression: CsvCompression | None = None,
         sep: str | None = None,
@@ -365,7 +377,13 @@ class DuckDBPyConnection:
     ) -> DuckDBPyRelation: ...
     def read_json(
         self,
-        path_or_buffer: str | bytes | os.PathLike[str] | os.PathLike[bytes] | typing.IO[bytes] | typing.IO[str],
+        path_or_buffer: str
+        | bytes
+        | os.PathLike[str]
+        | os.PathLike[bytes]
+        | typing.IO[bytes]
+        | typing.IO[str]
+        | Sequence[str | bytes | os.PathLike[str] | os.PathLike[bytes] | typing.IO[bytes] | typing.IO[str]],
         *,
         columns: ColumnsTypes | None = None,
         sample_size: int | None = None,
@@ -406,6 +424,9 @@ class DuckDBPyConnection:
     ) -> DuckDBPyRelation: ...
     def register(self, view_name: str, python_object: object) -> DuckDBPyConnection: ...
     def _register_arrow_source(self, view_name: str, source: object) -> DuckDBPyConnection: ...
+    def _register_declared(
+        self, view_name: str, df: object, types: list[sqltypes.DuckDBPyType | None]
+    ) -> DuckDBPyConnection: ...
     @typing.overload
     def _bind(
         self,
@@ -484,7 +505,13 @@ class DuckDBPyConnection:
     def _own_sources(self, name: str, handles: lst[SourceHandle]) -> None: ...
     def _catalog_version(self) -> int: ...
     def _create_view(
-        self, name: str | tuple[str, ...] | lst[str], sql: str, *, temporary: bool = False, replace: bool = False
+        self,
+        name: str | tuple[str, ...] | lst[str],
+        sql: str,
+        *,
+        temporary: bool = False,
+        replace: bool = False,
+        sources: lst[SourceHandle] = ...,
     ) -> None: ...
     def _table_kind(self, name: str | tuple[str, ...] | lst[str]) -> str: ...
     def _name_scope(self, name: str) -> str: ...
@@ -738,6 +765,7 @@ def string_type(collation: str = "", *, connection: DuckDBPyConnection | None = 
 def struct_type(fields: IntoFields, *, connection: DuckDBPyConnection | None = None) -> sqltypes.DuckDBPyType: ...
 def tf(*, connection: DuckDBPyConnection | None = None) -> dict[str, typing.Any]: ...
 def _set_arrow_sources(sources: object) -> None: ...
+def _set_leak_report(enabled: bool) -> None: ...
 def _literal_type(value: object) -> str: ...
 def _value_literal(value: object) -> str: ...
 def _collation(type: sqltypes.DuckDBPyType) -> str | None: ...
@@ -767,6 +795,7 @@ __interactive__: bool
 __jupyter__: bool
 __standard_vector_size__: int
 __version__: str
+_assertions: bool
 _clean_default_connection: typing.Any  # value = <capsule object>
 apilevel: str
 paramstyle: str

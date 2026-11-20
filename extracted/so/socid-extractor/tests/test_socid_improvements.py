@@ -168,6 +168,76 @@ def test_gravatar_postprocessor_requires_md5_hash():
     assert bad == {}
 
 
+def test_gravatar_postprocessor_keeps_sha256_whole():
+    """
+    Verifies **Gravatar** postprocessor reads a 64-char sha256 `/avatar/{hash}` whole, instead of
+    taking its first 32 characters and reporting them as an MD5.
+
+    **Check:** a sha256 avatar yields `gravatar_email_sha256_hash` and a profile URL built on the
+    full hash; the truncated form 404s on gravatar.com, so half a hash is worse than none.
+    """
+    sha = 'ab12' * 16
+    assert is_valid_gravatar_email_hash(sha) is True
+
+    out = Gravatar({'username': 'me', 'image': 'https://secure.gravatar.com/avatar/' + sha + '?s=150'}).process()
+    assert out.get('gravatar_email_sha256_hash') == sha
+    assert 'gravatar_email_md5_hash' not in out
+    assert out.get('gravatar_url') == 'https://gravatar.com/' + sha
+
+
+def test_gravatar_postprocessor_is_offline(monkeypatch):
+    """
+    Verifies **Gravatar** postprocessor emits its fields with the network unavailable: the username
+    that is only the avatar hash is dropped, and resolving it is left to the scheme's url_mutations.
+
+    **Check:** `process()` under a patched `socket` raises nothing and returns the documented fields.
+    """
+    import socket
+
+    def no_network(*args, **kwargs):
+        raise AssertionError('the Gravatar postprocessor went to the network')
+
+    monkeypatch.setattr(socket.socket, 'connect', no_network)
+    monkeypatch.setattr(socket, 'create_connection', no_network)
+
+    hash32 = 'a' * 32
+    # the hash-as-username case is the one that used to call requests.head()
+    info = Gravatar({'username': hash32, 'image': 'https://secure.gravatar.com/avatar/' + hash32}).process()
+
+    assert info == {
+        'gravatar_url': 'https://gravatar.com/' + hash32,
+        'gravatar_email_md5_hash': hash32,
+    }
+
+
+def test_gravatar_avatar_url_mutates_to_the_json_endpoint():
+    """
+    Verifies the **Gravatar** scheme's url_mutations: an `/avatar/{hash}` URL -- the form the
+    `image` field carries -- becomes `https://en.gravatar.com/{hash}.json`, the endpoint that
+    returns the username, bio and links; the vanity-name form keeps mutating as before.
+
+    **Check:** `mutate_url` output for an avatar URL, a bare profile URL, and the absence of the
+    bogus `en.gravatar.com/avatar.json` a single greedy rule would have produced.
+    """
+    from socid_extractor.main import mutate_url
+
+    def mutated(url):
+        return [u for u, _hdrs in mutate_url(url)]
+
+    hash32 = '5b9c04999233026354268c2ee4237e04'
+    assert mutated('https://secure.gravatar.com/avatar/' + hash32) == [
+        'https://en.gravatar.com/' + hash32 + '.json']
+    assert mutated('https://0.gravatar.com/avatar/' + hash32 + '?s=100') == [
+        'https://en.gravatar.com/' + hash32 + '.json']
+    assert mutated('https://gravatar.com/inspectorg4dget') == [
+        'https://en.gravatar.com/inspectorg4dget.json']
+
+    # Gravatar serves sha256 digests too, and the json endpoint answers to both
+    hash64 = '973dfe463ec85785f5f95af5ba3906eedb2d931c24e69824a89ea65dba4e813b'
+    assert mutated('https://gravatar.com/avatar/' + hash64) == [
+        'https://en.gravatar.com/' + hash64 + '.json']
+
+
 def test_twitchtracker_embedded_channel_script():
     """TwitchTracker: `window.channel` JS literal with id, login, created_at."""
     html = """<!DOCTYPE html><html><head>
@@ -199,6 +269,231 @@ def test_chess_com_pub_api_json():
     assert info.get('is_verified') == 'False'
     assert info.get('created_at')
     assert info.get('latest_activity_at')
+
+
+def test_codewars_api_json():
+    """Codewars API: public `/api/v1/users/{user}` JSON (real live response for `soxoj`).
+
+    **Check:** `uid` (hex id), `username`, `honor`, `leaderboard_position`, `rank`,
+    `rank_score`, `languages` (sorted keys of `ranks.languages`), and
+    `challenges_completed` are extracted. The real API returns no avatar or join date,
+    so the scheme must not invent those fields.
+    """
+    body = (
+        '{"id":"59c27ad8aeb28451ce0000d2","username":"soxoj","name":"","honor":149,'
+        '"clan":"","leaderboardPosition":631632,"skills":[],'
+        '"ranks":{"overall":{"rank":-6,"name":"6 kyu","color":"yellow","score":135},'
+        '"languages":{"python":{"rank":-6,"name":"6 kyu","color":"yellow","score":135}}},'
+        '"codeChallenges":{"totalAuthored":0,"totalCompleted":12}}'
+    )
+    info = extract(body)
+    assert info.get('uid') == '59c27ad8aeb28451ce0000d2'
+    assert info.get('username') == 'soxoj'
+    assert info.get('fullname') is None  # empty `name` must not become an empty fullname
+    assert info.get('honor') == '149'
+    assert info.get('leaderboard_position') == '631632'
+    assert info.get('rank') == '6 kyu'
+    assert info.get('rank_score') == '135'
+    assert info.get('languages') == "['python']"
+    assert info.get('challenges_completed') == '12'
+    assert 'image' not in info  # API has no avatar; scheme must not fabricate one
+
+
+def test_minds_channel_api_json():
+    """Minds API: public `/api/v1/channel/{user}` JSON (real live response for `mark`).
+
+    **Check:** the `{"channel": {...}}` envelope is unwrapped; `uid` (guid), `username`,
+    `fullname`, `location` (city), `gender`, `website`, `created_at` (unix→date), a derived
+    `image` URL, and `social_links` (values from `social_profiles`) are extracted. Empty
+    strings and `website:false` must resolve to absent fields, not blanks.
+    """
+    body = (
+        '{"status":"success","channel":{"guid":"100000000000000063","type":"user",'
+        '"time_created":"1348141290","name":"Mark Harding","username":"mark","language":"en",'
+        '"icontime":"1771583437","banned":"no","website":"minds.com/mark","briefdescription":"",'
+        '"gender":"male","city":"Preston, England, United Kingdom","boostProPlus":false,'
+        '"verified":true,"social_profiles":['
+        '{"key":"instagram","value":"instagram.com/mark.e.harding"},'
+        '{"key":"github","value":"github.com/markharding"}]}}'
+    )
+    info = extract(body)
+    assert info.get('uid') == '100000000000000063'
+    assert info.get('username') == 'mark'
+    assert info.get('fullname') == 'Mark Harding'
+    assert info.get('location') == 'Preston, England, United Kingdom'
+    assert info.get('gender') == 'male'
+    assert info.get('website') == 'minds.com/mark'
+    assert info.get('is_verified') == 'True'
+    assert info.get('created_at')  # unix 1348141290 → formatted date
+    assert info.get('image') == 'https://www.minds.com/icon/100000000000000063/large/1771583437'
+    assert info.get('social_links') == "['instagram.com/mark.e.harding', 'github.com/markharding']"
+    assert 'bio' not in info  # empty briefdescription must not become a blank bio
+
+
+def test_hackernoon_profiles_api_json():
+    """HackerNoon API: Firebase `profilesApi/?handle={h}` JSON (real live shape for `natasha`).
+
+    **Check:** the `{"profile": {...}}` envelope is unwrapped; `uid`, `username` (handle),
+    `fullname`, `bio`, `email`, `image`, and `social_accounts` (platform:value pairs) are
+    extracted. The case-mismatch `{"redirect": {...}}` response must NOT match this scheme.
+    """
+    body = (
+        '{"profile":{"id":"HrzvBX6xNSVZBKImURJl23sRwcQ2",'
+        '"avatar":"https://cdn.hackernoon.com/images/avatars/HrzvBX6xNSVZBKImURJl23sRwcQ2.jpg",'
+        '"displayName":"Natasha Nel","handle":"natasha","email":"natasha@hackernoon.com",'
+        '"bio":"VP of Growth Marketing","allowSubscribers":true,'
+        '"socialMedia":{"github":"hackernoon","twitter":"natashanoon",'
+        '"instagram":"https://www.instagram.com/hackernoon/?hl=en"}},'
+        '"profileStories":[],"annotations":[]}'
+    )
+    info = extract(body)
+    assert info.get('uid') == 'HrzvBX6xNSVZBKImURJl23sRwcQ2'
+    assert info.get('username') == 'natasha'
+    assert info.get('fullname') == 'Natasha Nel'
+    assert info.get('bio') == 'VP of Growth Marketing'
+    assert info.get('email') == 'natasha@hackernoon.com'
+    assert info.get('image') == 'https://cdn.hackernoon.com/images/avatars/HrzvBX6xNSVZBKImURJl23sRwcQ2.jpg'
+    assert info.get('social_accounts') == (
+        "['github:hackernoon', 'twitter:natashanoon', "
+        "'instagram:https://www.instagram.com/hackernoon/?hl=en']"
+    )
+    # Case-mismatch redirect response must not be parsed as a profile.
+    redirect = extract('{"redirect":{"destination":"https://hackernoon.com/u/David","permanent":true}}')
+    assert redirect.get('_extractor') != 'HackerNoon API'
+
+
+def test_polar_org_api_json():
+    """Polar API: `/v1/customer-portal/organizations/{slug}` JSON (real live shape, `polarsource`)."""
+    body = (
+        '{"organization":{"created_at":"2023-04-20T10:01:30.383594Z",'
+        '"id":"058c300d-c2b1-4d2c-9aa7-e3644e93140c","name":"Polarsource","slug":"polarsource",'
+        '"avatar_url":"https://avatars.githubusercontent.com/u/105373340?v=4",'
+        '"bio":"Building a creator platform for developers","company":null,"blog":"https://polar.sh",'
+        '"location":"Sweden","twitter_username":"polar_sh","email":"support@polar.sh",'
+        '"website":"https://polar.sh","socials":[]}}'
+    )
+    info = extract(body)
+    assert info.get('uid') == '058c300d-c2b1-4d2c-9aa7-e3644e93140c'
+    assert info.get('username') == 'polarsource'
+    assert info.get('location') == 'Sweden'
+    assert info.get('twitter_username') == 'polar_sh'
+    assert info.get('email') == 'support@polar.sh'
+    assert info.get('github_uid') == '105373340'  # derived from avatar_url → GitHub API crosslink
+    assert 'company' not in info  # null company must not appear
+
+
+def test_thanks_dev_api_json():
+    """thanks.dev API: `/v1/profile/gh/{user}` JSON. Shadow profiles (name==`gh/{h}`) drop fullname."""
+    real = extract(
+        '{"git":{"ghgl":"gh","name":"frontendmasters"},"name":"Frontend Masters",'
+        '"bio":"The training platform","resume":null,"url":"https://FrontendMasters.com",'
+        '"li":null,"tw":"frontendmasters","dc":null,"bs":null,"isUser":false,"isTdUser":true}'
+    )
+    assert real.get('github_username') == 'frontendmasters'
+    assert real.get('fullname') == 'Frontend Masters'
+    assert real.get('twitter_username') == 'frontendmasters'
+    assert real.get('website') == 'https://FrontendMasters.com'
+    assert real.get('is_thanks_dev_user') == 'True'
+    # shadow profile: name is the literal `gh/torvalds` → must not surface as fullname
+    shadow = extract(
+        '{"git":{"ghgl":"gh","name":"torvalds"},"name":"gh/torvalds","bio":null,"resume":null,'
+        '"url":null,"li":null,"tw":null,"dc":null,"bs":null,"isUser":true,"isTdUser":false}'
+    )
+    assert shadow.get('github_username') == 'torvalds'
+    assert 'fullname' not in shadow
+
+
+def test_matrix_profile_api_json():
+    """Matrix federated profile API: displayname + mxc→https avatar transform."""
+    info = extract('{"displayname":"Soxoj","avatar_url":"mxc://matrix.org/EpRcnMLuQJfRavlJsqImrAei"}')
+    assert info.get('fullname') == 'Soxoj'
+    assert info.get('image') == (
+        'https://matrix-client.matrix.org/_matrix/client/v1/media/thumbnail/'
+        'matrix.org/EpRcnMLuQJfRavlJsqImrAei?width=512&height=512&method=scale'
+    )
+
+
+def test_substack_public_profile_extended_fields():
+    """Substack public profile API: created_at, twitter, and publication crosslinks (real `soxoj`)."""
+    body = (
+        '{"id":131049184,"handle":"soxoj","name":"Soxoj","bio":"x",'
+        '"photo_url":"https://example/a.jpg","profile_set_up_at":"2023-02-24T08:50:43.727Z",'
+        '"subscriberCount":"1.4K+","subscriberCountNumber":1400,'
+        '"rough_num_free_subscribers":"Thousands","bestseller_tier":null,'
+        '"twitterAccount":{"screen_name":"Sox0j","twitter_id":"1031199669488177153"},'
+        '"publicationUsers":[{"publication":{"subdomain":"soxoj","name":"Soxoj on Substack",'
+        '"hero_text":"OSINT mindset, methods, and tools"}}]}'
+    )
+    info = extract(body)
+    assert info.get('username') == 'soxoj'
+    assert info.get('follower_count') == '1400'
+    assert info.get('substack_follower_range') == 'Thousands'
+    assert info.get('created_at') == '2023-02-24T08:50:43.727Z'
+    assert info.get('twitter_username') == 'Sox0j'
+    assert info.get('twitter_id') == '1031199669488177153'
+    assert info.get('publication_subdomain') == 'soxoj'
+    assert info.get('publication_name') == 'Soxoj on Substack'
+    assert info.get('publication_bio') == 'OSINT mindset, methods, and tools'
+
+
+def test_substack_hidden_subscriber_count():
+    """Substack public profile API: a profile that hides its count still reports a bucket."""
+    # Substack answers "See subscribers" and a zero rather than omitting the fields,
+    # so a profile with a hidden count must not come back claiming zero readers
+    body = (
+        '{"id":12009663,"handle":"astralcodexten","name":"Scott Alexander",'
+        '"subscriberCount":null,"subscriberCountString":"See subscribers",'
+        '"subscriberCountNumber":0,"rough_num_free_subscribers":"Tens of thousands",'
+        '"bestseller_tier":1000,"profile_set_up_at":"2020-01-21T00:00:00.000Z"}'
+    )
+    info = extract(body)
+    assert info.get('username') == 'astralcodexten'
+    assert 'follower_count' not in info
+    assert info.get('substack_follower_range') == 'Tens of thousands'
+    assert info.get('bestseller_tier') == '1000'
+
+
+def test_youtube_ytinitialdata_about_and_socials():
+    """YouTube ytInitialData (moved from plugin): channel metadata + redirect-derived social
+    usernames + aboutChannelViewModel fields (country/joined/subscriber/views/videos).
+
+    **Check:** the scheme that wins is the merged main-repo `YouTube ytInitialData` (not a
+    shadowed duplicate), an instagram redirect URL resolves to a handle, and the about-panel
+    string fields land on `location`, `created_at`, `follower_count`, `views_count`, `videos_count`.
+    """
+    yt = {
+        'metadata': {'channelMetadataRenderer': {
+            'externalId': 'UCX6OQ3DkcsbYNE6H8uQQuVA',
+            'title': 'MrBeast',
+            'description': 'SUBSCRIBE FOR A COOKIE!',
+            'vanityChannelUrl': 'http://www.youtube.com/@MrBeast',
+            'avatar': {'thumbnails': [{'url': 'https://yt3.ggpht.com/av.jpg'}]},
+            'isFamilySafe': True,
+            'facebookProfileId': 'MrBeast6000',  # non-numeric → facebook_username, not facebook_id
+        }},
+        'onResponseReceivedEndpoints': [{'panel': {'aboutChannelViewModel': {
+            'country': 'United States',
+            'joinedDateText': {'content': 'Joined Feb 19, 2012'},
+            'subscriberCountText': '508M subscribers',
+            'viewCountText': '133,717,699,032 views',
+            'videoCountText': '993 videos',
+        }}}],
+        'redirectLink': 'https://www.youtube.com/redirect?q=https%3A%2F%2Fwww.instagram.com%2Fmrbeast%2F',
+    }
+    html = 'var ytInitialData = ' + json.dumps(yt) + ';</script>'
+    info = extract(html)
+    assert info.get('_extractor') == 'YouTube ytInitialData'
+    assert info.get('youtube_channel_id') == 'UCX6OQ3DkcsbYNE6H8uQQuVA'
+    assert info.get('fullname') == 'MrBeast'
+    assert info.get('location') == 'United States'
+    # "Joined Feb 19, 2012" → strip prefix → a date postprocessor normalises it to ISO.
+    assert info.get('created_at') == '2012-02-19 00:00:00 UTC'
+    assert info.get('follower_count') == '508M subscribers'
+    assert info.get('views_count') == '133,717,699,032 views'
+    assert info.get('videos_count') == '993 videos'
+    assert info.get('instagram_username') == 'mrbeast'  # decoded from youtube.com/redirect?q=
+    assert info.get('facebook_username') == 'MrBeast6000'
+    assert 'facebook_id' not in info  # non-numeric profile id must not become facebook_id
 
 
 def test_roblox_user_api_json():
@@ -625,8 +920,8 @@ def test_scratch_api_json():
     assert info.get('is_scratchteam') == 'False'
 
 
-def test_wikipedia_user_api_json():
-    """Wikipedia user API: extract user info from MediaWiki user query with editcount."""
+def test_mediawiki_api_json():
+    """MediaWiki API: extract user info from a users query with editcount."""
     body = json.dumps({
         "batchcomplete": "",
         "query": {
@@ -893,22 +1188,6 @@ def test_picsart_no_facebook_uid_when_no_graph_url():
     assert not info.get('facebook_uid')
 
 
-def test_habr_profile_extraction():
-    """Habr: extract fullname, username, and profile URL from og meta tags."""
-    html = (
-        '<!DOCTYPE html><html><head>'
-        '<meta property="og:site_name" content="Хабр">'
-        '<meta property="og:title" content="Иван Петров aka ipetrov  '
-        '\n- "'
-        '<meta property="og:url" content="https://habr.com/ru/users/ipetrov/">'
-        '</head><body>habr.com/ru/users/ipetrov</body></html>'
-    )
-    info = extract(html)
-    assert info.get('fullname') == 'Иван Петров'
-    assert info.get('username') == 'ipetrov'
-    assert 'habr.com/ru/users/ipetrov' in info.get('website', '')
-
-
 def test_taplink_profile_extraction():
     """Taplink: extract image, fullname, and username from og meta tags."""
     html = (
@@ -941,21 +1220,18 @@ def test_producthunt_profile_extraction():
 
 
 def test_threads_profile_extraction():
-    """Threads: extract fullname, username, follower/post counts, bio from OG tags."""
-    html = (
-        '<!DOCTYPE html><html><head>'
-        '<meta property="og:title" content="Mark Zuckerberg (&#064;zuck) &#x2022; Threads, Say more">'
-        '<meta property="og:description" content="12,500 Followers &#x2022; 340 Threads &#x2022; &quot;CEO of Meta&quot;. See the latest.">'
-        '</head><body>'
-        '<div class="barcelona">content</div>'
-        '</body></html>'
-    )
+    """Threads: meta tags for flags matching, info from json extracted from script tag"""
+    """Reference page: https://www.threads.com/@zuck"""
+    html = r'<meta property="al:android:package" content="com.instagram.barcelona"><meta property="og:title" content="Mark Zuckerberg (@zuck) • Threads, Say more">{"require":[["ScheduledServerJS","handle",null,[{"__bbox":{"require":[["RelayPrefetchedStreamCache","next",[],["adp_BarcelonaProfilePageDirectQueryRelayPreloader_6a6a63d9180cb2047895700",{"__bbox":{"complete":true,"result":{"data":{"user":{"profile_pic_url":"https:\/\/scontent-fco2-1.cdninstagram.com\/v\/t51.82787-19\/550174606_17925811725103224_8363667901743352243_n.jpg?stp=dst-jpg_s150x150_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-fco2-1.cdninstagram.com&_nc_cat=1&_nc_oc=Q6cZ2gEMkOHv7XIrcuKP2rmVA8iNXre2bDiMGH0Eci0gVMu8JtdfnQUNlPW3MeJsWSKawY8&_nc_ohc=vLH8jAZMCqoQ7kNvwHd8fK9&_nc_gid=PjgEQH13NsOtLYe04DBt4w&edm=APs17CUBAAAA&ccb=7-5&oh=00_AQC1i1A8NvOTFZ8seAvZw-OcQK4K9w8N1EqSO12dxh55Bg&oe=6A7024FE&_nc_sid=10d13b","friendship_status":null,"has_onboarded_to_text_post_app":true,"pk":"63055343223","text_post_app_is_private":false,"username":"zuck","text_post_app_remove_mention_entrypoint":null,"text_app_custom_feeds":null,"gating":null,"follower_count":5682725,"profile_context_facepile_users":null,"text_post_app_public_views":null,"hd_profile_pic_versions":[{"height":320,"url":"https:\/\/scontent-fco2-1.cdninstagram.com\/v\/t51.82787-19\/550174606_17925811725103224_8363667901743352243_n.jpg?stp=dst-jpg_s320x320_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-fco2-1.cdninstagram.com&_nc_cat=1&_nc_oc=Q6cZ2gEMkOHv7XIrcuKP2rmVA8iNXre2bDiMGH0Eci0gVMu8JtdfnQUNlPW3MeJsWSKawY8&_nc_ohc=vLH8jAZMCqoQ7kNvwHd8fK9&_nc_gid=PjgEQH13NsOtLYe04DBt4w&edm=APs17CUBAAAA&ccb=7-5&oh=00_AQAINYp3OxkUL11VXhgfJZ6aK7JN-NrY9HM02Wy6kbmuXw&oe=6A7024FE&_nc_sid=10d13b","width":320},{"height":640,"url":"https:\/\/scontent-fco2-1.cdninstagram.com\/v\/t51.82787-19\/550174606_17925811725103224_8363667901743352243_n.jpg?stp=dst-jpg_s640x640_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-fco2-1.cdninstagram.com&_nc_cat=1&_nc_oc=Q6cZ2gEMkOHv7XIrcuKP2rmVA8iNXre2bDiMGH0Eci0gVMu8JtdfnQUNlPW3MeJsWSKawY8&_nc_ohc=vLH8jAZMCqoQ7kNvwHd8fK9&_nc_gid=PjgEQH13NsOtLYe04DBt4w&edm=APs17CUBAAAA&ccb=7-5&oh=00_AQBNhNuXAjZJ55KPO-_ZpvN2UXEnXQ8Ix3kChz5OMpxwUQ&oe=6A7024FE&_nc_sid=10d13b","width":640}],"is_verified":true,"biography":"Mostly superintelligence and MMA takes","text_app_biography":{"text_fragments":{"fragments":[{"fragment_type":"plaintext","link_fragment":null,"mention_fragment":null,"plaintext":"Mostly superintelligence and MMA takes","inline_sticker_fragment":null,"linkified_web_url":null,"linkified_in_app_url":null,"styling_info":null}]}},"full_name":"Mark Zuckerberg","bio_links":[],"profile_tags":{"edges":[{"node":{"display_name":"AI Threads","name":"aithreads","id":"18399895213044171","is_community":false,"tag_cluster_name":"aithreads"}},{"node":{"display_name":"UFC Threads","name":"ufcthreads","id":"18398478472015746","is_community":false,"tag_cluster_name":"UFCThreads"}},{"node":{"display_name":"AI","name":"ai","id":"18392111818029156","is_community":false,"tag_cluster_name":"AI"}},{"node":{"display_name":"MMA","name":"mma","id":"18400625521011745","is_community":false,"tag_cluster_name":"mma"}},{"node":{"display_name":"memes","name":"memes","id":"18402364270062744","is_community":false,"tag_cluster_name":"memes"}}]},"transparency_label":null,"show_text_post_app_badge":true,"platform_podcast_info":null,"platform_podcast_episode_info":null,"id":"63055343223"}},"extensions":{"is_final":true}},"sequence_number":0}}]],["CometResourceScheduler","registerHighPriHashes",null,[["y9umSZA","1DFRiCY"]]]],"phd2_indexes":":454"}},{"__bbox":null},{"__bbox":null}]]]}'
+    
     info = extract(html)
-    assert info.get('fullname') == 'Mark Zuckerberg'
+    assert info.get('uid') == '63055343223'
     assert info.get('username') == 'zuck'
-    assert info.get('follower_count') == '12,500'
-    assert info.get('posts_count') == '340'
-    assert info.get('bio') == 'CEO of Meta'
+    assert info.get('fullname') == 'Mark Zuckerberg'
+    assert info.get('bio') == "Mostly superintelligence and MMA takes"
+    assert info.get('image', "").startswith('https://scontent')
+    assert int(info.get('follower_count', 0)) == 5682725
+    assert info.get('is_verified') == 'True'
 
 
 # ---------------------------------------------------------------------------
@@ -1142,6 +1418,200 @@ def test_orcid_url_mutations_target_five_platforms():
 # ---------------------------------------------------------------------------
 # Structural / meta tests
 # ---------------------------------------------------------------------------
+
+def test_discourse_mutation_covers_the_shapes_maigret_stores():
+    """maigret keeps Discourse accounts as {urlMain}/u/{username}/summary."""
+    from socid_extractor.main import mutate_url
+
+    def mutated(url):
+        return [u for u, _ in mutate_url(url) if u.endswith('.json')]
+
+    # the plain profile link, and the /summary one that goes into the database
+    assert mutated('https://forum.ansible.com/u/sivel') == ['https://forum.ansible.com/u/sivel.json']
+    assert mutated('https://forum.ansible.com/u/sivel/summary') == ['https://forum.ansible.com/u/sivel.json']
+    # a forum living under a path, with the doubled slash the database renders
+    assert mutated('https://www.freecodecamp.org/forum//u/JeremyLT/summary') == [
+        'https://www.freecodecamp.org/forum/u/JeremyLT.json']
+    # dots belong in Discourse usernames
+    assert mutated('https://forum.cs-cart.ru/u/a.shishkin/summary') == [
+        'https://forum.cs-cart.ru/u/a.shishkin.json']
+    # but an already mutated URL must not collect a second .json
+    assert mutated('https://forum.ansible.com/u/sivel.json') == []
+    # and a thread is not a profile
+    assert mutated('https://discuss.python.org/t/some-thread/1234') == []
+
+
+def test_discourse_html_only_fires_on_a_profile():
+    """Every page of a forum has the generator tag and other people's avatars."""
+    shell = (
+        '<meta name="generator" content="Discourse 2026.9.0-latest - https://github.com/discourse/discourse">'
+        '<meta id="data-discourse-setup" data-discourse_theme_id="2">'
+        '<meta property="og:image" content="https://cdn/user_avatar/forum.example/someone/45/1_2.png">'
+    )
+    profile = shell + '<link rel="canonical" href="https://forum.example/u/sivel">'
+    topic = shell + '<link rel="canonical" href="https://forum.example/t/some-thread/1234">'
+
+    assert extract(profile).get('username') == 'sivel'
+    # a thread names whoever posted in it first — that is not the page's subject
+    assert extract(topic) == {}
+    # instances that refuse anonymous profiles still serve the canonical link, so a
+    # username with nothing of the account's own attached is the request echoed back
+    deny = ('<meta name="generator" content="Discourse 2026.9.0-latest">'
+            '<meta id="data-discourse-setup" data-discourse_theme_id="2">'
+            '<link rel="canonical" href="https://forum.example/u/sivel">')
+    assert extract(deny) == {}
+
+    
+def test_a_broken_transform_skips_only_its_own_scheme():
+    """A transform that gives up must not take the rest of the page with it."""
+    from socid_extractor.schemes import schemes
+
+    marker = '"pipeline-guard-fixture"'
+    # transform() turns a PROCESS_ERRORS failure into {} — a dict, not the '{}'
+    # string json.loads expects. Chains ending in json.dumps paper over it; this
+    # one ends on the failure, like Reddit, DeviantArt and SlideShare do.
+    broken = {
+        'flags': [marker],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [lambda x: json.loads(x)['missing']],
+    }
+    working = {
+        'flags': [marker],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [json.loads, lambda x: {'username': x['user']}, json.dumps],
+        'fields': {'username': lambda x: x.get('username')},
+    }
+
+    original = dict(schemes)
+    schemes.clear()
+    schemes.update({'Broken fixture': broken, 'Working fixture': working, **original})
+    try:
+        info = extract('{"pipeline-guard-fixture": 1, "user": "bob"}')
+    finally:
+        schemes.clear()
+        schemes.update(original)
+
+    assert info.get('username') == 'bob'
+    
+    
+def test_a_scheme_that_matches_non_json_skips_only_itself():
+    """json.loads on a capture that is not JSON must not abandon the page."""
+    from socid_extractor.schemes import schemes
+
+    # the shape maigret's bot hit ~50 times a day: a scheme matched a page,
+    # its first transform was json.loads, and the capture was not JSON
+    marker = '"valueerror-guard-fixture"'
+    broken = {
+        'flags': [marker],
+        'regex': r'^([\s\S]+)$',
+        'extract_json': True,
+        'transforms': [json.loads, lambda x: {'username': x['user']}, json.dumps],
+    }
+    working = {
+        'flags': [marker],
+        'regex': r'"user": "(?P<username>[^"]+)"',
+    }
+
+    original = dict(schemes)
+    schemes.clear()
+    schemes.update({'Broken fixture': broken, 'Working fixture': working, **original})
+    try:
+        # trailing comma makes it invalid JSON, so json.loads raises
+        info = extract('{"valueerror-guard-fixture": 1, "user": "bob",}')
+    finally:
+        schemes.clear()
+        schemes.update(original)
+
+    assert info.get('username') == 'bob'
+
+
+def test_a_field_that_raises_valueerror_drops_only_that_field():
+    """One unparseable value must not cost the rest of the record."""
+    from socid_extractor.main import map_fields
+    from socid_extractor.utils import parse_datetime
+
+    # parse_datetime reads a 10-character value with no dash as a unix
+    # timestamp, so a site that starts sending something else of that length
+    # makes it raise — which used to abandon the whole page, username included
+    scheme = {'fields': {
+        'created_at': lambda x: parse_datetime(x['date']),
+        'username': lambda x: x['user'],
+    }}
+    values = map_fields(scheme, {'date': 'not a date', 'user': 'bob'})
+
+    assert values.get('username') == 'bob'
+    assert not values.get('created_at')
+
+
+def test_patreon_rsc_deref_reads_hex_row_ids():
+    """Patreon's RSC row ids are hex — a decimal pattern quietly loses row 10 and up."""
+    from socid_extractor.schemes import _patreon_rsc_deref
+
+    rsc = '2:{"a":1}\n5f:Tb,hello there\n60:T5,short\n'
+
+    assert _patreon_rsc_deref(rsc, '{"bio":"$5f"}') == '{"bio":"hello there"}'
+    assert _patreon_rsc_deref(rsc, '{"bio":"$60"}') == '{"bio":"short"}'
+    # a reference to a row that isn't there stays as it is, rather than blowing up
+    assert _patreon_rsc_deref(rsc, '{"bio":"$ff"}') == '{"bio":"$ff"}'
+    # and "$undefined" and friends are not row references at all
+    assert _patreon_rsc_deref(rsc, '{"bio":"$undefined"}') == '{"bio":"$undefined"}'
+
+    
+def test_xenforo_ignores_the_member_listing():
+    """A failed member search falls back to a listing full of other people's ids."""
+    header = ('<meta property="og:url" content="https://forum.example/members/manumuskin.35/" />'
+              '<span class="username" data-user-id="35">manumuskin</span>'
+              '<div class="memberHeader-blurb"><time datetime="2003-07-20T18:23:00-0400"></time>'
+              '<time datetime="2026-09-07T16:59:37-0400"></time></div>'
+              '<a href="/search/member?user_id=35">9,193</a>')
+    profile = extract(header)
+
+    assert profile.get('uid') == '35'
+    assert profile.get('username') == 'manumuskin'
+    assert profile.get('posts_count') == '9193'
+    assert profile.get('created_at') == '2003-07-20T18:23:00-0400'
+    assert profile.get('latest_activity_at') == '2026-09-07T16:59:37-0400'
+
+    # the listing carries member cards, so data-user-id is there — but it belongs
+    # to whoever the forum felt like showing, and og:url points at the listing
+    listing = ('<meta property="og:url" content="https://forum.example/members/" />'
+               '<a href="/members/someone-else.4242/" data-user-id="4242">Someone Else</a>')
+    assert extract(listing) == {}
+
+
+def test_mediawiki_mutation_offers_both_api_paths():
+    """api.php sits at the root on some wikis and under /w/ on others."""
+    from socid_extractor.main import mutate_url
+
+    def paths(url):
+        return [u.split('?')[0] for u, _ in mutate_url(url)]
+
+    # the shape maigret stores, with and without the /wiki/ subpath
+    assert paths('https://wiki.openstreetmap.org/User:Leijurv') == [
+        'https://wiki.openstreetmap.org/api.php', 'https://wiki.openstreetmap.org/w/api.php',
+        'https://wiki.openstreetmap.org/mediawiki/api.php', 'https://wiki.openstreetmap.org/wiki/api.php']
+    assert paths('https://imslp.org/wiki/User:Hfredrich416hk')[:2] == [
+        'https://imslp.org/api.php', 'https://imslp.org/w/api.php']
+    # the page's own path says nothing about the API's: wiki.dolibarr.org serves
+    # the page under /index.php and the API at the root, and it is far from alone
+    assert paths('https://wiki.dolibarr.org/index.php/User:Eldy')[0] == 'https://wiki.dolibarr.org/api.php'
+    # a subpage of a user page is not the user
+    assert 'ususers=Jimbo_Wales&' in mutate_url('https://en.wikipedia.org/wiki/User:Jimbo_Wales/sandbox')[0][0]
+
+
+def test_mediawiki_user_page_needs_the_account_to_exist():
+    """wgRelevantUserName is missing on a user page nobody registered."""
+    page = ('<div class="mw-body-content">'
+            'RLCONF={"wgCanonicalNamespace":"User","wgRelevantUserName":"Leijurv"}</div>')
+    assert extract(page).get('username') == 'Leijurv'
+
+    # the page still renders for an unregistered name, just without the variable
+    missing = ('<div class="mw-body-content">'
+               'RLCONF={"wgCanonicalNamespace":"User","mw-userpage-userdoesnotexist":1}</div>')
+    assert extract(missing) == {}
+
 
 def test_no_flag_subset_shadows():
     """Detect scheme pairs where one's flags are a subset of another's.
@@ -1369,21 +1839,6 @@ def test_picsart_no_facebook_uid_for_regular_avatar():
     assert info.get('picsart_id') == '99'
 
 
-def test_habr_og_profile():
-    """Habr: extract fullname and username from og:title meta tag."""
-    html = (
-        '<!DOCTYPE html><html><head>'
-        '<meta property="og:site_name" content="Хабр">'
-        '<meta property="og:title" content="Олег Бунин aka olegbunin\n     - ">'
-        '<meta property="og:url" content="https://habr.com/ru/users/olegbunin/">'
-        '</head><body></body></html>'
-    )
-    info = extract(html)
-    assert info.get('fullname') == 'Олег Бунин'
-    assert info.get('username') == 'olegbunin'
-    assert 'habr.com' in info.get('website', '')
-
-
 def test_product_hunt_og_profile():
     """Product Hunt: extract twitter_username and username from meta tags."""
     html = (
@@ -1428,78 +1883,6 @@ def test_taplink_nonexistent_user_not_matched():
     info = extract(html)
     # Should not match Taplink scheme — no "at Taplink" in og:title
     assert not info.get('username')
-
-
-def test_threads_profile():
-    """Threads: extract from OG tags with HTML entities (real SPA response format)."""
-    html = (
-        '<!DOCTYPE html><html><head>'
-        '<meta property="og:title" content="Marc Fuste&#xe9; (&#064;fusteee) &#x2022; Threads, Say more">'
-        '<meta property="og:description" content="33 Followers &#x2022; 0 Threads &#x2022; &quot;Regalame tus mejores noches&quot;. See the latest conversations with &#064;fusteee.">'
-        '</head><body>'
-        '<div class="barcelona">content</div>'
-        '</body></html>'
-    )
-    info = extract(html)
-    assert info.get('username') == 'fusteee'
-    assert info.get('fullname') == 'Marc Fusteé'
-    assert info.get('follower_count') == '33'
-    assert info.get('posts_count') == '0'
-    assert info.get('bio') == 'Regalame tus mejores noches'
-
-
-def test_threads_profile_no_bio():
-    """Threads: profile without bio should not capture HTML garbage."""
-    html = (
-        '<!DOCTYPE html><html><head>'
-        '<meta property="og:title" content="Alice (&#064;alice_test) &#x2022; Threads, Say more">'
-        '<meta property="og:description" content="5 Followers &#x2022; 0 Threads. See the latest conversations with &#064;alice_test.">'
-        '</head><body>'
-        '<div class="barcelona">content</div>'
-        '</body></html>'
-    )
-    info = extract(html)
-    assert info.get('username') == 'alice_test'
-    assert info.get('fullname') == 'Alice'
-    assert info.get('follower_count') == '5'
-    assert info.get('posts_count') == '0'
-    assert not info.get('bio')
-
-
-def test_threads_profile_unicode_name():
-    """Threads: fullname with unicode HTML entities should be decoded."""
-    html = (
-        '<!DOCTYPE html><html><head>'
-        '<meta property="og:title" content="&#x1d4d0;&#x1d4fb;&#x1d4fd; (&#064;bob_test) &#x2022; Threads, Say more">'
-        '<meta property="og:description" content="10 Followers &#x2022; 3 Threads &#x2022; &quot;hello&quot;. See the latest conversations.">'
-        '</head><body>'
-        '<div class="barcelona">content</div>'
-        '</body></html>'
-    )
-    info = extract(html)
-    assert info.get('username') == 'bob_test'
-    assert info.get('fullname') == '\U0001d4d0\U0001d4fb\U0001d4fd'
-    assert info.get('follower_count') == '10'
-    assert info.get('posts_count') == '3'
-    assert info.get('bio') == 'hello'
-
-
-def test_threads_profile_emoji_bio():
-    """Threads: emoji bio without quotes should be extracted, not lost."""
-    html = (
-        '<!DOCTYPE html><html><head>'
-        '<meta property="og:title" content="Eve (&#064;eve_test) &#x2022; Threads, Say more">'
-        '<meta property="og:description" content="21 Followers &#x2022; 4 Threads &#x2022; &#x1f92b;. See the latest conversations.">'
-        '</head><body>'
-        '<div class="barcelona">content</div>'
-        '</body></html>'
-    )
-    info = extract(html)
-    assert info.get('username') == 'eve_test'
-    assert info.get('follower_count') == '21'
-    assert info.get('posts_count') == '4'
-    assert info.get('bio') == '🤫'
-    assert not info.get('bio_raw')
 
 
 def test_chess_com_html_profile():
@@ -2253,7 +2636,7 @@ def test_github_social_accounts_api():
     info = extract(page)
     assert info.get('_extractor') == 'GitHub Social Accounts API'
     assert info.get('twitter_username') == 'sox0j'
-    assert info.get('bluesky_username') == 'soxoj.bsky.social'
+    assert info.get('bluesky_username') == 'soxoj'
     assert info.get('mastodon_username') == 'soxoj'
     assert info.get('linkedin_username') == 'soxoj'
     assert info.get('youtube_username') == 'soxoj'
@@ -2263,6 +2646,15 @@ def test_github_social_accounts_api():
     assert info.get('reddit_username') == 'soxoj'
     assert 'https://bsky.app/profile/soxoj.bsky.social' in info.get('links', '')
     assert 'https://infosec.exchange/@soxoj' in info.get('links', '')
+
+
+def test_github_social_accounts_api_keeps_bluesky_custom_domain():
+    """GitHub social accounts: custom Bluesky domains are preserved."""
+    page = json.dumps([
+        {"provider": "bluesky", "url": "https://bsky.app/profile/jay.bsky.team"},
+    ], separators=(',', ':'))
+    info = extract(page)
+    assert info.get('bluesky_username') == 'jay.bsky.team'
 
 
 def test_github_social_accounts_url_mutation():
@@ -2350,3 +2742,83 @@ def test_deviantart_user_object_without_trailing_fields_still_works():
     assert info.get('_extractor') == 'DeviantArt'
     assert info.get('username') == 'rootkea'
     assert info.get('country') == 'Antarctica'
+
+
+def test_bunq_me_fundraiser_profile_api_json():
+    """bunq.me API: POST `api.bunq.me/v1/bunqme-fundraiser-profile` JSON (synthetic data).
+
+    **Check:** `uid`, `username` (from the bunq.me URL), `fullname`, `image`,
+    `country_code`, `iban`, `bunq_invite_username` (verbatim), `account_type`;
+    a 404 error body does not match.
+    """
+    body = json.dumps({"Response": [{"BunqMeFundraiserProfile": {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "color": None,
+        "alias": {
+            "iban": "NL00BUNQ0000000000",
+            "display_name": "J. Doe",
+            "avatar": {"image": [{"urls": [{"type": "ORIGINAL", "url": "https://example.com/a.jpg"}]}]},
+            "label_user": {"display_name": "Jane", "public_nick_name": "Jane", "country": "000",
+                           "type": "PERSON"},
+            "country": "NL",
+        },
+        "currency": "EUR",
+        "description": "",
+        "pointer": {"type": "URL", "value": "https://bunq.me/janedoe", "name": "https://bunq.me/janedoe"},
+        "status": "ACTIVE",
+        "invite_profile_name": "JaneMagentaLemur123456",
+    }}]})
+    info = extract(body)
+    assert info.get('uid') == '00000000-0000-4000-8000-000000000001'
+    assert info.get('username') == 'janedoe'
+    assert info.get('fullname') == 'J. Doe'
+    assert info.get('image') == 'https://example.com/a.jpg'
+    assert info.get('country_code') == 'NL'
+    assert 'bio' not in info
+    assert info.get('iban') == 'NL00BUNQ0000000000'
+    assert info.get('bunq_invite_username') == 'JaneMagentaLemur123456'
+    assert info.get('account_type') == 'PERSON'
+
+    not_found = '{"Error":[{"error_description":"bunq.me fundraiser profile not found."}]}'
+    assert extract(not_found) == {}
+
+
+def _bunq_me_body(country, iban):
+    """Minimal synthetic bunq.me fundraiser-profile response."""
+    return json.dumps({"Response": [{"BunqMeFundraiserProfile": {
+        "uuid": "00000000-0000-4000-8000-000000000002",
+        "alias": {"iban": iban, "display_name": "J. Doe", "country": country,
+                  "label_user": {"display_name": "Jane", "type": "PERSON"}},
+        "pointer": {"type": "URL", "value": "https://bunq.me/janedoe"},
+    }}]})
+
+
+def test_bunq_me_api_all_supported_iban_countries():
+    """bunq.me API: every country bunq currently issues IBANs in (DE, FR, IE, ES, IT, NL).
+
+    **Check:** `country_code` and `iban` come through verbatim for each country's
+    IBAN format (synthetic, all-zero account numbers of the correct length).
+    """
+    cases = {
+        'DE': 'DE00000000000000000000',        # 22
+        'FR': 'FR0000000000000000000000000',   # 27
+        'IE': 'IE00BUNQ00000000000000',        # 22
+        'ES': 'ES0000000000000000000000',      # 24
+        'IT': 'IT00X0000000000000000000000',   # 27
+        'NL': 'NL00BUNQ0000000000',            # 18
+    }
+    for country, iban in cases.items():
+        info = extract(_bunq_me_body(country, iban))
+        assert info.get('country_code') == country, country
+        assert info.get('iban') == iban, country
+
+
+def test_bunq_me_api_country_code_and_iban_country_can_differ():
+    """bunq.me API: `country_code` (alias.country) and the IBAN country are independent.
+
+    **Check:** a mismatched pair (NL account country, DE IBAN) is reported as-is;
+    neither value is derived from or overridden by the other.
+    """
+    info = extract(_bunq_me_body('NL', 'DE00000000000000000000'))
+    assert info.get('country_code') == 'NL'
+    assert info.get('iban') == 'DE00000000000000000000'

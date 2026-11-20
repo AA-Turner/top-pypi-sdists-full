@@ -40,7 +40,7 @@ if(IS_WINDOWS_INSTALLER)
   #if use external boost
   else()
     set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost REQUIRED COMPONENTS system thread date_time)
+    find_package(Boost REQUIRED COMPONENTS date_time)
     set(tmp)
     foreach(dir ${I_DIR})
       if(NOT ("${dir}" MATCHES "/boost.*"))
@@ -64,13 +64,11 @@ if(IS_WINDOWS_INSTALLER)
     )
     target_include_directories(ur_rtde::rtde INTERFACE ${Boost_INCLUDE_DIRS})
     target_link_libraries(ur_rtde::rtde INTERFACE
-      ${Boost_SYSTEM_LIBRARY}
-      ${Boost_THREAD_LIBRARY}
       ${Boost_DATE_TIME_LIBRARY}
     )
     
     unset(Boost_USE_STATIC_LIBS)
   endif()
 elseif ( "${RTDE_BOOST_LIBRARY_DIR}" STREQUAL "" )
-  find_package(Boost REQUIRED COMPONENTS system thread)
+  find_package(Boost REQUIRED)
 endif()

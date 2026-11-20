@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: socid-extractor
-Version: 0.1.1
+Version: 0.1.2
 Summary: Extract accounts' identifiers and metadata from personal pages on various platforms.
 Author-email: Soxoj <soxoj@protonmail.com>
 License-Expression: MIT
@@ -28,7 +28,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests<3.0,>=2.32.4
-Requires-Dist: python-dateutil<3.0,>=2.8.1
+Requires-Dist: python-dateutil<4.0,>=2.8.1
 Requires-Dist: beautifulsoup4<5.0,>=4.14.3
 Provides-Extra: test
 Requires-Dist: pytest<10.0,>=9.0; extra == "test"
@@ -41,6 +41,8 @@ Requires-Dist: pytest-xdist<4.0,>=3.8; extra == "dev"
 Requires-Dist: flake8<8.0,>=7.1; extra == "dev"
 Requires-Dist: mypy<3.0,>=1.14; extra == "dev"
 Requires-Dist: black<27.0,>=25.1; extra == "dev"
+Provides-Extra: ai
+Requires-Dist: openai<4.0,>=1.0; extra == "ai"
 Dynamic: license-file
 
 # socid_extractor
@@ -56,7 +58,7 @@ Dynamic: license-file
 
 > Turn any public profile page into a structured account record — usernames, display names, bios, avatars, locations, joined-at dates, follower counts, external links, and the **stable internal identifiers** that uniquely pin an account across renames, redesigns, and deletions.
 
-`socid_extractor` parses HTML pages and API responses from 130+ platforms and returns a flat, machine-readable dictionary of account fields. No API keys required, no headless browser — just a single function call on response text.
+`socid_extractor` parses HTML pages and API responses from 250+ schemes and returns a flat, machine-readable dictionary of account fields. No API keys required, no headless browser — just a single function call on response text.
 
 **Why it's useful**
 
@@ -121,7 +123,7 @@ $ socid_extractor --url https://example.com/foo --skip-fetch-if-no-url-hint
 
 ## Supported sites
 
-[**130+ schemes** — see METHODS.md for the full list.](https://github.com/soxoj/socid-extractor/blob/master/METHODS.md)
+[**250+ schemes**, covering roughly 2,000 of the sites Maigret checks — see METHODS.md for the full list.](https://github.com/soxoj/socid-extractor/blob/master/METHODS.md)
 
 A non-exhaustive sample:
 
@@ -149,9 +151,8 @@ For data examples, see [`tests/test_e2e.py`](https://github.com/soxoj/socid-extr
 
 The open-source `socid_extractor` is MIT-licensed and free for commercial use without restriction — but page parsers break over time as platforms change their HTML and APIs, and they need active maintenance.
 
-For serious commercial use — with a maintained private plugin pack of extra parsers or a hosted extraction API — reach out: 📧 socid@soxoj.com
+For serious commercial use — a hosted extraction API, or maintenance of the parsers your product depends on — reach out: 📧 socid@soxoj.com
 
-- Private parser plugin — **100+ additional checks** on top of the public 150+ sites, kept up to date as platforms change (separate from the public open-source database)
 - Extraction API — integrate `socid_extractor` into your product
 
 ## SOWEL classification
@@ -167,6 +168,10 @@ Maps to the following [SOWEL](https://sowel.soxoj.com/) techniques:
 - [**InfoHunter**](https://github.com/sweetnight19/InfoHunter) — open-source OSINT tool to search, collect, and analyze information online.
 - [**YaSeeker**](https://github.com/HowToFind-bot/YaSeeker) — gather all available information about a Yandex account by login/email.
 - [**Marple**](https://github.com/soxoj/marple) — scrape search-engine results for a given username.
+
+## See also
+
+- [**ShareTrace**](https://github.com/soxoj/sharetrace) — the mirror image of this project: `socid_extractor` reads a profile page, ShareTrace takes a *share link* (TikTok, Instagram, ChatGPT, Discord, Telegram and more) and recovers who created or forwarded it, decoding some share tokens offline. Nothing to install if you just want to try it: the community-run [Telegram bot](https://t.me/sharetrace_bot?start=c29jaWQtZXh0cmFjdG9yOnJlYWRtZQ) or [web UI](https://share.whopostedwhat.com/).
 
 ## Testing
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycrashreport
-Version: 2.1.0
+Version: 2.3.0
 Summary: Pure python3 for parsing Apple's crash reports
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: apple-symbols
 Requires-Dist: rich
 Requires-Dist: typer
 Provides-Extra: test
@@ -76,6 +77,60 @@ instead of a path.
 
 A report class is picked by bug type. To parse another one, subclass `CrashReportBase` and list
 the bug types it handles in `BUG_TYPES`.
+
+## Exit reasons
+
+A panic over a process which may not exit only gives the numbers of its exit reason. They are
+named on the line below it, and in `report.exit_reason` (`namespace`, `namespace_name`, `subcode`,
+`subcode_name`; `None` for any other panic):
+
+```
+Panic:  logd[26046] exited -- exit reason namespace 2 subcode 0x6 description: none
+Exit reason: SIGNAL, SIGABRT
+```
+
+Every namespace is named. A code is named when its namespace gives it a fixed meaning that could
+be read from XNU or from iOS (signals, jetsam, code signing, dyld, libxpc, exec, FrontBoard,
+libsystem, the watchdog, guards and RealityKit), and printed as a number otherwise.
+
+## Symbolication
+
+A panic report gets the call stack of the thread which panicked, and `report.processes` holds the
+stacks of every other thread it carries. Naming their frames takes symbols, through
+[apple-symbols](https://github.com/doronz88/apple-symbols):
+
+- **Userland frames** are named whenever this host holds the Xcode DeviceSupport of the device and
+  build the report came from (`~/Library/Developer/Xcode/iOS DeviceSupport`, which Xcode or
+  `pymobiledevice3 developer fetch-symbols download` fill). The same goes for the frames a userland
+  crash report left unnamed. It holds the system libraries only, so frames of an executable keep
+  their offset.
+- **Kernel frames** need the kernelcache the device ran, and `ipsw` signatures to name the functions
+  of a released one:
+
+```shell
+pycrashreport panic-full.ips --kernelcache kernelcache.release.iphone17 --kernel-signatures symbolicator/kernel
+```
+
+`-p` (name or pid, may be given several times) lists the threads of further processes of the panic,
+and `--all` those of every process:
+
+```shell
+pycrashreport panic-full.ips -p logd -p 1
+pycrashreport panic-full.ips --all
+```
+
+```python
+from pathlib import Path
+
+from apple_symbols import DeviceSupportSymbols, KernelSymbols
+
+report = parse_report("/path/to/panic-full.ips")
+# set before reading any frames; DeviceSupport is otherwise looked up by itself
+report.device_support_symbols = DeviceSupportSymbols.load(Path("/path/to/Symbols"))
+report.kernel_symbols = KernelSymbols.load(Path("kernelcache.release.iphone17"))
+for frame in report.panicked_thread_frames:
+    print(frame.image, frame.symbol, frame.symbol_offset)
+```
 
 # Usage examples
 

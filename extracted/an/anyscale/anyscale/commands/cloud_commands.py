@@ -502,6 +502,17 @@ def default_region(provider: str) -> str:
     default=None,
 )
 @click.option(
+    "--skip-install",
+    is_flag=True,
+    default=False,
+    help=(
+        "Write the connector's Helm values to a file instead of installing the chart, for a "
+        "GitOps tool or your own helm install. Setup still creates the S3 bucket and IAM role "
+        "and registers the cloud. The file is ./anyscale-connector-values.yaml unless "
+        "--values-file names another path. (KubeRay)"
+    ),
+)
+@click.option(
     "--namespace",
     help="Kubernetes namespace to install into. Defaults to anyscale-operator (K8s) or anyscale-connector (KubeRay).",
     required=False,
@@ -562,7 +573,11 @@ def default_region(provider: str) -> str:
 )
 @click.option(
     "--values-file",
-    help="Path to save the generated Helm values file (for k8s stack, default: auto-generated with timestamp). (K8s)",
+    help=(
+        "Path to save the generated Helm values file. K8s defaults to an auto-generated name. "
+        "KubeRay writes it only with --skip-install, to ./anyscale-connector-values.yaml by "
+        "default. (K8s, KubeRay)"
+    ),
     required=False,
     type=str,
 )
@@ -603,6 +618,7 @@ def setup_cloud(  # noqa: PLR0912, PLR0913
     dcgm_namespace: Optional[str],
     ingress_class: Optional[str],
     test_job: Optional[bool],
+    skip_install: bool,
     namespace: Optional[str],
     project_id: str,
     resource_group: Optional[str],
@@ -648,6 +664,8 @@ def setup_cloud(  # noqa: PLR0912, PLR0913
             dcgm_namespace=dcgm_namespace,
             ingress_class=ingress_class,
             test_job=test_job,
+            skip_install=skip_install,
+            values_file=values_file,
             auto_add_user=(not disable_auto_add_user),
             debug=debug,
         )
@@ -660,6 +678,9 @@ def setup_cloud(  # noqa: PLR0912, PLR0913
     ):
         if value is not None:
             raise click.ClickException(f"{flag} is only supported with --stack=kuberay.")
+    # A flag, so False rather than None when absent.
+    if skip_install:
+        raise click.ClickException("--skip-install is only supported with --stack=kuberay.")
 
     # For normal setup, provider and region are required - prompt if not provided
     if not provider:

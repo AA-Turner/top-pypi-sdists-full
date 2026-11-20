@@ -14,6 +14,8 @@ Usage::
         AdminListUserAuthEventsPaginator,
         Client,
         CognitoIdentityProviderClient,
+        ListCIMDPoliciesPaginator,
+        ListClientMetadataURLsPaginator,
         ListGroupsPaginator,
         ListIdentityProvidersPaginator,
         ListResourceServersPaginator,
@@ -28,6 +30,8 @@ Usage::
 
     admin_list_groups_for_user_paginator: AdminListGroupsForUserPaginator = client.get_paginator("admin_list_groups_for_user")
     admin_list_user_auth_events_paginator: AdminListUserAuthEventsPaginator = client.get_paginator("admin_list_user_auth_events")
+    list_cimd_policies_paginator: ListCIMDPoliciesPaginator = client.get_paginator("list_cimd_policies")
+    list_client_metadata_urls_paginator: ListClientMetadataURLsPaginator = client.get_paginator("list_client_metadata_urls")
     list_groups_paginator: ListGroupsPaginator = client.get_paginator("list_groups")
     list_identity_providers_paginator: ListIdentityProvidersPaginator = client.get_paginator("list_identity_providers")
     list_resource_servers_paginator: ListResourceServersPaginator = client.get_paginator("list_resource_servers")
@@ -42,6 +46,8 @@ from .client import CognitoIdentityProviderClient
 from .paginator import (
     AdminListGroupsForUserPaginator,
     AdminListUserAuthEventsPaginator,
+    ListCIMDPoliciesPaginator,
+    ListClientMetadataURLsPaginator,
     ListGroupsPaginator,
     ListIdentityProvidersPaginator,
     ListResourceServersPaginator,
@@ -59,6 +65,8 @@ __all__ = (
     "AdminListUserAuthEventsPaginator",
     "Client",
     "CognitoIdentityProviderClient",
+    "ListCIMDPoliciesPaginator",
+    "ListClientMetadataURLsPaginator",
     "ListGroupsPaginator",
     "ListIdentityProvidersPaginator",
     "ListResourceServersPaginator",

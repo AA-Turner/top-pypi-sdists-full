@@ -66,6 +66,8 @@ from .type_defs import (
     UntagResourceInputTypeDef,
     UpdateMarketplaceRevenueShareAllocationInputTypeDef,
     UpdateMarketplaceRevenueShareAllocationOutputTypeDef,
+    UpdateMarketplaceRevenueShareInputTypeDef,
+    UpdateMarketplaceRevenueShareOutputTypeDef,
     UpdateRevenueAttributionInputTypeDef,
     UpdateRevenueAttributionOutputTypeDef,
 )
@@ -139,7 +141,7 @@ class PartnerCentralRevenueMeasurementAPIClient(BaseClient):
         self, **kwargs: Unpack[CreateMarketplaceRevenueShareAllocationInputTypeDef]
     ) -> CreateMarketplaceRevenueShareAllocationOutputTypeDef:
         """
-        Creates a new marketplace revenue share allocation for the specified product.
+        Creates a new allocation under the specified marketplace revenue share.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-revenue-measurement/client/create_marketplace_revenue_share_allocation.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_revenue_measurement/client/#create_marketplace_revenue_share_allocation)
@@ -286,6 +288,16 @@ class PartnerCentralRevenueMeasurementAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-revenue-measurement/client/untag_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_revenue_measurement/client/#untag_resource)
+        """
+
+    def update_marketplace_revenue_share(
+        self, **kwargs: Unpack[UpdateMarketplaceRevenueShareInputTypeDef]
+    ) -> UpdateMarketplaceRevenueShareOutputTypeDef:
+        """
+        Replaces the products of a marketplace revenue share.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-revenue-measurement/client/update_marketplace_revenue_share.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_revenue_measurement/client/#update_marketplace_revenue_share)
         """
 
     def update_marketplace_revenue_share_allocation(

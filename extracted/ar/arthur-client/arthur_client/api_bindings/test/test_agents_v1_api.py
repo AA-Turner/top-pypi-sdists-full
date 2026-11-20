@@ -33,6 +33,13 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_engine_task_sync(self) -> None:
+        """Test case for get_engine_task_sync
+
+        Get An Engine'S Task Sync.
+        """
+        pass
+
     def test_get_registered_agent_by_id(self) -> None:
         """Test case for get_registered_agent_by_id
 
@@ -184,6 +191,13 @@ class TestAgentsV1Api(unittest.TestCase):
         """Test case for register_unregistered_agent
 
         Register An Unregistered Agent As An Application.
+        """
+        pass
+
+    def test_sync_engine_tasks(self) -> None:
+        """Test case for sync_engine_tasks
+
+        Sync An Engine'S Tasks.
         """
         pass
 

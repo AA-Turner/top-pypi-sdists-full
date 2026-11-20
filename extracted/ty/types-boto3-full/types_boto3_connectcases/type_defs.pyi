@@ -230,6 +230,8 @@ __all__ = (
     "SlaFilterTypeDef",
     "SlaInputConfigurationTypeDef",
     "SlaInputContentTypeDef",
+    "SlaUpdateConfigurationTypeDef",
+    "SlaUpdateContentTypeDef",
     "SortTypeDef",
     "StartMergeCasesRequestTypeDef",
     "TagFilterTypeDef",
@@ -575,6 +577,9 @@ class SortTypeDef(TypedDict):
     fieldId: str
     sortOrder: OrderType
 
+class SlaUpdateConfigurationTypeDef(TypedDict):
+    targetSlaMinutes: int
+
 class TagValueTypeDef(TypedDict):
     key: NotRequired[str]
     value: NotRequired[str]
@@ -820,6 +825,9 @@ class ListLayoutsResponseTypeDef(TypedDict):
 class ListCaseRulesRequestPaginateTypeDef(TypedDict):
     domainId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class SlaUpdateContentTypeDef(TypedDict):
+    slaUpdateConfiguration: NotRequired[SlaUpdateConfigurationTypeDef]
 
 class TagFilterTypeDef(TypedDict):
     equalTo: NotRequired[TagValueTypeDef]
@@ -1206,6 +1214,7 @@ class RelatedItemInputContentTypeDef(TypedDict):
 class RelatedItemUpdateContentTypeDef(TypedDict):
     comment: NotRequired[CommentUpdateContentTypeDef]
     custom: NotRequired[CustomUpdateContentTypeDef]
+    sla: NotRequired[SlaUpdateContentTypeDef]
 
 CaseFilterPaginatorTypeDef = TypedDict(
     "CaseFilterPaginatorTypeDef",

@@ -19,7 +19,9 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, Union
+from typing import IO, Any, Union
+
+from botocore.response import StreamingBody
 
 from .literals import (
     AgentCoreRuntimeServerProtocolType,
@@ -33,6 +35,7 @@ from .literals import (
     RegistryFilterNameType,
     RegistryRecordCredentialProviderTypeType,
     RegistryRecordFilterNameType,
+    RegistryRecordOAuthGrantTypeType,
     RegistryRecordStatusType,
     RegistryStatusType,
     SourceTypeType,
@@ -61,9 +64,14 @@ __all__ = (
     "AgentSkillsDefinitionDescriptorTypeDef",
     "AgentSkillsMdDescriptorOutputTypeDef",
     "AgentSkillsMdDescriptorTypeDef",
+    "AgentSkillsPackageDescriptorOutputTypeDef",
+    "AgentSkillsPackageDescriptorTypeDef",
+    "AgentSkillsPackageDescriptorUnionTypeDef",
+    "AgentSkillsSourceConfigurationTypeDef",
     "ApprovalConfigurationOutputTypeDef",
     "ApprovalConfigurationTypeDef",
     "ApprovalConfigurationUnionTypeDef",
+    "AuthorizationDataTypeDef",
     "AuthorizerConfigurationOutputTypeDef",
     "AuthorizerConfigurationTypeDef",
     "AuthorizerConfigurationUnionTypeDef",
@@ -72,6 +80,7 @@ __all__ = (
     "AuthorizingClaimMatchValueTypeUnionTypeDef",
     "AutoDetectionConfigurationTypeDef",
     "AutoDetectionTypeDef",
+    "BlobTypeDef",
     "ClaimMatchValueTypeOutputTypeDef",
     "ClaimMatchValueTypeTypeDef",
     "ClaimMatchValueTypeUnionTypeDef",
@@ -111,6 +120,7 @@ __all__ = (
     "GetRegistryRequestTypeDef",
     "GetRegistryRequestWaitTypeDef",
     "GetRegistryResponseTypeDef",
+    "GitHubSynchronizedSourceTypeDef",
     "HttpDescriptorOutputTypeDef",
     "HttpDescriptorTypeDef",
     "ListRegistriesRequestPaginateTypeDef",
@@ -128,6 +138,7 @@ __all__ = (
     "McpServerDescriptorOutputTypeDef",
     "McpServerDescriptorTypeDef",
     "McpToolsDescriptorTypeDef",
+    "OAuth2AuthorizationDataTypeDef",
     "PaginatorConfigTypeDef",
     "PrivateEndpointOutputTypeDef",
     "PrivateEndpointOverrideOutputTypeDef",
@@ -141,6 +152,8 @@ __all__ = (
     "ProvenanceUnionTypeDef",
     "RecordTypeSchemaOverrideTypeDef",
     "RegistryFilterTypeDef",
+    "RegistryRecordArtifactDownloadTypeDef",
+    "RegistryRecordArtifactUploadTypeDef",
     "RegistryRecordCredentialProviderConfigurationOutputTypeDef",
     "RegistryRecordCredentialProviderConfigurationTypeDef",
     "RegistryRecordCredentialProviderConfigurationUnionTypeDef",
@@ -153,8 +166,11 @@ __all__ = (
     "RegistryRecordOAuthCredentialProviderTypeDef",
     "RegistryRecordOAuthCredentialProviderUnionTypeDef",
     "RegistryRecordSummaryTypeDef",
+    "RegistryRecordSynchronizedSourceTypeDef",
     "RegistrySummaryTypeDef",
     "ResponseMetadataTypeDef",
+    "S3SourceConfigurationTypeDef",
+    "S3SynchronizedSourceTypeDef",
     "SelfManagedLatticeResourceTypeDef",
     "SourceDetailsOutputTypeDef",
     "SourceDetailsTypeDef",
@@ -179,6 +195,9 @@ __all__ = (
     "UpdatedAgentSkillsDefinitionDescriptorTypeDef",
     "UpdatedAgentSkillsMdDescriptorFieldsTypeDef",
     "UpdatedAgentSkillsMdDescriptorTypeDef",
+    "UpdatedAgentSkillsPackageDescriptorTypeDef",
+    "UpdatedAgentSkillsRepositoryProviderTypeDef",
+    "UpdatedAgentSkillsSourceConfigurationTypeDef",
     "UpdatedApprovalConfigurationTypeDef",
     "UpdatedAuthorizerConfigurationTypeDef",
     "UpdatedAutoDetectionConfigurationTypeDef",
@@ -202,6 +221,7 @@ __all__ = (
     "UpdatedMcpServerDescriptorTypeDef",
     "UpdatedMcpToolsDescriptorFieldsTypeDef",
     "UpdatedMcpToolsDescriptorTypeDef",
+    "UpdatedRegistryRecordArtifactTypeDef",
     "WaiterConfigTypeDef",
     "WorkloadIdentityDetailsTypeDef",
 )
@@ -212,11 +232,20 @@ class WorkloadIdentityDetailsTypeDef(TypedDict):
 class AgentCoreRuntimeProtocolConfigurationTypeDef(TypedDict):
     serverProtocol: NotRequired[AgentCoreRuntimeServerProtocolType]
 
+class S3SourceConfigurationTypeDef(TypedDict):
+    bucketOwnerAccountId: NotRequired[str]
+
 class ApprovalConfigurationOutputTypeDef(TypedDict):
     autoApprovalRules: NotRequired[list[Literal["APPROVE_ALL"]]]
 
 class ApprovalConfigurationTypeDef(TypedDict):
     autoApprovalRules: NotRequired[Sequence[Literal["APPROVE_ALL"]]]
+
+class OAuth2AuthorizationDataTypeDef(TypedDict):
+    authorizationUrl: str
+    userId: NotRequired[str]
+    authorizationAttemptId: NotRequired[str]
+    expiresAt: NotRequired[datetime]
 
 class ClaimMatchValueTypeOutputTypeDef(TypedDict):
     matchValueString: NotRequired[str]
@@ -225,6 +254,8 @@ class ClaimMatchValueTypeOutputTypeDef(TypedDict):
 class AutoDetectionConfigurationTypeDef(TypedDict):
     scope: Literal["ORGANIZATION"]
     enabled: bool
+
+BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class ClaimMatchValueTypeTypeDef(TypedDict):
     matchValueString: NotRequired[str]
@@ -262,8 +293,17 @@ class WaiterConfigTypeDef(TypedDict):
     Delay: NotRequired[int]
     MaxAttempts: NotRequired[int]
 
+class RegistryRecordArtifactDownloadTypeDef(TypedDict):
+    sha256: NotRequired[str]
+    downloadUrl: NotRequired[str]
+
 class GetRegistryRequestTypeDef(TypedDict):
     registryId: str
+
+class GitHubSynchronizedSourceTypeDef(TypedDict):
+    url: str
+    synchronizedAt: datetime
+    commitId: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -316,15 +356,23 @@ class RegistryRecordIamCredentialProviderTypeDef(TypedDict):
 
 class RegistryRecordOAuthCredentialProviderOutputTypeDef(TypedDict):
     providerArn: str
-    grantType: NotRequired[Literal["CLIENT_CREDENTIALS"]]
+    grantType: NotRequired[RegistryRecordOAuthGrantTypeType]
     scopes: NotRequired[list[str]]
     customParameters: NotRequired[dict[str, str]]
+    returnUrl: NotRequired[str]
 
 class RegistryRecordOAuthCredentialProviderTypeDef(TypedDict):
     providerArn: str
-    grantType: NotRequired[Literal["CLIENT_CREDENTIALS"]]
+    grantType: NotRequired[RegistryRecordOAuthGrantTypeType]
     scopes: NotRequired[Sequence[str]]
     customParameters: NotRequired[Mapping[str, str]]
+    returnUrl: NotRequired[str]
+
+class S3SynchronizedSourceTypeDef(TypedDict):
+    url: str
+    synchronizedAt: datetime
+    versionId: NotRequired[str]
+    eTag: NotRequired[str]
 
 class SubmitRegistryRecordForApprovalRequestTypeDef(TypedDict):
     registryId: str
@@ -359,9 +407,18 @@ class UpdatedDataSchemaVersionTypeDef(TypedDict):
 class UpdatedDescriptorDataTypeDef(TypedDict):
     optionalValue: NotRequired[str]
 
+class UpdatedAgentSkillsRepositoryProviderTypeDef(TypedDict):
+    optionalValue: NotRequired[Literal["GITHUB"]]
+
+class AgentSkillsSourceConfigurationTypeDef(TypedDict):
+    s3: NotRequired[S3SourceConfigurationTypeDef]
+
 ApprovalConfigurationUnionTypeDef = Union[
     ApprovalConfigurationTypeDef, ApprovalConfigurationOutputTypeDef
 ]
+
+class AuthorizationDataTypeDef(TypedDict):
+    oauth2: NotRequired[OAuth2AuthorizationDataTypeDef]
 
 class AuthorizingClaimMatchValueTypeOutputTypeDef(TypedDict):
     claimMatchValue: ClaimMatchValueTypeOutputTypeDef
@@ -375,14 +432,13 @@ class AutoDetectionTypeDef(TypedDict):
 class UpdatedAutoDetectionConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[AutoDetectionConfigurationTypeDef]
 
+class RegistryRecordArtifactUploadTypeDef(TypedDict):
+    content: BlobTypeDef
+    sha256: NotRequired[str]
+
 ClaimMatchValueTypeUnionTypeDef = Union[
     ClaimMatchValueTypeTypeDef, ClaimMatchValueTypeOutputTypeDef
 ]
-
-class CreateRegistryRecordResponseTypeDef(TypedDict):
-    recordArn: str
-    status: RegistryRecordStatusType
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateRegistryResponseTypeDef(TypedDict):
     registryArn: str
@@ -484,6 +540,10 @@ RegistryRecordOAuthCredentialProviderUnionTypeDef = Union[
     RegistryRecordOAuthCredentialProviderTypeDef, RegistryRecordOAuthCredentialProviderOutputTypeDef
 ]
 
+class RegistryRecordSynchronizedSourceTypeDef(TypedDict):
+    s3: NotRequired[S3SynchronizedSourceTypeDef]
+    gitHub: NotRequired[GitHubSynchronizedSourceTypeDef]
+
 class UpdatedCustomDescriptorFieldsTypeDef(TypedDict):
     data: NotRequired[UpdatedDescriptorDataTypeDef]
 
@@ -491,13 +551,25 @@ class UpdatedMcpToolsDescriptorFieldsTypeDef(TypedDict):
     data: NotRequired[UpdatedDescriptorDataTypeDef]
     dataSchemaVersion: NotRequired[UpdatedDataSchemaVersionTypeDef]
 
+class UpdatedAgentSkillsSourceConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[AgentSkillsSourceConfigurationTypeDef]
+
 class UpdatedApprovalConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[ApprovalConfigurationUnionTypeDef]
+
+class CreateRegistryRecordResponseTypeDef(TypedDict):
+    recordArn: str
+    status: RegistryRecordStatusType
+    authorizationData: AuthorizationDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CustomClaimValidationTypeOutputTypeDef(TypedDict):
     inboundTokenClaimName: str
     inboundTokenClaimValueType: InboundTokenClaimValueTypeType
     authorizingClaimMatchValue: AuthorizingClaimMatchValueTypeOutputTypeDef
+
+class UpdatedRegistryRecordArtifactTypeDef(TypedDict):
+    optionalValue: NotRequired[RegistryRecordArtifactUploadTypeDef]
 
 class AuthorizingClaimMatchValueTypeTypeDef(TypedDict):
     claimMatchValue: ClaimMatchValueTypeUnionTypeDef
@@ -622,6 +694,9 @@ class AgentSkillsMdDescriptorOutputTypeDef(TypedDict):
     dataSchemaVersion: NotRequired[str]
     source: NotRequired[DescriptorSourceOutputTypeDef]
 
+class AgentSkillsPackageDescriptorOutputTypeDef(TypedDict):
+    source: NotRequired[DescriptorSourceOutputTypeDef]
+
 class HttpDescriptorOutputTypeDef(TypedDict):
     source: NotRequired[DescriptorSourceOutputTypeDef]
 
@@ -695,6 +770,9 @@ class UpdateRegistryResponseTypeDef(TypedDict):
 
 class AgentSkillsAdditionalDataOutputTypeDef(TypedDict):
     skillMd: NotRequired[AgentSkillsMdDescriptorOutputTypeDef]
+    skillPackage: NotRequired[AgentSkillsPackageDescriptorOutputTypeDef]
+    repositoryProvider: NotRequired[Literal["GITHUB"]]
+    sourceConfiguration: NotRequired[AgentSkillsSourceConfigurationTypeDef]
 
 class DescriptorSourceFromUrlTypeDef(TypedDict):
     url: str
@@ -767,6 +845,8 @@ class GetRegistryRecordResponseTypeDef(TypedDict):
     createdBy: str
     customMetadata: dict[str, Any]
     customMetadataSchemaComplianceStatus: CustomMetadataSchemaComplianceStatusType
+    artifact: RegistryRecordArtifactDownloadTypeDef
+    synchronizedSource: RegistryRecordSynchronizedSourceTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateRegistryRecordResponseTypeDef(TypedDict):
@@ -788,6 +868,7 @@ class UpdateRegistryRecordResponseTypeDef(TypedDict):
     createdBy: str
     customMetadata: dict[str, Any]
     customMetadataSchemaComplianceStatus: CustomMetadataSchemaComplianceStatusType
+    authorizationData: AuthorizationDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class A2aAgentCardDescriptorTypeDef(TypedDict):
@@ -832,8 +913,8 @@ DiscoveryConfigurationUnionTypeDef = Union[
     DiscoveryConfigurationTypeDef, DiscoveryConfigurationOutputTypeDef
 ]
 
-class AgentSkillsAdditionalDataTypeDef(TypedDict):
-    skillMd: NotRequired[AgentSkillsMdDescriptorTypeDef]
+class AgentSkillsPackageDescriptorTypeDef(TypedDict):
+    source: NotRequired[DescriptorSourceUnionTypeDef]
 
 class UpdatedDescriptorSourceTypeDef(TypedDict):
     optionalValue: NotRequired[DescriptorSourceUnionTypeDef]
@@ -859,10 +940,15 @@ class CreateRegistryRequestTypeDef(TypedDict):
     customMetadataSchemaConfiguration: NotRequired[CustomMetadataSchemaConfigurationUnionTypeDef]
     autoDetectionConfiguration: NotRequired[AutoDetectionConfigurationTypeDef]
 
-class AgentSkillsDefinitionDescriptorTypeDef(TypedDict):
-    data: NotRequired[str]
-    dataSchemaVersion: NotRequired[str]
-    additionalData: NotRequired[AgentSkillsAdditionalDataTypeDef]
+class AgentSkillsAdditionalDataTypeDef(TypedDict):
+    skillMd: NotRequired[AgentSkillsMdDescriptorTypeDef]
+    skillPackage: NotRequired[AgentSkillsPackageDescriptorTypeDef]
+    repositoryProvider: NotRequired[Literal["GITHUB"]]
+    sourceConfiguration: NotRequired[AgentSkillsSourceConfigurationTypeDef]
+
+AgentSkillsPackageDescriptorUnionTypeDef = Union[
+    AgentSkillsPackageDescriptorTypeDef, AgentSkillsPackageDescriptorOutputTypeDef
+]
 
 class UpdatedA2aAgentCardDescriptorFieldsTypeDef(TypedDict):
     data: NotRequired[UpdatedDescriptorDataTypeDef]
@@ -899,13 +985,13 @@ class UpdateRegistryRequestTypeDef(TypedDict):
     customMetadataSchemaConfiguration: NotRequired[UpdatedCustomMetadataSchemaConfigurationTypeDef]
     autoDetectionConfiguration: NotRequired[UpdatedAutoDetectionConfigurationTypeDef]
 
-class DescriptorsTypeDef(TypedDict):
-    mcpServer: NotRequired[McpServerDescriptorTypeDef]
-    a2aAgentCard: NotRequired[A2aAgentCardDescriptorTypeDef]
-    agentSkillsDefinition: NotRequired[AgentSkillsDefinitionDescriptorTypeDef]
-    custom: NotRequired[CustomDescriptorTypeDef]
-    http: NotRequired[HttpDescriptorTypeDef]
-    agui: NotRequired[AgUiDescriptorTypeDef]
+class AgentSkillsDefinitionDescriptorTypeDef(TypedDict):
+    data: NotRequired[str]
+    dataSchemaVersion: NotRequired[str]
+    additionalData: NotRequired[AgentSkillsAdditionalDataTypeDef]
+
+class UpdatedAgentSkillsPackageDescriptorTypeDef(TypedDict):
+    optionalValue: NotRequired[AgentSkillsPackageDescriptorUnionTypeDef]
 
 class UpdatedA2aAgentCardDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedA2aAgentCardDescriptorFieldsTypeDef]
@@ -923,16 +1009,28 @@ class UpdatedMcpServerDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedMcpServerDescriptorFieldsTypeDef]
 
 SourceDetailsUnionTypeDef = Union[SourceDetailsTypeDef, SourceDetailsOutputTypeDef]
-DescriptorsUnionTypeDef = Union[DescriptorsTypeDef, DescriptorsOutputTypeDef]
+
+class DescriptorsTypeDef(TypedDict):
+    mcpServer: NotRequired[McpServerDescriptorTypeDef]
+    a2aAgentCard: NotRequired[A2aAgentCardDescriptorTypeDef]
+    agentSkillsDefinition: NotRequired[AgentSkillsDefinitionDescriptorTypeDef]
+    custom: NotRequired[CustomDescriptorTypeDef]
+    http: NotRequired[HttpDescriptorTypeDef]
+    agui: NotRequired[AgUiDescriptorTypeDef]
 
 class UpdatedAgentSkillsAdditionalDataFieldsTypeDef(TypedDict):
     skillMd: NotRequired[UpdatedAgentSkillsMdDescriptorTypeDef]
+    skillPackage: NotRequired[UpdatedAgentSkillsPackageDescriptorTypeDef]
+    repositoryProvider: NotRequired[UpdatedAgentSkillsRepositoryProviderTypeDef]
+    sourceConfiguration: NotRequired[UpdatedAgentSkillsSourceConfigurationTypeDef]
 
 class ProvenanceTypeDef(TypedDict):
     relation: Literal["DETECTED_FROM"]
     sourceId: str
     sourceType: NotRequired[SourceTypeType]
     sourceDetails: NotRequired[SourceDetailsUnionTypeDef]
+
+DescriptorsUnionTypeDef = Union[DescriptorsTypeDef, DescriptorsOutputTypeDef]
 
 class UpdatedAgentSkillsAdditionalDataTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedAgentSkillsAdditionalDataFieldsTypeDef]
@@ -951,6 +1049,7 @@ class CreateRegistryRecordRequestTypeDef(TypedDict):
     descriptors: DescriptorsUnionTypeDef
     displayName: NotRequired[str]
     description: NotRequired[str]
+    artifact: NotRequired[RegistryRecordArtifactUploadTypeDef]
     recordVersion: NotRequired[str]
     clientToken: NotRequired[str]
     provenance: NotRequired[Sequence[ProvenanceUnionTypeDef]]
@@ -979,7 +1078,9 @@ class UpdateRegistryRecordRequestTypeDef(TypedDict):
     description: NotRequired[UpdatedDescriptionTypeDef]
     recordType: NotRequired[RecordTypeType]
     descriptors: NotRequired[UpdatedDescriptorsTypeDef]
+    artifact: NotRequired[UpdatedRegistryRecordArtifactTypeDef]
     recordVersion: NotRequired[str]
     customMetadata: NotRequired[UpdatedCustomMetadataMapTypeDef]
     triggerSynchronization: NotRequired[bool]
+    forceAuthentication: NotRequired[bool]
     provenance: NotRequired[Sequence[ProvenanceUnionTypeDef]]

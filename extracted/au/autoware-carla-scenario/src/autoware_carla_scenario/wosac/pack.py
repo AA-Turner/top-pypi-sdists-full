@@ -29,13 +29,14 @@ import logging
 import math
 import tarfile
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Optional
 
 from google.protobuf import json_format
 from google.protobuf.message import DecodeError
 
+from ..atomic_file import write_chunks_atomically
 from ..kinematics.angle import normalize_angle_rad
 from ..run_outputs import WOSAC_SUFFIX, wosac_agents_path
 from ..t4_scene.grid import files_under
@@ -103,7 +104,9 @@ def read_run(path: Path | str) -> Optional[dict[str, Any]]:
     there is none (a file merged from several, or renamed).
 
     Raises:
-        ValueError: If the file is there but holds no JSON object.
+        ValueError: If the file is there but holds no JSON object, or one
+            whose ``seed``, ``offset`` or ``agents`` :func:`check_runs` cannot
+            read (:func:`_check_run`), naming the file.
     """
     if not Path(path).name.endswith(WOSAC_SUFFIX):
         return None
@@ -116,7 +119,75 @@ def read_run(path: Path | str) -> Optional[dict[str, Any]]:
         raise ValueError(f"{sidecar}: not JSON ({error})") from None
     if not isinstance(run, dict):
         raise ValueError(f"{sidecar}: not a JSON object")
+    problem = _check_run(run)
+    if problem is not None:
+        raise ValueError(f"{sidecar}: {problem}")
     return run
+
+
+def _whole(value: Any) -> bool:
+    """Whether ``int(value)`` reads *value* as a whole number: not a bool,
+    which a sidecar never holds for an id or a seed, nor a fraction, which
+    ``int()`` would truncate (seeds 1.2 and 1.7 would both read as 1)."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, float) and not value.is_integer():
+        return False
+    try:
+        int(value)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return True
+
+
+def _numbers(value: Any, count: int) -> bool:
+    """Whether *value* is a list of *count* values ``float()`` reads."""
+    if not isinstance(value, list) or len(value) != count:
+        return False
+    for item in value:
+        if isinstance(item, bool):
+            return False
+        try:
+            float(item)
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
+def _check_run(run: Mapping[str, Any]) -> Optional[str]:
+    """Why :func:`check_runs` cannot read the sidecar *run*
+    (:func:`_check_scenario_runs`, :func:`_current_poses`), or ``None``: a
+    ``seed`` that is no whole number, an ``offset`` that is not three
+    numbers, ``agents`` that are not a list of objects, each with a whole
+    ``object_id`` and a ``current`` pose of four numbers or null (#2208).
+    Absent or null, ``seed``, ``offset`` and ``agents`` are let through, as
+    :func:`check_runs` reads them."""
+    seed = run.get("seed")
+    if seed is not None and not _whole(seed):
+        return f"seed must be a whole number or null, not {seed!r}"
+    offset = run.get("offset")
+    if offset is not None and not _numbers(offset, 3):
+        return f"offset must be a list of 3 numbers or null, not {offset!r}"
+    agents = run.get("agents")
+    if agents is None:
+        return None
+    if not isinstance(agents, list):
+        return f"agents must be a list or null, not {agents!r}"
+    for index, agent in enumerate(agents):
+        if not isinstance(agent, dict):
+            return f"agents[{index}] must be an object, not {agent!r}"
+        if not _whole(agent.get("object_id")):
+            return (
+                f"agents[{index}].object_id must be a whole number, not "
+                f"{agent.get('object_id')!r}"
+            )
+        current = agent.get("current")
+        if current is not None and not _numbers(current, 4):
+            return (
+                f"agents[{index}].current must be a list of 4 numbers "
+                f"(x, y, z, heading) or null, not {current!r}"
+            )
+    return None
 
 
 def _check_scenario_runs(
@@ -438,6 +509,15 @@ def shard_name(index: int, count: int) -> str:
     return f"{SHARD_PREFIX}-{index:05d}-of-{count:05d}"
 
 
+def _shard_chunks(head: bytes, scenarios: Sequence[Any]) -> Iterator[bytes]:
+    """A shard's bytes: the metadata's *head*, then each of *scenarios* as a
+    submission of its own, which concatenate into one message."""
+    yield head
+    for scenario in scenarios:
+        one = pb.SimAgentsChallengeSubmission(scenario_rollouts=[scenario])
+        yield one.SerializeToString(deterministic=True)
+
+
 def write_submission(
     submission: pb.SimAgentsChallengeSubmission,
     output_dir: Path | str,
@@ -487,11 +567,11 @@ def write_submission(
         start = index * count // shards
         stop = (index + 1) * count // shards
         path = directory / shard_name(index, shards)
-        with path.open("wb") as stream:
-            stream.write(head)
-            for scenario in submission.scenario_rollouts[start:stop]:
-                one = pb.SimAgentsChallengeSubmission(scenario_rollouts=[scenario])
-                stream.write(one.SerializeToString(deterministic=True))
+        # In one rename: a run killed mid-shard leaves no truncated shard,
+        # which would parse as a submission short of scenarios.
+        write_chunks_atomically(
+            path, _shard_chunks(head, submission.scenario_rollouts[start:stop])
+        )
         paths.append(path)
     if tar:
         archive = directory / TARBALL_NAME

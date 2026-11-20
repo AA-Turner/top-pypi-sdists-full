@@ -1,16 +1,19 @@
 """
 The observation format's markers: wrap an item of what the robot observes to say what it is, and observe() sends it
 in the form made for it; the worker turns it back into the array it was, so the policy's observe function reads the
-data the robot built, item for item. Anything not wrapped travels as it is.
+data the robot built, item for item. A camera picture not wrapped (HxWx3 uint8, each side 32 pixels or more) goes as a
+video keyframe of its own, unless connect(pictures="exact") says every byte as it is; anything else not wrapped travels
+as it is.
 
     policy.observe({"head": sequence_ai.Video(frame),            # an RGB camera frame, HxWx3 uint8: low-latency video
                     "wrist_depth": sequence_ai.Depth(depth),    # a depth map, any integer or float dtype: lossless
                     "finger": sequence_ai.Tactile(touch),       # a tactile reading: an image's as high-quality video,
                     "joints": joints})                          #   any other array as it is; unwrapped: as it is
+                                                                #   (a picture: a video keyframe of its own)
 
 A wrapped item must be the same kind every step, under the same key: each key has an encoder of its own for the
-episode. Wrapping is plain Python; sending one needs Python 3.10 or later and `pip install 'sequence-ai[observe]'`
-(the encoders: sequence_base.codec.marked, PyAV, zstandard). Markers go in observe(), never in act().
+episode. Wrapping is plain Python; sending one needs Python 3.10 or later (3.11 or later on Windows on ARM), where
+sequence-ai installs the encoders (sequence_base.codec.marked, PyAV, zstandard). Markers go in observe(), never in act().
 
 
 """

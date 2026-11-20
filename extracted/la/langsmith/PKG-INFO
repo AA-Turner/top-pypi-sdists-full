@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langsmith
-Version: 0.15.0
+Version: 0.15.1
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://github.com/langchain-ai/langsmith-python
 Project-URL: Repository, https://github.com/langchain-ai/langsmith-python
@@ -81,7 +81,7 @@ Provides-Extra: strands-agents
 Requires-Dist: opentelemetry-api>=1.30.0; extra == 'strands-agents'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0; extra == 'strands-agents'
 Requires-Dist: opentelemetry-sdk>=1.30.0; extra == 'strands-agents'
-Requires-Dist: strands-agents-tools>=0.2.0; extra == 'strands-agents'
+Requires-Dist: strands-agents-tools<0.9,>=0.2.0; extra == 'strands-agents'
 Requires-Dist: strands-agents>=0.1.0; extra == 'strands-agents'
 Provides-Extra: vcr
 Requires-Dist: vcrpy>=7.0.0; extra == 'vcr'

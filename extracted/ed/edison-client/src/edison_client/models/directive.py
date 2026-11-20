@@ -13,7 +13,7 @@ class ResolvedDirectiveBase(BaseModel):
     version: int
     name: str | None = None
     description: str | None = None
-    directive_metadata: JsonValue | None = None
+    directive_metadata: "JsonValue | None" = None
     version_created_at: datetime
 
 

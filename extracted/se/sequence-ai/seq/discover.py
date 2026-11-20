@@ -26,8 +26,7 @@ from seq.errors import SeqAuthoringError
 
 KINDS = ("policy", "benchmark", "adapter")
 
-
-_DEPLOYS_AS = {"policy": "policy", "planner": "policy", "benchmark": "benchmark", "adapter": "adapter"}
+_DEPLOYS_AS = {"policy": "policy", "benchmark": "benchmark", "adapter": "adapter"}
 
 
 @dataclass(frozen=True)
@@ -109,12 +108,12 @@ def _kind_and_name(dec: ast.expr, modules: set[str], kinds: dict[str, str]) -> t
 
 
 def files_of(root: Path) -> list[tuple[Path, str]]:
-    """The files of the folder its classes are looked for in: what its upload holds (seq.code_bundle's rules), less each
+    """The files of the folder its classes are looked for in: what its upload holds (seq.project_files' rules), less each
     large upstream its template names - never uploaded as published, refused when changed - so none of those is read."""
-    from seq import code_bundle, source
+    from seq import project_files, source
 
     upstreams = {f"third_party/{s.name}" for s in source.read_sources(root)}
-    return code_bundle._folder_files(root, upstreams)[0]
+    return project_files._folder_files(root, upstreams)[0]
 
 
 def find(files: list[tuple[Path, str]]) -> tuple[list[Found], int]:
@@ -178,13 +177,19 @@ def table(found: list[Found]) -> str:
     return "\n".join(f"  {f.kind:9}  {f.name:{width}}  {f.ref}" for f in found)
 
 
-def choose(found: list[Found], name: str | None, folder: str, read: int) -> Found:
+def choose(found: list[Found], name: str | None, folder: str, read: int, *, verb: str = "deploy") -> Found:
     """The class the folder deploys: the one `name` names (name= or the class name), else its only policy or benchmark
     - an adapter beside one is not what it deploys - else its only adapter. Raises SeqAuthoringError, listing them,
-    when there is none or no telling which."""
+    when there is none or no telling which. `verb` "serve": the class `seq serve` serves - its policies alone, said in
+    words of serving it here, nothing of a deploy or an upload."""
+    files = f"read {read} .py file{'' if read == 1 else 's'}"
+    if verb == "serve":
+        found = [f for f in found if f.kind == "policy"]
+        if not found:
+            raise SeqAuthoringError(f"{folder} holds no class decorated @seq.policy ({files})")
     if not found:
         raise SeqAuthoringError(f"{folder} holds no class decorated @seq.policy, @seq.benchmark or "
-                                f"@seq.adapter (read {read} .py file{'' if read == 1 else 's'} it uploads)")
+                                f"@seq.adapter ({files} it uploads)")
     if name is not None:
         named = [f for f in found if f.name == name] or [f for f in found if f.qualname == name]
         if len(named) == 1:
@@ -195,13 +200,13 @@ def choose(found: list[Found], name: str | None, folder: str, read: int) -> Foun
         note = ("\n(a name= that is not a plain string - an f-string, or a variable - is not read: deploy reads your "
                 "files without running them, so a class with one is listed above by its class name. Write its name as "
                 "a literal string.)" if not named and any(f.name_unreadable for f in found) else "")
-        raise SeqAuthoringError(f"{folder} holds {len(found)} classes to deploy and {why} named {name!r}:\n"
+        raise SeqAuthoringError(f"{folder} holds {len(found)} classes to {verb} and {why} named {name!r}:\n"
                                 f"{table(found)}{note}\npick one with --name")
     runnable = [f for f in found if f.kind != "adapter"]
     pool = runnable or found
     if len(pool) == 1:
         return _importable(pool[0], folder)
-    raise SeqAuthoringError(f"{folder} holds {len(pool)} classes to deploy:\n{table(found)}\npick one with --name")
+    raise SeqAuthoringError(f"{folder} holds {len(pool)} classes to {verb}:\n{table(found)}\npick one with --name")
 
 
 def _importable(found: Found, folder: str) -> Found:

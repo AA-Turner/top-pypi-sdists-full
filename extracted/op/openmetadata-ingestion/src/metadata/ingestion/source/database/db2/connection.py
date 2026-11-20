@@ -15,7 +15,7 @@ Source connection handler
 
 from abc import ABC
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote_plus
 
 from sqlalchemy.engine import Engine
@@ -139,7 +139,7 @@ class Db2Connection(BaseConnection[Db2ConnectionConfig, Engine]):
         if connection.license and connection.licenseFileName:
             # pylint: disable=import-outside-toplevel
             # clidriver is installed at runtime by install_clidriver above
-            import clidriver  # noqa: PLC0415 # pyright: ignore[reportMissingImports]
+            import clidriver  # pyright: ignore[reportMissingImports]
 
             license_dir = Path(clidriver.__path__[0], "license")
             license_dir.mkdir(parents=True, exist_ok=True)
@@ -154,8 +154,8 @@ class Db2Connection(BaseConnection[Db2ConnectionConfig, Engine]):
     def test_connection(
         self,
         metadata: OpenMetadata,
-        automation_workflow: Optional[AutomationWorkflow] = None,  # noqa: UP045
-        timeout_seconds: Optional[int] = THREE_MIN,  # noqa: UP045
+        automation_workflow: AutomationWorkflow | None = None,
+        timeout_seconds: int | None = THREE_MIN,
     ) -> TestConnectionResult:
         """
         Test connection. This can be executed either as part

@@ -43,10 +43,15 @@ from metadata.generated.schema.entity.services.connections.database.mssqlConnect
 from metadata.ingestion.connections.builders import (
     create_generic_db_connection,
     get_connection_args_common,
+    get_connection_options_dict,
     get_connection_url_common,
     init_empty_connection_arguments,
 )
 from metadata.ingestion.connections.connection import BaseConnection
+from metadata.ingestion.connections.test_connections import SourceConnectionException
+from metadata.ingestion.source.database.azuresql.connection import (
+    DEFAULT_SQL_SERVER_PORT,
+)
 from metadata.ingestion.source.database.azuresql.connection import (
     get_connection_url as get_pyodbc_connection_url,
 )
@@ -58,7 +63,7 @@ from metadata.ingestion.source.database.mssql.queries import (
     MSSQL_TEST_GET_TABLES,
     MSSQL_TEST_GET_VIEWS,
 )
-from metadata.ingestion.source.database.mssql.utils import is_query_store_enabled
+from metadata.ingestion.source.database.mssql.utils import get_query_store_status
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -66,6 +71,33 @@ if TYPE_CHECKING:
     from metadata.core.connections.lifetime import Borrowed
     from metadata.core.connections.test_connection import ChecksProvider
     from metadata.core.connections.test_connection.classifier import Matcher
+
+
+DEFAULT_ODBC_DRIVER = "ODBC Driver 18 for SQL Server"
+FREETDS_ODBC_DRIVER = "FreeTDS"
+
+
+def _odbc_driver_for_data_diff(connection: MssqlConnectionConfig) -> str:
+    """The ODBC driver whose auth capability matches `connection.scheme`.
+
+    data-diff is pyodbc-only, so a non-ODBC scheme still has to resolve to an ODBC
+    driver. Only FreeTDS splits a `DOMAIN\\user` login and negotiates NTLM;
+    msodbcsql offers it as a SQL login name, which SQL Server rejects with 18456
+    (a backslash is illegal in a SQL login, so the account can only be a Windows
+    one). pymssql is itself a FreeTDS binding, hence the mapping. pytds is
+    SQL-auth-only, so msodbcsql matches it exactly - routing it to FreeTDS would
+    let the diff authenticate more than metadata ingestion can. See issue #32582.
+
+    `connection.driver` is read only under pyodbc: it is documented as pyodbc-only
+    and otherwise sits at its schema default, so trusting it elsewhere would be a
+    no-op for exactly the configuration this resolves.
+    """
+    scheme = connection.scheme or MssqlScheme.mssql_pytds
+    if scheme.value == MssqlScheme.mssql_pyodbc.value:
+        return connection.driver or DEFAULT_ODBC_DRIVER
+    if scheme.value == MssqlScheme.mssql_pymssql.value:
+        return FREETDS_ODBC_DRIVER
+    return DEFAULT_ODBC_DRIVER
 
 
 def _mssql_number(error: BaseException) -> int | None:
@@ -124,6 +156,26 @@ SQLSERVER_ERRORS = ErrorPack(
     ).diagnose(
         "Insufficient privileges",
         fix="Grant the login SELECT on the objects the failing step reads (and VIEW SERVER STATE for query history).",
+    ),
+    # Azure SQL DTU/vCore resource-governance throttling - not an auth or permission
+    # error. Verified against Microsoft's own error catalog (Azure SQL troubleshooting
+    # docs + a live `sys.messages` lookup): 10928 = per-database worker/request limit
+    # reached, 10936 = the same for an elastic pool, 10929 = server too busy to admit
+    # new requests for this database. pyodbc never exposes a number (see _mssql_number),
+    # so it needs the text fallback like every other pyodbc-reachable rule here. The
+    # reference URL in these messages has changed across SQL Server versions, so match
+    # on the stable message body instead.
+    when(
+        Matchers.any_of(
+            _sqlserver_errno(10928, 10929, 10936),
+            Matchers.contains("limit for the database is"),
+            Matchers.contains("limit for the elastic pool is"),
+            Matchers.contains("is currently too busy to support requests"),
+        )
+    ).diagnose(
+        "Azure SQL resource limit reached (throttled)",
+        fix="The database's DTU/vCore limit was reached. Reduce concurrent load or scale up the "
+        "Azure SQL database, then retry.",
     ),
 )
 
@@ -266,12 +318,17 @@ class MssqlChecks:
 
     @check(DatabaseStep.GetQueries)
     def get_queries(self) -> Evidence:
-        if is_query_store_enabled(self._db.client):
+        status = get_query_store_status(self._db.client)
+        if status.enabled:
             query = MSSQL_TEST_GET_QUERIES_FROM_QUERY_STORE
             summary = "query history accessible via Query Store"
         else:
             query = MSSQL_TEST_GET_QUERIES
-            summary = "query history accessible via plan-cache DMVs"
+            summary = (
+                "query history accessible via plan-cache DMVs (AG secondary)"
+                if status.is_ag_secondary
+                else "query history accessible via plan-cache DMVs"
+            )
         return run_sql(self._db.client, query, lambda _: summary)
 
 
@@ -290,6 +347,56 @@ class MssqlConnection(BaseConnection[MssqlConnectionConfig, Engine]):
             bound_pyodbc_query_timeout(engine, configured_query_timeout(self.service_connection))
         self._on_close(engine.dispose)
         return engine
+
+    def get_connection_dict(self) -> dict:
+        """Return the connection parameters for data-diff.
+
+        Preferred over a rendered SQLAlchemy URL because it bypasses URI parsing
+        entirely: credentials reach data-diff verbatim, so usernames holding
+        reserved characters need no encode/decode round trip (see #31124/#31134),
+        and `odbc_driver` can carry the driver the URL has no room for.
+        """
+        connection = self.service_connection
+        if not connection.hostPort:
+            # `hostPort` is optional in the schema. Defaulting the host to "" would be
+            # worse than refusing: ODBC reads a blank server as the local machine, so
+            # the diff would quietly connect somewhere unintended. Falling back to a
+            # rendered URL cannot work either - it raises a bare TypeError - and this
+            # must stay outside (ValueError, AttributeError, NotImplementedError), or
+            # BaseTableParameter._get_service_connection_config downgrades it to that
+            # fallback and swallows the message.
+            raise SourceConnectionException(
+                "MSSQL connection has no hostPort configured, so the table diff has nothing "
+                "to connect to. Set 'Host and Port' on the service connection."
+            )
+
+        host, _, port = connection.hostPort.partition(":")
+        if port and not port.isdigit():
+            # Same reasoning as above, from the other side: `int(port)` would raise
+            # ValueError, which that fallback catches, so a typo'd port would drop
+            # the diff back onto the URL path and take the derived ODBC driver with
+            # it. Quietly defaulting to 1433 is no better - it connects somewhere
+            # the user did not ask for.
+            raise SourceConnectionException(
+                f"MSSQL hostPort {connection.hostPort!r} has a non-numeric port, so the table "
+                "diff cannot connect. Set 'Host and Port' to 'host:port', or to 'host' alone "
+                f"to use the default {DEFAULT_SQL_SERVER_PORT}."
+            )
+
+        return {
+            # connectionOptions used to ride along as query params on the rendered
+            # URL and land in pyodbc's kwargs. This dict replaces that URL, so it
+            # has to carry them or extra ODBC keywords stop applying to diffs. The
+            # derived values below win: they are what makes domain auth work.
+            **(get_connection_options_dict(connection) or {}),
+            "driver": (connection.scheme or MssqlScheme.mssql_pytds).value,
+            "host": host,
+            "port": int(port) if port else DEFAULT_SQL_SERVER_PORT,
+            "user": connection.username,
+            "password": connection.password.get_secret_value() if connection.password else None,
+            "database": connection.database,
+            "odbc_driver": _odbc_driver_for_data_diff(connection),
+        }
 
     def _get_databases_statement(self) -> str:
         if self.service_connection.ingestAllDatabases:

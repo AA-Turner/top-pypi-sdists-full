@@ -13,9 +13,10 @@ from __future__ import annotations
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, replace
 from decimal import Decimal
-from functools import cached_property, partial
+from functools import cached_property
 from itertools import starmap
 from math import isfinite
+from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypeAlias, cast, get_args
 from urllib.parse import ParseResult
@@ -24,6 +25,7 @@ from pydantic import ValidationError
 from typing_extensions import override
 
 from datamodel_code_generator import Error, SchemaParseError
+from datamodel_code_generator._asyncapi_connections import ReadMember, Walk, WalkedMessage, read
 from datamodel_code_generator._container_kinds import (
     CONTAINER_FLAGS,
     CONTAINERS,
@@ -38,7 +40,7 @@ from datamodel_code_generator._document_reader import MISSING, as_mapping, desce
 from datamodel_code_generator._generation_contract import AttemptId
 from datamodel_code_generator._json_pointer import document_part, pointer_tokens, reference_tokens
 from datamodel_code_generator._module_paths import written_path
-from datamodel_code_generator._mro import collect_members, linearize
+from datamodel_code_generator._mro import collect_members
 from datamodel_code_generator._openapi_paths import inherited_security
 from datamodel_code_generator._openapi_wire_plan import EVENT_STREAM, FORMS, message_codec, message_kind
 from datamodel_code_generator._paths import file_uri
@@ -108,7 +110,7 @@ from datamodel_code_generator._target_contract import (
 from datamodel_code_generator._target_module import TypeComposer
 from datamodel_code_generator._target_naming import TargetNames, path_placeholders
 from datamodel_code_generator._target_types import TypeTables, is_none, present
-from datamodel_code_generator.enums import DataclassArguments, OpenAPIVersion
+from datamodel_code_generator.enums import AsyncAPIVersion, DataclassArguments, OpenAPIVersion
 from datamodel_code_generator.imports import IMPORT_ANY, IMPORT_DECIMAL, Import, _import_path, _stored_import
 from datamodel_code_generator.model import dataclass as dataclass_model
 from datamodel_code_generator.model import msgspec, pydantic_v2, typed_dict
@@ -122,6 +124,11 @@ from datamodel_code_generator.model.base import (
     DataModelFieldBase,
     _default_state,
     _has_root_field_constraints,
+    _model_key_of_model,
+    direct_base_models,
+    get_effective_fields,
+    inherited_root_field,
+    linearize_data_models,
 )
 from datamodel_code_generator.model.dataclass import DataModelField as DataclassField
 from datamodel_code_generator.model.enum import Enum, IntEnum, StrEnum, get_raw_enum_member_value
@@ -135,7 +142,7 @@ from datamodel_code_generator.model.pydantic_v2.type_alias import TypeAlias as P
 from datamodel_code_generator.model.pydantic_v2.types import PydanticV2DataType, _writes_serialize_as_any
 from datamodel_code_generator.model.type_alias import TypeAlias as TypeAliasModel
 from datamodel_code_generator.model.type_alias import TypeAliasTypeBackport, TypeStatement
-from datamodel_code_generator.parser.asyncapi import AsyncAPIParser, AsyncAPISchema
+from datamodel_code_generator.parser.asyncapi import AsyncAPIParser, AsyncAPIResolvedRef, AsyncAPISchema
 from datamodel_code_generator.parser.generation import GenerationStore
 from datamodel_code_generator.parser.jsonschema import Discriminator, JsonSchemaObject
 from datamodel_code_generator.parser.openapi import HeaderObject, OpenAPIParser, ParameterObject, RequestBodyObject
@@ -424,6 +431,14 @@ class _TargetRecording(OpenAPIParser):
         self.nullable_fields: dict[int, DataModelFieldBase] = {}
         self.document_facts: dict[str, tuple[tuple[str, FrozenLiteral], ...]] = {}
         super().__init__(source, config=config)
+
+    def registered_names(self) -> tuple[Mapping[str, str], Mapping[str, str]]:
+        """Return the schema resources' URIs to the locations they name, and the root base of each document, by name.
+
+        Both are the registry's answers merged over every load of the attempt, final once it is parsed.
+        """
+        registry = self._schema_resource_registry
+        return registry.locations, registry.root_bases
 
     def _reads_ref_siblings_at(self, location: SchemaLocation) -> bool:
         """Return whether the models read the keywords beside a ``$ref`` at a location with the schema it names.
@@ -814,7 +829,8 @@ class TargetApiOpenAPIParser(_TargetRecording, ApiOpenAPIParser):
 class TargetAsyncAPIParser(_TargetRecording, AsyncAPIParser):
     """Record the schema acquisitions and loaded documents of an AsyncAPI document for one client generation attempt.
 
-    The channels themselves are read from the loaded documents when the attempt is bound (``_asyncapi_connections``).
+    The channels themselves are read from the loaded documents when the attempt is bound (``_asyncapi_connections``),
+    with the messages the walk reached from each message value (``walked_messages``).
     """
 
     def __init__(
@@ -828,7 +844,66 @@ class TargetAsyncAPIParser(_TargetRecording, AsyncAPIParser):
         self._api_roots: set[str] = set()
         self._declaration_types: dict[SchemaLocation, DataType] = {}
         self.ignored_declarations: list[ApiIgnoredDeclaration] = []
+        self._missing_messages: dict[int, tuple[dict[str, YamlValue], SchemaLocation]] = {}
+        self.walked_messages: dict[SchemaLocation, tuple[WalkedMessage, ...]] = {}
+        """The messages the walk reached from each message value, after every `$ref` and `oneOf`, by its location."""
+        self._message_frames: list[list[WalkedMessage]] = []
         super().__init__(source, config=config)  # ty: ignore[invalid-argument-type]
+
+    def _framed(
+        self, walker: Callable[..., list[AsyncAPISchema]], value: object, *rest: object
+    ) -> list[AsyncAPISchema]:
+        """Walk a message value, recording the messages it reaches under where it is written.
+
+        A value in no located container, such as a list of messages, records none itself; each of its items does.
+        """
+        if (use := self._raw_location(value)) is None:
+            return walker(value, *rest)
+        self._message_frames.append(found := [])
+        try:
+            schemas = walker(value, *rest)
+        finally:
+            self._message_frames.pop()
+        self.walked_messages.setdefault(use, tuple(found))
+        return schemas
+
+    @override
+    def _iter_message_payload_schemas(
+        self, message: object, name: str, path: list[str], seen_paths: set[tuple[str, ...]] | None = None
+    ) -> list[AsyncAPISchema]:
+        return self._framed(super()._iter_message_payload_schemas, message, name, path, seen_paths)
+
+    @override
+    def _iter_operation_message_schemas(self, message: object, name: str, path: list[str]) -> list[AsyncAPISchema]:
+        return self._framed(super()._iter_operation_message_schemas, message, name, path)
+
+    @override
+    def _walked_message(self, message: object, payload: AsyncAPISchema | None) -> None:
+        """Record a message the walk reached, and the reference its payload is used as (``_reference_use``)."""
+        ref = location = None
+        if payload is not None and (location := payload.location) is not None:
+            with self._asyncapi_context(payload.context):
+                ref = self._reference_use(payload.raw_schema, payload.path)[0]
+        declaration = self._raw_location(message) or self._missing_messages[id(message)][1]
+        walked = WalkedMessage(declaration, location, ref)
+        for frame in self._message_frames:
+            frame.append(walked)
+
+    @override
+    def _resolve_ref_object(self, value: object, seen_paths: set[tuple[str, ...]]) -> AsyncAPIResolvedRef | None:
+        """Note the location a reference names where its target is missing, which reads as an empty message."""
+        resolved = super()._resolve_ref_object(value, seen_paths)
+        if (
+            resolved is None
+            or not isinstance(resolved.value, dict)
+            or self._raw_location(resolved.value) is not None
+            or not isinstance(value, dict)
+        ):
+            return resolved
+        source = self._raw_location(value)
+        named = source and self._schema_reference_location(source.document, value["$ref"])
+        self._missing_messages.update({id(resolved.value): (resolved.value, named)} if named is not None else {})
+        return resolved
 
     @override
     def _note_scanned_document(self, document: str, raw: dict[str, YamlValue]) -> None:
@@ -859,10 +934,12 @@ class TargetAsyncAPIParser(_TargetRecording, AsyncAPIParser):
 
     @override
     def release_records(self) -> None:
-        """Drop the recorded graph anchors and the loaded documents."""
+        """Drop the recorded graph anchors, the loaded documents and the messages their walk reached."""
         super().release_records()
         self._api_documents.clear()
+        self._missing_messages.clear()
         self._api_roots.clear()
+        self.walked_messages.clear()
 
 
 TargetParser: TypeAlias = TargetApiOpenAPIParser | TargetAsyncAPIParser
@@ -1027,6 +1104,17 @@ def _literal_scalar(value: object) -> LiteralScalar | None:  # noqa: PLR0911
             return None
 
 
+def _freeze_entry(
+    key: object, item: object, active: set[int], *, document: bool
+) -> tuple[FrozenLiteral, FrozenLiteral]:
+    """Freeze one entry of a mapping, a cycle in its value naming the key as the first token."""
+    try:
+        return _freeze_literal(key, active, document=document), _freeze_literal(item, active, document=document)
+    except _LiteralCycleError as error:
+        error.tokens = (str(key), *error.tokens)
+        raise
+
+
 def _freeze_literal(value: object, active: set[int], *, document: bool = False) -> FrozenLiteral:
     """Freeze a literal; with ``document``, a value read from a loaded document, whose strings freeze as plain ``str``.
 
@@ -1042,17 +1130,9 @@ def _freeze_literal(value: object, active: set[int], *, document: bool = False) 
     try:
         match value:
             case dict() if type(value) is dict:
-                items: list[tuple[FrozenLiteral, FrozenLiteral]] = []
-                try:
-                    for key, item in value.items():
-                        items.append((
-                            _freeze_literal(key, active, document=document),
-                            _freeze_literal(item, active, document=document),
-                        ))
-                except _LiteralCycleError as error:
-                    error.tokens = (str(key), *error.tokens)
-                    raise
-                return LiteralMapping(tuple(items))
+                return LiteralMapping(
+                    tuple(_freeze_entry(key, item, active, document=document) for key, item in value.items())
+                )
             case list() | tuple() | set() | frozenset() if (kind := _SEQUENCES.get(type(value))) is not None:
                 items_sequence: list[FrozenLiteral] = []
                 try:
@@ -1080,12 +1160,12 @@ def _facts(
     raw: dict[str, YamlValue], keys: tuple[str, ...], declaration: SchemaLocation
 ) -> tuple[tuple[str, FrozenLiteral], ...]:
     facts: list[tuple[str, FrozenLiteral]] = []
-    try:
-        for key, value in raw.items():
-            if key in keys:
+    for key, value in raw.items():
+        if key in keys:
+            try:
                 facts.append((key, _freeze_literal(value, set(), document=True)))
-    except _LiteralCycleError as error:
-        raise MetadataCycleError(declaration.document, declaration.child(key, *error.tokens).pointer) from error
+            except _LiteralCycleError as error:
+                raise MetadataCycleError(declaration.document, declaration.child(key, *error.tokens).pointer) from error
     return tuple(facts)
 
 
@@ -2459,20 +2539,29 @@ class _Models:
     def declaration(self, model: DataModel, wire_name: str) -> SchemaLocation | None:
         """Return where the schema of a model declares a property, as the field its bases build for it is located.
 
-        A model that reuse made declares its properties as the model it replaced does.
+        The property is the one the class takes from its own declarations and its bases, in the order the model gives
+        them (``linearize_data_models``) and by the rule its class takes inherited fields by (``_BASE_FIELDS``). A
+        model that reuse made declares its properties as the model it replaced does.
         """
-        pending = [model]
-        while pending:
-            for field in (replaced := self.binder.reused(current := pending.pop()) or current).fields:
-                origin = field_origin_of(field)
-                if _wire_name(field) == wire_name and origin is not None and origin.kind == "property":
-                    return origin.location
-            pending.extend(
-                source
-                for base in reversed(replaced.base_classes)
-                if base.reference is not None and isinstance(source := base.reference.source, DataModel)
-            )
-        return None
+        reused = self.binder.reused
+        start = reused(model) or model
+
+        def properties(owner: DataModel) -> list[tuple[str, SchemaLocation | None]]:
+            return [
+                (_wire_name(field), origin.location)
+                for field in (reused(owner) or owner).fields
+                if (origin := field_origin_of(field)) is not None and origin.kind == "property"
+            ]
+
+        found = collect_members(
+            linearize_data_models([start]),
+            properties,
+            itemgetter(0),
+            direct_base_models,
+            _model_key_of_model,
+            rule=start._BASE_FIELDS,  # noqa: SLF001
+        ).get(wire_name)
+        return None if found is None else found[1][1]
 
     def preexisting_null(self, data_type: DataType) -> bool | None:
         """Return whether a field's own type accepts None before the field adds optionality.
@@ -2566,26 +2655,16 @@ class _Models:
         self.alias_nulls[symbol] = result
         return result
 
-    def parent_first(self, symbol: SymbolId, bases: dict[SymbolId, tuple[SymbolId, ...]]) -> tuple[SymbolId, ...]:
-        visited: set[str] = set()
-        order: list[SymbolId] = []
-        pending = [(symbol, False)]
-        while pending:
-            current, leaving = pending.pop()
-            if leaving:
-                order.append(current)
-                continue
-            if (path := self.binder.models[current].reference.path) in visited:
-                continue
-            visited.add(path)
-            pending.append((current, True))
-            pending.extend((parent, False) for parent in reversed(bases[current]))
-        return tuple(order)
-
     def field_bindings(self, symbols: tuple[FinalModelSymbol, ...]) -> tuple[FieldUseBinding, ...]:
-        """Bind each model's effective fields, inherited ones included, in the order its class declares them."""
-        models = self.binder.models
-        bases = {symbol.id: symbol.bases for symbol in symbols}
+        """Bind each model's effective fields, inherited ones included, in the order its class declares them.
+
+        They are the fields the model has with its bases (``get_effective_fields``), the value of a root model or an
+        alias (``inherited_root_field``) and the keys the dict literal of a functional TypedDict writes
+        (``fields_evaluated_at_definition``), each bound with the model that declares it. A model that inherits, however
+        distantly, from a base no emitted model stands for binds none.
+        """
+        binder = self.binder
+        models = binder.models
         unknown = {
             symbol.id
             for model, symbol in zip(models, symbols, strict=True)
@@ -2593,26 +2672,20 @@ class _Models:
         }
         bindings: list[FieldUseBinding] = []
         for model, symbol in zip(models, symbols, strict=True):
-            if symbol.kind == "enum":
+            if symbol.kind == "enum" or any(
+                binder.symbols[id(ancestor)] in unknown for ancestor in linearize_data_models([model])
+            ):
                 continue
-            functional = symbol.facts is not None and symbol.facts.functional_typeddict
-            order = (
-                self.parent_first(symbol.id, bases)
-                if functional
-                else linearize([symbol.id], lambda item: item, bases.__getitem__, rule="python")
-            )
-            if order is None or any(owner in unknown for owner in order):
-                continue
-            fields = collect_members(
-                order[::-1] if functional else order,
-                lambda owner: models[owner].fields,
-                _wire_name if functional else lambda field: self.slots[id(field)].name,
-                bases.__getitem__,
-                lambda item: item,
-                rule="nearest" if functional else model._BASE_FIELDS,  # noqa: SLF001
-            )
+            if symbol.facts is not None and symbol.facts.functional_typeddict:
+                fields: Sequence[DataModelFieldBase] = model.fields_evaluated_at_definition()
+            elif model.IS_ALIAS or model.IS_ROOT_MODEL:
+                fields = (inherited_root_field(model),)
+            else:
+                fields = get_effective_fields(model)
             members = self.variant_exclusions(
-                model, symbol, [self.member(symbol, models[owner], field) for owner, field in fields.values()]
+                model,
+                symbol,
+                [self.member(symbol, models[self.slots[id(field)].symbol], field) for field in fields],
             )
             self.members[symbol.id] = members
             bindings.extend(members)
@@ -3073,12 +3146,14 @@ class _UseFacts(_SchemaUses):
     def object_symbols(self, value: TypeView | None) -> list[SymbolId]:
         """Return the models a type names (``TypeTables.wrapper_chain``), then the bases of the class it holds.
 
-        The bases are in method resolution order (``_mro.linearize``).
+        The bases are in the order the model gives them (``linearize_data_models``).
         """
         found = self.tables.wrapper_chain(value)[1]
         if found and self.symbol_table[found[-1]].kind not in WRAPPER_KINDS:
-            order = linearize([found[-1]], lambda item: item, lambda item: self.symbol_table[item].bases, rule="python")
-            found.extend(base for base in (order or [])[1:] if base not in found)
+            bases = (
+                self.binder.symbols[id(base)] for base in linearize_data_models([self.binder.models[found[-1]]])[1:]
+            )
+            found.extend(base for base in bases if base not in found)
         return found
 
     def use_others(self, use: TypeUseBinding) -> _Others | None:
@@ -4129,46 +4204,36 @@ class _Contracts(_Octets):
 
         The security schemes are those of each input document that a handshake can send, as OpenAPI declares them.
         """
-        from datamodel_code_generator._asyncapi_connections import read  # noqa: PLC0415
-
         contracts: list[ChannelContract] = []
         schemes: list[WireDeclaration] = []
         locate = self.documents.location
         for document in self.documents.walked:
             if document in self.parser._api_roots:  # noqa: SLF001
-                found = read(
-                    self.documents.documents[document],
-                    partial(self.loaded_schema, document),
-                    partial(self.handshake_members, document),
-                )
+                v2 = _recorded_version(self.parser, document) == AsyncAPIVersion.V2
+                walk = Walk(v2, self.parser.walked_messages.get)
+                found = read(document, self.documents.borrow, self.loaded_target, self.handshake_members, walk)
                 contracts.extend(
-                    self.channel(document, channel, len(contracts) + index)
-                    for index, channel in enumerate(found.channels)
+                    self.channel(channel, len(contracts) + index) for index, channel in enumerate(found.channels)
                 )
                 for scheme in found.schemes:
-                    declaration = SchemaLocation(document, scheme.declaration)
                     use = SchemaLocation(document, ("components", "securitySchemes", scheme.name))
                     schemes.append(
                         WireDeclaration(
                             "security_scheme",
                             scheme.name,
-                            DeclarationId(locate(declaration, "declaration")),
+                            DeclarationId(locate(scheme.declaration, "declaration")),
                             locate(use, "use"),
-                            _facts(dict(scheme.fields), _METADATA_FACTS["security_scheme"], declaration),
+                            _facts(dict(scheme.fields), _METADATA_FACTS["security_scheme"], scheme.declaration),
                         )
                     )
         return tuple(contracts), tuple(schemes)
 
-    def loaded_schema(self, document: str, ref: str) -> YamlValue:
-        """Return the schema a `$ref` of a document names in the loaded documents, or None where none holds it."""
-        return None if (target := self.loaded_target(document, ref)) is None else self.documents.borrow(target)
-
     def loaded_target(self, document: str, ref: str) -> SchemaLocation | None:
-        """Return where the schema a `$ref` of a document names is, as the parser resolves it, in a loaded document."""
+        """Return where a `$ref` of a document leads, as the parser resolves it, None outside the loaded documents."""
         target = self.parser._schema_reference_location(document, ref)  # noqa: SLF001
         return None if target is None or target.document not in self.documents.ids else target
 
-    def channel(self, document: str, read: ReadChannel, order: int) -> ChannelContract:
+    def channel(self, read: ReadChannel, order: int) -> ChannelContract:
         """Bind one channel: its handshake, a GET of its address on its servers, and its messages.
 
         The handshake of a server-sent event stream declares a 200 response of `text/event-stream`, which its events
@@ -4176,14 +4241,13 @@ class _Contracts(_Octets):
         (`message_codec`); one no codec carries leaves the channel out.
         """
         locate = self.documents.location
-        use_site = SchemaLocation(document, read.use_site)
-        declaration = SchemaLocation(document, read.declaration)
+        use_site, declaration = read.use_site, read.declaration
         identity = OperationId(locate(use_site, "use"), "channel")
         found: list[MessageContract] = []
         refused: list[ChannelSkip] = []
         for message in read.messages:
-            declared = locate(SchemaLocation(document, message.declaration), "declaration")
-            payload = self.payload(document, message.payload, message.payload_ref)
+            declared = locate(message.declaration, "declaration")
+            payload = self.payload(message.payload, message.payload_ref)
             if (codec := self._message_codec(message.media, payload, stream=read.kind == "sse")) is None:
                 why = f"message {declared.pointer} has content type {message.media}"
                 refused.append(ChannelSkip("message_content_types", why))
@@ -4250,13 +4314,9 @@ class _Contracts(_Octets):
         )
         return WireDeclaration("response", _STREAM_STATUS, declared, locate(response, "use"), (), children=(media,))
 
-    def payload(self, document: str, tokens: tuple[str, ...], ref: str | None) -> SchemaLocation:
+    def payload(self, written: SchemaLocation, ref: str | None) -> SchemaLocation:
         """Return the schema a message's payload binds as: the one a lone `$ref` names, which resolves, or its own."""
-        return (
-            SchemaLocation(document, tokens)
-            if ref is None
-            else cast("SchemaLocation", self.loaded_target(document, ref))
-        )
+        return written if ref is None else cast("SchemaLocation", self.loaded_target(written.document, ref))
 
     def _message_codec(self, media: str, payload: SchemaLocation, *, stream: bool) -> MessageCodec | None:
         """Return how a message of a media type travels, by the models' type of its payload's value (``whole``)."""
@@ -4279,17 +4339,12 @@ class _Contracts(_Octets):
         An AsyncAPI 2 parameter's schema types it, and any other is a string.
         """
         locate = self.documents.location
-        declared = (
-            channel.child("parameters", name)
-            if parameter is None
-            else SchemaLocation(channel.document, parameter.declaration)
-        )
+        declared = channel.child("parameters", name) if parameter is None else parameter.declaration
         used = use_site.child("parameters", name)
         facts: dict[str, YamlValue] = {"name": name, "in": "path", "required": True}
         if parameter is not None and parameter.description is not None:
             facts["description"] = parameter.description
-        if parameter is not None and parameter.schema is not None:
-            schema = SchemaLocation(channel.document, parameter.schema)
+        if parameter is not None and (schema := parameter.schema) is not None:
             self._recorded(schema)
             use = self.use_id(owner, "parameter", declared, used, schema, location="path", name=name)
             schemas = self.media_facts((self.use(use, schema),), schema, "parameter", None)
@@ -4307,7 +4362,7 @@ class _Contracts(_Octets):
             schemas,
         )
 
-    def handshake_members(self, document: str, tokens: tuple[str, ...]) -> tuple[ReadMember, ...] | str:
+    def handshake_members(self, location: SchemaLocation) -> tuple[ReadMember, ...] | str:
         """Return the properties the models hold of an object schema a handshake's binding writes, or why none.
 
         The object's model, or the one a root model or alias of it holds, has a field for each property, its own or
@@ -4315,9 +4370,6 @@ class _Contracts(_Octets):
         like the other properties of a model, its keys stand for no parameter. A schema no model types, or one the
         models type otherwise, such as a string, gives no parameters.
         """
-        from datamodel_code_generator._asyncapi_connections import ReadMember  # noqa: PLC0415
-
-        location = SchemaLocation(document, tokens)
         if self.bound_node(location, "value") is None:
             return "has no model"
         value = self.projection(location, "value", "request").value
@@ -4401,6 +4453,10 @@ class BoundAttempt:
 
     batch: GeneratedTypeContractBatch
     documents: tuple[tuple[str, dict[str, YamlValue]], ...]
+    declared: Mapping[str, tuple[int, str]]
+    """Each URI the parser's schema resources name in ``documents``, to a document's index there and a pointer."""
+    roots: tuple[str, ...]
+    """The base URI the parser gives the root of each of ``documents``, empty for one it never prepared."""
 
 
 def _used_variables(server: ReadServer) -> dict[str, YamlValue]:
@@ -4437,9 +4493,8 @@ def bind_operations(
     security_schemes = security_schemes if asyncapi else builder.security_schemes()
     documents = builder.documents
     root = next(iter(documents.ids), "")
-    graph = parser._graph  # ruff: ignore[private-member-access]
-    dialect = None if asyncapi else graph.known(graph.names.get(root, root)).dialect
-    version = OpenAPIVersion.V31 if dialect is None else cast("OpenAPIVersion", dialect.version)
+    recorded = None if asyncapi else _recorded_version(parser, root)
+    version = OpenAPIVersion.V31 if recorded is None else cast("OpenAPIVersion", recorded)
     return BoundAttempt(
         GeneratedTypeContractBatch(
             attempt,
@@ -4460,8 +4515,15 @@ def bind_operations(
             names=TargetNames.of(parser.model_resolver),
             channels=channels,
         ),
-        _pristine(parser, documents.documents),
+        (pristine := _pristine(parser, documents.documents)),
+        *_registered(parser, pristine),
     )
+
+
+def _recorded_version(parser: TargetParser, document: str) -> SchemaVersion | None:
+    """Return the version the parser reads a loaded document by, as its load recorded it (L0); None: no record."""
+    graph = parser._graph  # ruff: ignore[private-member-access]
+    return None if (dialect := graph.known(graph.names.get(document, document)).dialect) is None else dialect.version
 
 
 def _own_versions(
@@ -4498,6 +4560,26 @@ def _pristine(
     return tuple((location, as_written(document)) for location, document in loaded)
 
 
+def _registered(
+    parser: TargetParser, documents: tuple[tuple[str, dict[str, YamlValue]], ...]
+) -> tuple[dict[str, tuple[int, str]], tuple[str, ...]]:
+    """Return the URIs the parser's schema resources name in the documents of a source lease, and each root's base.
+
+    A URI (a document's root base, an identifier, an `$anchor` or a `$dynamicAnchor`) maps to the first document the
+    lease holds from the location the registry names, and the pointer there, as the registry merged them over every
+    load; one in a document the lease does not hold is left out. The registry names a document read as text ``""``.
+    """
+    locations, root_bases = parser.registered_names()
+    unnamed = _unnamed(parser)
+    names = tuple("" if location == unnamed else location for location, _ in documents)
+    held: dict[str, int] = {}
+    for index, name in enumerate(names):
+        held.setdefault(name, index)
+    located = ((uri, *location.partition("#")[::2]) for uri, location in locations.items())
+    declared = {uri: (held[document], pointer) for uri, document, pointer in located if document in held}
+    return declared, tuple(root_bases.get(name, "") for name in names)
+
+
 def _unnamed(parser: TargetParser) -> str:
     """Return the location of a document read as text, such as the input when its type is detected.
 
@@ -4512,7 +4594,6 @@ if TYPE_CHECKING:
     from datamodel_code_generator._asyncapi_connections import (
         ReadChannel,
         ReadHandshakeParameter,
-        ReadMember,
         ReadParameter,
         ReadServer,
     )
@@ -4542,4 +4623,5 @@ if TYPE_CHECKING:
         ApiObjectKind,
         ApiParameterDeclaration,
     )
+    from datamodel_code_generator.parser.schema_version import SchemaVersion
     from datamodel_code_generator.reference import ModelResolver, _RwDirection

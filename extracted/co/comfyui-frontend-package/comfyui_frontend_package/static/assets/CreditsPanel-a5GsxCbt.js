@@ -1,0 +1,1 @@
+import{t as e}from"./CreditsPanel-CouLq_BR.js";export{e as default};

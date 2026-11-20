@@ -40,6 +40,7 @@ Ephemeral (or on-demand) runners are the [recommended way by GitHub](https://doc
   * [Composite Providers](#composite-providers)
   * [Custom Provider Selection](#custom-provider-selection)
   * [Warm Runners](#warm-runners)
+  * [Compliance](#compliance)
 * [Examples](#examples)
 * [Architecture](#architecture)
 * [Troubleshooting](#troubleshooting)
@@ -59,24 +60,25 @@ The best way to browse API documentation is on [Constructs Hub](https://construc
 
 A runner provider creates compute resources on-demand and uses [actions/runner](https://github.com/actions/runner) to start a runner.
 
-|                  | EC2               | CodeBuild                  | Fargate        | ECS            | Lambda        |
-|------------------|-------------------|----------------------------|----------------|----------------|---------------|
-| **Time limit**   | Unlimited         | 36 hours (default 1 hour)  | Unlimited      | Unlimited      | 15 minutes    |
-| **vCPUs**        | Unlimited         | 2, 4, 8, or 72             | 0.25 to 4      | Unlimited      | 1 to 6        |
-| **RAM**          | Unlimited         | 3gb, 7gb, 15gb, or 145gb   | 512mb to 30gb  | Unlimited      | 128mb to 10gb |
-| **Storage**      | Unlimited         | 50gb to 824gb              | 20gb to 200gb  | Unlimited      | Up to 10gb    |
-| **Architecture** | x86_64, ARM64     | x86_64, ARM64              | x86_64, ARM64  | x86_64, ARM64  | x86_64, ARM64 |
-| **GPU**          | ✔                 | ✔                         | ❌              | ✔              | ❌           |
-| **sudo**         | ✔                 | ✔                         | ✔              | ✔              | ❌           |
-| **Docker**       | ✔                 | ✔ (Linux only)            | ❌              | ✔              | ❌           |
-| **Spot pricing** | ✔                 | ❌                         | ✔              | ✔              | ❌           |
-| **OS**           | Linux, Windows    | Linux, Windows             | Linux, Windows | Linux, Windows | Linux         |
+|                  | EC2               | CodeBuild                  | Fargate        | ECS            | Lambda        | Lambda MicroVM |
+|------------------|-------------------|----------------------------|----------------|----------------|---------------|----------------|
+| **Time limit**   | Unlimited         | 36 hours (default 1 hour)  | Unlimited      | Unlimited      | 15 minutes    | 8 hours (default 1 hour) |
+| **vCPUs**        | Unlimited         | 2, 4, 8, or 72             | 0.25 to 4      | Unlimited      | 1 to 6        | 0.25 to 4      |
+| **RAM**          | Unlimited         | 3gb, 7gb, 15gb, or 145gb   | 512mb to 30gb  | Unlimited      | 128mb to 10gb | 512mb to 8gb   |
+| **Storage**      | Unlimited         | 50gb to 824gb              | 20gb to 200gb  | Unlimited      | Up to 10gb    | Up to 10gb     |
+| **Architecture** | x86_64, ARM64     | x86_64, ARM64              | x86_64, ARM64  | x86_64, ARM64  | x86_64, ARM64 | x86_64, ARM64  |
+| **GPU**          | ✔                 | ✔                         | ❌              | ✔              | ❌           | ❌             |
+| **sudo**         | ✔                 | ✔                         | ✔              | ✔              | ❌           | ❌              |
+| **Docker**       | ✔                 | ✔ (Linux only)            | ❌              | ✔              | ❌           | ❌             |
+| **Spot pricing** | ✔                 | ❌                         | ✔              | ✔              | ❌           | ❌             |
+| **OS**           | Linux, Windows    | Linux, Windows             | Linux, Windows | Linux, Windows | Linux         | Linux          |
 
 The best provider to use mostly depends on your current infrastructure. When in doubt, CodeBuild is always a good choice. Execution history and logs are easy to view, and it has no restrictive limits unless you need to run for more than 8 hours.
 
 * EC2 is useful when you want runners to have complete access to the host
 * ECS is useful when you want to control the infrastructure, like leaving the runner host running for faster startups
 * Lambda is useful for short jobs that can work within time, size and readonly system constraints
+* Lambda MicroVM is useful when you want Lambda pricing and start-up time, but a real kernel, a writable disk and more than 15 minutes
 
 ### Job Isolation
 
@@ -564,6 +566,20 @@ new ScheduledWarmRunner(this, 'work hours warm', {
 
 See the [warm-runners example](examples/typescript/warm-runners/) for a complete setup.
 
+### Compliance
+
+Compliance frameworks like HIPAA, PCI DSS, and NIST 800-53 often ask for your own encryption keys and limited Lambda concurrency. `Compliance` applies those to everything this library creates in a scope, like a stack or a whole app. Settings of the closest scope win.
+
+```python
+Compliance.of(this).encrypt({ key, logs: logsKey });  // logs get their own key, everything else uses `key`
+Compliance.of(gpuProvider).encrypt({ storage: gpuKey });  // stricter key for one provider
+Compliance.of(this).limitLambdaConcurrency({ maxJobStarts: 50 });  // jobs you expect to start at once
+```
+
+Synth warns about runner resources that no scope covers, like image builders in another stack. The key needs to be in a stack that every other stack can use. Adding a key to an existing deployment rebuilds runner images.
+
+See the [compliance example](examples/typescript/compliance/) for a complete setup.
+
 ## Examples
 
 We provide comprehensive examples in the [`examples/`](examples/) folder to help you get started quickly:
@@ -592,6 +608,7 @@ We provide comprehensive examples in the [`examples/`](examples/) folder to help
 * **[IAM Permissions](examples/typescript/iam-permissions/)** - Grant AWS IAM permissions to runners (also available in [Python](examples/python/iam-permissions/))
 * **[Network Access](examples/typescript/network-access/)** - Configure network access with VPCs and security groups (also available in [Python](examples/python/network-access/))
 * **[Access Control](examples/typescript/access-control/)** - Configure access control for webhook and setup functions (also available in [Python](examples/python/access-control/))
+* **[Compliance](examples/typescript/compliance/)** - Encrypt with your own KMS keys, limit Lambda concurrency, and log API requests (also available in [Python](examples/python/compliance/))
 
 ### Customization
 
@@ -797,6 +814,7 @@ class _LazyImport:
 if typing.TYPE_CHECKING:
 
     import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_apigateway as _aws_cdk_aws_apigateway_ceddda9d
     import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
     import aws_cdk.aws_codebuild as _aws_cdk_aws_codebuild_ceddda9d
     import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
@@ -804,6 +822,7 @@ if typing.TYPE_CHECKING:
     import aws_cdk.aws_ecs as _aws_cdk_aws_ecs_ceddda9d
     import aws_cdk.aws_events as _aws_cdk_aws_events_ceddda9d
     import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
     import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
     import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
     import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
@@ -813,6 +832,7 @@ if typing.TYPE_CHECKING:
     import constructs as _constructs_77d1e7e8
 else:
 
+    _aws_cdk_aws_apigateway_ceddda9d = _LazyImport("aws_cdk.aws_apigateway")
     _aws_cdk_aws_cloudwatch_ceddda9d = _LazyImport("aws_cdk.aws_cloudwatch")
     _aws_cdk_aws_codebuild_ceddda9d = _LazyImport("aws_cdk.aws_codebuild")
     _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
@@ -820,6 +840,7 @@ else:
     _aws_cdk_aws_ecs_ceddda9d = _LazyImport("aws_cdk.aws_ecs")
     _aws_cdk_aws_events_ceddda9d = _LazyImport("aws_cdk.aws_events")
     _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kms_ceddda9d = _LazyImport("aws_cdk.aws_kms")
     _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
     _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
     _aws_cdk_aws_secretsmanager_ceddda9d = _LazyImport("aws_cdk.aws_secretsmanager")
@@ -1026,34 +1047,44 @@ class AlwaysOnWarmRunnerProps:
     jsii_type="@cloudsnorkel/cdk-github-runners.ApiGatewayAccessProps",
     jsii_struct_bases=[],
     name_mapping={
+        "access_log_group": "accessLogGroup",
         "allowed_ips": "allowedIps",
         "allowed_security_groups": "allowedSecurityGroups",
         "allowed_vpc": "allowedVpc",
         "allowed_vpc_endpoints": "allowedVpcEndpoints",
+        "logging_level": "loggingLevel",
     },
 )
 class ApiGatewayAccessProps:
     def __init__(
         self,
         *,
+        access_log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
         allowed_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
         allowed_security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         allowed_vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
         allowed_vpc_endpoints: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.IVpcEndpoint"]] = None,
+        logging_level: typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.MethodLoggingLevel"] = None,
     ) -> None:
         '''
+        :param access_log_group: Log group for access logs, with one JSON line for each request. API Gateway can only write logs once the account has a CloudWatch Logs role. See https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-logging.html Default: no access logs
         :param allowed_ips: List of IP addresses in CIDR notation that are allowed to access the API Gateway. If not specified on public API Gateway, all IP addresses are allowed. If not specified on private API Gateway, no IP addresses are allowed (but specified security groups are).
         :param allowed_security_groups: List of security groups that are allowed to access the API Gateway. Only works for private API Gateways with {@link allowedVpc}.
         :param allowed_vpc: Create a private API Gateway and allow access from the specified VPC.
         :param allowed_vpc_endpoints: Create a private API Gateway and allow access from the specified VPC endpoints. Use this to make use of existing VPC endpoints or to share an endpoint between multiple functions. The VPC endpoint must point to ``ec2.InterfaceVpcEndpointAwsService.APIGATEWAY``. No other settings are supported when using this option. All endpoints will be allowed access, but only the first one will be used as the URL by the runner system for setting up the webhook, and as setup URL.
+        :param logging_level: Level of execution logs. API Gateway writes them to its own log group named ``API-Gateway-Execution-Logs_{rest-api-id}/{stage}``. Like access logs, these need a CloudWatch Logs role in the account. Default: no execution logs
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0230281aea2f0096e32af8e4f02c3c351aada0957c217590514bfc5f6f656b0e)
+            check_type(argname="argument access_log_group", value=access_log_group, expected_type=type_hints["access_log_group"])
             check_type(argname="argument allowed_ips", value=allowed_ips, expected_type=type_hints["allowed_ips"])
             check_type(argname="argument allowed_security_groups", value=allowed_security_groups, expected_type=type_hints["allowed_security_groups"])
             check_type(argname="argument allowed_vpc", value=allowed_vpc, expected_type=type_hints["allowed_vpc"])
             check_type(argname="argument allowed_vpc_endpoints", value=allowed_vpc_endpoints, expected_type=type_hints["allowed_vpc_endpoints"])
+            check_type(argname="argument logging_level", value=logging_level, expected_type=type_hints["logging_level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_log_group is not None:
+            self._values["access_log_group"] = access_log_group
         if allowed_ips is not None:
             self._values["allowed_ips"] = allowed_ips
         if allowed_security_groups is not None:
@@ -1062,6 +1093,22 @@ class ApiGatewayAccessProps:
             self._values["allowed_vpc"] = allowed_vpc
         if allowed_vpc_endpoints is not None:
             self._values["allowed_vpc_endpoints"] = allowed_vpc_endpoints
+        if logging_level is not None:
+            self._values["logging_level"] = logging_level
+
+    @builtins.property
+    def access_log_group(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"]:
+        '''Log group for access logs, with one JSON line for each request.
+
+        API Gateway can only write logs once the account has a CloudWatch Logs role. See
+        https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-logging.html
+
+        :default: no access logs
+        '''
+        result = self._values.get("access_log_group")
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"], result)
 
     @builtins.property
     def allowed_ips(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1105,6 +1152,19 @@ class ApiGatewayAccessProps:
         '''
         result = self._values.get("allowed_vpc_endpoints")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.IVpcEndpoint"]], result)
+
+    @builtins.property
+    def logging_level(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.MethodLoggingLevel"]:
+        '''Level of execution logs. API Gateway writes them to its own log group named ``API-Gateway-Execution-Logs_{rest-api-id}/{stage}``.
+
+        Like access logs, these need a CloudWatch Logs role in the account.
+
+        :default: no execution logs
+        '''
+        result = self._values.get("logging_level")
+        return typing.cast(typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.MethodLoggingLevel"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1630,6 +1690,282 @@ class CodeBuildRunnerImageBuilderProps:
         )
 
 
+class Compliance(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cloudsnorkel/cdk-github-runners.Compliance",
+):
+    '''Settings that compliance frameworks like HIPAA, PCI DSS, and NIST 800-53 ask for, applied to everything this library creates in a scope.
+
+    The scope can be an app, a stage, a stack, or a single construct like a runner provider. Settings of the closest scope win, so you can set a key
+    for a whole stack and a stricter one for a single provider. Resources you create yourself are not changed.
+
+    Once anything uses ``Compliance``, synth warns about runner resources in the same stage that no scope covers. Like other aspects, an app
+    scope doesn't reach into nested stages, so use ``Compliance.of(stage)`` for those::
+
+       Compliance.of(stack).encrypt({ key });
+       Compliance.of(gpuProvider).encrypt({ storage: gpuKey });
+       Compliance.of(stack).limitLambdaConcurrency();
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, scope: "_constructs_77d1e7e8.IConstruct") -> "Compliance":
+        '''Compliance settings for everything this library creates in the given scope.
+
+        :param scope: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd70c4cb895fe657b24fe41b828dccd77460de264c6059b1c16dd3b87fe39170)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast("Compliance", jsii.sinvoke(cls, "of", [scope]))
+
+    @jsii.member(jsii_name="encrypt")
+    def encrypt(
+        self,
+        *,
+        images: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        logs: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        messages: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        secrets: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        storage: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> None:
+        '''Encrypt data at rest with your own KMS keys.
+
+        Keys created in the same app get the key policy they need. For imported keys, a warning lists the statements to add to the key policy.
+
+        :param images: Key for ECR repositories holding runner images, and for AMIs built for EC2 runners. EC2 runner volumes are encrypted with the key of their AMI. Adding a key to an existing repository replaces it. The deployment waits for the image to be rebuilt in the new repository before runners use it. Default: ``key``
+        :param key: Key for every type of resource that doesn't have its own key below. Default: only types with their own key are encrypted
+        :param logs: Key for CloudWatch log groups, including runner logs. Default: ``key``
+        :param messages: Key for the Step Functions state machine, SQS queues, SNS topics and the DynamoDB table used to manage runners. Default: ``key``
+        :param secrets: Key for Secrets Manager secrets holding GitHub credentials. Default: ``key``
+        :param storage: Key for runner storage: EBS volumes of ECS instances, Fargate ephemeral storage, CodeBuild build output, and buckets used to build images. ECS clusters and capacity providers you pass in are not changed. Default: ``key``
+        '''
+        options = ComplianceEncryptionOptions(
+            images=images,
+            key=key,
+            logs=logs,
+            messages=messages,
+            secrets=secrets,
+            storage=storage,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "encrypt", [options]))
+
+    @jsii.member(jsii_name="limitLambdaConcurrency")
+    def limit_lambda_concurrency(
+        self,
+        *,
+        max_job_starts: typing.Optional[jsii.Number] = None,
+        max_lambda_jobs: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Set reserved concurrency on Lambda functions.
+
+        This reserves 5 x ``maxJobStarts`` for functions called on every job, ``maxLambdaJobs`` for every Lambda runner provider, and 5 for every other
+        function. With the defaults, that's about 120 for a simple deployment and 190 for one using every feature. Reserved concurrency comes out of
+        your account limit, and the account must keep 100 unreserved.
+
+        :param max_job_starts: How many jobs you expect to start at the same time. Functions called for every job, like the webhook handler, can run this many at once. If more jobs start at once, they wait a bit longer for a runner. Status, setup, warm runner and deployment helper functions are limited to 5. Default: 20
+        :param max_lambda_jobs: How many jobs each Lambda runner provider can run at the same time. Default: 20
+        '''
+        options = ComplianceLambdaConcurrencyOptions(
+            max_job_starts=max_job_starts, max_lambda_jobs=max_lambda_jobs
+        )
+
+        return typing.cast(None, jsii.invoke(self, "limitLambdaConcurrency", [options]))
+
+
+@jsii.data_type(
+    jsii_type="@cloudsnorkel/cdk-github-runners.ComplianceEncryptionOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "images": "images",
+        "key": "key",
+        "logs": "logs",
+        "messages": "messages",
+        "secrets": "secrets",
+        "storage": "storage",
+    },
+)
+class ComplianceEncryptionOptions:
+    def __init__(
+        self,
+        *,
+        images: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        logs: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        messages: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        secrets: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        storage: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> None:
+        '''Keys used by {@link Compliance.encrypt}. Each type of resource uses its own key if set, or ``key`` otherwise. Types with neither are left as they are.
+
+        :param images: Key for ECR repositories holding runner images, and for AMIs built for EC2 runners. EC2 runner volumes are encrypted with the key of their AMI. Adding a key to an existing repository replaces it. The deployment waits for the image to be rebuilt in the new repository before runners use it. Default: ``key``
+        :param key: Key for every type of resource that doesn't have its own key below. Default: only types with their own key are encrypted
+        :param logs: Key for CloudWatch log groups, including runner logs. Default: ``key``
+        :param messages: Key for the Step Functions state machine, SQS queues, SNS topics and the DynamoDB table used to manage runners. Default: ``key``
+        :param secrets: Key for Secrets Manager secrets holding GitHub credentials. Default: ``key``
+        :param storage: Key for runner storage: EBS volumes of ECS instances, Fargate ephemeral storage, CodeBuild build output, and buckets used to build images. ECS clusters and capacity providers you pass in are not changed. Default: ``key``
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__04dbbf58928c7328427d3bbe5d0d7cd347b890d6d6ad446e94c5ee8ba673cb6d)
+            check_type(argname="argument images", value=images, expected_type=type_hints["images"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument logs", value=logs, expected_type=type_hints["logs"])
+            check_type(argname="argument messages", value=messages, expected_type=type_hints["messages"])
+            check_type(argname="argument secrets", value=secrets, expected_type=type_hints["secrets"])
+            check_type(argname="argument storage", value=storage, expected_type=type_hints["storage"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if images is not None:
+            self._values["images"] = images
+        if key is not None:
+            self._values["key"] = key
+        if logs is not None:
+            self._values["logs"] = logs
+        if messages is not None:
+            self._values["messages"] = messages
+        if secrets is not None:
+            self._values["secrets"] = secrets
+        if storage is not None:
+            self._values["storage"] = storage
+
+    @builtins.property
+    def images(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''Key for ECR repositories holding runner images, and for AMIs built for EC2 runners.
+
+        EC2 runner volumes are encrypted with the key of their AMI.
+
+        Adding a key to an existing repository replaces it. The deployment waits for the image to be rebuilt in the new repository before runners use it.
+
+        :default: ``key``
+        '''
+        result = self._values.get("images")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''Key for every type of resource that doesn't have its own key below.
+
+        :default: only types with their own key are encrypted
+        '''
+        result = self._values.get("key")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def logs(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''Key for CloudWatch log groups, including runner logs.
+
+        :default: ``key``
+        '''
+        result = self._values.get("logs")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def messages(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''Key for the Step Functions state machine, SQS queues, SNS topics and the DynamoDB table used to manage runners.
+
+        :default: ``key``
+        '''
+        result = self._values.get("messages")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def secrets(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''Key for Secrets Manager secrets holding GitHub credentials.
+
+        :default: ``key``
+        '''
+        result = self._values.get("secrets")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def storage(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''Key for runner storage: EBS volumes of ECS instances, Fargate ephemeral storage, CodeBuild build output, and buckets used to build images.
+
+        ECS clusters and capacity providers you pass in are not changed.
+
+        :default: ``key``
+        '''
+        result = self._values.get("storage")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComplianceEncryptionOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cloudsnorkel/cdk-github-runners.ComplianceLambdaConcurrencyOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "max_job_starts": "maxJobStarts",
+        "max_lambda_jobs": "maxLambdaJobs",
+    },
+)
+class ComplianceLambdaConcurrencyOptions:
+    def __init__(
+        self,
+        *,
+        max_job_starts: typing.Optional[jsii.Number] = None,
+        max_lambda_jobs: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Reserved concurrency for Lambda functions used by runners.
+
+        :param max_job_starts: How many jobs you expect to start at the same time. Functions called for every job, like the webhook handler, can run this many at once. If more jobs start at once, they wait a bit longer for a runner. Status, setup, warm runner and deployment helper functions are limited to 5. Default: 20
+        :param max_lambda_jobs: How many jobs each Lambda runner provider can run at the same time. Default: 20
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0f88b459360947838249ae54878d3426e209bf128f42193148e696193b37a04a)
+            check_type(argname="argument max_job_starts", value=max_job_starts, expected_type=type_hints["max_job_starts"])
+            check_type(argname="argument max_lambda_jobs", value=max_lambda_jobs, expected_type=type_hints["max_lambda_jobs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if max_job_starts is not None:
+            self._values["max_job_starts"] = max_job_starts
+        if max_lambda_jobs is not None:
+            self._values["max_lambda_jobs"] = max_lambda_jobs
+
+    @builtins.property
+    def max_job_starts(self) -> typing.Optional[jsii.Number]:
+        '''How many jobs you expect to start at the same time.
+
+        Functions called for every job, like the webhook handler, can run this many at once.
+        If more jobs start at once, they wait a bit longer for a runner.
+
+        Status, setup, warm runner and deployment helper functions are limited to 5.
+
+        :default: 20
+        '''
+        result = self._values.get("max_job_starts")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_lambda_jobs(self) -> typing.Optional[jsii.Number]:
+        '''How many jobs each Lambda runner provider can run at the same time.
+
+        :default: 20
+        '''
+        result = self._values.get("max_lambda_jobs")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComplianceLambdaConcurrencyOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class CompositeProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cloudsnorkel/cdk-github-runners.CompositeProvider",
@@ -1862,7 +2198,7 @@ class GitHubRunners(
         :param security_groups: Security groups attached to all management functions. Use this to provide outbound access from management functions to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting. **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link webhookAccess} and {@link setupAccess} instead.
         :param setup_access: Access configuration for the setup function. Once you finish the setup process, you can set this to ``LambdaAccess.noAccess()`` to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only. Default: LambdaAccess.lambdaUrl()
         :param status_access: Access configuration for the status function. This function returns a lot of sensitive information about the runner, so you should only allow access to it from trusted IPs, if at all. Default: LambdaAccess.noAccess()
-        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - CloudFormation (status function only) - EC2 - ECR (status function only)
+        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - DynamoDB - Lambda (only with {@link providerSelector}) - CloudFormation (status function only) - EC2 - ECR (status function only)
         :param vpc_subnets: VPC subnets used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting.
         :param webhook_access: Access configuration for the webhook function. This function is called by GitHub when a new workflow job is scheduled. For an extra layer of security, you can set this to ``LambdaAccess.apiGateway({ allowedIps: LambdaAccess.githubWebhookIps() })``. You can also set this to ``LambdaAccess.apiGateway({allowedVpc: vpc, allowedIps: ['GHES.IP.ADDRESS/32']})`` if your GitHub Enterprise Server is hosted in a VPC. This will create an API Gateway endpoint that's only accessible from within the VPC. *WARNING*: changing access type may change the URL. When the URL changes, you must update GitHub as well. Default: LambdaAccess.lambdaUrl()
         '''
@@ -2471,7 +2807,7 @@ class GitHubRunnersProps:
         :param security_groups: Security groups attached to all management functions. Use this to provide outbound access from management functions to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting. **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link webhookAccess} and {@link setupAccess} instead.
         :param setup_access: Access configuration for the setup function. Once you finish the setup process, you can set this to ``LambdaAccess.noAccess()`` to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only. Default: LambdaAccess.lambdaUrl()
         :param status_access: Access configuration for the status function. This function returns a lot of sensitive information about the runner, so you should only allow access to it from trusted IPs, if at all. Default: LambdaAccess.noAccess()
-        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - CloudFormation (status function only) - EC2 - ECR (status function only)
+        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - DynamoDB - Lambda (only with {@link providerSelector}) - CloudFormation (status function only) - EC2 - ECR (status function only)
         :param vpc_subnets: VPC subnets used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting.
         :param webhook_access: Access configuration for the webhook function. This function is called by GitHub when a new workflow job is scheduled. For an extra layer of security, you can set this to ``LambdaAccess.apiGateway({ allowedIps: LambdaAccess.githubWebhookIps() })``. You can also set this to ``LambdaAccess.apiGateway({allowedVpc: vpc, allowedIps: ['GHES.IP.ADDRESS/32']})`` if your GitHub Enterprise Server is hosted in a VPC. This will create an API Gateway endpoint that's only accessible from within the VPC. *WARNING*: changing access type may change the URL. When the URL changes, you must update GitHub as well. Default: LambdaAccess.lambdaUrl()
         '''
@@ -2698,6 +3034,8 @@ class GitHubRunnersProps:
         - Secrets Manager
         - SQS
         - Step Functions
+        - DynamoDB
+        - Lambda (only with {@link providerSelector})
         - CloudFormation (status function only)
         - EC2
         - ECR (status function only)
@@ -3173,10 +3511,12 @@ class LambdaAccess(
     def api_gateway(
         cls,
         *,
+        access_log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
         allowed_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
         allowed_security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         allowed_vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
         allowed_vpc_endpoints: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.IVpcEndpoint"]] = None,
+        logging_level: typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.MethodLoggingLevel"] = None,
     ) -> "LambdaAccess":
         '''Provide access using API Gateway.
 
@@ -3192,16 +3532,20 @@ class LambdaAccess(
 
            curl https://api.github.com/meta | jq .hooks
 
+        :param access_log_group: Log group for access logs, with one JSON line for each request. API Gateway can only write logs once the account has a CloudWatch Logs role. See https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-logging.html Default: no access logs
         :param allowed_ips: List of IP addresses in CIDR notation that are allowed to access the API Gateway. If not specified on public API Gateway, all IP addresses are allowed. If not specified on private API Gateway, no IP addresses are allowed (but specified security groups are).
         :param allowed_security_groups: List of security groups that are allowed to access the API Gateway. Only works for private API Gateways with {@link allowedVpc}.
         :param allowed_vpc: Create a private API Gateway and allow access from the specified VPC.
         :param allowed_vpc_endpoints: Create a private API Gateway and allow access from the specified VPC endpoints. Use this to make use of existing VPC endpoints or to share an endpoint between multiple functions. The VPC endpoint must point to ``ec2.InterfaceVpcEndpointAwsService.APIGATEWAY``. No other settings are supported when using this option. All endpoints will be allowed access, but only the first one will be used as the URL by the runner system for setting up the webhook, and as setup URL.
+        :param logging_level: Level of execution logs. API Gateway writes them to its own log group named ``API-Gateway-Execution-Logs_{rest-api-id}/{stage}``. Like access logs, these need a CloudWatch Logs role in the account. Default: no execution logs
         '''
         props = ApiGatewayAccessProps(
+            access_log_group=access_log_group,
             allowed_ips=allowed_ips,
             allowed_security_groups=allowed_security_groups,
             allowed_vpc=allowed_vpc,
             allowed_vpc_endpoints=allowed_vpc_endpoints,
+            logging_level=logging_level,
         )
 
         return typing.cast("LambdaAccess", jsii.sinvoke(cls, "apiGateway", [props]))
@@ -3323,7 +3667,7 @@ class LambdaRunnerProvider(
         :param security_groups: Security groups to assign to this instance. Default: public lambda with no security group
         :param subnet_selection: Where to place the network interfaces within the VPC. Default: no subnet
         :param timeout: The function execution time (in seconds) after which Lambda terminates the function. Because the execution time affects cost, set this value based on the function's expected execution time. Default: Duration.minutes(15)
-        :param vpc: VPC to launch the runners in. Default: no VPC
+        :param vpc: VPC to send the runner's outbound traffic through. The network interfaces never get a public IP, so the subnets need a NAT gateway (or VPC endpoints) to reach GitHub, ECR and CloudWatch. Public subnets won't work. Default: no VPC, runners get public internet access
         :param default_labels: Add default labels based on OS and architecture of the runner. This will tell GitHub Runner to add default labels like ``self-hosted``, ``linux``, ``x64``, and ``arm64``. Default: true
         :param log_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. Default: logs.RetentionDays.ONE_MONTH
         '''
@@ -3561,6 +3905,212 @@ class LogOptions:
         return "LogOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(IRunnerProvider, _constructs_77d1e7e8.IConstruct)
+class MicroVmRunnerProvider(
+    _constructs_77d1e7e8.Construct,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cloudsnorkel/cdk-github-runners.MicroVmRunnerProvider",
+):
+    '''(experimental) GitHub Actions runner provider using Lambda MicroVMs to execute jobs.
+
+    MicroVMs sit between Lambda and EC2. They boot from a snapshot in about a second, they have a writable disk and a
+    real kernel, and they can run for up to eight hours.
+
+    This construct is not meant to be used by itself. It should be passed in the providers property for GitHubRunners.
+
+    This provider is experimental and may change in the future.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        group: typing.Optional[builtins.str] = None,
+        image_builder: typing.Optional["IRunnerImageBuilder"] = None,
+        labels: typing.Optional[typing.Sequence[builtins.str]] = None,
+        memory_size: typing.Optional["_aws_cdk_ceddda9d.Size"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        default_labels: typing.Optional[builtins.bool] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param group: (experimental) GitHub Actions runner group name. If specified, the runner will be registered with this group name. Setting a runner group can help managing access to self-hosted runners. It requires a paid GitHub account and organization level runner registration. The group must exist or the runner will not start. Users will still be able to trigger this runner with the correct labels. But the runner will only be able to run jobs from repos allowed to use the group. Default: undefined
+        :param image_builder: (experimental) Runner image builder used to build Docker images containing GitHub Runner and all requirements. The image builder must contain the {@link RunnerImageComponent.microVmEntrypoint} component. Default: MicroVmRunnerProvider.imageBuilder()
+        :param labels: (experimental) GitHub Actions labels used for this provider. These labels are used to identify which provider should spawn a new on-demand runner. Every job sends a webhook with the labels it's looking for based on runs-on. We match the labels from the webhook with the labels specified here. If all the labels specified here are present in the job's labels, this provider will be chosen and spawn a new runner. Default: ['microvm']
+        :param memory_size: (experimental) Memory given to the MicroVM. CPU is allocated proportionally, about one vCPU for every 2 GiB. Default: 4 GiB (and therefore 2 vCPU)
+        :param security_groups: (experimental) Security groups to assign to the outbound traffic. Default: a new security group, if VPC is used
+        :param subnet_selection: (experimental) Where to place the network interfaces within the VPC. Default: default subnets of the VPC
+        :param timeout: (experimental) Time after which the MicroVM is terminated, whether the job is done or not. Must be 8 hours or less. Default: Duration.hours(1)
+        :param vpc: (experimental) VPC to send the runner's outbound traffic through. The network interfaces never get a public IP, so the subnets need a NAT gateway (or VPC endpoints) to reach GitHub, ECR and CloudWatch. Public subnets won't work. Default: no VPC, runners get public internet access
+        :param default_labels: Add default labels based on OS and architecture of the runner. This will tell GitHub Runner to add default labels like ``self-hosted``, ``linux``, ``x64``, and ``arm64``. Default: true
+        :param log_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. Default: logs.RetentionDays.ONE_MONTH
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d409b63db15d3b398a9dcc1a35e86dbfd50df0ee00b7e291a602adee08f43213)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = MicroVmRunnerProviderProps(
+            group=group,
+            image_builder=image_builder,
+            labels=labels,
+            memory_size=memory_size,
+            security_groups=security_groups,
+            subnet_selection=subnet_selection,
+            timeout=timeout,
+            vpc=vpc,
+            default_labels=default_labels,
+            log_retention=log_retention,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="imageBuilder")
+    @builtins.classmethod
+    def image_builder(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        architecture: typing.Optional["Architecture"] = None,
+        aws_image_builder_options: typing.Optional[typing.Union["AwsImageBuilderRunnerImageBuilderProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        base_ami: typing.Optional["BaseImage"] = None,
+        base_docker_image: typing.Optional["BaseContainerImage"] = None,
+        builder_type: typing.Optional["RunnerImageBuilderType"] = None,
+        code_build_options: typing.Optional[typing.Union["CodeBuildRunnerImageBuilderProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        components: typing.Optional[typing.Sequence["RunnerImageComponent"]] = None,
+        docker_setup_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
+        log_removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        os: typing.Optional["Os"] = None,
+        rebuild_interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        runner_version: typing.Optional["RunnerVersion"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        wait_on_deploy: typing.Optional[builtins.bool] = None,
+    ) -> "IConfigurableRunnerImageBuilder":
+        '''(experimental) Create new image builder that builds MicroVM specific runner images.
+
+        You can customize the OS, architecture, VPC, subnet, security groups, etc. by passing in props.
+
+        You can add components to the image builder by calling ``imageBuilder.addComponent()``.
+
+        The default OS is Amazon Linux 2023 running on x64 architecture.
+
+        The default base image is Lambda's own, which is the only one guaranteed to survive being snapshotted. Among
+        other things it carries an AWS-patched OpenSSL, so don't change it unless you know your image is snapshot
+        compatible.
+
+        Included components:
+
+        - ``RunnerImageComponent.requiredPackages()``
+        - ``RunnerImageComponent.runnerUser()``
+        - ``RunnerImageComponent.git()``
+        - ``RunnerImageComponent.githubCli()``
+        - ``RunnerImageComponent.awsCli()``
+        - ``RunnerImageComponent.githubRunner()``
+        - ``RunnerImageComponent.microVmEntrypoint()``
+
+        :param scope: -
+        :param id: -
+        :param architecture: Image architecture. Default: Architecture.X86_64
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param components: Components to install on the image. Default: none
+        :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
+        :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
+        :param log_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. Default: logs.RetentionDays.ONE_MONTH
+        :param os: Image OS. Default: OS.LINUX_UBUNTU
+        :param rebuild_interval: Schedule the image to be rebuilt every given interval. Useful for keeping the image up-do-date with the latest GitHub runner version and latest OS updates. Set to zero to disable. Default: Duration.days(7)
+        :param runner_version: Version of GitHub Runners to install. Default: latest version available
+        :param security_groups: Security Groups to assign to this instance.
+        :param subnet_selection: Where to place the network interfaces within the VPC. Default: no subnet
+        :param vpc: VPC to build the image in. Default: no VPC
+        :param wait_on_deploy: Wait for image to finish building during deployment. It's usually best to leave this enabled to ensure everything is ready once deployment is done. However, it can be disabled to speed up deployment in case where you have a lot of image components that can take a long time to build. Disabling this option means a finished deployment is not ready to be used. You will have to wait for the image to finish building before the system can be used. Disabling this option may also mean any changes to settings or components can take up to a week (default rebuild interval) to take effect. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c675a6554625fe3320b99cebe659cfc789e5e5e5431d691bcf9ca8f42f384ac8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = RunnerImageBuilderProps(
+            architecture=architecture,
+            aws_image_builder_options=aws_image_builder_options,
+            base_ami=base_ami,
+            base_docker_image=base_docker_image,
+            builder_type=builder_type,
+            code_build_options=code_build_options,
+            components=components,
+            docker_setup_commands=docker_setup_commands,
+            log_removal_policy=log_removal_policy,
+            log_retention=log_retention,
+            os=os,
+            rebuild_interval=rebuild_interval,
+            runner_version=runner_version,
+            security_groups=security_groups,
+            subnet_selection=subnet_selection,
+            vpc=vpc,
+            wait_on_deploy=wait_on_deploy,
+        )
+
+        return typing.cast("IConfigurableRunnerImageBuilder", jsii.sinvoke(cls, "imageBuilder", [scope, id, props]))
+
+    @builtins.property
+    @jsii.member(jsii_name="connections")
+    def connections(self) -> "_aws_cdk_aws_ec2_ceddda9d.Connections":
+        '''(experimental) The network connections associated with this resource.
+
+        These security groups only apply to outbound traffic through the VPC. Inbound access to the MicroVM goes through
+        Lambda's endpoint with an auth token, and not through the VPC.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.Connections", jsii.get(self, "connections"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) Grant principal used to add permissions to the runner role.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="labels")
+    def labels(self) -> typing.List[builtins.str]:
+        '''(experimental) Labels associated with this provider.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "labels"))
+
+    @builtins.property
+    @jsii.member(jsii_name="logGroup")
+    def log_group(self) -> "_aws_cdk_aws_logs_ceddda9d.ILogGroup":
+        '''(experimental) Log group where provided runners will save their logs.
+
+        Note that this is not the job log, but the runner itself. It will not contain output from the GitHub Action but only metadata on its execution.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.ILogGroup", jsii.get(self, "logGroup"))
 
 
 class Os(metaclass=jsii.JSIIMeta, jsii_type="@cloudsnorkel/cdk-github-runners.Os"):
@@ -4704,6 +5254,17 @@ class RunnerImageComponent(
     def lambda_entrypoint(cls) -> "RunnerImageComponent":
         '''A component to set up the required Lambda entrypoint for Lambda runners.'''
         return typing.cast("RunnerImageComponent", jsii.sinvoke(cls, "lambdaEntrypoint", []))
+
+    @jsii.member(jsii_name="microVmEntrypoint")
+    @builtins.classmethod
+    def micro_vm_entrypoint(cls) -> "RunnerImageComponent":
+        '''(experimental) A component to set up the required MicroVM entrypoint for Lambda MicroVM runners.
+
+        Must be used *after* the {@link githubRunner} component.
+
+        :stability: experimental
+        '''
+        return typing.cast("RunnerImageComponent", jsii.sinvoke(cls, "microVmEntrypoint", []))
 
     @jsii.member(jsii_name="requiredPackages")
     @builtins.classmethod
@@ -7837,7 +8398,7 @@ class LambdaRunnerProviderProps(RunnerProviderProps):
         :param security_groups: Security groups to assign to this instance. Default: public lambda with no security group
         :param subnet_selection: Where to place the network interfaces within the VPC. Default: no subnet
         :param timeout: The function execution time (in seconds) after which Lambda terminates the function. Because the execution time affects cost, set this value based on the function's expected execution time. Default: Duration.minutes(15)
-        :param vpc: VPC to launch the runners in. Default: no VPC
+        :param vpc: VPC to send the runner's outbound traffic through. The network interfaces never get a public IP, so the subnets need a NAT gateway (or VPC endpoints) to reach GitHub, ECR and CloudWatch. Public subnets won't work. Default: no VPC, runners get public internet access
         '''
         if isinstance(subnet_selection, dict):
             subnet_selection = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**subnet_selection)
@@ -8004,9 +8565,12 @@ class LambdaRunnerProviderProps(RunnerProviderProps):
 
     @builtins.property
     def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
-        '''VPC to launch the runners in.
+        '''VPC to send the runner's outbound traffic through.
 
-        :default: no VPC
+        The network interfaces never get a public IP, so the subnets
+        need a NAT gateway (or VPC endpoints) to reach GitHub, ECR and CloudWatch. Public subnets won't work.
+
+        :default: no VPC, runners get public internet access
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
@@ -8019,6 +8583,237 @@ class LambdaRunnerProviderProps(RunnerProviderProps):
 
     def __repr__(self) -> str:
         return "LambdaRunnerProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cloudsnorkel/cdk-github-runners.MicroVmRunnerProviderProps",
+    jsii_struct_bases=[RunnerProviderProps],
+    name_mapping={
+        "default_labels": "defaultLabels",
+        "log_retention": "logRetention",
+        "group": "group",
+        "image_builder": "imageBuilder",
+        "labels": "labels",
+        "memory_size": "memorySize",
+        "security_groups": "securityGroups",
+        "subnet_selection": "subnetSelection",
+        "timeout": "timeout",
+        "vpc": "vpc",
+    },
+)
+class MicroVmRunnerProviderProps(RunnerProviderProps):
+    def __init__(
+        self,
+        *,
+        default_labels: typing.Optional[builtins.bool] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        group: typing.Optional[builtins.str] = None,
+        image_builder: typing.Optional["IRunnerImageBuilder"] = None,
+        labels: typing.Optional[typing.Sequence[builtins.str]] = None,
+        memory_size: typing.Optional["_aws_cdk_ceddda9d.Size"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+    ) -> None:
+        '''
+        :param default_labels: Add default labels based on OS and architecture of the runner. This will tell GitHub Runner to add default labels like ``self-hosted``, ``linux``, ``x64``, and ``arm64``. Default: true
+        :param log_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. Default: logs.RetentionDays.ONE_MONTH
+        :param group: (experimental) GitHub Actions runner group name. If specified, the runner will be registered with this group name. Setting a runner group can help managing access to self-hosted runners. It requires a paid GitHub account and organization level runner registration. The group must exist or the runner will not start. Users will still be able to trigger this runner with the correct labels. But the runner will only be able to run jobs from repos allowed to use the group. Default: undefined
+        :param image_builder: (experimental) Runner image builder used to build Docker images containing GitHub Runner and all requirements. The image builder must contain the {@link RunnerImageComponent.microVmEntrypoint} component. Default: MicroVmRunnerProvider.imageBuilder()
+        :param labels: (experimental) GitHub Actions labels used for this provider. These labels are used to identify which provider should spawn a new on-demand runner. Every job sends a webhook with the labels it's looking for based on runs-on. We match the labels from the webhook with the labels specified here. If all the labels specified here are present in the job's labels, this provider will be chosen and spawn a new runner. Default: ['microvm']
+        :param memory_size: (experimental) Memory given to the MicroVM. CPU is allocated proportionally, about one vCPU for every 2 GiB. Default: 4 GiB (and therefore 2 vCPU)
+        :param security_groups: (experimental) Security groups to assign to the outbound traffic. Default: a new security group, if VPC is used
+        :param subnet_selection: (experimental) Where to place the network interfaces within the VPC. Default: default subnets of the VPC
+        :param timeout: (experimental) Time after which the MicroVM is terminated, whether the job is done or not. Must be 8 hours or less. Default: Duration.hours(1)
+        :param vpc: (experimental) VPC to send the runner's outbound traffic through. The network interfaces never get a public IP, so the subnets need a NAT gateway (or VPC endpoints) to reach GitHub, ECR and CloudWatch. Public subnets won't work. Default: no VPC, runners get public internet access
+
+        :stability: experimental
+        '''
+        if isinstance(subnet_selection, dict):
+            subnet_selection = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**subnet_selection)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__17c2a44675ed921d1aa8990d1f4129c446ac019e5f995a2548c11998eff9b851)
+            check_type(argname="argument default_labels", value=default_labels, expected_type=type_hints["default_labels"])
+            check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
+            check_type(argname="argument group", value=group, expected_type=type_hints["group"])
+            check_type(argname="argument image_builder", value=image_builder, expected_type=type_hints["image_builder"])
+            check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
+            check_type(argname="argument memory_size", value=memory_size, expected_type=type_hints["memory_size"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument subnet_selection", value=subnet_selection, expected_type=type_hints["subnet_selection"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if default_labels is not None:
+            self._values["default_labels"] = default_labels
+        if log_retention is not None:
+            self._values["log_retention"] = log_retention
+        if group is not None:
+            self._values["group"] = group
+        if image_builder is not None:
+            self._values["image_builder"] = image_builder
+        if labels is not None:
+            self._values["labels"] = labels
+        if memory_size is not None:
+            self._values["memory_size"] = memory_size
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
+        if subnet_selection is not None:
+            self._values["subnet_selection"] = subnet_selection
+        if timeout is not None:
+            self._values["timeout"] = timeout
+        if vpc is not None:
+            self._values["vpc"] = vpc
+
+    @builtins.property
+    def default_labels(self) -> typing.Optional[builtins.bool]:
+        '''Add default labels based on OS and architecture of the runner.
+
+        This will tell GitHub Runner to add default labels like ``self-hosted``, ``linux``, ``x64``, and ``arm64``.
+
+        :default: true
+        '''
+        result = self._values.get("default_labels")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def log_retention(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
+        '''The number of days log events are kept in CloudWatch Logs.
+
+        When updating
+        this property, unsetting it doesn't remove the log retention policy. To
+        remove the retention policy, set the value to ``INFINITE``.
+
+        :default: logs.RetentionDays.ONE_MONTH
+        '''
+        result = self._values.get("log_retention")
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
+
+    @builtins.property
+    def group(self) -> typing.Optional[builtins.str]:
+        '''(experimental) GitHub Actions runner group name.
+
+        If specified, the runner will be registered with this group name. Setting a runner group can help managing access to self-hosted runners. It
+        requires a paid GitHub account and organization level runner registration.
+
+        The group must exist or the runner will not start.
+
+        Users will still be able to trigger this runner with the correct labels. But the runner will only be able to run jobs from repos allowed to use the group.
+
+        :default: undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("group")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_builder(self) -> typing.Optional["IRunnerImageBuilder"]:
+        '''(experimental) Runner image builder used to build Docker images containing GitHub Runner and all requirements.
+
+        The image builder must contain the {@link RunnerImageComponent.microVmEntrypoint} component.
+
+        :default: MicroVmRunnerProvider.imageBuilder()
+
+        :stability: experimental
+        '''
+        result = self._values.get("image_builder")
+        return typing.cast(typing.Optional["IRunnerImageBuilder"], result)
+
+    @builtins.property
+    def labels(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) GitHub Actions labels used for this provider.
+
+        These labels are used to identify which provider should spawn a new on-demand runner. Every job sends a webhook with the labels it's looking for
+        based on runs-on. We match the labels from the webhook with the labels specified here. If all the labels specified here are present in the
+        job's labels, this provider will be chosen and spawn a new runner.
+
+        :default: ['microvm']
+
+        :stability: experimental
+        '''
+        result = self._values.get("labels")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def memory_size(self) -> typing.Optional["_aws_cdk_ceddda9d.Size"]:
+        '''(experimental) Memory given to the MicroVM.
+
+        CPU is allocated proportionally, about one vCPU for every 2 GiB.
+
+        :default: 4 GiB (and therefore 2 vCPU)
+
+        :stability: experimental
+        '''
+        result = self._values.get("memory_size")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Size"], result)
+
+    @builtins.property
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
+        '''(experimental) Security groups to assign to the outbound traffic.
+
+        :default: a new security group, if VPC is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
+
+    @builtins.property
+    def subnet_selection(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
+        '''(experimental) Where to place the network interfaces within the VPC.
+
+        :default: default subnets of the VPC
+
+        :stability: experimental
+        '''
+        result = self._values.get("subnet_selection")
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) Time after which the MicroVM is terminated, whether the job is done or not.
+
+        Must be 8 hours or less.
+
+        :default: Duration.hours(1)
+
+        :stability: experimental
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    @builtins.property
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
+        '''(experimental) VPC to send the runner's outbound traffic through.
+
+        The network interfaces never get a public IP, so the subnets
+        need a NAT gateway (or VPC endpoints) to reach GitHub, ECR and CloudWatch. Public subnets won't work.
+
+        :default: no VPC, runners get public internet access
+
+        :stability: experimental
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MicroVmRunnerProviderProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -8308,6 +9103,9 @@ __all__ = [
     "CodeBuildRunnerImageBuilderProps",
     "CodeBuildRunnerProvider",
     "CodeBuildRunnerProviderProps",
+    "Compliance",
+    "ComplianceEncryptionOptions",
+    "ComplianceLambdaConcurrencyOptions",
     "CompositeProvider",
     "Ec2RunnerProvider",
     "Ec2RunnerProviderProps",
@@ -8329,6 +9127,8 @@ __all__ = [
     "LambdaRunnerProvider",
     "LambdaRunnerProviderProps",
     "LogOptions",
+    "MicroVmRunnerProvider",
+    "MicroVmRunnerProviderProps",
     "Os",
     "ProviderRetryOptions",
     "ProviderSelectorInput",
@@ -8381,10 +9181,12 @@ def _typecheckingstub__5898a98cc3d83a12a9319ee2298fa83987d45a80e21cc1aa7c35f76c3
 
 def _typecheckingstub__0230281aea2f0096e32af8e4f02c3c351aada0957c217590514bfc5f6f656b0e(
     *,
+    access_log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
     allowed_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
     allowed_security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
     allowed_vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
     allowed_vpc_endpoints: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.IVpcEndpoint]] = None,
+    logging_level: typing.Optional[_aws_cdk_aws_apigateway_ceddda9d.MethodLoggingLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8508,6 +9310,32 @@ def _typecheckingstub__57eba0e804792fea32cbb8b094226d90afd105dd84432bb9e2d323802
     build_image: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.IBuildImage] = None,
     compute_type: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.ComputeType] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd70c4cb895fe657b24fe41b828dccd77460de264c6059b1c16dd3b87fe39170(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04dbbf58928c7328427d3bbe5d0d7cd347b890d6d6ad446e94c5ee8ba673cb6d(
+    *,
+    images: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    logs: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    messages: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    secrets: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    storage: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f88b459360947838249ae54878d3426e209bf128f42193148e696193b37a04a(
+    *,
+    max_job_starts: typing.Optional[jsii.Number] = None,
+    max_lambda_jobs: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8655,6 +9483,49 @@ def _typecheckingstub__7d87067ac294a2f323b063b74d5b20d774fc42a4e718e01d16209ad13
     level: typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.LogLevel] = None,
     log_group_name: typing.Optional[builtins.str] = None,
     log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d409b63db15d3b398a9dcc1a35e86dbfd50df0ee00b7e291a602adee08f43213(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    group: typing.Optional[builtins.str] = None,
+    image_builder: typing.Optional[IRunnerImageBuilder] = None,
+    labels: typing.Optional[typing.Sequence[builtins.str]] = None,
+    memory_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+    default_labels: typing.Optional[builtins.bool] = None,
+    log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c675a6554625fe3320b99cebe659cfc789e5e5e5431d691bcf9ca8f42f384ac8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    architecture: typing.Optional[Architecture] = None,
+    aws_image_builder_options: typing.Optional[typing.Union[AwsImageBuilderRunnerImageBuilderProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    base_ami: typing.Optional[BaseImage] = None,
+    base_docker_image: typing.Optional[BaseContainerImage] = None,
+    builder_type: typing.Optional[RunnerImageBuilderType] = None,
+    code_build_options: typing.Optional[typing.Union[CodeBuildRunnerImageBuilderProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    components: typing.Optional[typing.Sequence[RunnerImageComponent]] = None,
+    docker_setup_commands: typing.Optional[typing.Sequence[builtins.str]] = None,
+    log_removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
+    log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+    os: typing.Optional[Os] = None,
+    rebuild_interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    runner_version: typing.Optional[RunnerVersion] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+    wait_on_deploy: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9254,6 +10125,22 @@ def _typecheckingstub__45a4a92b817689da2d55675d278ad5c96699269cc41f3406b7fca6d7a
     image_builder: typing.Optional[IRunnerImageBuilder] = None,
     labels: typing.Optional[typing.Sequence[builtins.str]] = None,
     memory_size: typing.Optional[jsii.Number] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17c2a44675ed921d1aa8990d1f4129c446ac019e5f995a2548c11998eff9b851(
+    *,
+    default_labels: typing.Optional[builtins.bool] = None,
+    log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+    group: typing.Optional[builtins.str] = None,
+    image_builder: typing.Optional[IRunnerImageBuilder] = None,
+    labels: typing.Optional[typing.Sequence[builtins.str]] = None,
+    memory_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
     subnet_selection: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,

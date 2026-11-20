@@ -43,7 +43,13 @@ BlockerStatusType = Literal["ACTIVE", "RESOLVED"]
 BlockerTypeType = Literal["AUTOMATED"]
 ConnectionStatusType = Literal["AVAILABLE", "ERROR", "PENDING"]
 ProviderTypeType = Literal[
-    "AzureDevOps", "Bitbucket", "GitHub", "GitHubEnterpriseServer", "GitLab", "GitLabSelfManaged"
+    "AzureDevOps",
+    "Bitbucket",
+    "GitHub",
+    "GitHubEnterpriseCloudDataResidency",
+    "GitHubEnterpriseServer",
+    "GitLab",
+    "GitLabSelfManaged",
 ]
 PublishDeploymentStatusType = Literal["DISABLED", "ENABLED"]
 PullRequestCommentType = Literal["DISABLED", "ENABLED"]
@@ -53,6 +59,7 @@ SyncConfigurationTypeType = Literal["CFN_STACK_SYNC"]
 TriggerResourceUpdateOnType = Literal["ANY_CHANGE", "FILE_CHANGE"]
 CodeConnectionsServiceName = Literal["codeconnections"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -161,6 +168,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -345,6 +353,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -352,6 +361,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -412,6 +422,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

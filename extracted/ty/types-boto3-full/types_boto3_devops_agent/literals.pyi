@@ -26,6 +26,7 @@ __all__ = (
     "ApprovalActionTypeType",
     "ApprovalStatusType",
     "AuthFlowType",
+    "AwsSourceModeType",
     "CapabilityTypeType",
     "ChatArchiveStatusType",
     "DayOfWeekType",
@@ -54,6 +55,7 @@ __all__ = (
     "MonitorAccountTypeType",
     "NewRelicRegionType",
     "OrderTypeType",
+    "OrgSourceAccountReasonCodeType",
     "PaginatorName",
     "PostRegisterServiceSupportedServiceType",
     "PriorityType",
@@ -83,6 +85,7 @@ AgentSpacePreferenceKeyType = Literal["elevatedActionsEnabled"]
 ApprovalActionTypeType = Literal["APPROVED", "REJECTED"]
 ApprovalStatusType = Literal["APPROVED", "PENDING", "REDEEMED", "REJECTED", "REVOKED"]
 AuthFlowType = Literal["iam", "idc", "idp"]
+AwsSourceModeType = Literal["organization", "standalone"]
 CapabilityTypeType = Literal[
     "CODE_CHANGE_RISK_ANALYSIS",
     "CODE_CHANGE_RISK_ANALYSIS_AUTOMATED_TESTING",
@@ -119,6 +122,15 @@ MCPServerAuthorizationMethodType = Literal[
 MonitorAccountTypeType = Literal["monitor"]
 NewRelicRegionType = Literal["EU", "JP", "US"]
 OrderTypeType = Literal["ASC", "DESC"]
+OrgSourceAccountReasonCodeType = Literal[
+    "accessDenied",
+    "accountNotInScope",
+    "accountSuspended",
+    "deploymentFailed",
+    "managementAccountNotSupported",
+    "secondaryAccountLimitExceeded",
+    "stackInstanceInoperable",
+]
 PostRegisterServiceSupportedServiceType = Literal[
     "azureidentity",
     "dynatrace",
@@ -500,6 +512,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",

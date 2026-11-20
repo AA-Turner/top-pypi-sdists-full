@@ -85,7 +85,7 @@ from pathlib import Path
 
 import momwire_serve_client as _mech
 
-from ... import _features, _times
+from ... import _features, _thread_policy, _times
 from ...deck import DeckError
 from ...deck._nec5 import (
     LongExponentToken,
@@ -403,6 +403,7 @@ def _advise_long_exponents(text: str) -> None:
 
 
 @_features.in_context("dropin")
+@_thread_policy.answering()
 def render(text: str, *, basis: str = _serve.BASIS, dialect: str = "nec5") -> str:
     """One deck's text as a printout: the results, or a refusal that says why.
 
@@ -437,6 +438,7 @@ def render(text: str, *, basis: str = _serve.BASIS, dialect: str = "nec5") -> st
     front = _FRONT_ENDS.get(dialect)
     if front is not None:
         # NEC-2 (momwire#1611): the registered front end's own printout.
+        _thread_policy.unsized()
         return front.render(text)
     if dialect != "nec5":
         known = ", ".join(repr(name) for name in (*DIALECTS, *_FRONT_ENDS))
@@ -566,6 +568,16 @@ def _answer(
         # wavenumber-independent half is built once (`_serve._port_solution`).
         # The whole frequency list is known here, before the first solve.
         shared: dict = {}
+        if echo_text is None:
+            # The opt-in crossing_anchors' sweep plan (`razor.py`'s
+            # `_crossing_anchors_now`): every wavelength this sweep solves
+            # at, as `_serve._prepare` computes it, for one structure (an NX
+            # chain's sweeps fill exactly, as the C++ seam's do).
+            shared["crossing_anchor_plan"] = {
+                "wavelengths": [
+                    _serve.SPEED_OF_LIGHT_MHZ_M / float(f) for f in deck.frequencies_mhz
+                ]
+            }
         try:
             answers = [
                 _serve.serve(replace(deck, frequency_mhz=f), basis=basis, shared=shared)
@@ -784,6 +796,7 @@ STREAMING_REFUSAL = (
 _STREAM_CHUNK = 65536
 
 
+@_thread_policy.answering()
 def _stream_piece(text: str, *, basis: str, dialect: str = "nec5") -> tuple[str, bool]:
     """One piece of a stream as its printout: ``(printout, go_on)``.
 
@@ -1043,7 +1056,9 @@ def main(
             front = _FRONT_ENDS.get(dialect)
             try:
                 if front is not None:
-                    return front.stream()
+                    with _thread_policy.answering():
+                        _thread_policy.unsized()
+                        return front.stream()
                 return stream(basis=basis, dialect=dialect)
             except BrokenPipeError:
                 # The caller stopped reading: nobody is left to tell.

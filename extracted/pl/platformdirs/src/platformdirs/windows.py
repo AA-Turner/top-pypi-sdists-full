@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "ntpath",
+    "pathlib",
+    "string",
+    f"{__spec__.parent}._xdg",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import ntpath
 import os
 import string
@@ -16,9 +23,6 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Final
-
-# Not exposed by CPython; defined in the Windows SDK (shlobj_core.h)
-_KF_FLAG_DONT_VERIFY: Final[int] = 0x00004000
 
 
 class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]  # full directory API
@@ -208,16 +212,23 @@ def get_win_folder(csidl_name: str) -> str:
 
 
 def _is_fully_qualified(path: str) -> bool:
-    # ntpath.isabs changed for rooted paths without a drive in 3.13 and for a bare UNC share in 3.11
-    drive, tail = ntpath.splitdrive(path.replace("/", "\\"))
-    # An extended or device drive needs a root too; its prefix is not a UNC server.
-    if drive[:4] in {"\\\\?\\", "\\\\.\\"} and drive[5:6] == ":":
-        return tail.startswith("\\")
+    norm = ntpath.normpath(path)
+    # splitdrive stops at \\?\UNC without a server and always at \\.\UNC, whose prefix would read as server "?" or ".".
+    if norm[:7].upper() in {"\\\\?\\UNC", "\\\\.\\UNC"} and norm[7:8] in {"", "\\"}:
+        return _names_share(norm[8:])
+    drive, tail = ntpath.splitdrive(norm)
+    if drive[:4] in {"\\\\?\\", "\\\\.\\"}:
+        # A device drive letter needs its root; another device namespace, such as Volume{GUID}, needs a name.
+        return tail.startswith("\\") if drive[5:6] == ":" else bool(drive[4:])
     if not drive.startswith("\\"):
         return bool(drive) and tail.startswith("\\")
-    # splitdrive also returns a UNC volume missing its server or share, which would make the app name the share
-    server, _, share = (drive[8:] if drive[:8].upper() == "\\\\?\\UNC\\" else drive[2:]).partition("\\")
-    return bool(server and share)
+    return _names_share(drive[2:])
+
+
+def _names_share(unc: str) -> bool:
+    # Windows drops a "." or ".." server or share while resolving, which would make the app name the share.
+    server, _, rest = unc.partition("\\")
+    return all(part not in {"", ".", ".."} for part in (server, rest.partition("\\")[0]))
 
 
 def get_win_folder_from_env_vars(csidl_name: str) -> str:
@@ -380,6 +391,9 @@ def _build_get_win_folder_via_ctypes() -> Callable[[str], str]:
         "CSIDL_USER_PROGRAM_FILES": "{5CD7AEE2-2219-4A67-B85D-6C9CE15660CB}",
     }
 
+    # Not exposed by CPython; defined in the Windows SDK (shlobj_core.h)
+    kf_flag_dont_verify: int = 0x00004000
+
     def resolve(csidl_name: str) -> str:
         folder_guid = known_folder_guids.get(csidl_name)
         if folder_guid is None:
@@ -391,7 +405,7 @@ def _build_get_win_folder_via_ctypes() -> Callable[[str], str]:
 
         path_ptr = wintypes.LPWSTR()
         try:
-            shell32.SHGetKnownFolderPath(byref(guid), _KF_FLAG_DONT_VERIFY, None, byref(path_ptr))
+            shell32.SHGetKnownFolderPath(byref(guid), kf_flag_dont_verify, None, byref(path_ptr))
             result = path_ptr.value
         finally:
             ole32.CoTaskMemFree(path_ptr)

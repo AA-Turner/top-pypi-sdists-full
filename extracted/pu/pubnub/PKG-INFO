@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pubnub
-Version: 10.8.1
+Version: 10.9.0
 Summary: PubNub Real-time push service in the cloud
 Home-page: http://pubnub.com
 Author: PubNub
@@ -27,7 +27,7 @@ Requires-Dist: pycryptodomex>=3.3
 Requires-Dist: httpx<1.0,>=0.28
 Requires-Dist: h2>=4.3
 Requires-Dist: requests>=2.32.2
-Requires-Dist: aiohttp>3.10.11
+Requires-Dist: aiohttp>=3.10.11
 Requires-Dist: cbor2>=5.6
 Dynamic: author
 Dynamic: author-email

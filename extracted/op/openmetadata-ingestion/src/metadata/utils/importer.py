@@ -15,8 +15,9 @@ Helpers to import python classes and modules dynamically
 import importlib
 import sys
 import traceback
+from collections.abc import Callable
 from enum import Enum  # noqa: TC003
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, TypeVar  # noqa: UP035
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -123,7 +124,7 @@ def get_class_name_root(type_: str) -> str:
     return "".join([i.title() for i in type_.split(TYPE_SEPARATOR)]).replace(CLASS_SEPARATOR, "")
 
 
-def import_from_module(key: str, log_traceback: bool = True) -> Type[Any]:  # noqa: UP006
+def import_from_module(key: str, log_traceback: bool = True) -> type[Any]:
     """
     Dynamically import an object from a module path
     """
@@ -147,7 +148,7 @@ def import_from_module(key: str, log_traceback: bool = True) -> Type[Any]:  # no
         raise DynamicImportException(module=module_name, key=obj_name, cause=err)  # noqa: B904
 
 
-def import_processor_class(processor_type: str, from_: str = "ingestion") -> Type[Processor]:  # noqa: UP006
+def import_processor_class(processor_type: str, from_: str = "ingestion") -> type[Processor]:
     return import_from_module(
         "metadata.{}.processor.{}.{}Processor".format(  # pylint: disable=consider-using-f-string  # noqa: UP032
             from_,
@@ -157,7 +158,7 @@ def import_processor_class(processor_type: str, from_: str = "ingestion") -> Typ
     )
 
 
-def import_stage_class(stage_type: str, from_: str = "ingestion") -> Type[Stage]:  # noqa: UP006
+def import_stage_class(stage_type: str, from_: str = "ingestion") -> type[Stage]:
     return import_from_module(
         "metadata.{}.stage.{}.{}Stage".format(  # pylint: disable=consider-using-f-string  # noqa: UP032
             from_,
@@ -167,7 +168,7 @@ def import_stage_class(stage_type: str, from_: str = "ingestion") -> Type[Stage]
     )
 
 
-def import_sink_class(sink_type: str, from_: str = "ingestion") -> Type[Sink]:  # noqa: UP006
+def import_sink_class(sink_type: str, from_: str = "ingestion") -> type[Sink]:
     return import_from_module(
         "metadata.{}.sink.{}.{}Sink".format(  # pylint: disable=consider-using-f-string  # noqa: UP032
             from_,
@@ -177,7 +178,7 @@ def import_sink_class(sink_type: str, from_: str = "ingestion") -> Type[Sink]:  
     )
 
 
-def import_bulk_sink_type(bulk_sink_type: str, from_: str = "ingestion") -> Type[BulkSink]:  # noqa: UP006
+def import_bulk_sink_type(bulk_sink_type: str, from_: str = "ingestion") -> type[BulkSink]:
     return import_from_module(
         "metadata.{}.bulksink.{}.{}BulkSink".format(  # pylint: disable=consider-using-f-string  # noqa: UP032
             from_,
@@ -212,7 +213,7 @@ def import_connection_fn(connection: BaseModel, function_name: str) -> Callable:
     if not isinstance(connection, BaseModel):
         raise ValueError("The connection is not a pydantic object. Is it really a connection class?")  # noqa: TRY004
 
-    connection_type: Optional[Enum] = getattr(connection, "type")  # noqa: B009, UP045
+    connection_type: Enum | None = getattr(connection, "type")  # noqa: B009
     if not connection_type:
         raise ValueError(f"Cannot get `type` property from connection {connection}. Check the JSON Schema.")
 
@@ -249,7 +250,7 @@ def import_test_case_class(
     runner_type: str,
     test_definition: str,
     validator_class: str,
-) -> Type[BaseTestValidator]:  # noqa: UP006
+) -> type[BaseTestValidator]:
     """Import and return the test case validator class.
 
     Args:

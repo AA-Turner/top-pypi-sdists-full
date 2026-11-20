@@ -74,7 +74,7 @@ from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, assert_type
 
 from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
@@ -665,7 +665,7 @@ def configure(
             filtered `logfire.span` context manager.
             If set to `None`, uses the `LOGFIRE_MIN_LEVEL` environment variable; if that is not set, there is no minimum level.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
-        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
+        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans and log records as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.
@@ -874,7 +874,9 @@ class _LogfireConfigData:
             scrubbing = ScrubbingOptions()
         self.scrubbing: ScrubbingOptions | Literal[False] = scrubbing
         self.scrubber: BaseScrubber = (
-            Scrubber(scrubbing.extra_patterns, scrubbing.callback) if scrubbing else NOOP_SCRUBBER
+            Scrubber(scrubbing.extra_patterns, scrubbing.callback, scrubbing.transform_string)
+            if scrubbing
+            else NOOP_SCRUBBER
         )
 
         if isinstance(console, dict):
@@ -902,6 +904,11 @@ class _LogfireConfigData:
         elif sampling is None:
             sampling = SamplingOptions(
                 head=param_manager.load_param('trace_sample_rate'),
+            )
+        head = sampling.head
+        if isinstance(head, (int, float)) and not 0.0 <= head <= 1.0:
+            raise LogfireConfigError(
+                f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {head!r}'
             )
         self.sampling = sampling
 
@@ -1632,9 +1639,11 @@ class LogfireConfig(_LogfireConfigData):
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
                 multi_log_processor.add_log_record_processor(processor)
-            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(
-                MainLogProcessorWrapper(multi_log_processor, self.scrubber)
-            )
+            main_log_processor: LogRecordProcessor = MainLogProcessorWrapper(multi_log_processor, self.scrubber)
+            if self.add_baggage_to_attributes:
+                # Baggage goes in before scrubbing, as it does for spans.
+                main_log_processor = DirectBaggageAttributesLogProcessorWrapper(main_log_processor)
+            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(main_log_processor)
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
 
@@ -1762,7 +1771,7 @@ class LogfireConfig(_LogfireConfigData):
             # PendingSpanProcessor creates the record from on_start. The wrapper normalizes it
             # before sending it to pending.on_end.
             deferred_processors.append(
-                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending))
+                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending, self.scrubber))
             )
         deferred_processors.extend(user_deferred_processors)
 
@@ -1780,7 +1789,7 @@ class LogfireConfig(_LogfireConfigData):
                 main.add_span_processor(processor)
 
         # Skip suppressed instrumentation and normalize completed spans before routing them.
-        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed))
+        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed, self.scrubber))
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all telemetry and forwarding pipelines.

@@ -48,7 +48,8 @@ class TestResourceListDataPlane(unittest.TestCase):
                         last_check_in_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
                             gen_ai_enabled = True, 
-                            discovery_source_test = True, ), )
+                            discovery_source_test = True, 
+                            agent_task_sync = True, ), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -71,7 +72,8 @@ class TestResourceListDataPlane(unittest.TestCase):
                         last_check_in_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
                             gen_ai_enabled = True, 
-                            discovery_source_test = True, ), )
+                            discovery_source_test = True, 
+                            agent_task_sync = True, ), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

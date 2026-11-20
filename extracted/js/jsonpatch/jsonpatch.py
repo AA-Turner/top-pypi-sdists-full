@@ -59,7 +59,7 @@ _JSONPOINTER_FROM_PARTS = JsonPointer.from_parts.__func__
 
 # Will be parsed by setup.py to determine package metadata
 __author__ = 'Stefan Kögl <stefan@skoegl.net>'
-__version__ = '1.47'
+__version__ = '1.48'
 __website__ = 'https://github.com/stefankoegl/python-json-patch'
 __license__ = 'BSD-3-Clause'
 
@@ -204,6 +204,9 @@ def make_patch(src, dst, pointer_cls=JsonPointer, generate_test_ops=False):
                               the value it removes or replaces, so the patch
                               fails on documents that differ from `src` there.
     :type generate_test_ops: bool
+
+    :raises TypeError: if the documents differ in an object member whose
+                       name is not a string, see :meth:`JsonPatch.from_diff`.
 
     >>> src = {'foo': 'bar', 'numbers': [1, 3, 4, 8]}
     >>> dst = {'baz': 'qux', 'numbers': [1, 4, 7]}
@@ -437,6 +440,23 @@ def _reorder(mapping, keys):
         mapping[key] = mapping.pop(key)
 
 
+def _plain_operation(operation, pointer_cls):
+    """Returns operation as a dict whose 'path' and 'from' are strings.
+
+    Both can be given as pointer objects instead. These are replaced by
+    their paths, so that the operation is JSON-serializable, and can be
+    compared to one that was given the paths. This is done in a copy; an
+    operation that is a dict already and has no pointer objects is returned
+    as it is.
+    """
+    paths = {member: operation[member].path for member in ('path', 'from')
+             if member in operation and
+             isinstance(operation[member], pointer_cls)}
+    if paths:
+        return dict(operation, **paths)
+    return operation if isinstance(operation, dict) else dict(operation)
+
+
 class PatchOperation:
     """A single operation inside a JSON Patch."""
 
@@ -491,13 +511,17 @@ class PatchOperation:
     def __hash__(self):
         # Other members can hold arrays or objects, which are unhashable.
         # Operations that compare equal still have equal 'op' and 'path'.
-        return hash((self.operation.get('op'), self.operation['path']))
+        operation = _plain_operation(self.operation, self.pointer_cls)
+        return hash((operation.get('op'), operation['path']))
 
     def __eq__(self, other):
         if not isinstance(other, PatchOperation):
             return False
         # e.g. tests for 1 and for true behave differently
-        return _json_equal(self.operation, other.operation)
+        # and paths are equal to pointer objects for them
+        return _json_equal(
+            _plain_operation(self.operation, self.pointer_cls),
+            _plain_operation(other.operation, other.pointer_cls))
 
     @property
     def path(self):
@@ -962,8 +986,7 @@ class JsonPatch:
             self._get_operation(op)
             # Keep validation errors tied to the original input, but expose
             # concrete, JSON-serializable operation dictionaries on success.
-            if not isinstance(op, dict):
-                self.patch[index] = dict(op)
+            self.patch[index] = _plain_operation(op, self.pointer_cls)
 
     def __str__(self):
         """str(self) -> self.to_string()"""
@@ -1043,6 +1066,13 @@ class JsonPatch:
 
         :return: :class:`JsonPatch` instance.
 
+        :raises TypeError: if the documents differ in, or inside of, an
+                           object member whose name is not a string, such
+                           as the ``1`` of ``{1: 'a'}``. The path of an
+                           operation can't refer to such a member, which
+                           does not exist in JSON. Other differences of
+                           documents with such members are no problem.
+
         >>> src = {'foo': 'bar', 'numbers': [1, 3, 4, 8]}
         >>> dst = {'baz': 'qux', 'numbers': [1, 4, 7]}
         >>> patch = JsonPatch.from_diff(src, dst)
@@ -1055,7 +1085,7 @@ class JsonPatch:
                               optimization=optimization,
                               generate_test_ops=generate_test_ops)
         builder._compare_values((), None, src, dst)
-        ops = copy.deepcopy(list(builder.execute()))
+        ops = _json_copy(list(builder.execute()))
         return cls(ops, pointer_cls=pointer_cls)
 
     def to_string(self, dumps=None):
@@ -1175,7 +1205,7 @@ class JsonPatchWithAppend(JsonPatch):
                                      optimization=optimization,
                                      generate_test_ops=generate_test_ops)
         builder._compare_values((), None, src, dst)
-        ops = copy.deepcopy(list(builder.execute()))
+        ops = _json_copy(list(builder.execute()))
         return cls(ops, pointer_cls=pointer_cls)
 
 
@@ -1184,6 +1214,10 @@ class DiffBuilder:
     def __init__(self, src_doc, dst_doc, dumps=json.dumps, pointer_cls=JsonPointer,
                  optimization=True, generate_test_ops=False):
         self.dumps = dumps
+        # json.dumps builds a JSONEncoder for every call; the default dumps
+        # is called once per added and removed value, so cache its encoder
+        self._canonical_dumps = (json.JSONEncoder(sort_keys=True).encode
+                                 if dumps is json.dumps else None)
         self.pointer_cls = pointer_cls
         self.optimization = optimization
         self.generate_test_ops = generate_test_ops
@@ -1201,6 +1235,17 @@ class DiffBuilder:
     def _move_key(self, value):
         """ A key of value, which is equal for values that are equal in JSON,
         so that e.g. [1] is not moved where [true] is added """
+        if self._canonical_dumps is not None:
+            try:
+                # sort_keys gives the same string as _sorted_members for JSON
+                # documents, without building a sorted copy of every added or
+                # removed subtree
+                return self._canonical_dumps(value)
+            except (TypeError, ValueError, RecursionError):
+                # Values like UserDict and UserList are normalized by
+                # _sorted_members, but the encoder cannot serialize them as
+                # they are, so fall through to the generic path below
+                pass
         try:
             # Serialized like in _differing_runs
             return self.dumps(_sorted_members(value))
@@ -1252,8 +1297,7 @@ class DiffBuilder:
                         op_second['op'] == 'add':
                     yield {
                         'op': 'replace',
-                        'path': path_join(op_second['path'],
-                                          self.pointer_cls),
+                        'path': self._path(op_second['path']),
                         'value': op_second['value'],
                     }
                     i += 2
@@ -1262,10 +1306,19 @@ class DiffBuilder:
             operation = operations[i]
             for member in ('from', 'path'):
                 if member in operation:
-                    operation[member] = path_join(operation[member],
-                                                  self.pointer_cls)
+                    operation[member] = self._path(operation[member])
             yield operation
             i += 1
+
+    def _path(self, parts):
+        """ The path of an operation, in the syntax of pointer_cls """
+        for part in parts:
+            if isinstance(part, _NonStringKey):
+                raise TypeError(
+                    "can't create an operation for the object member "
+                    "{0!r}: its name is not a string, which the path of an "
+                    "operation can't refer to".format(part.key))
+        return path_join(parts, self.pointer_cls)
 
     def _replay(self):
         """ Applies the operations to the arrays of the source document, and
@@ -1406,13 +1459,13 @@ class DiffBuilder:
         intersection = [key for key in src if key in dst]
 
         for key in removed_keys:
-            self._item_removed(path, str(key), src[key])
+            self._item_removed(path, _member_name(key), src[key])
 
         for key in added_keys:
-            self._item_added(path, str(key), dst[key])
+            self._item_added(path, _member_name(key), dst[key])
 
         for key in intersection:
-            self._compare_values(path, str(key), src[key], dst[key])
+            self._compare_values(path, _member_name(key), src[key], dst[key])
 
     def _differing_runs(self, src, dst):
         """ Returns (i1, i2, j1, j2) for each run of items src[i1:i2] that is
@@ -1548,6 +1601,37 @@ class _AppendDiffBuilder(DiffBuilder):
             super()._item_replaced(path, key, item, old_item)
 
 
+class _NonStringKey(str):
+    """ Takes the place of an object key that is not a string in the parts
+    of an operation.
+
+    A path can only refer to members whose names are strings: '/1' is the
+    member '1', not the member 1. Members with other names are compared like
+    all others, as nothing is wrong unless they differ; an operation for
+    such a member, or for something in it, can't be written, though (see
+    DiffBuilder._path). """
+
+    def __new__(cls, key):
+        self = super().__new__(cls, key)
+        self.key = key
+        return self
+
+    # The member 1 is not the member '1', which this is equal to as a str
+    def __eq__(self, other):
+        return isinstance(other, _NonStringKey) and self.key == other.key
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(self.key)
+
+
+def _member_name(key):
+    """ The part of an operation for the object key """
+    return key if isinstance(key, str) else _NonStringKey(key)
+
+
 def _positional_cost(old, new):
     """ Estimates how many operations change old into new, if the items of
     arrays are compared by position """
@@ -1579,6 +1663,37 @@ def _json_equal(first, second):
         return len(first) == len(second) and all(
             _json_equal(*items) for items in zip(first, second))
     return first == second
+
+
+def _json_copy(value, memo=None):
+    """ Copies a JSON value like copy.deepcopy, but without the generic
+    dispatch for dicts, lists and scalars, which dominate patch creation.
+
+    Values that are not plain JSON containers keep the copy.deepcopy
+    behaviour, and shared references are preserved through memo. """
+    if value is None or type(value) in (str, int, float, bool):
+        return value
+    if memo is None:
+        memo = {}
+    value_id = id(value)
+    copied = memo.get(value_id)
+    if copied is not None:
+        return copied
+    value_type = type(value)
+    if value_type is dict:
+        # memo must hold the new dict before the children are copied, so
+        # that self-referential documents terminate like copy.deepcopy
+        copied = memo[value_id] = {}
+        for key, item in value.items():
+            # copy.deepcopy copies the keys too, through the same memo, so
+            # that a key and a value that are the same object stay shared
+            copied[_json_copy(key, memo)] = _json_copy(item, memo)
+        return copied
+    if value_type is list:
+        copied = memo[value_id] = []
+        copied.extend(_json_copy(item, memo) for item in value)
+        return copied
+    return copy.deepcopy(value, memo)
 
 
 def _sorted_members(value):

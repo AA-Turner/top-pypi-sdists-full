@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.98.1
+Version: 0.99.0
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -21,14 +21,15 @@ Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: asgiref~=3.10.0
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: click>=8.3.3,<=8.5.0
 Requires-Dist: cloudpickle>=2.0.0
 Requires-Dist: distro>=1.6.0,<2.0.0
 Requires-Dist: docker~=7.1.0
 Requires-Dist: gitpython>=3.1.18,<4.0.0
 Requires-Dist: jsonref
-Requires-Dist: opentelemetry-instrumentation-logging==0.64b0
-Requires-Dist: opentelemetry-sdk==1.43.0
+Requires-Dist: opentelemetry-instrumentation-logging==0.66b1
+Requires-Dist: opentelemetry-sdk==1.45.1
 Requires-Dist: packaging>=24.1
 Requires-Dist: psutil>=5.0.0
 Requires-Dist: pydantic>=2.0,<=2.12.5
@@ -73,7 +74,7 @@ Requires-Dist: pyment>=0.3.3,<0.4.0 ; extra == 'dev'
 Requires-Dist: tox>=3.24.3 ; extra == 'dev'
 Requires-Dist: hypothesis>=6.43.1 ; extra == 'dev'
 Requires-Dist: typing-extensions>=3.7.4 ; extra == 'dev'
-Requires-Dist: pydoclint>=0.8.3 ; extra == 'dev'
+Requires-Dist: pydoclint==0.10.1 ; extra == 'dev'
 Requires-Dist: pytest-randomly>=3.10.1,<4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-mock>=3.6.1,<4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-clarity>=1.0.1,<2.0.0 ; extra == 'dev'
@@ -120,10 +121,10 @@ Requires-Dist: sqlalchemy>=2.0.0,<3.0.0 ; extra == 'local'
 Requires-Dist: sqlalchemy-utils ; extra == 'local'
 Requires-Dist: sqlmodel==0.0.38 ; extra == 'local'
 Requires-Dist: jsonschema>=4.0.0 ; extra == 'local'
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.43.0,<1.44.0 ; extra == 'otel'
-Requires-Dist: opentelemetry-instrumentation-fastapi>=0.64b0,<0.65b0 ; extra == 'otel'
-Requires-Dist: opentelemetry-instrumentation-requests>=0.64b0,<0.65b0 ; extra == 'otel'
-Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.64b0,<0.65b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.45.1,<1.46.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-fastapi>=0.66b1,<0.67b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-requests>=0.66b1,<0.67b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.66b1,<0.67b0 ; extra == 'otel'
 Requires-Dist: s3fs>=2022.11.0,!=2025.3.1 ; extra == 's3fs'
 Requires-Dist: sagemaker>=2.237.3,<3.0.0 ; extra == 'sagemaker'
 Requires-Dist: boto3>=1.16.0 ; extra == 'secrets-aws'
@@ -135,7 +136,7 @@ Requires-Dist: zenml[local,native-schedules] ; extra == 'server'
 Requires-Dist: fastapi>=0.138.0,<0.139.0 ; extra == 'server'
 Requires-Dist: uvicorn[standard]>=0.17.5 ; extra == 'server'
 Requires-Dist: python-multipart~=0.0.9 ; extra == 'server'
-Requires-Dist: pyjwt[crypto]>=2.15.1,<2.16.0 ; extra == 'server'
+Requires-Dist: pyjwt[crypto]==2.15.1 ; extra == 'server'
 Requires-Dist: jinja2 ; extra == 'server'
 Requires-Dist: ipinfo>=4.4.3 ; extra == 'server'
 Requires-Dist: secure~=1.0.1 ; extra == 'server'
@@ -219,6 +220,7 @@ Description-Content-Type: text/markdown
     <a href="https://zenml.io/projects">Projects</a> •
     <a href="https://zenml.io/roadmap">Roadmap</a> •
     <a href="https://docs.zenml.io/changelog">Changelog</a> •
+    <a href="https://docs.zenml.io/changelog/compatibility">Compatibility</a> •
     <a href="https://github.com/zenml-io/zenml/issues">Report Bug</a> •
     <a href="https://zenml.io/pro">Sign up for ZenML Pro</a> •
     <a href="https://www.zenml.io/blog">Blog</a> •

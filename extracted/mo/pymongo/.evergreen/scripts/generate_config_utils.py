@@ -30,6 +30,7 @@ MIN_MAX_PYTHON = [CPYTHONS[0], CPYTHONS[-1]]
 MIN_PYTHON = CPYTHONS[0]
 MAX_PYTHON = CPYTHONS[-1]
 FREE_THREADED_PYTHON = [p for p in CPYTHONS if "t" in p][-1]
+CPYTHONS_NO_FREE_THREADED = [p for p in CPYTHONS if "t" not in p]
 MIN_VERSION = min((v for v in ALL_VERSIONS if v[0].isdigit()), key=float)
 MAX_VERSION = max((v for v in ALL_VERSIONS if v[0].isdigit()), key=float)
 BATCHTIME_WEEK = 10080
@@ -66,8 +67,8 @@ HOSTS["rhel8"] = Host("rhel8", "rhel8.10-small", "RHEL8", dict())
 HOSTS["win64"] = Host("win64", "windows-64-vsMulti-small", "Win64", dict())
 HOSTS["win-latest"] = Host("win-latest", "windows-2022-latest-small", "WinLatest", dict())
 HOSTS["win32"] = Host("win32", "windows-64-vsMulti-small", "Win32", dict())
-HOSTS["macos"] = Host("macos", "macos-14", "macOS", dict())
-HOSTS["macos-arm64"] = Host("macos-arm64", "macos-14-arm64", "macOS Arm64", dict())
+HOSTS["macos"] = Host("macos", "macos-15-amd64", "macOS", dict())
+HOSTS["macos-arm64"] = Host("macos-arm64", "macos-15-arm64", "macOS Arm64", dict())
 HOSTS["ubuntu22"] = Host("ubuntu22", "ubuntu2204-small", "Ubuntu-22", dict())
 HOSTS["ubuntu24"] = Host("ubuntu24", "ubuntu2404-small", "Ubuntu-24", dict())
 HOSTS["perf"] = Host("perf", "rhel90-dbx-perf-large", "", dict())
@@ -225,6 +226,11 @@ def get_standard_auth_ssl(topology):
     auth = "auth" if topology == "sharded_cluster" else "noauth"
     ssl = "nossl" if topology == "standalone" else "ssl"
     return auth, ssl
+
+
+def get_suite_mode(topology):
+    """Return the sync mode of a per-suite cell: sync except on sharded clusters."""
+    return "async" if topology == "sharded_cluster" else "sync"
 
 
 def get_assume_role(**kwargs):

@@ -17,6 +17,7 @@ from pyomo.common.dependencies import dill_available
 from pyomo.common.fileutils import import_file, PYOMO_ROOT_DIR
 from pyomo.common.log import LoggingIntercept
 import pyomo.common.unittest as unittest
+from pyomo.common.envvar import is_pypy
 from pyomo.core.expr.compare import (
     assertExpressionsEqual,
     assertExpressionsStructurallyEqual,
@@ -337,6 +338,7 @@ class LinearModelDecisionTreeExample(CommonTests):
         )
 
     @unittest.skipUnless(gurobi_available, "Gurobi is not available")
+    @unittest.skipUnless(dill_available, "Dill is not available")
     def test_calculated_Ms_correct(self):
         # Calculating all the Ms is expensive, so we just do it in this one test
         # and then specify them for most of the others
@@ -603,6 +605,7 @@ class LinearModelDecisionTreeExample(CommonTests):
         self.check_all_untightened_bounds_constraints(m, mbm)
 
     @unittest.skipUnless(gurobi_available, "Gurobi is not available")
+    @unittest.skipUnless(dill_available, "Dill is not available")
     def test_var_bounds_substituted_for_missing_bound_constraints(self):
         m = self.make_model()
         # Add a new thing with constraints that don't give both bounds on x1 and
@@ -681,6 +684,7 @@ class LinearModelDecisionTreeExample(CommonTests):
             TransformationFactory('gdp.mbigm').apply_to(m)
 
     @unittest.skipUnless(gurobi_available, "Gurobi is not available")
+    @unittest.skipUnless(dill_available, "Dill is not available")
     def test_logical_constraints_on_disjuncts(self):
         m = self.make_model()
         m.d1.Y = BooleanVar()
@@ -1075,6 +1079,7 @@ class IndexedDisjunction(unittest.TestCase):
         self.assertIs(cons_again[1], cons[1])
 
 
+@unittest.skipUnless(dill_available, "Dill is not available")
 class EdgeCases(unittest.TestCase):
     def make_infeasible_disjunct_model(self):
         m = ConcreteModel()
@@ -1135,6 +1140,11 @@ class EdgeCases(unittest.TestCase):
 
     @unittest.skipUnless(
         SolverFactory('ipopt').available(exception_flag=False), "Ipopt is not available"
+    )
+    @unittest.skipUnless(dill_available, "dill is not available")
+    @unittest.skipIf(
+        is_pypy,
+        "tests using multiprocessing stall on pypy; this will no longer be tested.",
     )
     def test_calculate_Ms_infeasible_Disjunct_local_solver(self):
         m = self.make_infeasible_disjunct_model()

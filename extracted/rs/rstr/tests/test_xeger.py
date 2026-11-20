@@ -1,22 +1,22 @@
 import re
 import unittest
 
-from rstr import Rstr
+from rstr import Xeger
 
 
 class TestXeger(unittest.TestCase):
     def setUp(self) -> None:
-        self.rs = Rstr()
+        self.rs = Xeger()
 
     def test_literals(self) -> None:
         pattern = r'foo'
         assert re.match(pattern, self.rs.xeger(pattern))
 
     def test_dot(self) -> None:
-        '''
+        """
         Verify that the dot character doesn't produce newlines.
         See: https://bitbucket.org/leapfrogdevelopment/rstr/issue/1/
-        '''
+        """
         pattern = r'.+'
         for _ in range(100):
             assert re.match(pattern, self.rs.xeger(pattern))
@@ -96,3 +96,25 @@ class TestXeger(unittest.TestCase):
     def test_zero_or_more_non_greedy(self) -> None:
         pattern = r'a*?'
         assert re.match(pattern, self.rs.xeger(pattern))
+
+    def test_exact_repeat_exceeds_star_plus_limit(self) -> None:
+        pattern = r'\d{105}'
+        assert re.match(pattern, self.rs.xeger(pattern))
+
+    def test_range_repeat_exceeds_star_plus_limit(self) -> None:
+        pattern = r'\d{102,105}'
+        assert re.match(pattern, self.rs.xeger(pattern))
+
+    def test_star_repeat_respects_limit(self) -> None:
+        pattern = r'a*'
+        for _ in range(100):
+            result = self.rs.xeger(pattern)
+            assert len(result) <= 100
+            assert re.match(pattern, result)
+
+    def test_plus_repeat_respects_limit(self) -> None:
+        pattern = r'b+'
+        for _ in range(100):
+            result = self.rs.xeger(pattern)
+            assert len(result) <= 100
+            assert re.match(pattern, result)

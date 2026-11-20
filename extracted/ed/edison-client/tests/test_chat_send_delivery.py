@@ -1,9 +1,8 @@
 """`send_chat_message` after a post-send failure: return if the message landed, else raise."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -12,6 +11,7 @@ from tenacity import wait_none
 from edison_client.clients.chat_methods import ChatError, ChatMethods
 from edison_client.models.chat import (
     ChatDispatchStatus,
+    ChatMessageResponse,
     ConversationDetail,
     ConversationMessage,
 )
@@ -19,7 +19,7 @@ from edison_client.models.chat import (
 _MESSAGE = "next task"
 
 
-def _ok_response(session_id: Any) -> MagicMock:
+def _ok_response(session_id: UUID | str) -> MagicMock:
     response = MagicMock(spec=httpx.Response)
     response.status_code = 200
     response.raise_for_status.return_value = None
@@ -48,7 +48,7 @@ class _StubChatClient(ChatMethods):
     def __init__(
         self,
         *,
-        session_id: Any,
+        session_id: UUID | str,
         failures: list[Exception],
         queued: list[str] | None = None,
         stored: list[ConversationMessage] | None = None,
@@ -73,10 +73,12 @@ class _StubChatClient(ChatMethods):
     def async_client(self) -> httpx.AsyncClient:
         return self._async
 
-    def get_conversation(self, session_id: Any, **_: Any) -> ConversationDetail:
+    def get_conversation(self, session_id: UUID, **_: object) -> ConversationDetail:
         return ConversationDetail(session_id=session_id, messages=self._stored)
 
-    async def aget_conversation(self, session_id: Any, **_: Any) -> ConversationDetail:
+    async def aget_conversation(
+        self, session_id: UUID, **_: object
+    ) -> ConversationDetail:
         return ConversationDetail(session_id=session_id, messages=self._stored)
 
 
@@ -87,8 +89,8 @@ def no_waits(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-async def _asend(chat: _StubChatClient, session_id: Any) -> Any:
-    send = ChatMethods.asend_chat_message.retry_with(wait=wait_none())  # type: ignore[attr-defined]
+async def _asend(chat: _StubChatClient, session_id: UUID | None) -> ChatMessageResponse:
+    send = ChatMethods.asend_chat_message.retry_with(wait=wait_none())  # ty: ignore[missing-attribute]
     return await send(chat, uuid4(), _MESSAGE, session_id=session_id)
 
 
@@ -218,7 +220,7 @@ def test_sync_read_timeout_returns_when_message_is_queued() -> None:
     chat = _StubChatClient(
         session_id=session_id, failures=[httpx.ReadTimeout("slow")], queued=[_MESSAGE]
     )
-    send = ChatMethods.send_chat_message.retry_with(wait=wait_none())  # type: ignore[attr-defined]
+    send = ChatMethods.send_chat_message.retry_with(wait=wait_none())  # ty: ignore[missing-attribute]
     result = send(chat, uuid4(), _MESSAGE, session_id=session_id)
     assert result.status is ChatDispatchStatus.PENDING
     assert chat.sync_post.call_count == 1

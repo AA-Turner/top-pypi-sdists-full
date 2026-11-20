@@ -56,6 +56,7 @@ from .literals import (
     HarnessToolUseStatusType,
     HarnessToolUseTypeType,
     InsightsFailureCategoryType,
+    JwkEllipticCurveType,
     LanguageRuntimeType,
     MemoryRecordOperatorTypeType,
     MemoryRecordStatusType,
@@ -111,6 +112,9 @@ __all__ = (
     "AutomationStreamTypeDef",
     "AutomationStreamUpdateTypeDef",
     "AvailableLimitsTypeDef",
+    "AwsBillingPaymentOptionsTypeDef",
+    "AwsBillingX402PaymentInputTypeDef",
+    "AwsBillingX402PaymentOutputTypeDef",
     "BasicAuthTypeDef",
     "BatchCreateMemoryRecordsInputTypeDef",
     "BatchCreateMemoryRecordsOutputTypeDef",
@@ -204,6 +208,7 @@ __all__ = (
     "DeleteRecommendationResponseTypeDef",
     "DescriptorsTypeDef",
     "DomainFilterTypeDef",
+    "DpopJwkTypeDef",
     "EfsConfigurationTypeDef",
     "EmbeddedCryptoWalletOutputTypeDef",
     "EmbeddedCryptoWalletTypeDef",
@@ -694,6 +699,16 @@ class AutomationStreamTypeDef(TypedDict):
 
 class AutomationStreamUpdateTypeDef(TypedDict):
     streamStatus: NotRequired[AutomationStreamStatusType]
+
+class DpopJwkTypeDef(TypedDict):
+    kty: Literal["EC"]
+    crv: JwkEllipticCurveType
+    x: str
+    y: str
+
+class AwsBillingX402PaymentOutputTypeDef(TypedDict):
+    version: str
+    paymentToken: str
 
 class BasicAuthTypeDef(TypedDict):
     secretArn: str
@@ -1704,6 +1719,9 @@ class SessionLimitsTypeDef(TypedDict):
 class StreamUpdateTypeDef(TypedDict):
     automationStreamUpdate: NotRequired[AutomationStreamUpdateTypeDef]
 
+class AwsBillingPaymentOptionsTypeDef(TypedDict):
+    dpopJwk: NotRequired[DpopJwkTypeDef]
+
 class ProxyCredentialsTypeDef(TypedDict):
     basicAuth: NotRequired[BasicAuthTypeDef]
 
@@ -2339,13 +2357,10 @@ class MemoryRecordTypeDef(TypedDict):
     metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
     expiresAt: NotRequired[datetime]
 
-class PaymentInputTypeDef(TypedDict):
-    cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
-    mpp: NotRequired[MppPaymentInputTypeDef]
-
 class PaymentOutputTypeDef(TypedDict):
     cryptoX402: NotRequired[CryptoX402PaymentOutputTypeDef]
     mpp: NotRequired[MppPaymentOutputTypeDef]
+    awsBillingX402: NotRequired[AwsBillingX402PaymentOutputTypeDef]
 
 class TraceSourceConfigOutputTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsSourceConfigOutputTypeDef]
@@ -2450,6 +2465,11 @@ class UpdateBrowserStreamRequestTypeDef(TypedDict):
     sessionId: str
     streamUpdate: StreamUpdateTypeDef
     clientToken: NotRequired[str]
+
+class AwsBillingX402PaymentInputTypeDef(TypedDict):
+    version: str
+    payload: Mapping[str, Any]
+    options: NotRequired[AwsBillingPaymentOptionsTypeDef]
 
 class ExternalProxyOutputTypeDef(TypedDict):
     server: str
@@ -2712,16 +2732,6 @@ class GetMemoryRecordOutputTypeDef(TypedDict):
     memoryRecord: MemoryRecordTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ProcessPaymentRequestTypeDef(TypedDict):
-    paymentManagerArn: str
-    paymentSessionId: str
-    paymentInstrumentId: str
-    paymentType: PaymentTypeType
-    paymentInput: PaymentInputTypeDef
-    userId: NotRequired[str]
-    agentName: NotRequired[str]
-    clientToken: NotRequired[str]
-
 class ProcessPaymentResponseTypeDef(TypedDict):
     processPaymentId: str
     paymentManagerArn: str
@@ -2796,6 +2806,11 @@ class CreatePaymentSessionResponseTypeDef(TypedDict):
 class GetPaymentSessionResponseTypeDef(TypedDict):
     paymentSession: PaymentSessionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class PaymentInputTypeDef(TypedDict):
+    cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
+    mpp: NotRequired[MppPaymentInputTypeDef]
+    awsBillingX402: NotRequired[AwsBillingX402PaymentInputTypeDef]
 
 class ProxyOutputTypeDef(TypedDict):
     externalProxy: NotRequired[ExternalProxyOutputTypeDef]
@@ -3089,6 +3104,16 @@ class InvokeAgentRuntimeCommandResponseTypeDef(TypedDict):
     statusCode: int
     stream: EventStream[InvokeAgentRuntimeCommandStreamOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ProcessPaymentRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentSessionId: str
+    paymentInstrumentId: str
+    paymentType: PaymentTypeType
+    paymentInput: PaymentInputTypeDef
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    clientToken: NotRequired[str]
 
 class ProxyConfigurationOutputTypeDef(TypedDict):
     proxies: list[ProxyOutputTypeDef]

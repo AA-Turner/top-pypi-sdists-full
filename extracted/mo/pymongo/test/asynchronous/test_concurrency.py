@@ -37,7 +37,6 @@ class TestAsyncConcurrency(AsyncIntegrationTest):
         "PYTHON-5861: $where is too slow on macOS CI",
     )
     async def test_concurrency(self):
-        tasks = []
         iterations = 5
 
         client = await self.async_single_client()
@@ -52,12 +51,12 @@ class TestAsyncConcurrency(AsyncIntegrationTest):
         sequential_time = time.time() - start
         start = time.time()
 
-        for i in range(iterations):
-            tasks.append(self._task(client))
+        tasks = [self._task(client) for _ in range(iterations)]
 
         await asyncio.gather(*tasks)
         concurrent_time = time.time() - start
 
         percent_faster = (sequential_time - concurrent_time) / concurrent_time * 100
-        # We expect the concurrent tasks to be at least 50% faster on all platforms as a conservative benchmark
+        # We expect the concurrent tasks to be at least 50% faster on all platforms as a
+        # conservative benchmark
         self.assertGreaterEqual(percent_faster, 50)

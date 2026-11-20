@@ -34,6 +34,9 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "TipStatusType",
+    "TipSubjectSourceType",
+    "TipSubjectTypeType",
     "TrustAnchorTypeType",
 )
 
@@ -44,9 +47,13 @@ ListSubjectsPaginatorName = Literal["list_subjects"]
 ListTrustAnchorsPaginatorName = Literal["list_trust_anchors"]
 NotificationChannelType = Literal["ALL"]
 NotificationEventType = Literal["CA_CERTIFICATE_EXPIRY", "END_ENTITY_CERTIFICATE_EXPIRY"]
+TipStatusType = Literal["DISABLED", "ENABLED"]
+TipSubjectSourceType = Literal["x509SAN/URI", "x509Subject/CN"]
+TipSubjectTypeType = Literal["user", "workload"]
 TrustAnchorTypeType = Literal["AWS_ACM_PCA", "CERTIFICATE_BUNDLE", "SELF_SIGNED_REPOSITORY"]
 IAMRolesAnywhereServiceName = Literal["rolesanywhere"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
@@ -155,6 +162,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -339,6 +347,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -346,6 +355,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
@@ -406,6 +416,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

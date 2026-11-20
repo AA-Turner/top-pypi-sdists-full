@@ -168,8 +168,8 @@ def apply_extra_headers(api_client: Any, headers: Mapping[str, str]) -> None:
     remove_on_redirect = base.remove_headers_on_redirect | {name.lower() for name in headers}
     policy = base.new(remove_headers_on_redirect=remove_on_redirect)
     # urllib3 strips Cookie/Authorization on a cross-host redirect, and these
-    # need the same. urllib3 1.26 (allowed by requirements.in, pinned by Bazel)
-    # reads that list only from a per-request `retries`, never the pool's, and
-    # generated rest.py passes none, so bind one here instead of editing it.
+    # need the same. urllib3 1.26, which requirements.in still allows for wheel
+    # users, reads that list only from a per-request `retries`, never the pool's,
+    # and generated rest.py passes none, so bind one here instead of editing it.
     pool_manager = api_client.rest_client.pool_manager
     pool_manager.request = functools.partial(pool_manager.request, retries=policy)

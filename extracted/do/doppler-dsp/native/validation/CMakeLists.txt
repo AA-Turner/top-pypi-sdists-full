@@ -18,7 +18,8 @@ dp_gnu_compile_options(validate_ber_despreader PRIVATE
 add_executable(validate_costas_jitter
                ${CMAKE_CURRENT_SOURCE_DIR}/costas_jitter.c)
 target_include_directories(validate_costas_jitter
-                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
 target_link_libraries(validate_costas_jitter PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
 dp_gnu_compile_options(validate_costas_jitter PRIVATE -O3 -funroll-loops)
 add_test(NAME validate_costas_jitter
@@ -215,6 +216,39 @@ dp_gnu_compile_options(validate_loop_filter_noise_bw PRIVATE
                         -O3 -funroll-loops -fno-fast-math -ffp-contract=off)
 add_test(NAME validate_loop_filter_noise_bw
          COMMAND validate_loop_filter_noise_bw --check)
+
+# What the third-order state filter delivers: its bandwidth by impulse, by the
+# exact function and by noise, its stable-gain envelope against bn*t and the
+# detector's delay, its transients against the second-order loop. --check is
+# the regression subset; the full sweep is run on purpose.
+add_executable(validate_state_filter_loop
+               ${CMAKE_CURRENT_SOURCE_DIR}/state_filter_loop.c)
+target_include_directories(validate_state_filter_loop
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(validate_state_filter_loop PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
+# -ffp-contract=off: the measurement IS an accumulated integrator, as in
+# loop_filter_noise_bw.
+dp_gnu_compile_options(validate_state_filter_loop PRIVATE
+                        -O3 -funroll-loops -fno-fast-math -ffp-contract=off)
+add_test(NAME validate_state_filter_loop
+         COMMAND validate_state_filter_loop --check)
+
+# What the Kalman flavor of the third-order loop delivers: its steady-state
+# gains against the fixed-gain flavor's, its own stability edges and bound, the
+# plain covariance update against a wider reference, and what a larger start
+# does through a detector's slope and delay. --check is the regression subset;
+# the full sweep (and --csv DIR, for the report) is run on purpose.
+add_executable(validate_state_filter_kalman_loop
+               ${CMAKE_CURRENT_SOURCE_DIR}/state_filter_kalman_loop.c)
+target_include_directories(validate_state_filter_kalman_loop
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(validate_state_filter_kalman_loop PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
+dp_gnu_compile_options(validate_state_filter_kalman_loop PRIVATE
+                        -O3 -funroll-loops -fno-fast-math -ffp-contract=off)
+add_test(NAME validate_state_filter_kalman_loop
+         COMMAND validate_state_filter_kalman_loop --check)
 
 # The end-to-end receiver run: a NAMED frame (native/tests/dp_frame_test.h)
 # through wfm_synth, through MpskReceiver, scored into ber + snr + frame_meter

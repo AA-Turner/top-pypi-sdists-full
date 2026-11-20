@@ -40,7 +40,8 @@ import uuid
 
 import yaml
 
-from ouroboros.gui import auto_progress, workspace
+from ouroboros.gui import auto_progress, model_refusal, workspace
+from ouroboros.gui.answer_language import LANGUAGE_NAMES, goal_language, in_language, plain_answer
 from ouroboros.gui.interview_assist import (
     AUTO_CONFIRMED_PREFIX,
     CONFIRMED_PREFIX,
@@ -92,6 +93,28 @@ def chats_dir() -> Path:
 
 def _now() -> float:
     return time.time()
+
+
+_TITLE_MAX = 80
+
+
+def chat_title(goal: object) -> str:
+    """A chat's title: the goal's first line, shortened at a word with an ellipsis.
+
+    A line longer than ``_TITLE_MAX`` characters is cut at the last space in
+    its second half, else at the limit (text without spaces), and ends in
+    "…". Returns ``""`` for a goal with no text.
+    """
+    if not isinstance(goal, str):
+        return ""
+    line = next((part.strip() for part in goal.splitlines() if part.strip()), "")
+    if len(line) <= _TITLE_MAX:
+        return line
+    cut = line[: _TITLE_MAX - 1]
+    space = cut.rfind(" ")
+    if space >= _TITLE_MAX // 2:
+        cut = cut[:space]
+    return cut.rstrip(" ,;:.-—") + "…"
 
 
 def _msg(role: str, kind: str, text: str = "", **data: Any) -> dict[str, Any]:
@@ -171,7 +194,9 @@ class _FolderAdapter:
         )
 
     async def complete(self, messages: Any, config: Any) -> Any:
-        return await self.build().complete(messages, config)
+        result = await self.build().complete(messages, config)
+        model_refusal.note(result, config, self.resolved_backend)
+        return result
 
 
 class _Handlers:
@@ -377,21 +402,25 @@ class Harness:
         """Folder, agents and providers the new-chat form offers."""
         from ouroboros.backends import llm_backend_choices
         from ouroboros.backends.model_catalog import installed_backends
-        from ouroboros.gui.settings import SettingsModel, static_models
+        from ouroboros.gui.settings import SettingsModel, model_suggestions
 
         installed = installed_backends()
         settings = SettingsModel()
         execute_agent = settings.effective_stage_backend(settings_stage("execute"))
+
+        def choice(name: str, ready: bool) -> dict[str, Any]:
+            models, labels = model_suggestions(name)
+            return {"id": name, "installed": ready, "models": models, "model_labels": labels}
+
         agents = [
-            {"id": name, "installed": bool(path), "models": static_models(name)}
+            choice(name, bool(path))
             for name, path in installed.items()
             if name not in ("host", "codex_mcp", "claude_mcp")
         ]
         llm = [
             {
-                "id": name,
-                "installed": bool(installed.get(name)) or name == "litellm",
-                "models": static_models(name),
+                **choice(name, bool(installed.get(name)) or name == "litellm"),
+                "default_model": _empty_model_default(name),
             }
             for name in llm_backend_choices()
             if name not in ("ourocode", "dsh", "megacode")
@@ -421,7 +450,8 @@ class Harness:
             rows = [
                 {
                     "id": s["id"],
-                    "title": s.get("title") or "Untitled",
+                    # From the goal, so chats saved with a mid-word cut read whole too.
+                    "title": chat_title(s.get("goal")) or s.get("title") or "Untitled",
                     "mode": s.get("mode"),
                     "backend": s.get("backend"),
                     "model": s.get("model"),
@@ -467,7 +497,7 @@ class Harness:
         session_id = uuid.uuid4().hex[:12]
         session: dict[str, Any] = {
             "id": session_id,
-            "title": goal.splitlines()[0][:80],
+            "title": chat_title(goal),
             "goal": goal,
             "cwd": cwd,
             "mode": mode,
@@ -611,6 +641,27 @@ class Harness:
                 }
                 self._touch(session)
                 return self.get(session_id) or {}
+            elif action == "retry_default":
+                rejected = model_refusal.retryable_model(session)
+                if rejected is None:
+                    raise Refusal(
+                        "no_model_rejection", "There is no refused model to send again without."
+                    )
+                # The user's explicit choice: this turn and the next ones run on
+                # the agent's default model, and the thread says so.
+                session["model"] = None
+                session["messages"].append(
+                    _msg(
+                        "system",
+                        "note",
+                        f"Sent again with the agent's default model instead of {rejected}.",
+                        key="retried_default_model",
+                        vars={"model": rejected},
+                    )
+                )
+                session["status"] = "thinking"
+                self._touch(session)
+                coro = self._ask(session_id)
             elif action == "stop":
                 job_id = session.get("auto_job_id")
                 job = self._jobs.get(job_id) if job_id else None
@@ -708,7 +759,7 @@ class Harness:
         return self._loop
 
     def _spawn(self, session_id: str, coro: Coroutine[Any, Any, None]) -> None:
-        future = self._loop_ready().submit(coro)
+        future = self._loop_ready().submit(model_refusal.watch(coro))
 
         def done(fut: Any) -> None:
             exc = fut.exception()
@@ -722,7 +773,10 @@ class Harness:
             session = self._sessions.get(session_id)
             if session is None:
                 return
-            session["messages"].append(_msg("assistant", "error", str(exc) or type(exc).__name__))
+            fields = exc.fields() if isinstance(exc, model_refusal.ModelRejected) else {}
+            session["messages"].append(
+                _msg("assistant", "error", str(exc) or type(exc).__name__, **fields)
+            )
             session["status"] = "failed"
             self._touch(session)
 
@@ -1001,6 +1055,8 @@ class Harness:
 
             def apply(s: dict[str, Any]) -> None:
                 s["suggestion"] = {"pending": False, "error": str(exc) or type(exc).__name__}
+                if isinstance(exc, model_refusal.ModelRejected):
+                    s["suggestion"]["rejection"] = exc.rejection
 
             self._update(session_id, apply)
 
@@ -1102,7 +1158,11 @@ class Harness:
                 evidence=[_span_text(span) for span in investigation.checked][:5],
             )
         else:
-            suggestion.update(text=await self._default_answer(session, question), source="model")
+            text, matched = await self._default_answer(session, question)
+            suggestion.update(text=text, source="model")
+            if not matched:
+                # Still shown: the page notes it may be in another language.
+                suggestion["language_mismatch"] = True
 
         def apply(s: dict[str, Any]) -> None:
             if s.get("last_question") == question:
@@ -1110,7 +1170,12 @@ class Harness:
 
         self._update(session_id, apply)
 
-    async def _default_answer(self, session: dict[str, Any], question: str) -> str:
+    async def _default_answer(self, session: dict[str, Any], question: str) -> tuple[str, bool]:
+        """A default answer in the goal's language, and whether the reply's script matches it.
+
+        A reply in another script is asked for once more; a second miss is
+        returned as it is, for the page to show with a note.
+        """
         from ouroboros.config.loader import get_llm_model_for_role
         from ouroboros.providers.base import CompletionConfig, Message, MessageRole
         from ouroboros.providers.factory import create_llm_adapter
@@ -1130,20 +1195,35 @@ class Harness:
                 transcript.append(f"Q: {message.get('text')}")
             elif message.get("kind") == "text" and message.get("role") == "user":
                 transcript.append(f"A: {message.get('text')}")
+        language = goal_language(str(session.get("goal") or ""))
+        name = LANGUAGE_NAMES[language]
         prompt = (
             f"Goal: {session.get('goal')}\n\nInterview so far:\n"
             + "\n".join(transcript[-12:])
             + f"\n\nOpen question: {question}\n\n"
             "Draft the answer a pragmatic requester would most likely give: one to three "
-            "sentences, concrete, the conventional default when unsure. Reply with the answer only."
+            "short sentences, concrete, the conventional default when unsure. "
+            f"Write the answer in {name} only. Reply with the answer only."
         )
-        result = await adapter.complete(
-            [Message(role=MessageRole.USER, content=prompt)],
-            CompletionConfig(model=str(model), max_tokens=400),
-        )
-        if result.is_err:
-            raise RuntimeError(str(result.error))
-        return result.value.content.strip()
+        retry = f"{prompt}\n\nThe previous draft was not in {name}. Write it again in {name} only."
+        text = ""
+        for attempt in (prompt, retry):
+            result = await adapter.complete(
+                [Message(role=MessageRole.USER, content=attempt)],
+                CompletionConfig(model=str(model), max_tokens=400),
+            )
+            if result.is_err:
+                # The Interview stage's model, from Agents & models.
+                found = await asyncio.to_thread(model_refusal.refusal, backend, result.error, model)
+                if found is not None:
+                    raise model_refusal.ModelRejected(*found)
+                raise RuntimeError(str(result.error))
+            text = plain_answer(result.value.content)
+            if in_language(text, language):
+                return text, True
+        if not text:
+            raise RuntimeError("The agent returned an empty answer.")
+        return text, False
 
     # ask -----------------------------------------------------------------
 
@@ -1183,6 +1263,12 @@ class Harness:
             history.append(Message(role=role, content=str(message.get("text") or "")))
         result = await adapter.complete(history, CompletionConfig(model=str(model)))
         if result.is_err:
+            source = "chat" if session.get("model") else "settings"
+            found = await asyncio.to_thread(
+                model_refusal.refusal, backend, result.error, str(model), source
+            )
+            if found is not None:
+                raise model_refusal.ModelRejected(*found)
             raise RuntimeError(str(result.error))
         reply = result.value
         shown = getattr(reply, "model", model)
@@ -1203,17 +1289,15 @@ class Harness:
         progress = auto_progress.progress_file(chats_dir(), session_id)
         progress.parent.mkdir(parents=True, exist_ok=True)
         progress.unlink(missing_ok=True)
+        # One value for the job's ``--runtime`` and for the agent and model the chat names.
+        runtime = effective_runtime(session.get("backend"), public=True)
         job = self._jobs.start(
             kind="auto",
             title=session.get("title", "auto"),
             argv=ouroboros_command(
                 "auto",
                 session["goal"],
-                *(
-                    ["--runtime", runtime]
-                    if (runtime := effective_runtime(session.get("backend"), public=True))
-                    else []
-                ),
+                *(["--runtime", runtime] if runtime else []),
                 "--progress-jsonl",
                 str(progress),
             ),
@@ -1221,10 +1305,13 @@ class Harness:
             cwd=session["cwd"],
             watch=_AUTO_WATCH,
         )
+        model = _auto_model(runtime)
 
         def apply(s: dict[str, Any]) -> None:
             s["auto_job_id"] = job.id
             s["status"] = "running"
+            if model is not None:
+                s["auto_model"] = model
             s["auto"] = auto_progress.new_view()
             s["messages"].append(
                 _msg("assistant", "log", "ouroboros auto", lines=[], job_id=job.id)
@@ -1415,6 +1502,9 @@ class Harness:
                     in_repo=changes is not None,
                     files=list(changes.files) if changes else [],
                     file_count=changes.count if changes else 0,
+                    # Ouroboros state and bytecode: listed apart, still counted.
+                    internal_files=list(changes.internal) if changes else [],
+                    internal_count=changes.internal_count if changes else 0,
                 )
             )
 
@@ -1588,7 +1678,7 @@ def _apply_auto_facts(session: dict[str, Any], facts: dict[str, Any]) -> None:
     """Put the auto session record's facts into an Auto chat.
 
     The Seed is one ``seed`` message, the same kind the interview writes,
-    updated in place when a repair rewrites it.
+    updated in place when the record's Seed changes.
     """
     view = session.get("auto")
     if not isinstance(view, dict):
@@ -1681,6 +1771,76 @@ def _default_model_hint(backend: str | None, model: object) -> dict[str, Any]:
         "model_backend": capability.name,
         "model_default": configured_default_model(capability.name),
     }
+
+
+def _auto_model(runtime: str | None) -> dict[str, Any] | None:
+    """The agent and Execute model the ``ouroboros auto`` job will run on. Display only.
+
+    ``runtime`` is exactly the value the job gets as ``--runtime`` (``None``
+    when it gets none). It is resolved the way ``ouroboros auto`` resolves it:
+    the CLI's spelling (``public_runtime_backend``), then auto's stage routing
+    (``resolve_auto_stage_runtime_plan``), where an explicit runtime drives
+    every stage and only no override follows ``runtime_profile``. The model is
+    the one the Execute handler passes that runtime (``resolve_execution_model``),
+    or the ``default`` sentinel when the runtime uses its own default;
+    ``configured`` then names that default when the CLI's config says it.
+    ``backend`` is the public name of the Execute runtime (``claude-cli`` for
+    the Claude Code CLI worker). ``None`` when the config cannot be read or
+    names an unknown runtime: the page then shows no row rather than a guess.
+    """
+    from ouroboros.auto.runtime_routing import resolve_auto_stage_runtime_plan
+    from ouroboros.backends import get_backend_capability
+    from ouroboros.backends.model_catalog import DEFAULT_MODEL_SENTINEL, configured_default_model
+    from ouroboros.config.loader import resolve_execution_model
+    from ouroboros.core.errors import OuroborosError
+    from ouroboros.orchestrator import resolve_agent_runtime_backend
+    from ouroboros.package_profiles import (
+        CLAUDE_CLI_PROFILE,
+        CLAUDE_CLI_RUNTIME_BACKEND,
+        public_runtime_backend,
+    )
+
+    try:
+        override = public_runtime_backend(runtime)
+        plan = resolve_auto_stage_runtime_plan(
+            runtime_override=override,
+            fallback_runtime_backend=resolve_agent_runtime_backend(override),
+            fallback_opencode_mode=None,
+        )
+        execute = plan.execute.runtime_backend
+        capability = get_backend_capability(execute)
+        if capability is None:
+            return None
+        model = resolve_execution_model(execute)
+    except (OSError, ValueError, yaml.YAMLError, OuroborosError):
+        return None  # an unreadable config or an unknown runtime: no row rather than a guess
+    backend = CLAUDE_CLI_PROFILE if execute == CLAUDE_CLI_RUNTIME_BACKEND else capability.name
+    if model is None:
+        return {
+            "model": DEFAULT_MODEL_SENTINEL,
+            "backend": backend,
+            "configured": configured_default_model(capability.name),
+        }
+    return {"model": model, "backend": backend, "configured": None}
+
+
+def _empty_model_default(backend: str) -> str | None:
+    """What an Ask chat on ``backend`` with an empty model field runs on, when known.
+
+    Display only, resolved as ``_ask`` resolves it: the Interview role's model
+    for that backend. The ``default`` sentinel is named by the CLI's own
+    configured model (``configured_default_model``), else ``None``.
+    """
+    from ouroboros.backends.model_catalog import DEFAULT_MODEL_SENTINEL, configured_default_model
+    from ouroboros.config.loader import get_llm_model_for_role
+
+    try:
+        model = get_llm_model_for_role("interview", backend=backend)
+    except ValueError:
+        return None
+    if model == DEFAULT_MODEL_SENTINEL:
+        return configured_default_model(backend)
+    return model or None
 
 
 def _auto_outcome(status: str, cancelled: bool, handoff: str | None) -> str:

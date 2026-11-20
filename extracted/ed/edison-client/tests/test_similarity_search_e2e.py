@@ -2,6 +2,7 @@
 
 import os
 import time
+from collections.abc import Iterator
 from uuid import uuid4
 
 import pytest
@@ -13,12 +14,9 @@ ADMIN_API_KEY = os.environ.get("PLAYWRIGHT_ADMIN_API_KEY", "")
 
 
 @pytest.fixture(name="admin_client")
-def fixture_admin_client():
+def fixture_admin_client() -> Iterator[RestClient]:
     """Create a RestClient for testing; using an admin user key with full access."""
-    client = RestClient(
-        stage=Stage.LOCAL,
-        api_key=ADMIN_API_KEY,
-    )
+    client = RestClient(stage=Stage.LOCAL, api_key=ADMIN_API_KEY)
     try:
         yield client
     finally:
@@ -28,7 +26,7 @@ def fixture_admin_client():
 # TODO: [PLA-1165] Change to Stage.DEV before unskipping the test
 @pytest.mark.skip(reason="Requires similarity search endpoint deployed to dev")
 @pytest.mark.timeout(300)
-def test_upload_with_embedding_and_similarity_search(admin_client: RestClient):
+def test_upload_with_embedding_and_similarity_search(admin_client: RestClient) -> None:
     """Test uploading content with embedding and searching by similarity."""
     test_embedding = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6] * 512  # 3072-dim vector
 
@@ -46,9 +44,7 @@ def test_upload_with_embedding_and_similarity_search(admin_client: RestClient):
 
     try:
         results = admin_client.similarity_search_data_storage(
-            embedding=test_embedding,
-            size=10,
-            min_score=0.5,
+            embedding=test_embedding, size=10, min_score=0.5
         )
 
         assert results, f"No results returned. Entry ID: {entry_id}"

@@ -83,21 +83,26 @@ void CheckColumnArray(const string &column, nb::handle array, idx_t row_count, c
 //! a column whose chunks are shorter than this on average is cheaper to convert.
 static constexpr idx_t ARROW_ROWS_PER_CHUNK = 50;
 
-//! The column read from its own chunks, or null when it is to be converted with to_numpy instead
+//! The column read from its own chunks, decoded first when they are dictionary encoded, or null when it is to be
+//! converted with to_numpy instead
 static unique_ptr<PandasArrowColumn> BindArrowStringColumn(ClientContext &context, const string &name,
                                                            nb::handle pandas_array, idx_t row_count,
                                                            const string &counted_from) {
 	nb::object chunked_array = pandas_array.attr("__arrow_array__")();
-	nb::object pyarrow_type = chunked_array.attr("type");
 	// Before pyarrow 14 nothing exports through capsules.
-	if (!PyUtil::HasAttribute(pyarrow_type, "__arrow_c_schema__")) {
+	if (!PyUtil::HasAttribute(chunked_array.attr("type"), "__arrow_c_schema__")) {
 		return nullptr;
 	}
-	if (row_count < ARROW_ROWS_PER_CHUNK * nb::cast<idx_t>(chunked_array.attr("num_chunks"))) {
+	if (nb::cast<bool>(nb::module_::import_("pyarrow.types").attr("is_dictionary")(chunked_array.attr("type")))) {
+		// pandas 2 keeps the dictionary its array was built from, which pandas 2.2 cannot convert with to_numpy before
+		// pyarrow 25, so it is decoded chunk by chunk and read here at any chunk length; combining the chunks first
+		// would merge their dictionaries into the original index type, which a few hundred values overflow.
+		chunked_array = chunked_array.attr("cast")(chunked_array.attr("type").attr("value_type"));
+	} else if (row_count < ARROW_ROWS_PER_CHUNK * nb::cast<idx_t>(chunked_array.attr("num_chunks"))) {
 		return nullptr;
 	}
 	auto subject = StringUtil::Format("column '%s'", name);
-	nb::object schema = pyarrow_type.attr("__arrow_c_schema__")();
+	nb::object schema = chunked_array.attr("type").attr("__arrow_c_schema__")();
 	auto arrow_type = ArrowType::GetArrowLogicalType(context, InCapsule<ArrowSchema>(schema, "arrow_schema", subject));
 	// Only a plain layout may be read without the engine adopting the chunks.
 	if (arrow_type->GetDuckType().id() != LogicalTypeId::VARCHAR ||
@@ -120,7 +125,8 @@ std::unique_ptr<RegisteredArray> RegisterMask(nb::handle mask) {
 }
 
 static LogicalType BindColumn(ClientContext &context, PandasBindColumn &column_p, PandasColumnBindData &bind_data,
-                              idx_t row_count) {
+                              idx_t row_count, const LogicalType &declared_type,
+                              const vector<PandasEnumDtype> &enum_dtypes) {
 	const string counted_from = "the frame";
 	LogicalType column_type;
 	auto &column = column_p.handle;
@@ -137,6 +143,18 @@ static LogicalType BindColumn(ClientContext &context, PandasBindColumn &column_p
 	nb::object data;
 
 	if (bind_data.numpy_type.type == NumpyNullableType::CATEGORY) {
+		auto column_categories = enum_dtypes.empty() ? nb::object() : nb::object(column_p.type.attr("categories"));
+		for (auto &known : enum_dtypes) {
+			// A categories index is immutable, so this object still holds the enum's values, and reading them again
+			// would cost a string per category on every call; pandas 2 builds a new dtype around the same index
+			if (column_categories.is(known.categories)) {
+				data = column.attr("cat").attr("codes").attr("to_numpy")();
+				bind_data.internal_categorical_type = nb::cast<std::string>(nb::str(nb::object(data.attr("dtype"))));
+				CheckColumnArray(bind_data.name, data, row_count, counted_from);
+				bind_data.pandas_col = std::make_unique<PandasNumpyColumn>(NumpyArray(std::move(data)));
+				return known.type;
+			}
+		}
 		// for category types, we create an ENUM type for string or use the converted numpy type for the rest
 		D_ASSERT(nb::hasattr(column, "cat"));
 		D_ASSERT(nb::hasattr(column.attr("cat"), "categories"));
@@ -206,11 +224,15 @@ static LogicalType BindColumn(ClientContext &context, PandasBindColumn &column_p
 	}
 	CheckColumnArray(bind_data.name, data, row_count, counted_from);
 	auto numpy_column = std::make_unique<PandasNumpyColumn>(NumpyArray(std::move(data)));
-	// Analyze the inner data type of the 'object' column
 	if (bind_data.numpy_type.type == NumpyNullableType::OBJECT) {
-		PandasAnalyzer analyzer(context);
-		if (analyzer.Analyze(*numpy_column, row_count, bind_data.mask.get())) {
-			column_type = analyzer.AnalyzedType();
+		if (declared_type.id() != LogicalTypeId::INVALID) {
+			bind_data.declared = true;
+			column_type = declared_type;
+		} else {
+			PandasAnalyzer analyzer(context);
+			if (analyzer.Analyze(*numpy_column, row_count, bind_data.mask.get())) {
+				column_type = analyzer.AnalyzedType();
+			}
 		}
 	}
 	bind_data.pandas_col = std::move(numpy_column);
@@ -218,12 +240,17 @@ static LogicalType BindColumn(ClientContext &context, PandasBindColumn &column_p
 }
 
 idx_t Pandas::Bind(ClientContext &context, nb::handle df_p, vector<PandasColumnBindData> &bind_columns,
-                   vector<LogicalType> &return_types, vector<Identifier> &names) {
+                   vector<LogicalType> &return_types, vector<Identifier> &names,
+                   const vector<LogicalType> &declared_types, const vector<PandasEnumDtype> &enum_dtypes) {
 
 	PandasDataFrameBind df(df_p);
 	idx_t column_count = nb::len(df.names);
 	if (column_count == 0) {
 		throw InvalidInputException("Need a DataFrame with at least one column");
+	}
+	if (!declared_types.empty() && declared_types.size() != column_count) {
+		throw InternalException("declared types: %d types for a DataFrame of %d columns", declared_types.size(),
+		                        column_count);
 	}
 	idx_t row_count = nb::len(nb::object(df_p.attr("index")));
 	auto column_names = ColumnNamesFromLabels(df.names);
@@ -247,7 +274,9 @@ idx_t Pandas::Bind(ClientContext &context, nb::handle df_p, vector<PandasColumnB
 		bind_data.name = column_names[col_idx];
 		names.emplace_back(bind_data.name);
 		auto column = df[col_idx];
-		auto column_type = BindColumn(context, column, bind_data, row_count);
+		auto column_type =
+		    BindColumn(context, column, bind_data, row_count,
+		               declared_types.empty() ? LogicalType::INVALID : declared_types[col_idx], enum_dtypes);
 
 		return_types.push_back(column_type);
 		bind_columns.push_back(std::move(bind_data));

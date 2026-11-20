@@ -130,14 +130,6 @@ class TestGpMix(unittest.TestCase):
             self.assertAlmostEqual(0.0, error, delta=6e-1)
             print("   RMS error: " + str(error))
 
-    def test_multi_outputs_exception(self):
-        self.xt = np.array([[0.0, 1.0, 2.0, 3.0, 4.0]]).T
-        self.yt = np.array(
-            [[0.0, 10.0], [1.0, -3.0], [1.5, 1.5], [0.9, 1.0], [1.0, 0.0]]
-        )
-        with self.assertRaises(ValueError):
-            egx.Gpx.builder().fit(self.xt, self.yt)
-
     def test_1d_training_data(self):
         self.xt1 = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
         self.yt1 = np.array([0.0, 1.0, 1.5, 0.9, 1.0])
@@ -180,42 +172,53 @@ class TestGpMix(unittest.TestCase):
         print(f"gpx.theta = {self.gpx.thetas}")
         self.assertEqual(0.314, self.gpx.thetas.item())
 
-    def test_mixint_lhs(self):
-        xspecs = [
-            egx.XSpec(egx.XType.FLOAT, [-10.0, 10.0]),
-            egx.XSpec(egx.XType.ENUM, tags=["blue", "red", "green"]),
-            egx.XSpec(egx.XType.INT, [-10.0, 10.0]),
-        ]
-        xt = egx.lhs(xspecs, 20)
+    def test_enum_variable(self):
+        """xt has one column per variable, an ENUM given by its category index (#558)"""
+        rng = np.random.default_rng(0)
+        x0 = rng.uniform(0.0, 1.0, 20)
+        category = rng.integers(0, 3, 20).astype(float)
+        yt = np.sin(6 * x0) + category
+        FLOAT = egx.XSpec(egx.XType.FLOAT, [0.0, 1.0])
+        ENUM = egx.XSpec(egx.XType.ENUM, tags=["a", "b", "c"])
 
-        eq_check = True
-        for i in range(xt.shape[0]):
-            # check float
-            eq_check = (
-                eq_check
-                and abs(float(xt[i, :][0])) <= 10.0
-                and abs(float(xt[i, :][0])) >= -10.0
-            )
+        for xspecs, xt in (
+            ([FLOAT, ENUM], np.column_stack([x0, category])),
+            ([ENUM, FLOAT], np.column_stack([category, x0])),
+            ([ENUM], category.reshape(-1, 1)),
+        ):
+            with self.subTest(n_vars=len(xspecs), enum_first=xspecs[0] is ENUM):
+                gpx = egx.Gpx.builder(xspecs=xspecs, seed=1).fit(xt, yt)
+                self.assertEqual(gpx.nx, len(xspecs))
+                self.assertEqual(gpx.predict(xt).shape, (20,))
+                grads = gpx.predict_gradients(xt[:3])
+                self.assertEqual(grads.shape, (3, len(xspecs)))
+                ienum = xspecs.index(ENUM)
+                self.assertTrue(np.isnan(grads[:, ienum]).all())
+                self.assertFalse(np.isnan(np.delete(grads, ienum, axis=1)).any())
 
-            # check enum
-            eq_check = eq_check and (
-                (xt[i, :][1] - 0) < 10e-8
-                or (xt[i, :][1] - 1) < 10e-8
-                or (xt[i, :][1] - 2) < 10e-8
-            )
-
-            # check int
-            eq_check = (
-                eq_check
-                and abs(float(xt[i, :][2]) - int(float(xt[i, :][2]))) < 10e-8
-                and abs(float(xt[i, :][2])) <= 10.0
-                and abs(float(xt[i, :][2])) >= -10.0
-            )
-
-        self.assertTrue(
-            eq_check,
-            f"LHS samples do not match the specified XSpecs on {i}th row: {xt[i, :]}",
+        gpx = egx.Gpx.builder(xspecs=[FLOAT, ENUM], seed=1).fit(
+            np.column_stack([x0, category]), yt
         )
+        for bad in (3.0, -1.0, 0.5):
+            with self.subTest(bad=bad):
+                xbad = np.array([[0.5, bad]])
+                with self.assertRaisesRegex(ValueError, "category indices"):
+                    gpx.predict(xbad)
+                with self.assertRaisesRegex(ValueError, "category indices"):
+                    egx.Gpx.builder(xspecs=[FLOAT, ENUM]).fit(
+                        np.vstack([np.column_stack([x0, category]), xbad]),
+                        np.append(yt, 0.0),
+                    )
+
+        x = np.array([[0.2, 0.0], [0.7, 2.0]])
+        filename = "gpdump_enum.json"
+        gpx.save(filename)
+        try:
+            gpx2 = egx.Gpx.load(filename)
+        finally:
+            os.remove(filename)
+        self.assertEqual(gpx2.nx, 2)
+        np.testing.assert_allclose(gpx2.predict(x), gpx.predict(x), rtol=1e-6)
 
     def test_mixint_gp(self):
         xspecs = [
@@ -230,7 +233,7 @@ class TestGpMix(unittest.TestCase):
                 for i in range(xt.shape[0])
             ]
         )
-        gpx = egx.Gpx.builder(seed=42).fit(xt, yt)
+        gpx = egx.Gpx.builder(xspecs=xspecs, seed=42).fit(xt, yt)
 
         # check interpolation
         for i in range(xt.shape[0]):

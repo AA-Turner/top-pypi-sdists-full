@@ -7,18 +7,44 @@ from autumn_sdk.utils.dynamic_imports import lazy_getattr, lazy_dir
 
 if TYPE_CHECKING:
     from .autumndefaulterror import AutumnDefaultError
+    from .exchangetokenop import (
+        InternalError,
+        InternalErrorData,
+        InvalidGrantError,
+        InvalidGrantErrorData,
+        InvalidRequestError,
+        InvalidRequestErrorData,
+        RateLimitExceededError,
+        RateLimitExceededErrorData,
+    )
     from .no_response_error import NoResponseError
     from .responsevalidationerror import ResponseValidationError
 
 __all__ = [
     "AutumnDefaultError",
     "AutumnError",
+    "InternalError",
+    "InternalErrorData",
+    "InvalidGrantError",
+    "InvalidGrantErrorData",
+    "InvalidRequestError",
+    "InvalidRequestErrorData",
     "NoResponseError",
+    "RateLimitExceededError",
+    "RateLimitExceededErrorData",
     "ResponseValidationError",
 ]
 
 _dynamic_imports: dict[str, str] = {
     "AutumnDefaultError": ".autumndefaulterror",
+    "InternalError": ".exchangetokenop",
+    "InternalErrorData": ".exchangetokenop",
+    "InvalidGrantError": ".exchangetokenop",
+    "InvalidGrantErrorData": ".exchangetokenop",
+    "InvalidRequestError": ".exchangetokenop",
+    "InvalidRequestErrorData": ".exchangetokenop",
+    "RateLimitExceededError": ".exchangetokenop",
+    "RateLimitExceededErrorData": ".exchangetokenop",
     "NoResponseError": ".no_response_error",
     "ResponseValidationError": ".responsevalidationerror",
 }

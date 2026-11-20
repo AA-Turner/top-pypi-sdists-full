@@ -702,17 +702,22 @@ class ChatBedrockConverse(BaseChatModel):
         """,
     )
 
-    service_tier: Optional[Literal["priority", "default", "flex", "reserved"]] = Field(
+    service_tier: Optional[
+        Literal["priority", "default", "flex", "reserved", "ultrafast"]
+    ] = Field(
         default=None,
         description="""Service tier for model invocation.
 
         Specifies the processing tier type used for serving the request.
-        Supported values are 'priority', 'default', 'flex', and 'reserved'.
+        Supported values are 'priority', 'default', 'flex', 'reserved', and
+        'ultrafast'.
 
         - 'priority': Prioritized processing for lower latency
         - 'default': Standard processing tier
         - 'flex': Flexible processing tier with lower cost
         - 'reserved': Reserved capacity for consistent performance
+        - 'ultrafast': Faster output for models that offer it, such as OpenAI's
+          GPT-6 Astra, GPT-6.1 Sol, and GPT-6.2 Astra.
 
         If not provided, AWS uses the default tier.
         """,
@@ -1198,10 +1203,7 @@ class ChatBedrockConverse(BaseChatModel):
             elif "grok" in base_model:
                 self.supports_tool_choice_values = ("auto", "any", "tool")
             elif base_model.startswith("zai.glm-"):
-                if base_model.startswith("zai.glm-5.3"):
-                    self.supports_tool_choice_values = ("auto", "any", "tool")
-                else:
-                    self.supports_tool_choice_values = ("auto", "any")
+                self.supports_tool_choice_values = ("auto", "any", "tool")
             elif base_model.startswith("openai.gpt-") and "gpt-oss" not in base_model:
                 self.supports_tool_choice_values = ("auto", "any", "tool")
             elif "llama4" in base_model:
@@ -1226,7 +1228,7 @@ class ChatBedrockConverse(BaseChatModel):
                 ):
                     self.supports_tool_choice_values = ("auto",)
                 else:
-                    self.supports_tool_choice_values = ("auto", "any")
+                    self.supports_tool_choice_values = ("auto", "any", "tool")
             else:
                 self.supports_tool_choice_values = ()
 
@@ -2061,7 +2063,7 @@ class ChatBedrockConverse(BaseChatModel):
         guardrailConfig: Optional[dict] = None,
         performanceConfig: Optional[Mapping[str, Any]] = None,
         serviceTier: Optional[
-            Literal["priority", "default", "flex", "reserved"]
+            Literal["priority", "default", "flex", "reserved", "ultrafast"]
         ] = None,
         requestMetadata: Optional[dict] = None,
         outputConfig: Optional[dict] = None,
@@ -2135,6 +2137,10 @@ class ChatBedrockConverse(BaseChatModel):
             }
         else:
             merged_additional_fields = {}
+
+        if tier == "ultrafast":
+            merged_additional_fields.setdefault("service_tier", tier)
+            tier = None
 
         return _drop_none(
             {
@@ -2721,11 +2727,35 @@ def _messages_to_bedrock(
     return bedrock_messages, bedrock_system
 
 
+_FINISH_REASONS: Dict[str, str] = {
+    "end_turn": "stop",
+    "stop_sequence": "stop",
+    "max_tokens": "length",
+    "tool_use": "tool_call",
+    "guardrail_intervened": "content_filter",
+    "content_filtered": "content_filter",
+    "model_context_window_exceeded": "context_exceeded",
+    "malformed_model_output": "error",
+    "malformed_tool_use": "error",
+}
+
+
+def _finish_reason_fields(stop_reason: Optional[str]) -> Dict[str, str]:
+    """Map Converse `stopReason` onto the shared finish fields."""
+    if not stop_reason:
+        return {}
+    return {
+        "finish_reason": stop_reason,
+        "normalized_finish_reason": _FINISH_REASONS.get(stop_reason, "other"),
+    }
+
+
 def _extract_response_metadata(response: Dict[str, Any]) -> Dict[str, Any]:
     response_metadata = response
     # response_metadata only supports string, list or dict
     if "metrics" in response and "latencyMs" in response["metrics"]:
         response_metadata["metrics"]["latencyMs"] = [response["metrics"]["latencyMs"]]
+    response_metadata.update(_finish_reason_fields(response.get("stopReason")))
 
     return response_metadata
 
@@ -2962,7 +2992,13 @@ def _parse_stream_event(
         return AIMessageChunk(content=[])
     elif "messageStop" in event:
         # TODO: snake case response metadata?
-        return AIMessageChunk(content="", response_metadata=event["messageStop"])
+        return AIMessageChunk(
+            content="",
+            response_metadata={
+                **event["messageStop"],
+                **_finish_reason_fields(event["messageStop"].get("stopReason")),
+            },
+        )
     elif "metadata" in event:
         usage = _extract_usage_metadata(
             event["metadata"], reasoning_tokens=reasoning_tokens

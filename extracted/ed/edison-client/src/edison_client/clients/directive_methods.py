@@ -2,12 +2,7 @@ import logging
 from typing import NoReturn
 
 from httpx import AsyncClient, Client, HTTPStatusError
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 
 from edison_client.models.directive import DirectiveResolveResponse
 from edison_client.utils.general import (
@@ -43,11 +38,7 @@ class DirectiveMethods:
         reraise=True,
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def resolve_directives(
-        self,
-        *,
-        profile_key: str,
-    ) -> DirectiveResolveResponse:
+    def resolve_directives(self, *, profile_key: str) -> DirectiveResolveResponse:
         try:
             response = self.client.post(_RESOLVE_URL, json=_payload(profile_key))
             response.raise_for_status()
@@ -69,9 +60,7 @@ class DirectiveMethods:
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     async def aresolve_directives(
-        self,
-        *,
-        profile_key: str,
+        self, *, profile_key: str
     ) -> DirectiveResolveResponse:
         try:
             response = await self.async_client.post(

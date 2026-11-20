@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from edison_client import EdisonClient
 from edison_client.models.app import (
@@ -15,12 +16,13 @@ from edison_client.models.app import (
     RuntimeConfig,
     TaskRequest,
     TaskResponse,
+    TaskResponseVerbose,
 )
 from edison_client.utils.auth import RefreshingJWT
 
 
 @pytest.fixture(name="mock_client")
-def fixture_mock_client():
+def fixture_mock_client() -> MagicMock:
     """Create a mock synchronous HTTP client that returns success on first auth attempt."""
     client = MagicMock(spec=httpx.Client)
     response = MagicMock()
@@ -34,7 +36,7 @@ def fixture_mock_client():
 
 
 @pytest.fixture(name="failing_then_success_client")
-def fixture_failing_then_success_client():
+def fixture_failing_then_success_client() -> tuple[MagicMock, MagicMock]:
     """Create a client that fails with 401 on first call, then succeeds on retry."""
     client = MagicMock(spec=httpx.Client)
 
@@ -51,7 +53,7 @@ def fixture_failing_then_success_client():
     return client, first_response
 
 
-def test_refreshing_jwt_with_api_key(mock_client):
+def test_refreshing_jwt_with_api_key(mock_client: MagicMock) -> None:
     """Test that RefreshingJWT works with API key authentication."""
     api_key = "mock_api_key_12345"
 
@@ -68,7 +70,7 @@ def test_refreshing_jwt_with_api_key(mock_client):
     assert kwargs["json"] == {"api_key": api_key}
 
 
-def test_refreshing_jwt_with_jwt_token():
+def test_refreshing_jwt_with_jwt_token() -> None:
     """Test that RefreshingJWT works with JWT authentication."""
     jwt_token = "mock.jwt.token"
 
@@ -77,7 +79,17 @@ def test_refreshing_jwt_with_jwt_token():
     assert auth._jwt == jwt_token
 
 
-def test_refreshing_jwt_refresh_token(mock_client):
+def test_refreshing_jwt_rejects_invalid_auth_type(mock_client: MagicMock) -> None:
+    with pytest.raises(ValueError, match="AuthType"):
+        RefreshingJWT(
+            auth_client=mock_client,
+            auth_type="unsupported",  # ty: ignore[invalid-argument-type]
+            jwt="mock.jwt.token",
+        )
+    mock_client.post.assert_not_called()
+
+
+def test_refreshing_jwt_refresh_token(mock_client: MagicMock) -> None:
     """Test that refresh_token method correctly gets a new token."""
     api_key = "mock_api_key_12345"
 
@@ -103,7 +115,10 @@ def test_refreshing_jwt_refresh_token(mock_client):
     assert mock_client.post.call_count == 2  # Initial auth + refresh
 
 
-def test_auth_flow_with_retry(failing_then_success_client, caplog):
+def test_auth_flow_with_retry(
+    failing_then_success_client: tuple[MagicMock, MagicMock],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test that auth_flow retries with new token after receiving a 401."""
     caplog.set_level(logging.INFO, logger="edison_client.utils.auth")
 
@@ -138,7 +153,9 @@ def test_auth_flow_with_retry(failing_then_success_client, caplog):
     )
 
 
-def test_auth_flow_jwt_does_not_refresh_on_401(caplog):
+def test_auth_flow_jwt_does_not_refresh_on_401(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """JWT auth cannot refresh — auth_flow should pass the response through."""
     caplog.set_level(logging.INFO, logger="edison_client.utils.auth")
 
@@ -160,7 +177,7 @@ def test_auth_flow_jwt_does_not_refresh_on_401(caplog):
     assert not any("refreshing token" in record.message for record in caplog.records)
 
 
-def test_task_response_does_not_mutate_original_data():
+def test_task_response_does_not_mutate_original_data() -> None:
     """Test that TaskResponse doesn't mutate the original data when creating an instance."""
     original_data: dict[str, Any] = {
         "crow": "test-crow",
@@ -189,7 +206,36 @@ def test_task_response_does_not_mutate_original_data():
     assert task_response.agent_name == metadata.get("agent_name")
 
 
-def test_create_task_raises_error_with_both_files_parameter_and_env_config():
+@pytest.mark.parametrize("response_type", [TaskResponse, TaskResponseVerbose])
+@pytest.mark.parametrize(
+    "permitted_accessors",
+    [
+        None,
+        {"users": ["reader@example.com"], "organizations": [123], "groups": None},
+        {
+            "users": None,
+            "organizations": None,
+            "groups": ["df91c7de-86af-49a1-ac19-bf6fe41f4ee9"],
+        },
+    ],
+)
+def test_task_response_preserves_nullable_permitted_accessors(
+    response_type: type[TaskResponse],
+    permitted_accessors: dict[str, list[str | int] | None] | None,
+) -> None:
+    response = response_type.model_validate({
+        "crow": "test-crow",
+        "task": "test task",
+        "status": "success",
+        "created_at": "2026-11-15T12:00:00Z",
+        "share_status": "shared",
+        "permitted_accessors": permitted_accessors,
+    })
+
+    assert response.permitted_accessors == permitted_accessors
+
+
+def test_create_task_raises_error_with_both_files_parameter_and_env_config() -> None:
     """Test that create_task raises ValueError when both files parameter and environment config files are provided."""
     with patch(
         "edison_client.clients.rest_client.RestClient._fetch_my_orgs",
@@ -215,7 +261,9 @@ def test_create_task_raises_error_with_both_files_parameter_and_env_config():
 
 
 @pytest.mark.asyncio
-async def test_acreate_task_raises_error_with_both_files_parameter_and_env_config():
+async def test_acreate_task_raises_error_with_both_files_parameter_and_env_config() -> (
+    None
+):
     """Test that acreate_task raises ValueError when both files parameter and environment config files are provided."""
     with patch(
         "edison_client.clients.rest_client.RestClient._fetch_my_orgs",
@@ -240,10 +288,55 @@ async def test_acreate_task_raises_error_with_both_files_parameter_and_env_confi
         await client.acreate_task(task_data, files=files)
 
 
+@pytest.mark.parametrize("asynchronous", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize("trajectory_id", ["test-trajectory", None, 123])
+async def test_create_task_validates_trajectory_id(
+    monkeypatch: pytest.MonkeyPatch, asynchronous: bool, trajectory_id: str | int | None
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert request.url.path == "/v0.1/crows"
+        return httpx.Response(200, json={"trajectory_id": trajectory_id})
+
+    transport = httpx.MockTransport(handle)
+    with httpx.Client(base_url="https://example.com", transport=transport) as sync:
+        async with httpx.AsyncClient(
+            base_url="https://example.com", transport=transport
+        ) as async_client:
+            monkeypatch.setattr(EdisonClient, "client", property(lambda _: sync))
+            monkeypatch.setattr(
+                EdisonClient, "async_client", property(lambda _: async_client)
+            )
+            client = EdisonClient(
+                auth_type=AuthType.JWT, jwt="test-jwt", cleanup_on_exit=False
+            )
+            client.trajectory_id = "previous-trajectory"
+            task = TaskRequest(name="test-job", query="Test query")
+
+            async def submit() -> str:
+                return (
+                    await client.acreate_task(task)
+                    if asynchronous
+                    else client.create_task(task)
+                )
+
+            if isinstance(trajectory_id, str):
+                assert await submit() == trajectory_id
+                assert client.trajectory_id == trajectory_id
+            else:
+                with pytest.raises(ValidationError, match="valid string"):
+                    await submit()
+                assert client.trajectory_id == "previous-trajectory"
+
+    assert len(requests) == 1
+
+
 class TestLazyOrganizations:
     """Test suite for lazily resolved organizations."""
 
-    def test_construction_issues_no_request(self):
+    def test_construction_issues_no_request(self) -> None:
         """Constructing a client must not touch the network."""
         with (
             patch.object(EdisonClient, "get_client") as get_client,
@@ -254,7 +347,7 @@ class TestLazyOrganizations:
             assert not get_client.called
             assert not fetch_my_orgs.called
 
-    def test_organizations_fetches_once_and_caches(self):
+    def test_organizations_fetches_once_and_caches(self) -> None:
         """Reading organizations fetches on first access only."""
         with patch.object(
             EdisonClient, "_fetch_my_orgs", return_value=["test-org", "other-org"]
@@ -265,7 +358,7 @@ class TestLazyOrganizations:
             assert client.organizations == ["test-org", "other-org"]
             fetch_my_orgs.assert_called_once()
 
-    def test_organization_argument_filters_organizations(self):
+    def test_organization_argument_filters_organizations(self) -> None:
         """The organization argument narrows the list to that organization."""
         with patch.object(
             EdisonClient, "_fetch_my_orgs", return_value=["test-org", "other-org"]
@@ -276,7 +369,7 @@ class TestLazyOrganizations:
 
             assert client.organizations == ["other-org"]
 
-    def test_unknown_organization_raises_on_access(self):
+    def test_unknown_organization_raises_on_access(self) -> None:
         """An unknown organization raises when the caller reads organizations."""
         with patch.object(EdisonClient, "_fetch_my_orgs", return_value=["test-org"]):
             client = EdisonClient(
@@ -288,7 +381,7 @@ class TestLazyOrganizations:
             ):
                 _ = client.organizations
 
-    def test_check_credentials_raises_on_bad_credentials(self):
+    def test_check_credentials_raises_on_bad_credentials(self) -> None:
         """check_credentials surfaces the auth failure that __init__ used to raise."""
         request = httpx.Request("GET", "https://example.com/v0.1/organizations")
         error = httpx.HTTPStatusError(
@@ -302,7 +395,7 @@ class TestLazyOrganizations:
             with pytest.raises(httpx.HTTPStatusError):
                 client.check_credentials()
 
-    def test_check_credentials_warms_the_cache(self):
+    def test_check_credentials_warms_the_cache(self) -> None:
         """check_credentials resolves organizations so later reads cost nothing."""
         with patch.object(
             EdisonClient, "_fetch_my_orgs", return_value=["test-org"]
@@ -317,7 +410,7 @@ class TestLazyOrganizations:
 class TestReleaseNameToEnumMappings:
     """Test suite for RELEASE_NAME_TO_ENUM_MAPPINGS and JobNames.from_string()."""
 
-    def test_release_name_mappings_exist(self):
+    def test_release_name_mappings_exist(self) -> None:
         """Verify the expected release name mappings are defined."""
         assert "literature-20260216" in RELEASE_NAME_TO_ENUM_MAPPINGS
         assert "literature-high-20260216" in RELEASE_NAME_TO_ENUM_MAPPINGS
@@ -327,7 +420,7 @@ class TestReleaseNameToEnumMappings:
             == "LITERATURE_HIGH"
         )
 
-    def test_from_string_with_release_name_lowercase(self):
+    def test_from_string_with_release_name_lowercase(self) -> None:
         """Test from_string correctly handles lowercase release-dated names."""
         result = JobNames.from_string("literature-20260216")
         assert result == JobNames.LITERATURE
@@ -337,7 +430,7 @@ class TestReleaseNameToEnumMappings:
         assert result_high == JobNames.LITERATURE_HIGH
         assert result_high.value == "job-futurehouse-paperqa3-high"
 
-    def test_from_string_with_release_name_uppercase(self):
+    def test_from_string_with_release_name_uppercase(self) -> None:
         """Test from_string correctly handles uppercase release-dated names (case-insensitive)."""
         result = JobNames.from_string("LITERATURE-20260216")
         assert result == JobNames.LITERATURE
@@ -347,7 +440,7 @@ class TestReleaseNameToEnumMappings:
         assert result_high == JobNames.LITERATURE_HIGH
         assert result_high.value == "job-futurehouse-paperqa3-high"
 
-    def test_from_string_with_release_name_mixed_case(self):
+    def test_from_string_with_release_name_mixed_case(self) -> None:
         """Test from_string correctly handles mixed case release-dated names."""
         result = JobNames.from_string("Literature-20260216")
         assert result == JobNames.LITERATURE
@@ -355,7 +448,7 @@ class TestReleaseNameToEnumMappings:
         result_high = JobNames.from_string("Literature-High-20260216")
         assert result_high == JobNames.LITERATURE_HIGH
 
-    def test_from_string_with_enum_names_still_works(self):
+    def test_from_string_with_enum_names_still_works(self) -> None:
         """Test from_string still works with regular enum names."""
         assert JobNames.from_string("literature") == JobNames.LITERATURE
         assert JobNames.from_string("LITERATURE") == JobNames.LITERATURE
@@ -364,7 +457,7 @@ class TestReleaseNameToEnumMappings:
         assert JobNames.from_string("crow") == JobNames.CROW
         assert JobNames.from_string("analysis") == JobNames.ANALYSIS
 
-    def test_from_string_invalid_name_raises_error(self):
+    def test_from_string_invalid_name_raises_error(self) -> None:
         """Test from_string raises ValueError for invalid job names."""
         with pytest.raises(ValueError, match="Invalid job name"):
             JobNames.from_string("nonexistent-job")
@@ -372,7 +465,7 @@ class TestReleaseNameToEnumMappings:
         with pytest.raises(ValueError, match="Invalid job name"):
             JobNames.from_string("literature-99999999")  # Non-existent release date
 
-    def test_release_name_returns_correct_job_value(self):
+    def test_release_name_returns_correct_job_value(self) -> None:
         """Test that release names return JobNames with correct underlying job values."""
         literature_job = JobNames.from_string("literature-20260216")
         literature_high_job = JobNames.from_string("literature-high-20260216")
@@ -385,18 +478,17 @@ class TestReleaseNameToEnumMappings:
         assert literature_job == JobNames.LITERATURE
         assert literature_high_job == JobNames.LITERATURE_HIGH
 
-    def test_release_name_works_with_task_request(self):
+    def test_release_name_works_with_task_request(self) -> None:
         """Test that release names can be used to create TaskRequest objects."""
         job_name = JobNames.from_string("literature-20260216")
         task_request = TaskRequest(
-            name=job_name,
-            query="Test query using release-dated job name",
+            name=job_name, query="Test query using release-dated job name"
         )
 
         assert task_request.name == JobNames.LITERATURE
         assert task_request.query == "Test query using release-dated job name"
 
-    def test_all_release_mappings_resolve_to_valid_enum(self):
+    def test_all_release_mappings_resolve_to_valid_enum(self) -> None:
         """Test all entries in RELEASE_NAME_TO_ENUM_MAPPINGS resolve to valid JobNames."""
         for release_name, enum_name in RELEASE_NAME_TO_ENUM_MAPPINGS.items():
             # Verify the enum name exists in JobNames

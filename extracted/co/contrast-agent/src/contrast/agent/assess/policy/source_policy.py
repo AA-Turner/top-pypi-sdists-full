@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from tempfile import SpooledTemporaryFile
 
 import contrast
+from contrast.agent import scope
 from contrast.agent.assess.adjusted_span import AdjustedSpan
 from contrast.agent.assess.policy.source_node import SourceNode
 from contrast.agent.assess.properties import Properties
@@ -196,6 +197,7 @@ def adjust_source_tags(tags, source_type, source_name):
     )
 
 
+@scope.contrast_scope()
 @fail_quietly("Error in apply_stream_source")
 def apply_stream_source(method_name, target, self_obj, ret, args, kwargs):
     source_name = None

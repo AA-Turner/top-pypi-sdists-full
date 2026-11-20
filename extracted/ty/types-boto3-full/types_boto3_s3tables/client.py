@@ -49,6 +49,7 @@ from .type_defs import (
     DeleteTablePolicyRequestTypeDef,
     DeleteTableReplicationRequestTypeDef,
     DeleteTableRequestTypeDef,
+    DisassociateTableReplicationRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GetNamespaceRequestTypeDef,
     GetNamespaceResponseTypeDef,
@@ -312,6 +313,17 @@ class S3TablesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/delete_table_replication.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3tables/client/#delete_table_replication)
+        """
+
+    def disassociate_table_replication(
+        self, **kwargs: Unpack[DisassociateTableReplicationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disassociates a replica table from replication, making it a standalone writable
+        table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/disassociate_table_replication.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3tables/client/#disassociate_table_replication)
         """
 
     def get_namespace(

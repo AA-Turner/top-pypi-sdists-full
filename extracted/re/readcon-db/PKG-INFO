@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: readcon-db
-Version: 0.2.1
+Version: 0.2.3
 Summary: Mmap CON corpus store (LMDB/Heed) with xxHash exact match
 Home-Page: https://lode-org.github.io/readcon-db/
 License: MIT

@@ -49,6 +49,7 @@ from .literals import (
     ManagedCertificateStatusType,
     MethodType,
     MinimumProtocolVersionType,
+    OnDomainTakeoverType,
     OriginAccessControlOriginTypesType,
     OriginAccessControlSigningBehaviorsType,
     OriginAccessControlSigningProtocolsType,
@@ -63,6 +64,7 @@ from .literals import (
     ReferrerPolicyListType,
     ResponseHeadersPolicyAccessControlAllowMethodsValuesType,
     ResponseHeadersPolicyTypeType,
+    ServeOnType,
     SslProtocolType,
     SSLSupportMethodType,
     TrustStoreStatusType,
@@ -723,6 +725,7 @@ __all__ = (
     "VerifyDnsConfigurationRequestTypeDef",
     "VerifyDnsConfigurationResultTypeDef",
     "ViewerCertificateTypeDef",
+    "ViewerFallbackTypeDef",
     "ViewerMtlsConfigTypeDef",
     "VpcOriginConfigTypeDef",
     "VpcOriginEndpointConfigOutputTypeDef",
@@ -847,18 +850,8 @@ class ConnectionFunctionAssociationTypeDef(TypedDict):
 class ConnectionGroupAssociationFilterTypeDef(TypedDict):
     AnycastIpListId: NotRequired[str]
 
-class ConnectionGroupSummaryTypeDef(TypedDict):
-    Id: str
-    Name: str
-    Arn: str
-    RoutingEndpoint: str
-    CreatedTime: datetime
-    LastModifiedTime: datetime
-    ETag: str
-    AnycastIpListId: NotRequired[str]
-    Enabled: NotRequired[bool]
-    Status: NotRequired[str]
-    IsDefault: NotRequired[bool]
+class ViewerFallbackTypeDef(TypedDict):
+    DistributionId: NotRequired[str]
 
 class ContentTypeProfileTypeDef(TypedDict):
     Format: Literal["URLEncoded"]
@@ -896,6 +889,7 @@ class IpamCidrConfigTypeDef(TypedDict):
 
 class DomainItemTypeDef(TypedDict):
     Domain: str
+    ServeOn: NotRequired[ServeOnType]
 
 class ManagedCertificateRequestTypeDef(TypedDict):
     ValidationTokenHost: ValidationTokenHostType
@@ -1119,6 +1113,7 @@ class DistributionTenantAssociationFilterTypeDef(TypedDict):
 class DomainResultTypeDef(TypedDict):
     Domain: str
     Status: NotRequired[DomainStatusType]
+    ServeOn: NotRequired[ServeOnType]
 
 class DnsConfigurationTypeDef(TypedDict):
     Domain: str
@@ -1706,13 +1701,6 @@ class TrustedSignersTypeDef(TypedDict):
     Quantity: int
     Items: NotRequired[Sequence[str]]
 
-class UpdateConnectionGroupRequestTypeDef(TypedDict):
-    Id: str
-    IfMatch: str
-    Ipv6Enabled: NotRequired[bool]
-    AnycastIpListId: NotRequired[str]
-    Enabled: NotRequired[bool]
-
 class UpdateDistributionWithStagingConfigRequestTypeDef(TypedDict):
     Id: str
     StagingDistributionId: NotRequired[str]
@@ -1907,10 +1895,27 @@ class ListConnectionGroupsRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[int]
 
-class ListConnectionGroupsResultTypeDef(TypedDict):
-    NextMarker: str
-    ConnectionGroups: list[ConnectionGroupSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class ConnectionGroupSummaryTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Arn: str
+    RoutingEndpoint: str
+    CreatedTime: datetime
+    LastModifiedTime: datetime
+    ETag: str
+    AnycastIpListId: NotRequired[str]
+    Enabled: NotRequired[bool]
+    Status: NotRequired[str]
+    IsDefault: NotRequired[bool]
+    ViewerFallback: NotRequired[ViewerFallbackTypeDef]
+
+class UpdateConnectionGroupRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
+    Ipv6Enabled: NotRequired[bool]
+    AnycastIpListId: NotRequired[str]
+    Enabled: NotRequired[bool]
+    ViewerFallback: NotRequired[ViewerFallbackTypeDef]
 
 class ContentTypeProfilesOutputTypeDef(TypedDict):
     Quantity: int
@@ -2497,6 +2502,11 @@ class ListConflictingAliasesResultTypeDef(TypedDict):
     ConflictingAliasesList: ConflictingAliasesListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListConnectionGroupsResultTypeDef(TypedDict):
+    NextMarker: str
+    ConnectionGroups: list[ConnectionGroupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ContentTypeProfileConfigOutputTypeDef(TypedDict):
     ForwardWhenContentTypeIsUnknown: bool
     ContentTypeProfiles: NotRequired[ContentTypeProfilesOutputTypeDef]
@@ -2827,6 +2837,7 @@ class ConnectionGroupTypeDef(TypedDict):
     Status: NotRequired[str]
     Enabled: NotRequired[bool]
     IsDefault: NotRequired[bool]
+    ViewerFallback: NotRequired[ViewerFallbackTypeDef]
 
 class DistributionTenantTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -3021,6 +3032,7 @@ class UpdateDistributionTenantRequestTypeDef(TypedDict):
     ConnectionGroupId: NotRequired[str]
     ManagedCertificateRequest: NotRequired[ManagedCertificateRequestTypeDef]
     Enabled: NotRequired[bool]
+    OnDomainTakeover: NotRequired[OnDomainTakeoverType]
 
 class FieldLevelEncryptionProfileConfigOutputTypeDef(TypedDict):
     Name: str
@@ -3232,6 +3244,7 @@ class CreateConnectionGroupRequestTypeDef(TypedDict):
     Tags: NotRequired[TagsUnionTypeDef]
     AnycastIpListId: NotRequired[str]
     Enabled: NotRequired[bool]
+    ViewerFallback: NotRequired[ViewerFallbackTypeDef]
 
 class CreateDistributionTenantRequestTypeDef(TypedDict):
     DistributionId: str
@@ -3243,6 +3256,7 @@ class CreateDistributionTenantRequestTypeDef(TypedDict):
     ConnectionGroupId: NotRequired[str]
     ManagedCertificateRequest: NotRequired[ManagedCertificateRequestTypeDef]
     Enabled: NotRequired[bool]
+    OnDomainTakeover: NotRequired[OnDomainTakeoverType]
 
 class CreateKeyValueStoreRequestTypeDef(TypedDict):
     Name: str

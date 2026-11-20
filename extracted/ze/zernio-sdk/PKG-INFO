@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1890
+Version: 1.4.1918
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -259,6 +259,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.list_business_partners()` | List partner businesses of the Page |
 | `accounts.list_hub_spot_contact_properties()` | List HubSpot contact properties |
 | `accounts.list_tik_tok_commercial_music()` | List trending commercial music |
+| `accounts.get_account()` | Get account |
 | `accounts.get_account_health()` | Check account health |
 | `accounts.get_account_posts()` | List posts published on the platform |
 | `accounts.get_bluesky_settings()` | Get Bluesky account settings |
@@ -399,7 +400,9 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `users.list_users()` | List users |
+| `users.get_current_user()` | Get the current user |
 | `users.get_user()` | Get user |
+| `users.remove_user()` | Remove member |
 
 ### Usage
 | Method | Description |
@@ -831,6 +834,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `automations.preview_automation()` | Preview a saved automation |
 | `automations.preview_automation_draft()` | Preview an unsaved automation |
 | `automations.reject_automation_approval()` | Reject an approval request |
+| `automations.take_over_automation()` | Take over an automation |
 
 ### Blogs
 | Method | Description |
@@ -1450,6 +1454,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `lead_gen.list_form_leads()` | List leads for a single form |
 | `lead_gen.list_lead_forms()` | List lead forms |
 | `lead_gen.list_leads()` | List submitted leads |
+| `lead_gen.create_lead()` | Create a lead from your own form |
 | `lead_gen.create_lead_form()` | Create a lead form |
 | `lead_gen.create_test_lead()` | Create a test lead |
 | `lead_gen.get_lead_form()` | Get a lead form |
@@ -1504,6 +1509,22 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `messaging_ads.create_call_ad()` | Create Click-to-Call ad |
 | `messaging_ads.create_ctwa_ad()` | Create CTWA ad (deprecated) |
 | `messaging_ads.create_messaging_ad()` | Create messaging ad |
+
+### Metrics
+| Method | Description |
+|--------|-------------|
+| `metrics.get_account_metrics()` | Read follower and post totals per account, platform or scope over time |
+| `metrics.get_ad_account_metrics()` | Read the uploaded results summed across ad accounts |
+| `metrics.get_ad_metrics()` | Read ad metrics by id, or one ad day by day with breakdowns |
+| `metrics.get_campaign_metrics()` | Read the uploaded results of each campaign over a window |
+| `metrics.get_inbox_metrics()` | Read message volume and response times |
+| `metrics.get_insight_metrics()` | Read live account or post insights from the platform |
+| `metrics.get_metrics_catalog()` | List the metrics, groupings and limits of each metrics endpoint |
+| `metrics.get_post_metrics()` | Read post metrics by id, day by day, as a list, or grouped |
+| `metrics.query_google_ads()` | Run a Google Ads Query Language search on one customer |
+| `metrics.query_google_analytics()` | Run a GA4 standard or realtime report on one property |
+| `metrics.query_meta_ads()` | Run a Meta Marketing API insights query on one ad account |
+| `metrics.query_tik_tok_ads()` | Run a TikTok Marketing API report on one advertiser |
 
 ### Phone Numbers
 | Method | Description |
@@ -1907,6 +1928,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `workflows.duplicate_workflow()` | Duplicate a workflow |
 | `workflows.pause_workflow()` | Pause workflow |
 | `workflows.restore_workflow_version()` | Restore a workflow version |
+| `workflows.take_over_workflow()` | Take over a workflow |
 | `workflows.trigger_api_call_workflow()` | Start an API-triggered workflow |
 | `workflows.trigger_workflow()` | Manually start a workflow run |
 

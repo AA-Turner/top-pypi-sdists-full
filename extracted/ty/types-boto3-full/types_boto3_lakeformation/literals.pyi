@@ -41,6 +41,8 @@ __all__ = (
     "PermissionType",
     "PermissionTypeType",
     "QueryStateStringType",
+    "RLSPolicyStatusReasonType",
+    "RLSPolicyStatusType",
     "RegionName",
     "ResourceServiceName",
     "ResourceShareTypeType",
@@ -106,6 +108,8 @@ PermissionTypeType = Literal[
     "CELL_FILTER_PERMISSION", "COLUMN_PERMISSION", "NESTED_CELL_PERMISSION", "NESTED_PERMISSION"
 ]
 QueryStateStringType = Literal["ERROR", "EXPIRED", "FINISHED", "PENDING", "WORKUNITS_AVAILABLE"]
+RLSPolicyStatusReasonType = Literal["REFERENCED_LOOKUP_TABLE_DELETED", "REFERENCED_UDF_DELETED"]
+RLSPolicyStatusType = Literal["INVALID", "VALID"]
 ResourceShareTypeType = Literal["ALL", "FOREIGN"]
 ResourceTypeType = Literal["DATABASE", "TABLE"]
 SearchDatabasesByLFTagsPaginatorName = Literal["search_databases_by_lf_tags"]
@@ -419,6 +423,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
